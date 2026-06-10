@@ -135,16 +135,17 @@
         .page-title { font-size:1.5rem; font-weight:800; color:#3f3a34; letter-spacing:-.02em; }
         .dark .page-title { color:#f1f5f9; }
 
-        .modal-backdrop { position:fixed; inset:0; background:rgba(40,35,30,.5); backdrop-filter:blur(6px); z-index:80; display:flex; align-items:center; justify-content:center; padding:1rem; }
+        .modal-backdrop { position:fixed; inset:0; margin:0 !important; background:rgba(40,35,30,.5); backdrop-filter:blur(6px); z-index:80; display:flex; align-items:center; justify-content:center; padding:1rem; }
         .modal-box { background:#fff; border-radius:24px; width:100%; max-height:92vh; overflow-y:auto; box-shadow:0 30px 60px -15px rgba(0,0,0,.3); }
         .dark .modal-box { background:#1e293b; }
 
         .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(40,35,30,.45); backdrop-filter:blur(2px); z-index:40; }
         @media (max-width:1024px){ .mob-open .sidebar-overlay{ display:block; } .mob-open .sidebar{ transform:translateX(0)!important; } }
 
-        @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
         @keyframes slideToast { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
-        .anim-fade { animation:fadeUp .4s cubic-bezier(.2,.8,.2,1) both; }
+        /* fill mode forwards (bukan both) supaya transform akhir = none → tidak jadi containing block bagi modal position:fixed */
+        .anim-fade { animation:fadeUp .4s cubic-bezier(.2,.8,.2,1); }
         .stagger > * { animation:fadeUp .45s cubic-bezier(.2,.8,.2,1) both; }
         .stagger > *:nth-child(1){animation-delay:.02s} .stagger > *:nth-child(2){animation-delay:.07s}
         .stagger > *:nth-child(3){animation-delay:.12s} .stagger > *:nth-child(4){animation-delay:.17s}

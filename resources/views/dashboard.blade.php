@@ -1,6 +1,30 @@
 @extends('layouts.app')
 @section('title', 'Dashboard')
 
+@push('styles')
+<style>
+    /* Ilustrasi kartu — animatif & interaktif */
+    .ill { transition: transform .4s cubic-bezier(.2,.8,.2,1); transform-origin: center bottom; will-change: transform; }
+    .group:hover .ill { transform: scale(1.07); }
+    .ill-bob { animation: illBob 3.2s ease-in-out infinite; }
+    .group:hover .ill-bob { animation-duration: 1.6s; }
+    @keyframes illBob { 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-4px); } }
+    .ill-glow { transform-box: fill-box; transform-origin: center; animation: illGlow 2s ease-in-out infinite; }
+    @keyframes illGlow { 0%,100%{ opacity:.85; transform: scale(1); } 50%{ opacity:1; transform: scale(1.15); } }
+    .ill-tw1 { animation: illTw 2.2s ease-in-out infinite; }
+    .ill-tw2 { animation: illTw 2.6s ease-in-out infinite .4s; }
+    @keyframes illTw { 0%,100%{ opacity:.35; } 50%{ opacity:1; } }
+    .ill-flag { transform-box: fill-box; transform-origin: left center; animation: illFlag 1.6s ease-in-out infinite; }
+    @keyframes illFlag { 0%,100%{ transform: scaleX(1); } 50%{ transform: scaleX(.74); } }
+    .ill-w1,.ill-w2,.ill-w3,.ill-w4 { animation: illWin 2.4s ease-in-out infinite; }
+    .ill-w2 { animation-delay:.3s; } .ill-w3 { animation-delay:.6s; } .ill-w4 { animation-delay:.9s; }
+    @keyframes illWin { 0%,100%{ opacity:.45; } 50%{ opacity:1; } }
+    @media (prefers-reduced-motion: reduce) {
+        .ill-bob,.ill-glow,.ill-tw1,.ill-tw2,.ill-flag,.ill-w1,.ill-w2,.ill-w3,.ill-w4 { animation: none; }
+    }
+</style>
+@endpush
+
 @section('content')
 @php
     $access = auth()->user()?->access;
@@ -67,9 +91,40 @@
                             <span class="grid place-items-center w-7 h-7 rounded-lg bg-white/70 group-hover:bg-white transition" style="color:color-mix(in srgb, var(--cp) 78%, black)"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
                         </div>
                     </div>
-                    <svg viewBox="0 0 200 70" class="w-full" preserveAspectRatio="none" style="height:64px">
-                        <path d="M0,55 C30,40 50,58 80,38 C110,20 140,46 170,30 C185,22 195,34 200,30 L200,70 L0,70 Z" fill="var(--cp)" opacity=".5"/>
-                        <path d="M0,60 C40,48 60,62 95,46 C130,32 160,52 200,40 L200,70 L0,70 Z" fill="var(--cp)" opacity=".7"/>
+                    {{-- Ilustrasi: Topi Wisuda --}}
+                    <svg viewBox="0 0 200 86" class="ill w-full" style="height:84px" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <linearGradient id="capBoard" x1="0" y1="0" x2=".25" y2="1">
+                                <stop offset="0" stop-color="color-mix(in srgb, var(--cp) 50%, white)"/>
+                                <stop offset="1" stop-color="var(--cp)"/>
+                            </linearGradient>
+                            <linearGradient id="capBase" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0" stop-color="var(--cp)"/>
+                                <stop offset="1" stop-color="color-mix(in srgb, var(--cp) 58%, black)"/>
+                            </linearGradient>
+                            <radialGradient id="capGlow" cx=".5" cy=".5" r=".5">
+                                <stop offset="0" stop-color="var(--ca)" stop-opacity=".45"/>
+                                <stop offset="1" stop-color="var(--ca)" stop-opacity="0"/>
+                            </radialGradient>
+                        </defs>
+                        <ellipse cx="100" cy="42" rx="50" ry="36" fill="url(#capGlow)"/>
+                        <path class="ill-tw1" d="M46,22 l1.8,4 l4,1.8 l-4,1.8 l-1.8,4 l-1.8,-4 l-4,-1.8 l4,-1.8 z" fill="var(--ca)"/>
+                        <circle class="ill-tw2" cx="156" cy="22" r="3" fill="var(--cps)" opacity=".7"/>
+                        <circle class="ill-tw1" cx="150" cy="46" r="2.2" fill="var(--ca)" opacity=".7"/>
+                        <ellipse cx="100" cy="70" rx="34" ry="5" fill="#0f172a" opacity=".08"/>
+                        <g class="ill-bob"><g transform="translate(100,42)">
+                            <path d="M-18,3 L18,3 L18,15 C18,23 -18,23 -18,15 Z" fill="url(#capBase)"/>
+                            <polygon points="0,-16 42,0 0,16 -42,0" fill="url(#capBoard)"/>
+                            <polygon points="0,-16 42,0 0,1 -42,0" fill="#fff" opacity=".22"/>
+                            <circle r="3.3" fill="#fff"/>
+                            <circle r="1.4" fill="var(--cp)"/>
+                            <g>
+                                <path d="M0,0 L30,3" stroke="var(--ca)" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+                                <line x1="30" y1="3" x2="30" y2="16" stroke="var(--ca)" stroke-width="2.4" stroke-linecap="round"/>
+                                <g fill="var(--ca)"><circle cx="30" cy="17" r="2.6"/><path d="M26.5,18 L33.5,18 L31.5,28 L28.5,28 Z"/></g>
+                                <animateTransform attributeName="transform" type="rotate" values="-8 0 0;9 0 0;-8 0 0" keyTimes="0;0.5;1" dur="2.8s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1"/>
+                            </g>
+                        </g></g>
                     </svg>
                 </a>
                 {{-- Card 2: Guru (line) — warna secondary --}}
@@ -84,9 +139,49 @@
                             <span class="grid place-items-center w-7 h-7 rounded-lg bg-white/70 group-hover:bg-white transition" style="color:color-mix(in srgb, var(--cps) 80%, black)"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
                         </div>
                     </div>
-                    <svg viewBox="0 0 200 70" class="w-full" preserveAspectRatio="none" style="height:64px">
-                        <polyline points="10,50 50,30 90,42 130,18 170,34 195,22" fill="none" stroke="color-mix(in srgb, var(--cps) 75%, black)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                        <circle cx="50" cy="30" r="4" fill="color-mix(in srgb, var(--cps) 75%, black)"/><circle cx="130" cy="18" r="4" fill="color-mix(in srgb, var(--cps) 75%, black)"/>
+                    {{-- Ilustrasi: Buku & Bohlam Ide --}}
+                    <svg viewBox="0 0 200 86" class="ill w-full" style="height:84px" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <linearGradient id="pageL" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0" stop-color="color-mix(in srgb, var(--cps) 42%, white)"/>
+                                <stop offset="1" stop-color="var(--cps)"/>
+                            </linearGradient>
+                            <linearGradient id="pageR" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0" stop-color="var(--cps)"/>
+                                <stop offset="1" stop-color="color-mix(in srgb, var(--cps) 62%, black)"/>
+                            </linearGradient>
+                            <linearGradient id="bulb" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0" stop-color="color-mix(in srgb, var(--ca) 45%, white)"/>
+                                <stop offset="1" stop-color="var(--ca)"/>
+                            </linearGradient>
+                            <radialGradient id="bulbGlow" cx=".5" cy=".5" r=".5">
+                                <stop offset="0" stop-color="var(--ca)" stop-opacity=".6"/>
+                                <stop offset="1" stop-color="var(--ca)" stop-opacity="0"/>
+                            </radialGradient>
+                        </defs>
+                        <circle class="ill-glow" cx="100" cy="26" r="24" fill="url(#bulbGlow)"/>
+                        <ellipse cx="100" cy="68" rx="44" ry="5" fill="#0f172a" opacity=".08"/>
+                        <g transform="translate(100,50)">
+                            <path d="M0,2 C-12,-5 -33,-5 -43,1 L-43,19 C-33,14 -12,14 0,20 Z" fill="url(#pageL)"/>
+                            <path d="M0,2 C12,-5 33,-5 43,1 L43,19 C33,14 12,14 0,20 Z" fill="url(#pageR)"/>
+                            <g stroke="#fff" stroke-width="1" opacity=".4" stroke-linecap="round" fill="none">
+                                <path d="M-9,5 C-19,2 -29,2 -35,5"/><path d="M-9,10 C-19,7 -29,7 -35,10"/>
+                            </g>
+                            <line x1="0" y1="2" x2="0" y2="20" stroke="#fff" stroke-width="1.6" opacity=".6"/>
+                        </g>
+                        <g class="ill-bob"><g transform="translate(100,24)">
+                            <circle r="10" fill="url(#bulb)"/>
+                            <path d="M-5.5,-2.5 a5.5,5.5 0 0,1 11,0" fill="none" stroke="#fff" stroke-width="1.5" opacity=".55"/>
+                            <rect x="-4.8" y="8.5" width="9.6" height="4" rx="1.6" fill="color-mix(in srgb, var(--cps) 68%, black)"/>
+                            <rect x="-3.6" y="12" width="7.2" height="2.6" rx="1.3" fill="color-mix(in srgb, var(--cps) 56%, black)"/>
+                            <g class="ill-tw1" stroke="var(--ca)" stroke-width="1.9" stroke-linecap="round">
+                                <line x1="0" y1="-15" x2="0" y2="-19.5"/>
+                                <line x1="-13" y1="-7.5" x2="-16.5" y2="-10"/>
+                                <line x1="13" y1="-7.5" x2="16.5" y2="-10"/>
+                                <line x1="-10" y1="3" x2="-13" y2="4.5"/>
+                                <line x1="10" y1="3" x2="13" y2="4.5"/>
+                            </g>
+                        </g></g>
                     </svg>
                 </a>
                 {{-- Card 3: Kelas (bars) — warna accent --}}
@@ -101,10 +196,42 @@
                             <span class="grid place-items-center w-7 h-7 rounded-lg bg-white/70 group-hover:bg-white transition" style="color:color-mix(in srgb, var(--ca) 80%, black)"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
                         </div>
                     </div>
-                    <svg viewBox="0 0 200 70" class="w-full" preserveAspectRatio="none" style="height:64px">
-                        @foreach([22,34,28,44,30,50,38,46,32,40] as $i => $h)
-                        <rect x="{{ 8+$i*19 }}" y="{{ 70-$h }}" width="10" height="{{ $h }}" rx="3" fill="var(--ca)" opacity="{{ 0.5 + ($h/140) }}"/>
-                        @endforeach
+                    {{-- Ilustrasi: Gedung Sekolah --}}
+                    <svg viewBox="0 0 200 86" class="ill w-full" style="height:84px" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                            <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0" stop-color="color-mix(in srgb, var(--ca) 42%, white)"/>
+                                <stop offset="1" stop-color="var(--ca)"/>
+                            </linearGradient>
+                            <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0" stop-color="var(--ca)"/>
+                                <stop offset="1" stop-color="color-mix(in srgb, var(--ca) 58%, black)"/>
+                            </linearGradient>
+                            <radialGradient id="win" cx=".5" cy=".25" r=".9">
+                                <stop offset="0" stop-color="#ffffff"/>
+                                <stop offset="1" stop-color="color-mix(in srgb, var(--cp) 28%, white)"/>
+                            </radialGradient>
+                        </defs>
+                        <g fill="#ffffff" opacity=".55">
+                            <ellipse class="ill-tw2" cx="42" cy="24" rx="13" ry="5"/>
+                            <ellipse class="ill-tw1" cx="160" cy="18" rx="10" ry="4"/>
+                        </g>
+                        <ellipse cx="100" cy="70" rx="44" ry="5" fill="#0f172a" opacity=".08"/>
+                        <g class="ill-bob"><g transform="translate(100,4)">
+                            <rect x="-37" y="34" width="74" height="34" rx="3" fill="url(#wall)"/>
+                            <path d="M-45,35 L0,14 L45,35 Z" fill="url(#roof)"/>
+                            <path d="M-45,35 L0,14 L45,35" fill="none" stroke="#fff" stroke-width="1" opacity=".25"/>
+                            <line x1="0" y1="14" x2="0" y2="4" stroke="color-mix(in srgb, var(--ca) 58%, black)" stroke-width="1.8"/>
+                            <path class="ill-flag" d="M0,4 L12,7.5 L0,11 Z" fill="var(--cp)"/>
+                            <path d="M-7,68 L-7,55 A7,7 0 0,1 7,55 L7,68 Z" fill="#ffffff" opacity=".92"/>
+                            <circle cx="4" cy="60" r="1.1" fill="var(--ca)"/>
+                            <rect class="ill-w1" x="-30" y="40" width="12" height="12" rx="2" fill="url(#win)"/>
+                            <rect class="ill-w2" x="18"  y="40" width="12" height="12" rx="2" fill="url(#win)"/>
+                            <g stroke="var(--ca)" stroke-width="1" opacity=".45">
+                                <line x1="-24" y1="40" x2="-24" y2="52"/><line x1="-30" y1="46" x2="-18" y2="46"/>
+                                <line x1="24" y1="40" x2="24" y2="52"/><line x1="18" y1="46" x2="30" y2="46"/>
+                            </g>
+                        </g></g>
                     </svg>
                 </a>
             </div>

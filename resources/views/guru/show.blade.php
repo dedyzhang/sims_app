@@ -7,7 +7,7 @@
 <div class="max-w-4xl mx-auto space-y-5">
 
     {{-- Hero --}}
-    <div class="card overflow-hidden relative" style="background:linear-gradient(120deg,var(--cp),var(--cps) 55%,var(--ca))">
+    <div class="relative overflow-hidden rounded-2xl shadow-lg" style="background:linear-gradient(120deg,var(--cp),var(--cps) 55%,var(--ca))">
         <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10"></div>
         <div class="absolute right-24 -bottom-10 w-28 h-28 rounded-full bg-white/10"></div>
         <div class="absolute top-4 right-4 flex gap-2 z-20">

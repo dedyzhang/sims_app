@@ -5,28 +5,23 @@
 <div class="max-w-3xl mx-auto space-y-5">
 
     {{-- Hero card --}}
-    <div class="card overflow-hidden relative">
-        <div class="h-28 relative z-0" style="background:linear-gradient(120deg,var(--cp),var(--cps) 60%,var(--ca))">
-            <div class="absolute -right-6 -top-6 w-32 h-32 rounded-full bg-white/10"></div>
-            <div class="absolute right-16 top-8 w-16 h-16 rounded-full bg-white/10"></div>
-            <a href="{{ route('profile.edit') }}" class="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition backdrop-blur">
-                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit Profil
-            </a>
-        </div>
-        <div class="px-6 pb-6 relative z-10">
-            <div class="flex items-end gap-4 -mt-10">
-                <div class="w-20 h-20 rounded-2xl grid place-items-center text-white text-3xl font-black flex-shrink-0 border-4 border-white dark:border-slate-800 shadow-lg"
-                     style="background:linear-gradient(135deg,var(--cp),var(--cps))">
-                    {{ strtoupper(substr($user->guru?->nama ?? $user->siswa?->nama ?? $user->username, 0, 1)) }}
-                </div>
-                <div class="pb-1">
-                    <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">
-                        {{ $user->guru?->nama ?? $user->siswa?->nama ?? $user->username }}
-                    </h2>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span class="badge bg-primary-50 text-primary capitalize">{{ $user->access }}</span>
-                        <span class="text-xs font-mono text-slate-400">{{ '@'.$user->username }}</span>
-                    </div>
+    <div class="relative overflow-hidden rounded-2xl shadow-lg" style="background:linear-gradient(120deg,var(--cp),var(--cps) 55%,var(--ca))">
+        <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10"></div>
+        <div class="absolute right-24 -bottom-10 w-28 h-28 rounded-full bg-white/10"></div>
+        <a href="{{ route('profile.edit') }}" class="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-semibold transition backdrop-blur">
+            <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit Profil
+        </a>
+        <div class="relative z-10 px-6 py-7 flex items-center gap-4">
+            <div class="w-20 h-20 rounded-2xl grid place-items-center text-3xl font-black flex-shrink-0 bg-white shadow-lg" style="color:var(--cp)">
+                {{ strtoupper(substr($user->guru?->nama ?? $user->siswa?->nama ?? $user->username, 0, 1)) }}
+            </div>
+            <div>
+                <h2 class="text-2xl font-bold text-white drop-shadow-sm">
+                    {{ $user->guru?->nama ?? $user->siswa?->nama ?? $user->username }}
+                </h2>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="badge bg-white/25 text-white backdrop-blur capitalize">{{ $user->access }}</span>
+                    <span class="badge bg-white/20 text-white backdrop-blur font-mono">{{ '@'.$user->username }}</span>
                 </div>
             </div>
         </div>
