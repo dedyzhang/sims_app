@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "smp",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["artisan", "serve", "--port=8779"],
+      "port": 8779
+    }
+  ]
+}
