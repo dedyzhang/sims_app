@@ -103,6 +103,20 @@
                                    class="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900 text-amber-500 transition" title="Edit">
                                     <i data-lucide="pencil" class="w-4 h-4"></i>
                                 </a>
+                                <form method="POST" action="{{ route('siswa.reset', $siswa->uuid) }}" class="inline"
+                                      onsubmit="return confirmAction(this, 'Reset password siswa {{ addslashes($siswa->nama) }}?')">
+                                    @csrf
+                                    <button type="submit" class="p-1.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900 text-violet-500 transition" title="Reset Password Siswa">
+                                        <i data-lucide="key-round" class="w-4 h-4"></i>
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ route('siswa.resetOrtu', $siswa->uuid) }}" class="inline"
+                                      onsubmit="return confirmAction(this, 'Reset password orang tua {{ addslashes($siswa->nama) }}?')">
+                                    @csrf
+                                    <button type="submit" class="p-1.5 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900 text-cyan-500 transition" title="Reset Password Orang Tua">
+                                        <i data-lucide="user-cog" class="w-4 h-4"></i>
+                                    </button>
+                                </form>
                                 <form method="POST" action="{{ route('siswa.destroy', $siswa->uuid) }}" onsubmit="return confirmDelete(this)">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900 text-rose-500 transition" title="Hapus">

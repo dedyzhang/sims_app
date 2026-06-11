@@ -60,6 +60,7 @@ class GuruController extends Controller
             'identifier' => $identifier,
             'password'   => $password,
             'access'     => 'guru',
+            'must_change_password' => true,
         ]);
 
         $data['id_login'] = $user->uuid;
@@ -130,10 +131,18 @@ class GuruController extends Controller
         $password = Str::random(8);
 
         if ($guru->user) {
-            $guru->user->update(['password' => $password]);
+            $guru->user->update([
+                'password' => $password,
+                'must_change_password' => true,
+            ]);
         }
 
-        return back()->with('success', "Password direset. Password baru: {$password}");
+        return back()->with('reset_account', [
+            'role' => 'Guru',
+            'name' => $guru->nama,
+            'username' => $guru->user?->username ?? '-',
+            'password' => $password,
+        ])->with('success', "Password direset. Password baru: {$password}");
     }
 
     // Halaman assign pelajaran

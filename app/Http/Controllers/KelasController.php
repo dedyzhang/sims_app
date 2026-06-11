@@ -29,7 +29,7 @@ class KelasController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'tingkat' => 'required|integer|in:7,8,9',
+            'tingkat' => 'required|integer|between:1,12',
             'kelas'   => 'required|string|max:5',
         ]);
 
@@ -46,7 +46,7 @@ class KelasController extends Controller
     public function update(Request $request, string $uuid)
     {
         $request->validate([
-            'tingkat' => 'required|integer|in:7,8,9',
+            'tingkat' => 'required|integer|between:1,12',
             'kelas'   => 'required|string|max:5',
         ]);
         Kelas::findOrFail($uuid)->update($request->only('tingkat', 'kelas'));

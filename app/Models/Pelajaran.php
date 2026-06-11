@@ -11,7 +11,7 @@ class Pelajaran extends Model
     use HasFactory, HasUuids;
 
     protected $primaryKey = 'uuid';
-    protected $fillable = ['nama', 'kode', 'urutan'];
+    protected $fillable = ['nama', 'kode', 'urutan', 'jp'];
 
     public function ngajars()
     {

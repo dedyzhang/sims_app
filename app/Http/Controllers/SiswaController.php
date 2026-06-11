@@ -58,6 +58,10 @@ class SiswaController extends Controller
             'pekerjaan_wali'    => 'nullable|string',
             'no_telp_wali'      => 'nullable|string',
             'sekolah_asal'      => 'nullable|string',
+            'nama_ijazah'       => 'nullable|string',
+            'ortu_ijazah'       => 'nullable|string',
+            'tempat_lahir_ijazah' => 'nullable|string',
+            'tanggal_lahir_ijazah' => 'nullable|date',
             'va'                => 'nullable|string',
             'spp'               => 'nullable|integer',
         ], [
@@ -84,6 +88,7 @@ class SiswaController extends Controller
             'identifier' => $nis,
             'password'   => $password,
             'access'     => 'siswa',
+            'must_change_password' => true,
         ]);
         $data['id_login'] = $userSiswa->uuid;
         $siswa = Siswa::create($data);
@@ -96,6 +101,7 @@ class SiswaController extends Controller
             'identifier' => $nis . '-ortu',
             'password'   => $passwordOrtu,
             'access'     => 'ortu',
+            'must_change_password' => true,
         ]);
         Orangtua::create([
             'id_siswa' => $siswa->uuid,
@@ -143,6 +149,10 @@ class SiswaController extends Controller
             'pekerjaan_wali' => 'nullable|string',
             'no_telp_wali'   => 'nullable|string',
             'sekolah_asal'   => 'nullable|string',
+            'nama_ijazah'    => 'nullable|string',
+            'ortu_ijazah'    => 'nullable|string',
+            'tempat_lahir_ijazah' => 'nullable|string',
+            'tanggal_lahir_ijazah' => 'nullable|date',
             'va'             => 'nullable|string',
             'spp'            => 'nullable|integer',
         ], [
@@ -174,20 +184,57 @@ class SiswaController extends Controller
         return redirect()->route('siswa.index')->with('success', 'Siswa dihapus.');
     }
 
+    /** Simpan data wajah (face descriptors) untuk pengenalan absensi */
+    public function storeFace(Request $request, string $uuid)
+    {
+        $request->validate([
+            'descriptors'   => 'required|array|min:1|max:5',
+            'descriptors.*' => 'array|size:128',
+        ]);
+        $siswa = Siswa::findOrFail($uuid);
+        $siswa->update([
+            'face_descriptor'    => $request->descriptors,
+            'face_registered_at' => now(),
+        ]);
+        return response()->json(['success' => true, 'message' => 'Wajah ' . $siswa->nama . ' terdaftar.']);
+    }
+
+    public function destroyFace(string $uuid)
+    {
+        Siswa::findOrFail($uuid)->update(['face_descriptor' => null, 'face_registered_at' => null]);
+        return response()->json(['success' => true, 'message' => 'Data wajah dihapus.']);
+    }
+
     public function resetSiswa(string $uuid)
     {
         $siswa    = Siswa::findOrFail($uuid);
         $password = Str::random(8);
-        $siswa->user?->update(['password' => $password]);
-        return back()->with('success', "Password siswa direset: {$password}");
+        $siswa->user?->update([
+            'password' => $password,
+            'must_change_password' => true,
+        ]);
+        return back()->with('reset_account', [
+            'role' => 'Siswa',
+            'name' => $siswa->nama,
+            'username' => $siswa->user?->username ?? '-',
+            'password' => $password,
+        ])->with('success', "Password siswa direset: {$password}");
     }
 
     public function resetOrangtua(string $uuid)
     {
         $siswa    = Siswa::findOrFail($uuid);
         $password = Str::random(8);
-        $siswa->orangtua?->user?->update(['password' => $password]);
-        return back()->with('success', "Password orang tua direset: {$password}");
+        $siswa->orangtua?->user?->update([
+            'password' => $password,
+            'must_change_password' => true,
+        ]);
+        return back()->with('reset_account', [
+            'role' => 'Orang Tua',
+            'name' => 'Orang Tua dari ' . $siswa->nama,
+            'username' => $siswa->orangtua?->user?->username ?? '-',
+            'password' => $password,
+        ])->with('success', "Password orang tua direset: {$password}");
     }
 
     public function importForm()

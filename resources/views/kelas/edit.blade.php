@@ -17,9 +17,15 @@
         <div>
             <label class="form-label">Tingkat</label>
             <select name="tingkat" required class="form-select">
-                <option value="7" @selected(old('tingkat',$kelas->tingkat)==7)>Kelas 7</option>
-                <option value="8" @selected(old('tingkat',$kelas->tingkat)==8)>Kelas 8</option>
-                <option value="9" @selected(old('tingkat',$kelas->tingkat)==9)>Kelas 9</option>
+                <optgroup label="SD">
+                    @for($i=1;$i<=6;$i++)<option value="{{ $i }}" @selected(old('tingkat',$kelas->tingkat)==$i)>Kelas {{ $i }}</option>@endfor
+                </optgroup>
+                <optgroup label="SMP">
+                    @for($i=7;$i<=9;$i++)<option value="{{ $i }}" @selected(old('tingkat',$kelas->tingkat)==$i)>Kelas {{ $i }}</option>@endfor
+                </optgroup>
+                <optgroup label="SMA / SMK">
+                    @for($i=10;$i<=12;$i++)<option value="{{ $i }}" @selected(old('tingkat',$kelas->tingkat)==$i)>Kelas {{ $i }}</option>@endfor
+                </optgroup>
             </select>
         </div>
         <div>

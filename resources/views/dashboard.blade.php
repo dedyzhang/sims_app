@@ -40,6 +40,23 @@
     $motifIcon = ['botanical'=>'flower-2','ocean'=>'waves','forest'=>'trees','sunset'=>'sunset','robot'=>'bot','space'=>'rocket','minimal'=>'circle'][$motif] ?? 'flower-2';
 @endphp
 
+@if(auth()->user()->must_change_password)
+<div class="mb-6 p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-800 dark:text-amber-200 text-sm">
+    <div class="flex gap-3 items-start">
+        <i data-lucide="shield-alert" class="w-5 h-5 flex-shrink-0 text-amber-600 dark:text-amber-400 mt-0.5"></i>
+        <div>
+            <p class="font-bold">Keamanan Akun: Harap Ganti Password Default Anda</p>
+            <p class="text-xs text-amber-700/90 dark:text-amber-300/90 mt-0.5 leading-relaxed">
+                Akun Anda saat ini menggunakan password default atau baru saja direset. Silakan ganti password lama demi keamanan data Anda.
+            </p>
+        </div>
+    </div>
+    <a href="{{ route('ganti.password') }}" class="flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shadow-sm w-fit">
+        <i data-lucide="key-round" class="w-3.5 h-3.5"></i> Ganti Password Sekarang
+    </a>
+</div>
+@endif
+
 @if(in_array($access, ['superadmin','admin']))
 <div class="space-y-6">
 

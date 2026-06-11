@@ -38,83 +38,240 @@
         </div>
     </div>
 
-    <div class="grid md:grid-cols-2 gap-5">
-        {{-- Data Pribadi --}}
-        <div class="card p-6">
-            <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2"><i data-lucide="id-card" class="w-[18px] h-[18px] text-primary"></i> Data Pribadi</h3>
-            <div class="space-y-2.5">
-                @foreach([
-                    ['NISN', $siswa->nisn ?? '-'],
-                    ['Jenis Kelamin', $siswa->jk === 'L' ? 'Laki-laki' : 'Perempuan'],
-                    ['Tempat Lahir', $siswa->tempat_lahir ?? '-'],
-                    ['Tanggal Lahir', $siswa->tanggal_lahir ? \Carbon\Carbon::parse($siswa->tanggal_lahir)->isoFormat('D MMMM Y') : '-'],
-                    ['Agama', $siswa->agama ?? '-'],
-                    ['No. HP', $siswa->no_handphone ?? '-'],
-                    ['Alamat', $siswa->alamat ?? '-'],
-                ] as [$label, $val])
-                <div class="flex gap-3 text-sm py-1.5 border-b border-slate-50 dark:border-slate-700/50 last:border-0">
-                    <span class="text-slate-400 w-32 flex-shrink-0">{{ $label }}</span>
-                    <span class="text-slate-700 dark:text-slate-200 font-medium">{{ $val }}</span>
+    {{-- Identitas Lengkap Siswa --}}
+    <div class="card p-6 md:p-8 space-y-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+        
+        {{-- Row 1: A & B --}}
+        <div class="grid md:grid-cols-2 gap-8 md:gap-12">
+            
+            {{-- A. Identitas Pribadi --}}
+            <div class="space-y-4">
+                <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    A. Identitas Pribadi
+                </h3>
+                <div class="space-y-2">
+                    
+                    {{-- Row: Nama --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">Nama</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->nama }}</div>
+                    </div>
+                    
+                    {{-- Row: NIS --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">NIS</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold font-mono">{{ $siswa->nis ?? '-' }}</div>
+                    </div>
+
+                    {{-- Row: Jenis Kelamin --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">Jenis Kelamin</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->jk === 'L' ? 'Laki-laki' : 'Perempuan' }}</div>
+                    </div>
+
+                    {{-- Row: Tempat/Tanggal Lahir --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">Tempat/Tanggal Lahir</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">
+                            {{ $siswa->tempat_lahir ?? '-' }} / {{ $siswa->tanggal_lahir ? \Carbon\Carbon::parse($siswa->tanggal_lahir)->translatedFormat('F j, Y') : '-' }}
+                        </div>
+                    </div>
+
+                    {{-- Row: Agama --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">Agama</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ strtolower($siswa->agama ?? '-') }}</div>
+                    </div>
+
+                    {{-- Row: No Telepon --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">No Telepon</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->no_handphone ?? '-' }}</div>
+                    </div>
+
+                    {{-- Row: Alamat --}}
+                    <div class="text-sm py-1">
+                        <div class="flex items-start">
+                            <div class="w-40 flex-shrink-0 text-slate-500 font-medium">Alamat</div>
+                            <div class="px-2 text-slate-400">:</div>
+                        </div>
+                        <div class="mt-1.5 pl-0 text-slate-700 dark:text-slate-300 leading-relaxed font-semibold">
+                            {{ $siswa->alamat ?? '-' }}
+                        </div>
+                    </div>
+
                 </div>
-                @endforeach
             </div>
+
+            {{-- B. Identitas Sekolah --}}
+            <div class="space-y-4">
+                <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    B. Identitas Sekolah
+                </h3>
+                <div class="space-y-2">
+                    
+                    {{-- Row: NISN --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">NISN</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold font-mono">{{ $siswa->nisn ?? '-' }}</div>
+                    </div>
+
+                    {{-- Row: Sekolah Asal --}}
+                    <div class="text-sm py-1">
+                        <div class="flex items-start">
+                            <div class="w-40 flex-shrink-0 text-slate-500 font-medium">Sekolah Asal</div>
+                            <div class="px-2 text-slate-400">:</div>
+                        </div>
+                        <div class="mt-1.5 pl-0 text-slate-700 dark:text-slate-300 leading-relaxed font-semibold">
+                            {{ $siswa->sekolah_asal ?? '-' }}
+                        </div>
+                    </div>
+
+                    {{-- Row: Nama Ijazah --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">Nama Ijazah</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->nama_ijazah ?? '-' }}</div>
+                    </div>
+
+                    {{-- Row: Ortu Ijazah --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">Ortu Ijazah</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->ortu_ijazah ?? '-' }}</div>
+                    </div>
+
+                    {{-- Row: TTL Ijazah --}}
+                    <div class="flex items-start text-sm py-1">
+                        <div class="w-40 flex-shrink-0 text-slate-500 font-medium">TTL Ijazah</div>
+                        <div class="px-2 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">
+                            @if($siswa->tempat_lahir_ijazah || $siswa->tanggal_lahir_ijazah)
+                                {{ $siswa->tempat_lahir_ijazah ?? '-' }} / {{ $siswa->tanggal_lahir_ijazah ? \Carbon\Carbon::parse($siswa->tanggal_lahir_ijazah)->translatedFormat('F j, Y') : '-' }}
+                            @else
+                                -
+                            @endif
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
         </div>
 
-        <div class="space-y-5">
-            {{-- Akun --}}
-            <div class="card p-6">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2"><i data-lucide="shield" class="w-[18px] h-[18px] text-primary"></i> Akun Login</h3>
-                <div class="space-y-2.5">
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
-                        <div>
-                            <p class="text-xs text-slate-400">Akun Siswa</p>
-                            <p class="font-mono font-semibold text-slate-700 dark:text-slate-200 text-sm">{{ $siswa->user?->username ?? '-' }}</p>
-                        </div>
-                        <form method="POST" action="{{ route('siswa.reset', $siswa->uuid) }}" onsubmit="return confirmAction(this, 'Reset password siswa?')">
-                            @csrf
-                            <button class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-600 hover:bg-amber-100 transition">
-                                <i data-lucide="key-round" class="w-3 h-3"></i> Reset
-                            </button>
-                        </form>
+        {{-- Row 2: C, D, E --}}
+        <div class="grid md:grid-cols-3 gap-6 md:gap-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+            
+            {{-- C. Identitas Ayah --}}
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    C. Identitas Ayah
+                </h3>
+                <div class="space-y-2">
+                    <div class="flex items-start text-sm py-0.5">
+                        <div class="w-28 flex-shrink-0 text-slate-500 font-medium">nama Ayah</div>
+                        <div class="px-1.5 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->nama_ayah ?? '-' }}</div>
                     </div>
-                    <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
-                        <div>
-                            <p class="text-xs text-slate-400">Akun Orang Tua</p>
-                            <p class="font-mono font-semibold text-slate-700 dark:text-slate-200 text-sm">{{ $siswa->orangtua?->user?->username ?? '-' }}</p>
-                        </div>
-                        <form method="POST" action="{{ route('siswa.resetOrtu', $siswa->uuid) }}" onsubmit="return confirmAction(this, 'Reset password orang tua?')">
-                            @csrf
-                            <button class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-600 hover:bg-amber-100 transition">
-                                <i data-lucide="key-round" class="w-3 h-3"></i> Reset
-                            </button>
-                        </form>
+                    <div class="flex items-start text-sm py-0.5">
+                        <div class="w-28 flex-shrink-0 text-slate-500 font-medium">Pekerjaan Ayah</div>
+                        <div class="px-1.5 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->pekerjaan_ayah ?? '-' }}</div>
+                    </div>
+                    <div class="flex items-start text-sm py-0.5">
+                        <div class="w-28 flex-shrink-0 text-slate-500 font-medium">No Telepon Ayah</div>
+                        <div class="px-1.5 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold font-mono">{{ $siswa->no_telp_ayah ?? '-' }}</div>
                     </div>
                 </div>
             </div>
 
-            {{-- Orang Tua --}}
-            <div class="card p-6">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2"><i data-lucide="users-round" class="w-[18px] h-[18px] text-primary"></i> Orang Tua / Wali</h3>
+            {{-- D. Identitas Ibu --}}
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    D. Identitas Ibu
+                </h3>
                 <div class="space-y-2">
-                    @php $adaOrtu = false; @endphp
-                    @foreach([
-                        ['Ayah', $siswa->nama_ayah, $siswa->no_telp_ayah],
-                        ['Ibu', $siswa->nama_ibu, $siswa->no_telp_ibu],
-                        ['Wali', $siswa->nama_wali, $siswa->no_telp_wali],
-                    ] as [$rel, $nama, $telp])
-                    @if($nama)
-                    @php $adaOrtu = true; @endphp
-                    <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50">
-                        <span class="badge bg-primary-50 text-primary">{{ $rel }}</span>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-medium text-slate-700 dark:text-slate-200 text-sm truncate">{{ $nama }}</p>
-                            @if($telp)<p class="text-slate-400 text-xs">{{ $telp }}</p>@endif
-                        </div>
+                    <div class="flex items-start text-sm py-0.5">
+                        <div class="w-28 flex-shrink-0 text-slate-500 font-medium">nama Ibu</div>
+                        <div class="px-1.5 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->nama_ibu ?? '-' }}</div>
                     </div>
-                    @endif
-                    @endforeach
-                    @if(!$adaOrtu)<p class="text-slate-400 text-sm text-center py-3">Data orang tua belum diisi</p>@endif
+                    <div class="flex items-start text-sm py-0.5">
+                        <div class="w-28 flex-shrink-0 text-slate-500 font-medium">Pekerjaan Ibu</div>
+                        <div class="px-1.5 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->pekerjaan_ibu ?? '-' }}</div>
+                    </div>
+                    <div class="flex items-start text-sm py-0.5">
+                        <div class="w-28 flex-shrink-0 text-slate-500 font-medium">No Telepon Ibu</div>
+                        <div class="px-1.5 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold font-mono">{{ $siswa->no_telp_ibu ?? '-' }}</div>
+                    </div>
                 </div>
+            </div>
+
+            {{-- E. Identitas Wali --}}
+            <div class="space-y-4">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 pb-2 border-b border-slate-100 dark:border-slate-800">
+                    E. Identitas Wali
+                </h3>
+                <div class="space-y-2">
+                    <div class="flex items-start text-sm py-0.5">
+                        <div class="w-28 flex-shrink-0 text-slate-500 font-medium">nama Wali</div>
+                        <div class="px-1.5 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->nama_wali ?? '-' }}</div>
+                    </div>
+                    <div class="flex items-start text-sm py-0.5">
+                        <div class="w-28 flex-shrink-0 text-slate-500 font-medium">Pekerjaan Wali</div>
+                        <div class="px-1.5 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold">{{ $siswa->pekerjaan_wali ?? '-' }}</div>
+                    </div>
+                    <div class="flex items-start text-sm py-0.5">
+                        <div class="w-28 flex-shrink-0 text-slate-500 font-medium">No Telepon Wali</div>
+                        <div class="px-1.5 text-slate-400">:</div>
+                        <div class="flex-1 text-slate-800 dark:text-slate-200 font-semibold font-mono">{{ $siswa->no_telp_wali ?? '-' }}</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    {{-- Akun --}}
+    <div class="card p-6 max-w-xl">
+        <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2"><i data-lucide="shield" class="w-[18px] h-[18px] text-primary"></i> Akun Login</h3>
+        <div class="space-y-2.5">
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+                <div>
+                    <p class="text-xs text-slate-400">Akun Siswa</p>
+                    <p class="font-mono font-semibold text-slate-700 dark:text-slate-200 text-sm">{{ $siswa->user?->username ?? '-' }}</p>
+                </div>
+                <form method="POST" action="{{ route('siswa.reset', $siswa->uuid) }}" onsubmit="return confirmAction(this, 'Reset password siswa?')">
+                    @csrf
+                    <button class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-600 hover:bg-amber-100 transition">
+                        <i data-lucide="key-round" class="w-3 h-3"></i> Reset
+                    </button>
+                </form>
+            </div>
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+                <div>
+                    <p class="text-xs text-slate-400">Akun Orang Tua</p>
+                    <p class="font-mono font-semibold text-slate-700 dark:text-slate-200 text-sm">{{ $siswa->orangtua?->user?->username ?? '-' }}</p>
+                </div>
+                <form method="POST" action="{{ route('siswa.resetOrtu', $siswa->uuid) }}" onsubmit="return confirmAction(this, 'Reset password orang tua?')">
+                    @csrf
+                    <button class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-600 hover:bg-amber-100 transition">
+                        <i data-lucide="key-round" class="w-3 h-3"></i> Reset
+                    </button>
+                </form>
             </div>
         </div>
     </div>

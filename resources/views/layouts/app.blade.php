@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Dashboard') — Edu Nusantara</title>
+    <title>@yield('title', 'Dashboard') — {{ $namaSekolah ?? 'Edu Nusantara' }}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -132,12 +132,46 @@
         .form-label { display:block; font-size:.8rem; font-weight:600; color:#6b6157; margin-bottom:.4rem; }
         .dark .form-label { color:#94a3b8; }
 
+        /* ===== TomSelect — samakan dengan form & pastikan dropdown opaque + di atas ===== */
+        .ts-wrapper { width:100%; }
+        .ts-wrapper.single .ts-control { border:1.5px solid #ece6df !important; border-radius:14px !important; padding:.55rem .9rem !important; min-height:42px; background:#fff !important; box-shadow:none !important; font-size:.875rem; color:#44403c; }
+        .ts-wrapper.focus .ts-control { border-color:var(--cp) !important; box-shadow:0 0 0 4px color-mix(in srgb, var(--cp) 14%, transparent) !important; }
+        .dark .ts-wrapper.single .ts-control { background:#0f172a !important; border-color:#334155 !important; color:#e2e8f0; }
+        .ts-control .ts-input::placeholder, .ts-control input::placeholder { color:#b8ada0; }
+        .ts-dropdown { z-index:9999 !important; background:#fff !important; border:1px solid #ece6df !important; border-radius:14px !important; box-shadow:0 16px 38px -12px rgba(40,35,30,.30) !important; overflow:hidden; margin-top:6px !important; }
+        .dark .ts-dropdown { background:#1e293b !important; border-color:#334155 !important; }
+        .ts-dropdown .option { padding:9px 14px !important; font-size:.875rem; color:#334155; background:transparent; }
+        .dark .ts-dropdown .option { color:#cbd5e1; }
+        .ts-dropdown .option.active, .ts-dropdown .ts-dropdown-content .active { background:color-mix(in srgb, var(--cp) 12%, #fff) !important; color:var(--cp) !important; }
+        .dark .ts-dropdown .option.active { background:color-mix(in srgb, var(--cp) 22%, #1e293b) !important; }
+        .ts-dropdown .no-results { padding:9px 14px; color:#94a3b8; font-size:.85rem; }
+
         .page-title { font-size:1.5rem; font-weight:800; color:#3f3a34; letter-spacing:-.02em; }
         .dark .page-title { color:#f1f5f9; }
 
         .modal-backdrop { position:fixed; inset:0; margin:0 !important; background:rgba(40,35,30,.5); backdrop-filter:blur(6px); z-index:80; display:flex; align-items:center; justify-content:center; padding:1rem; }
         .modal-box { background:#fff; border-radius:24px; width:100%; max-height:92vh; overflow-y:auto; box-shadow:0 30px 60px -15px rgba(0,0,0,.3); }
         .dark .modal-box { background:#1e293b; }
+
+        /* ===== jQuery-confirm — disesuaikan tema & dibatasi lebarnya ===== */
+        .jconfirm .jconfirm-bg { background:rgba(40,35,30,.5) !important; backdrop-filter:blur(5px); }
+        /* paksa lebar container (override grid bootstrap col-md-* yang melebar penuh) */
+        .jconfirm .jc-bs3-row, .jconfirm .jconfirm-row { display:flex !important; justify-content:center !important; align-items:flex-start !important; }
+        .jconfirm .jconfirm-box-container { width:420px !important; max-width:calc(100vw - 40px) !important; flex:0 0 auto !important; margin:0 !important; float:none !important; left:0 !important; }
+        .jconfirm.jconfirm-material .jconfirm-box { width:100% !important; border-radius:20px !important; padding:24px 26px 18px !important; box-shadow:0 30px 60px -15px rgba(0,0,0,.32) !important; font-family:'Plus Jakarta Sans','Inter',sans-serif; }
+        .jconfirm.jconfirm-material .jconfirm-title { font-weight:700 !important; color:#0f172a; font-size:1.05rem; }
+        .jconfirm.jconfirm-material .jconfirm-content { color:#64748b; font-size:.9rem; line-height:1.5; }
+        .jconfirm .jconfirm-buttons { text-align:right; padding-top:10px !important; }
+        .jconfirm .jconfirm-buttons button { border-radius:11px !important; font-weight:600 !important; text-transform:none !important; padding:8px 18px !important; margin:0 0 0 8px !important; box-shadow:none !important; transition:filter .15s, background .15s; }
+        .jconfirm .jconfirm-buttons button:hover { filter:brightness(1.06); }
+        .jconfirm .jconfirm-buttons button.btn-red { background:#ef4444 !important; color:#fff !important; }
+        .jconfirm .jconfirm-buttons button.btn-blue { background:var(--cp) !important; color:#fff !important; }
+        .jconfirm .jconfirm-buttons button.btn-warning { background:#f59e0b !important; color:#fff !important; }
+        .jconfirm .jconfirm-buttons button.btn-default { background:#f1f5f9 !important; color:#475569 !important; }
+        .dark .jconfirm.jconfirm-material .jconfirm-box { background:#1e293b !important; }
+        .dark .jconfirm.jconfirm-material .jconfirm-title { color:#f1f5f9; }
+        .dark .jconfirm.jconfirm-material .jconfirm-content { color:#94a3b8; }
+        .dark .jconfirm .jconfirm-buttons button.btn-default { background:#334155 !important; color:#cbd5e1 !important; }
 
         .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(40,35,30,.45); backdrop-filter:blur(2px); z-index:40; }
         @media (max-width:1024px){ .mob-open .sidebar-overlay{ display:block; } .mob-open .sidebar{ transform:translateX(0)!important; } }
@@ -206,7 +240,7 @@
                 <div class="w-9 h-9 rounded-xl grid place-items-center flex-shrink-0 shadow" style="background:linear-gradient(135deg,var(--cp),var(--cps))">
                     <svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 text-white" stroke="currentColor" stroke-width="2.2"><path d="M12 3L1 9l11 6 9-4.91V17M1 9v7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
-                <span x-show="!collapsed" class="font-extrabold text-[15px] truncate" style="color:var(--stx)">Edu Nusantara</span>
+                <span x-show="!collapsed" class="font-extrabold text-[15px] truncate" style="color:var(--stx)">{{ $namaSekolah ?? 'Edu Nusantara' }}</span>
             </div>
         </div>
 
@@ -225,6 +259,17 @@
                 ['kelas.index','kelas.*','door-open','Data Kelas'],
                 ['siswa.index','siswa.*','graduation-cap','Data Siswa'],
                 ['pelajaran.index','pelajaran.*','book-open-text','Mata Pelajaran'],
+            ] as [$route, $pattern, $icon, $label])
+            <a href="{{ route($route) }}" class="nav-link flex items-center gap-3 px-3 py-2.5 {{ request()->routeIs($pattern) ? 'active' : '' }}">
+                <i data-lucide="{{ $icon }}" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                <span x-show="!collapsed" class="text-sm truncate">{{ $label }}</span>
+            </a>
+            @endforeach
+
+            <p x-show="!collapsed" class="nav-section px-3 pt-5 pb-2 text-[11px] font-bold uppercase tracking-[.1em]">Akademik</p>
+            @foreach([
+                ['jadwal.index','jadwal.*','calendar-clock','Jadwal Pelajaran'],
+                ['absensi.index','absensi.*','clipboard-check','Absensi'],
             ] as [$route, $pattern, $icon, $label])
             <a href="{{ route($route) }}" class="nav-link flex items-center gap-3 px-3 py-2.5 {{ request()->routeIs($pattern) ? 'active' : '' }}">
                 <i data-lucide="{{ $icon }}" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
@@ -319,6 +364,10 @@
 
         <main class="flex-1 overflow-y-auto px-4 md:px-7 py-4">
             <div class="anim-fade">@yield('content')</div>
+            {{-- Footer --}}
+            <footer class="mt-8 pt-4 border-t border-slate-200/70 dark:border-slate-700/60 text-center text-xs text-slate-400">
+                &copy; {{ date('Y') }} <span class="font-semibold text-slate-500 dark:text-slate-400">{{ $namaSekolah ?? 'Edu Nusantara' }}</span>. Seluruh hak cipta dilindungi.
+            </footer>
         </main>
     </div>
 </div>
@@ -362,7 +411,7 @@
             init(){ this.$nextTick(()=>lucide.createIcons()); }
         }
     }
-    $.confirm.options = { theme:'material', animation:'scale', closeIcon:true, backgroundDismiss:true, columnClass:'medium', useBootstrap:false };
+    $.confirm.options = { theme:'material', animation:'scale', closeIcon:true, backgroundDismiss:true, useBootstrap:false, boxWidth:'420px' };
     window.confirmDelete = function(form){ $.confirm({ title:'Hapus data ini?', content:'Tindakan ini permanen dan tidak dapat dibatalkan.', type:'red', icon:'', buttons:{ hapus:{ text:'Ya, Hapus', btnClass:'btn-red', keys:['enter'], action:function(){ form.submit(); } }, batal:{ text:'Batal' } } }); return false; };
     window.confirmAction = function(form, msg, color){ $.confirm({ title:'Konfirmasi', content: msg || 'Lanjutkan?', type: color || 'orange', buttons:{ ya:{ text:'Ya, Lanjutkan', btnClass:'btn-blue', keys:['enter'], action:function(){ form.submit(); } }, batal:{ text:'Batal' } } }); return false; };
     window.showToast = function(msg, type='success'){
@@ -386,6 +435,44 @@
     document.addEventListener('DOMContentLoaded', ()=>{
         setMotif(document.body.dataset.motif || 'botanical');
         lucide.createIcons();
+
+        @if(session('reset_account'))
+        $.confirm({
+            title: '🔑 Password Berhasil Direset',
+            content: `
+                <div class="space-y-3.5 text-left text-slate-600 dark:text-slate-300">
+                    <p class="text-sm">Berikut kredensial baru untuk <strong>{{ session('reset_account.name') }}</strong> ({{ session('reset_account.role') }}):</p>
+                    <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-slate-400">Username</span>
+                            <span class="font-mono font-bold text-slate-700 dark:text-slate-200 select-all">{{ session('reset_account.username') }}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-slate-400">Password Baru</span>
+                            <span class="font-mono font-bold text-amber-600 dark:text-amber-400 select-all">{{ session('reset_account.password') }}</span>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-400 font-medium">💡 Anda dapat menyalin kredensial di atas dengan mengklik tombol di bawah ini.</p>
+                </div>
+            `,
+            buttons: {
+                copy: {
+                    text: '📋 Salin Kredensial',
+                    btnClass: 'btn-blue',
+                    action: function() {
+                        const text = "Username: {{ session('reset_account.username') }}\nPassword: {{ session('reset_account.password') }}";
+                        navigator.clipboard.writeText(text).then(() => {
+                            showToast('Kredensial berhasil disalin!');
+                        });
+                    }
+                },
+                tutup: {
+                    text: 'Tutup',
+                    btnClass: 'btn-default'
+                }
+            }
+        });
+        @endif
     });
 </script>
 @stack('scripts')

@@ -24,6 +24,8 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         'access',
         'pin',
         'reset_token',
+        'must_change_password',
+        'username_customized',
     ];
 
     protected $hidden = [
@@ -37,6 +39,8 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     {
         return [
             'password' => 'hashed',
+            'must_change_password' => 'boolean',
+            'username_customized' => 'boolean',
         ];
     }
 

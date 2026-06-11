@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GuruController;
+use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\KelasController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\PelajaranController;
@@ -36,6 +38,7 @@ Route::middleware('auth')->group(function () {
     // Ganti password & PIN
     Route::get('/ganti-password', [LoginController::class, 'changePasswordPage'])->name('ganti.password');
     Route::post('/ganti-password', [LoginController::class, 'changePassword']);
+    Route::post('/ganti-username', [LoginController::class, 'changeUsername'])->name('ganti.username');
     Route::get('/ganti-pin', [LoginController::class, 'changePinPage'])->name('ganti.pin');
     Route::post('/ganti-pin', [LoginController::class, 'changePin']);
 
@@ -85,6 +88,28 @@ Route::middleware('auth')->group(function () {
         Route::get('/siswa/import', [SiswaController::class, 'importForm'])->name('siswa.importForm');
         Route::post('/siswa/import', [SiswaController::class, 'import'])->name('siswa.import');
         Route::get('/siswa/import/template', [SiswaController::class, 'downloadTemplate'])->name('siswa.template');
+
+        // Jadwal Pelajaran — editor grid per hari + generate + master jam
+        Route::get('/jadwal', [JadwalController::class, 'index'])->name('jadwal.index');
+        Route::get('/jadwal/kelas', [JadwalController::class, 'kelasView'])->name('jadwal.kelas');
+        Route::get('/jadwal/jp', [JadwalController::class, 'jpForm'])->name('jadwal.jp');
+        Route::post('/jadwal/jp', [JadwalController::class, 'jpSave'])->name('jadwal.jp.save');
+        Route::post('/jadwal/cell', [JadwalController::class, 'saveCell'])->name('jadwal.cell.save');
+        Route::delete('/jadwal/cell', [JadwalController::class, 'clearCell'])->name('jadwal.cell.clear');
+        Route::post('/jadwal/generate', [JadwalController::class, 'generate'])->name('jadwal.generate');
+        Route::post('/jadwal/jam', [JadwalController::class, 'jamStore'])->name('jadwal.jam.store');
+        Route::delete('/jadwal/jam/{uuid}', [JadwalController::class, 'jamDestroy'])->name('jadwal.jam.destroy');
+
+        // Absensi
+        Route::get('/absensi', [AbsensiController::class, 'index'])->name('absensi.index');
+        Route::post('/absensi', [AbsensiController::class, 'store'])->name('absensi.store');
+        Route::get('/absensi/rekap', [AbsensiController::class, 'rekap'])->name('absensi.rekap');
+        // Absensi wajah (face recognition)
+        Route::get('/absensi/wajah', [AbsensiController::class, 'wajah'])->name('absensi.wajah');
+        Route::get('/absensi/scan', [AbsensiController::class, 'scan'])->name('absensi.scan');
+        Route::post('/absensi/mark', [AbsensiController::class, 'mark'])->name('absensi.mark');
+        Route::post('/siswa/{uuid}/wajah', [SiswaController::class, 'storeFace'])->name('siswa.face.store');
+        Route::delete('/siswa/{uuid}/wajah', [SiswaController::class, 'destroyFace'])->name('siswa.face.destroy');
 
         // Setting
         Route::controller(SettingController::class)->prefix('settings')->group(function () {
