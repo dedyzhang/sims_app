@@ -10,9 +10,14 @@
             <h1 class="page-title">Registrasi Wajah Siswa</h1>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Daftarkan wajah tiap siswa untuk absensi otomatis</p>
         </div>
-        <a href="{{ route('absensi.scan', ['kelas'=>$selectedKelas]) }}" class="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">
-            <i data-lucide="scan-face" class="w-4 h-4"></i> Mulai Absen Scan
-        </a>
+        <div class="flex items-center gap-2 flex-wrap">
+            <a href="{{ route('wajah.galeri', ['kelas'=>$selectedKelas]) }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                <i data-lucide="images" class="w-4 h-4"></i> Validasi Wajah
+            </a>
+            <a href="{{ route('absensi.scan', ['kelas'=>$selectedKelas]) }}" class="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">
+                <i data-lucide="scan-face" class="w-4 h-4"></i> Mulai Absen Scan
+            </a>
+        </div>
     </div>
 
     {{-- Filter --}}
@@ -40,8 +45,12 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         @foreach($siswas as $s)
         <div class="card p-3.5 flex items-center gap-3">
-            <div class="w-11 h-11 rounded-full grid place-items-center text-white font-bold flex-shrink-0 relative" style="background:{{ $s->jk==='L' ? 'var(--cp)' : '#ec4899' }}">
+            <div class="w-11 h-11 rounded-full grid place-items-center text-white font-bold flex-shrink-0 relative overflow-hidden" style="background:{{ $s->jk==='L' ? 'var(--cp)' : '#ec4899' }}">
+                @if($s->face_photo)
+                <img src="{{ $s->face_photo }}" class="w-full h-full object-cover cursor-zoom-in" @click="zoom('{{ $s->face_photo }}', @js($s->nama))" alt="wajah">
+                @else
                 {{ strtoupper(substr($s->nama,0,1)) }}
+                @endif
                 @if($s->face_descriptor)
                 <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 grid place-items-center ring-2 ring-white"><i data-lucide="check" class="w-2.5 h-2.5 text-white"></i></span>
                 @endif
@@ -78,6 +87,10 @@
                 <button @click="close()" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
             <div class="p-5 space-y-4">
+                {{-- Tutorial 3 posisi --}}
+                <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/40 p-3">
+                    @include('partials.face-tutorial')
+                </div>
                 <div class="relative rounded-2xl overflow-hidden bg-slate-900 aspect-[4/3]">
                     <video x-ref="video" autoplay muted playsinline class="w-full h-full object-cover" :class="streaming ? '' : 'opacity-0'"></video>
                     <div x-show="!streaming" class="absolute inset-0 grid place-items-center text-slate-400 text-sm">
@@ -108,36 +121,71 @@
             </div>
         </div>
     </div>
+
+    {{-- Zoom foto wajah --}}
+    <div x-show="zoomSrc" class="modal-backdrop" style="display:none" @click="closeZoom()" x-transition>
+        <div class="text-center" @click.stop>
+            <img :src="zoomSrc" class="max-h-[72vh] max-w-[90vw] rounded-2xl shadow-2xl ring-4 ring-white/20">
+            <p class="text-white mt-3 font-semibold text-lg" x-text="zoomNama"></p>
+            <p class="text-white/60 text-xs mt-1">Klik di mana saja untuk menutup</p>
+        </div>
+    </div>
 </div>
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
 <script>
-const FACE_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
-let faceModelsLoaded = false;
-async function loadFaceModels(){
-    if(faceModelsLoaded) return;
-    try { await faceapi.tf.setBackend('webgl'); await faceapi.tf.ready(); } catch(e){}
-    await faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODEL_URL);
-    await faceapi.nets.faceLandmark68Net.loadFromUri(FACE_MODEL_URL);
-    await faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODEL_URL);
-    faceModelsLoaded = true;
+let human=null, humanReady=false;
+async function loadHuman(){
+    if(humanReady) return human;
+    const HumanLib = window.Human?.Human || window.Human?.default || window.Human;
+    const backend = (typeof navigator!=='undefined' && navigator.gpu) ? 'webgpu' : 'webgl';
+    human = new HumanLib({
+        modelBasePath:'https://vladmandic.github.io/human-models/models/',
+        backend: backend, cacheSensitivity: 0, warmup:'none',
+        face:{ enabled:true, detector:{ maxDetected:1, minConfidence:0.3 }, mesh:{enabled:true}, iris:{enabled:false},
+               description:{enabled:true}, emotion:{enabled:false}, antispoof:{enabled:false}, liveness:{enabled:false} },
+        body:{enabled:false}, hand:{enabled:false}, object:{enabled:false}, gesture:{enabled:false},
+        filter:{enabled:false}, segmentation:{enabled:false},
+    });
+    await human.load();
+    humanReady = true;
+    return human;
 }
 
 function faceEnroll(){
     return {
         modal:false, loading:false, streaming:false, capturing:false, saving:false,
-        uuid:null, nama:'', samples:[], stream:null, status:'', msg:'', msgErr:false,
+        uuid:null, nama:'', samples:[], photo:null, _bestYaw:Infinity, stream:null, status:'', msg:'', msgErr:false,
+        zoomSrc:null, zoomNama:'',
+        zoom(src, nama){ this.zoomSrc=src; this.zoomNama=nama; },
+        closeZoom(){ this.zoomSrc=null; },
+
+        cropFace(box){
+            try {
+                const v=this.$refs.video, vw=v.videoWidth, vh=v.videoHeight;
+                const [x,y,w,h]=box, cx=x+w/2, cy=y+h/2;
+                let side=Math.max(w,h)*1.7;
+                side=Math.min(side, vw, vh);
+                let sx=Math.max(0, Math.min(cx-side/2, vw-side));
+                let sy=Math.max(0, Math.min(cy-side/2, vh-side));
+                const size=320;
+                const cv=document.createElement('canvas'); cv.width=size; cv.height=size;
+                cv.getContext('2d').drawImage(v, sx,sy,side,side, 0,0,size,size);
+                return cv.toDataURL('image/jpeg', 0.92);
+            } catch(e){ return null; }
+        },
 
         async openFor(uuid, nama){
-            this.uuid=uuid; this.nama=nama; this.samples=[]; this.msg=''; this.msgErr=false;
-            this.modal=true; this.streaming=false; this.loading=true; this.status='Memuat model AI...';
+            this.uuid=uuid; this.nama=nama; this.samples=[]; this.photo=null; this._bestYaw=Infinity; this.msg=''; this.msgErr=false;
+            this.modal=true; this.streaming=false; this.loading=true; this.status='Memuat model AI (pertama kali agak lama)...';
             try {
-                await loadFaceModels();
-                this.status='Mengaktifkan kamera...';
-                this.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:640}, height:{ideal:480} } });
+                // kamera nyala dulu
+                this.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} } });
                 this.$refs.video.srcObject = this.stream;
-                this.loading=false; this.streaming=true;
+                this.streaming=true;
+                await loadHuman();
+                this.loading=false;
                 this.msg='Posisikan wajah dalam bingkai, lalu klik Ambil Sampel.';
             } catch(e){
                 this.loading=false;
@@ -147,11 +195,14 @@ function faceEnroll(){
         async capture(){
             this.capturing=true; this.msg='Mendeteksi wajah...'; this.msgErr=false;
             try {
-                const det = await faceapi.detectSingleFace(this.$refs.video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 }))
-                    .withFaceLandmarks().withFaceDescriptor();
-                if(det){
-                    this.samples.push(Array.from(det.descriptor));
-                    this.msg = 'Sampel ' + this.samples.length + ' tersimpan. ' + (this.samples.length<3 ? 'Ambil lagi dari sudut berbeda.' : 'Cukup, klik Simpan.');
+                const res = await human.detect(this.$refs.video);
+                const face = (res.face||[])[0];
+                if(face && face.embedding){
+                    this.samples.push(Array.from(face.embedding));
+                    // foto profil = pose paling menghadap depan (yaw terkecil)
+                    const yaw = Math.abs(face.rotation?.angle?.yaw ?? 0);
+                    if(face.box && yaw < this._bestYaw){ this.photo = this.cropFace(face.box); this._bestYaw = yaw; }
+                    this.msg = 'Sampel ' + this.samples.length + ' tersimpan. ' + (this.samples.length<3 ? 'Ambil lagi dari sudut sedikit berbeda.' : 'Cukup, klik Simpan.');
                     this.msgErr=false;
                 } else {
                     this.msg='Wajah tidak terdeteksi. Pastikan pencahayaan cukup & wajah menghadap kamera.';
@@ -165,7 +216,7 @@ function faceEnroll(){
             try {
                 const res = await fetch(`/siswa/${this.uuid}/wajah`, {
                     method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                    body: JSON.stringify({ descriptors: this.samples })
+                    body: JSON.stringify({ descriptors: this.samples, photo: this.photo })
                 });
                 const data = await res.json();
                 if(res.ok){ showToast(data.message||'Wajah terdaftar.'); this.close(); setTimeout(()=>location.reload(),700); }

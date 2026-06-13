@@ -12,8 +12,9 @@
             <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit Profil
         </a>
         <div class="relative z-10 px-6 py-7 flex items-center gap-4">
-            <div class="w-20 h-20 rounded-2xl grid place-items-center text-3xl font-black flex-shrink-0 bg-white shadow-lg" style="color:var(--cp)">
-                {{ strtoupper(substr($user->guru?->nama ?? $user->siswa?->nama ?? $user->username, 0, 1)) }}
+            @php $profFace = $user->siswa?->face_photo ?? $user->guru?->face_photo; @endphp
+            <div class="w-20 h-20 rounded-2xl grid place-items-center text-3xl font-black flex-shrink-0 bg-white shadow-lg overflow-hidden {{ $profFace ? 'cursor-zoom-in' : '' }}" style="color:var(--cp)" @if($profFace) @click="avatarZoom=true" title="Lihat foto profil" @endif>
+                @if($profFace)<img src="{{ $profFace }}" class="w-full h-full object-cover" alt="foto profil">@else{{ strtoupper(substr($user->guru?->nama ?? $user->siswa?->nama ?? $user->username, 0, 1)) }}@endif
             </div>
             <div>
                 <h2 class="text-2xl font-bold text-white drop-shadow-sm">
