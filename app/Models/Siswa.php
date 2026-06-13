@@ -21,7 +21,7 @@ class Siswa extends Model
         'sekolah_asal', 'nama_ijazah', 'ortu_ijazah',
         'tempat_lahir_ijazah', 'tanggal_lahir_ijazah',
         'va', 'spp', 'foto',
-        'face_descriptor', 'face_registered_at',
+        'face_descriptor', 'face_registered_at', 'face_photo',
     ];
 
     protected $casts = [

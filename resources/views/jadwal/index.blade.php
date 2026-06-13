@@ -91,13 +91,13 @@
                 </thead>
                 <tbody>
                     @foreach($jamList as $jam)
-                        @if($jam->jenis === 'istirahat')
+                        @if($jam->jenis !== 'pelajaran')
                         <tr class="istirahat-row">
                             <td class="jam-col px-3 py-1.5 text-xs">
-                                <span class="font-bold text-amber-600">{{ $jam->label ?? 'Istirahat' }}</span>
+                                <span class="font-bold text-amber-600">{{ $jam->nama_khusus }}</span>
                             </td>
                             <td colspan="{{ $kelasList->count() }}" class="px-3 py-1.5 text-center text-xs text-amber-600 font-semibold">
-                                <i data-lucide="coffee" class="w-3.5 h-3.5 inline"></i> {{ $jam->label ?? 'Istirahat' }} &bull; {{ $jam->rentang }}
+                                <i data-lucide="{{ $jam->ikon }}" class="w-3.5 h-3.5 inline"></i> {{ $jam->nama_khusus }} &bull; {{ $jam->rentang }}
                             </td>
                         </tr>
                         @else
@@ -194,15 +194,18 @@
     <div x-show="jamModal" class="modal-backdrop" x-transition @click.self="jamModal=false">
         <div class="modal-box max-w-lg w-full" @click.stop>
             <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                <h3 class="font-bold text-slate-800 dark:text-slate-200">Atur Jam Pelajaran</h3>
+                <div>
+                    <h3 class="font-bold text-slate-800 dark:text-slate-200">Atur Jam — {{ \App\Models\Jadwal::HARI[$hari] }}</h3>
+                    <p class="text-xs text-slate-400">Tiap hari bisa punya susunan jam berbeda</p>
+                </div>
                 <button @click="jamModal=false" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
-            <div class="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+            <div class="p-5 space-y-4 max-h-[64vh] overflow-y-auto">
                 <div class="space-y-1.5">
-                    @foreach($jamList as $jam)
+                    @forelse($jamList as $jam)
                     <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50">
-                        @if($jam->jenis==='istirahat')
-                        <span class="badge bg-amber-100 text-amber-700">{{ $jam->label ?? 'Istirahat' }}</span>
+                        @if($jam->jenis!=='pelajaran')
+                        <span class="badge bg-amber-100 text-amber-700">{{ $jam->nama_khusus }}</span>
                         @else
                         <span class="badge bg-primary-50 text-primary">Jam {{ $jam->jam_ke }}</span>
                         @endif
@@ -212,22 +215,31 @@
                             <button class="p-1.5 rounded-lg hover:bg-rose-100 text-rose-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                         </form>
                     </div>
-                    @endforeach
+                    @empty
+                    <p class="text-sm text-slate-400 text-center py-2">Belum ada jam untuk hari ini.</p>
+                    @endforelse
                 </div>
+
                 <form method="POST" action="{{ route('jadwal.jam.store') }}" class="border-t border-slate-100 dark:border-slate-700 pt-4 space-y-3">
                     @csrf
+                    <input type="hidden" name="hari" value="{{ $hari }}">
                     <p class="font-semibold text-sm text-slate-700 dark:text-slate-200">Tambah Jam</p>
                     <div class="grid grid-cols-2 gap-3">
-                        <div>
+                        <div class="col-span-2">
                             <label class="form-label">Jenis</label>
-                            <select name="jenis" class="form-select" id="jamJenis" onchange="document.getElementById('jamKeWrap').style.display=this.value==='istirahat'?'none':'block'">
-                                <option value="pelajaran">Pelajaran</option>
-                                <option value="istirahat">Istirahat</option>
+                            <select name="jenis" class="form-select" id="jamJenis" onchange="jamJenisChange(this.value)">
+                                @foreach(\App\Models\JamPelajaran::JENIS as $key => $lbl)
+                                <option value="{{ $key }}">{{ $lbl }}</option>
+                                @endforeach
                             </select>
                         </div>
                         <div id="jamKeWrap">
                             <label class="form-label">Jam ke-</label>
                             <input type="number" name="jam_ke" min="0" class="form-input" placeholder="1">
+                        </div>
+                        <div id="jamLabelWrap" style="display:none">
+                            <label class="form-label">Nama</label>
+                            <input type="text" name="label" id="jamLabel" maxlength="30" class="form-input" placeholder="mis. Sholat Dzuhur">
                         </div>
                         <div>
                             <label class="form-label">Mulai</label>
@@ -237,12 +249,26 @@
                             <label class="form-label">Selesai</label>
                             <input type="time" name="jam_selesai" required class="form-input">
                         </div>
-                        <div class="col-span-2">
-                            <label class="form-label">Label (untuk istirahat, opsional)</label>
-                            <input type="text" name="label" maxlength="30" class="form-input" placeholder="Mis. Istirahat, Sholat">
-                        </div>
                     </div>
-                    <button type="submit" class="btn-primary w-full py-2.5 rounded-xl text-sm font-semibold">Tambah Jam</button>
+                    <button type="submit" class="btn-primary w-full py-2.5 rounded-xl text-sm font-semibold">Tambah Jam ke {{ \App\Models\Jadwal::HARI[$hari] }}</button>
+                </form>
+
+                {{-- Salin susunan jam ke hari lain --}}
+                <form method="POST" action="{{ route('jadwal.jam.copy') }}" class="border-t border-slate-100 dark:border-slate-700 pt-4 space-y-2.5" onsubmit="return confirmCopyJam(this)">
+                    @csrf
+                    <input type="hidden" name="from_hari" value="{{ $hari }}">
+                    <p class="font-semibold text-sm text-slate-700 dark:text-slate-200">Salin susunan jam {{ \App\Models\Jadwal::HARI[$hari] }} ke:</p>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach(\App\Models\Jadwal::HARI as $no => $nama)
+                            @if($no !== $hari)
+                            <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-sm cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700">
+                                <input type="checkbox" name="to[]" value="{{ $no }}" class="accent-[color:var(--cp)]"> {{ $nama }}
+                            </label>
+                            @endif
+                        @endforeach
+                    </div>
+                    <p class="text-[11px] text-amber-600">⚠ Jadwal pada hari tujuan akan direset.</p>
+                    <button type="submit" class="w-full py-2.5 rounded-xl text-sm font-semibold border border-primary text-primary hover:bg-primary-50 transition flex items-center justify-center gap-2"><i data-lucide="copy" class="w-4 h-4"></i> Salin Jam</button>
                 </form>
             </div>
         </div>
@@ -286,6 +312,18 @@
 
 @push('scripts')
 <script>
+// Atur Jam: tampilkan "Jam ke-" hanya utk pelajaran, "Nama" utk jam khusus
+function jamJenisChange(v){
+    const isPel = v === 'pelajaran';
+    const ke = document.getElementById('jamKeWrap'), lb = document.getElementById('jamLabelWrap');
+    if(ke) ke.style.display = isPel ? 'block' : 'none';
+    if(lb) lb.style.display = isPel ? 'none' : 'block';
+}
+function confirmCopyJam(form){
+    const n = form.querySelectorAll('input[name="to[]"]:checked').length;
+    if(n === 0){ showToast('Pilih minimal satu hari tujuan','error'); return false; }
+    return confirm('Salin susunan jam ke ' + n + ' hari? Jadwal pada hari tujuan akan direset.');
+}
 function jadwalGrid(bentrok) {
     return {
         cellModal:false, jamModal:false, genModal:false, saving:false,

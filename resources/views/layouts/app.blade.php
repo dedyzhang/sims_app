@@ -227,6 +227,8 @@
 {{-- ===== Dekorasi motif (ikut tema pilihan) ===== --}}
 @include('partials.decorations')
 
+@php $myFace = auth()->user()?->siswa?->face_photo ?? auth()->user()?->guru?->face_photo; @endphp
+
 <div class="h-screen flex relative z-10" :class="{ 'mob-open': mobileOpen }">
 
     <div class="sidebar-overlay lg:hidden" @click="mobileOpen=false"></div>
@@ -269,7 +271,9 @@
             <p x-show="!collapsed" class="nav-section px-3 pt-5 pb-2 text-[11px] font-bold uppercase tracking-[.1em]">Akademik</p>
             @foreach([
                 ['jadwal.index','jadwal.*','calendar-clock','Jadwal Pelajaran'],
-                ['absensi.index','absensi.*','clipboard-check','Absensi'],
+                ['absensi.index','absensi.*','clipboard-check','Absensi Siswa'],
+                ['presensi-guru.index','presensi-guru.*','user-check','Presensi Guru'],
+                ['wajah.galeri','wajah.galeri','scan-face','Validasi Wajah'],
             ] as [$route, $pattern, $icon, $label])
             <a href="{{ route($route) }}" class="nav-link flex items-center gap-3 px-3 py-2.5 {{ request()->routeIs($pattern) ? 'active' : '' }}">
                 <i data-lucide="{{ $icon }}" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
@@ -297,8 +301,8 @@
 
         <div class="p-3 flex-shrink-0">
             <div class="flex items-center gap-2.5 p-2.5 rounded-2xl bg-white/50 dark:bg-white/5">
-                <div class="w-9 h-9 rounded-xl text-white grid place-items-center text-sm font-bold flex-shrink-0 shadow" style="background:linear-gradient(135deg,var(--ca),var(--cp))">
-                    {{ strtoupper(substr(auth()->user()?->guru?->nama ?? auth()->user()?->siswa?->nama ?? auth()->user()?->username ?? 'U', 0, 1)) }}
+                <div class="w-9 h-9 rounded-xl text-white grid place-items-center text-sm font-bold flex-shrink-0 shadow overflow-hidden {{ $myFace ? 'cursor-zoom-in' : '' }}" style="background:linear-gradient(135deg,var(--ca),var(--cp))" @if($myFace) @click="avatarZoom=true" title="Lihat foto profil" @endif>
+                    @if($myFace)<img src="{{ $myFace }}" class="w-full h-full object-cover" alt="profil">@else{{ strtoupper(substr(auth()->user()?->guru?->nama ?? auth()->user()?->siswa?->nama ?? auth()->user()?->username ?? 'U', 0, 1)) }}@endif
                 </div>
                 <div x-show="!collapsed" class="min-w-0 flex-1">
                     <p class="text-[13px] font-bold truncate leading-tight" style="color:var(--stx)">{{ auth()->user()?->guru?->nama ?? auth()->user()?->siswa?->nama ?? auth()->user()?->username }}</p>
@@ -338,12 +342,18 @@
                 </button>
                 <a href="{{ route('profile.preference') }}" class="grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 dark:text-slate-400 transition" title="Tampilan"><i data-lucide="paintbrush" class="w-[18px] h-[18px]"></i></a>
                 <div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1.5"></div>
-                <a href="{{ route('profile.index') }}" class="flex items-center gap-2.5">
-                    <span class="hidden sm:block text-sm font-semibold text-slate-600 dark:text-slate-300">Hi, {{ \Illuminate\Support\Str::of(auth()->user()?->guru?->nama ?? auth()->user()?->siswa?->nama ?? auth()->user()?->username)->explode(' ')->first() }}</span>
-                    <div class="w-9 h-9 rounded-full text-white grid place-items-center text-sm font-bold ring-2 ring-white shadow" style="background:linear-gradient(135deg,var(--cp),var(--ca))">
+                <div class="flex items-center gap-2.5">
+                    <a href="{{ route('profile.index') }}" class="hidden sm:block text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-primary transition">Hi, {{ \Illuminate\Support\Str::of(auth()->user()?->guru?->nama ?? auth()->user()?->siswa?->nama ?? auth()->user()?->username)->explode(' ')->first() }}</a>
+                    @if($myFace)
+                    <button type="button" @click="avatarZoom=true" class="w-9 h-9 rounded-full ring-2 ring-white shadow overflow-hidden" style="cursor:zoom-in" title="Lihat foto profil">
+                        <img src="{{ $myFace }}" class="w-full h-full object-cover" alt="Foto profil">
+                    </button>
+                    @else
+                    <a href="{{ route('profile.index') }}" class="w-9 h-9 rounded-full text-white grid place-items-center text-sm font-bold ring-2 ring-white shadow" style="background:linear-gradient(135deg,var(--cp),var(--ca))">
                         {{ strtoupper(substr(auth()->user()?->username ?? 'U', 0, 1)) }}
-                    </div>
-                </a>
+                    </a>
+                    @endif
+                </div>
             </div>
         </header>
 
@@ -372,6 +382,16 @@
     </div>
 </div>
 
+@if($myFace)
+{{-- Lightbox foto profil (klik avatar untuk membuka) --}}
+<div x-show="avatarZoom" x-cloak @click="avatarZoom=false" @keydown.escape.window="avatarZoom=false" class="fixed inset-0 z-[10000] flex items-center justify-center p-6" style="display:none; background:rgba(15,12,10,.78); backdrop-filter:blur(6px)">
+    <div class="text-center" @click.stop>
+        <img src="{{ $myFace }}" class="max-h-[78vh] max-w-[92vw] rounded-3xl shadow-2xl ring-4 ring-white/15" alt="Foto profil">
+        <p class="text-white/70 text-xs mt-3">Klik di mana saja untuk menutup</p>
+    </div>
+</div>
+@endif
+
 {{-- Toasts --}}
 <div class="fixed bottom-6 right-6 z-[9999] space-y-2" id="toastWrap">
     @if(session('success'))
@@ -397,6 +417,7 @@
         return {
             collapsed: localStorage.getItem('sb_collapsed') === '1',
             mobileOpen: false,
+            avatarZoom: false,
             darkMode: (localStorage.getItem('theme_mode') ?? '{{ $pref->theme_mode ?? 'light' }}') === 'dark',
             uiStyle: '{{ $pref->ui_style ?? 'soft' }}',
             toggleCollapse(){ this.collapsed=!this.collapsed; localStorage.setItem('sb_collapsed', this.collapsed?'1':'0'); this.$nextTick(()=>lucide.createIcons()); },

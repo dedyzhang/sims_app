@@ -61,9 +61,13 @@ class SettingController extends Controller
 
     public function setWaktuTerlambat(Request $request)
     {
-        $request->validate(['waktu_terlambat' => 'required|date_format:H:i']);
+        $request->validate([
+            'waktu_terlambat'      => 'required|date_format:H:i',
+            'waktu_terlambat_guru' => 'required|date_format:H:i',
+        ]);
         Setting::set('waktu_terlambat', $request->waktu_terlambat);
-        return back()->with('success', 'Waktu terlambat disimpan.');
+        Setting::set('waktu_terlambat_guru', $request->waktu_terlambat_guru);
+        return back()->with('success', 'Batas jam terlambat siswa & guru disimpan.');
     }
 
     public function setMapelRapor(Request $request)

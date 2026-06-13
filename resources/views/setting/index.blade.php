@@ -133,14 +133,19 @@
             </form>
             <form method="POST" action="{{ route('setting.waktuTerlambat') }}" class="card p-6 space-y-3">
                 @csrf
-                <h2 class="font-bold text-slate-800 dark:text-slate-100">Batas Terlambat</h2>
-                <div class="flex gap-3 items-end">
-                    <div class="flex-1">
-                        <label class="form-label">Jam terlambat</label>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100">Batas Jam Terlambat</h2>
+                <p class="text-xs text-slate-400 -mt-1">Hadir setelah jam ini dihitung <span class="font-semibold text-rose-500">Terlambat</span>.</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label">Siswa</label>
                         <input type="time" name="waktu_terlambat" value="{{ $settings['waktu_terlambat'] ?? '07:30' }}" class="form-input">
                     </div>
-                    <button type="submit" class="btn-primary px-4 py-2.5 rounded-xl text-sm font-bold">OK</button>
+                    <div>
+                        <label class="form-label">Guru</label>
+                        <input type="time" name="waktu_terlambat_guru" value="{{ $settings['waktu_terlambat_guru'] ?? ($settings['waktu_terlambat'] ?? '07:30') }}" class="form-input">
+                    </div>
                 </div>
+                <button type="submit" class="btn-primary px-4 py-2.5 rounded-xl text-sm font-bold w-full">Simpan</button>
             </form>
         </div>
     </div>
