@@ -179,4 +179,25 @@ class GuruController extends Controller
         Ngajar::findOrFail($ngajarUuid)->delete();
         return back()->with('success', 'Pelajaran dihapus.');
     }
+
+    /** Simpan data wajah guru (descriptor) untuk presensi */
+    public function storeFace(Request $request, string $uuid)
+    {
+        $request->validate([
+            'descriptors'   => 'required|array|min:1|max:5',
+            'descriptors.*' => 'array|min:64',   // embedding
+        ]);
+        $guru = Guru::findOrFail($uuid);
+        $guru->update([
+            'face_descriptor'    => $request->descriptors,
+            'face_registered_at' => now(),
+        ]);
+        return response()->json(['success' => true, 'message' => 'Wajah ' . $guru->nama . ' terdaftar.']);
+    }
+
+    public function destroyFace(string $uuid)
+    {
+        Guru::findOrFail($uuid)->update(['face_descriptor' => null, 'face_registered_at' => null]);
+        return response()->json(['success' => true, 'message' => 'Data wajah dihapus.']);
+    }
 }

@@ -20,7 +20,7 @@ class JadwalController extends Controller
         if ($hari < 1 || $hari > 6) $hari = 1;
 
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
-        $jamList   = JamPelajaran::orderBy('urutan')->orderBy('jam_mulai')->get();
+        $jamList   = JamPelajaran::where('hari', $hari)->orderBy('urutan')->orderBy('jam_mulai')->get();
         $pelajarans = Pelajaran::orderBy('urutan')->orderBy('nama')->get();
         $gurus     = Guru::orderBy('nama')->get();
 
@@ -143,9 +143,16 @@ class JadwalController extends Controller
         $mode = $request->mode ?? 'isi_kosong'; // isi_kosong | timpa
 
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
-        $jamSlots  = JamPelajaran::where('jenis', 'pelajaran')->orderBy('urutan')->orderBy('jam_mulai')->get()->values();
         $hariList  = array_keys(Jadwal::HARI);
         $jpMap     = Pelajaran::pluck('jp', 'uuid');
+
+        // Slot pelajaran PER HARI (urut) — tiap hari bisa beda jumlah/jam
+        $slotsByDay = [];
+        foreach ($hariList as $h) {
+            $slotsByDay[$h] = JamPelajaran::where('hari', $h)->where('jenis', 'pelajaran')
+                ->orderBy('urutan')->orderBy('jam_mulai')->get()->values();
+        }
+        $totalSlots = array_sum(array_map(fn($c) => $c->count(), $slotsByDay));
 
         // Penugasan mengajar per kelas: [kelas => [['p','g','jp'], ...]]
         $ngajars = Ngajar::whereNotNull('id_guru')->whereNotNull('id_pelajaran')->get();
@@ -163,29 +170,23 @@ class JadwalController extends Controller
         if (collect($byKelas)->flatten(1)->isEmpty()) {
             return back()->with('error', 'Belum ada penugasan mengajar. Atur "Pelajaran Diajar" tiap guru dulu, lalu generate.');
         }
-        if ($jamSlots->isEmpty()) {
+        if ($totalSlots === 0) {
             return back()->with('error', 'Belum ada jam pelajaran. Klik "Atur Jam" untuk menambah jam dulu.');
         }
 
-        DB::transaction(function () use ($mode, $kelasList, $jamSlots, $hariList, $byKelas) {
+        DB::transaction(function () use ($mode, $kelasList, $slotsByDay, $hariList, $byKelas) {
             if ($mode === 'timpa') Jadwal::truncate();
 
-            $nSlots = $jamSlots->count();
-            $slotIndex = [];
-            foreach ($jamSlots as $i => $s) $slotIndex[$s->uuid] = $i;
-
-            $classBusy = []; // "kelas|hari|idx"
-            $guruBusy  = []; // "hari|idx|guru"
-            foreach (Jadwal::whereNotNull('id_jam')->get(['id_kelas', 'hari', 'id_jam', 'id_guru']) as $j) {
-                $idx = $slotIndex[$j->id_jam] ?? null;
-                if ($idx === null) continue;
-                $classBusy[$j->id_kelas . '|' . $j->hari . '|' . $idx] = true;
-                if ($j->id_guru) $guruBusy[$j->hari . '|' . $idx . '|' . $j->id_guru] = true;
+            // busy berbasis uuid jam (uuid sudah unik per hari)
+            $classBusy = []; // "kelas|jamUuid"
+            $guruBusy  = []; // "jamUuid|guru"
+            foreach (Jadwal::whereNotNull('id_jam')->get(['id_kelas', 'id_jam', 'id_guru']) as $j) {
+                $classBusy[$j->id_kelas . '|' . $j->id_jam] = true;
+                if ($j->id_guru) $guruBusy[$j->id_jam . '|' . $j->id_guru] = true;
             }
 
             $insert = [];
-            $mk = function ($k, $hari, $idx, $subj) use ($jamSlots) {
-                $slot = $jamSlots[$idx];
+            $mk = function ($k, $hari, $slot, $subj) {
                 return [
                     'uuid' => (string) \Illuminate\Support\Str::uuid(),
                     'id_kelas' => $k, 'hari' => $hari, 'id_jam' => $slot->uuid,
@@ -214,18 +215,20 @@ class JadwalController extends Controller
                         foreach ([true, false] as $distinctDay) {
                             foreach ($dayOrder as $hari) {
                                 if ($distinctDay && in_array($hari, $usedDays)) continue;
-                                for ($start = 0; $start + $B <= $nSlots; $start++) {
+                                $slots = $slotsByDay[$hari];
+                                $n = $slots->count();
+                                for ($start = 0; $start + $B <= $n; $start++) {
                                     $fit = true;
                                     for ($o = 0; $o < $B; $o++) {
-                                        $idx = $start + $o;
-                                        if (isset($classBusy[$k->uuid . '|' . $hari . '|' . $idx]) || isset($guruBusy[$hari . '|' . $idx . '|' . $subj['g']])) { $fit = false; break; }
+                                        $u = $slots[$start + $o]->uuid;
+                                        if (isset($classBusy[$k->uuid . '|' . $u]) || isset($guruBusy[$u . '|' . $subj['g']])) { $fit = false; break; }
                                     }
                                     if ($fit) {
                                         for ($o = 0; $o < $B; $o++) {
-                                            $idx = $start + $o;
-                                            $insert[] = $mk($k->uuid, $hari, $idx, $subj);
-                                            $classBusy[$k->uuid . '|' . $hari . '|' . $idx] = true;
-                                            $guruBusy[$hari . '|' . $idx . '|' . $subj['g']] = true;
+                                            $slot = $slots[$start + $o];
+                                            $insert[] = $mk($k->uuid, $hari, $slot, $subj);
+                                            $classBusy[$k->uuid . '|' . $slot->uuid] = true;
+                                            $guruBusy[$slot->uuid . '|' . $subj['g']] = true;
                                         }
                                         $usedDays[] = $hari; $placed = true; break;
                                     }
@@ -237,13 +240,13 @@ class JadwalController extends Controller
                         // fallback: blok tak muat utuh → isi per jam di slot kosong mana saja
                         if (!$placed) {
                             for ($r = 0; $r < $B; $r++) {
+                                $done = false;
                                 foreach ($dayOrder as $hari) {
-                                    $done = false;
-                                    for ($idx = 0; $idx < $nSlots; $idx++) {
-                                        if (!isset($classBusy[$k->uuid . '|' . $hari . '|' . $idx]) && !isset($guruBusy[$hari . '|' . $idx . '|' . $subj['g']])) {
-                                            $insert[] = $mk($k->uuid, $hari, $idx, $subj);
-                                            $classBusy[$k->uuid . '|' . $hari . '|' . $idx] = true;
-                                            $guruBusy[$hari . '|' . $idx . '|' . $subj['g']] = true;
+                                    foreach ($slotsByDay[$hari] as $slot) {
+                                        if (!isset($classBusy[$k->uuid . '|' . $slot->uuid]) && !isset($guruBusy[$slot->uuid . '|' . $subj['g']])) {
+                                            $insert[] = $mk($k->uuid, $hari, $slot, $subj);
+                                            $classBusy[$k->uuid . '|' . $slot->uuid] = true;
+                                            $guruBusy[$slot->uuid . '|' . $subj['g']] = true;
                                             $done = true; break;
                                         }
                                     }
@@ -259,43 +262,103 @@ class JadwalController extends Controller
             foreach (array_chunk($insert, 200) as $chunk) Jadwal::insert($chunk);
         });
 
-        return back()->with('success', 'Jadwal di-generate: tiap mapel ditempatkan sebagai blok jam berurutan sesuai JP/minggu, bentrok guru dihindari.');
+        return back()->with('success', 'Jadwal di-generate: tiap mapel ditempatkan sebagai blok jam berurutan sesuai JP/minggu, mengikuti jam tiap hari & menghindari bentrok guru.');
     }
 
-    // ===== Master Jam Pelajaran =====
+    // ===== Master Jam Pelajaran (PER HARI) =====
     public function jamStore(Request $request)
     {
         $data = $request->validate([
+            'hari'        => 'required|integer|between:1,6',
             'jam_ke'      => 'nullable|integer|min:0',
             'jam_mulai'   => 'required|date_format:H:i',
             'jam_selesai' => 'required|date_format:H:i|after:jam_mulai',
-            'jenis'       => 'required|in:pelajaran,istirahat',
+            'jenis'       => 'required|in:' . implode(',', array_keys(JamPelajaran::JENIS)),
             'label'       => 'nullable|string|max:30',
         ]);
-        $data['urutan'] = (JamPelajaran::max('urutan') ?? 0) + 1;
+        if ($data['jenis'] !== 'pelajaran') {
+            $data['jam_ke'] = null; // jam khusus tak punya "jam ke-"
+        }
+        // urutan otomatis: berdasarkan jam mulai dalam hari tsb
+        $data['urutan'] = (JamPelajaran::where('hari', $data['hari'])->max('urutan') ?? 0) + 1;
         JamPelajaran::create($data);
-        return back()->with('success', 'Jam pelajaran ditambahkan.');
+
+        $this->resequence($data['hari']);
+        return redirect()->route('jadwal.index', ['hari' => $data['hari']])->with('success', 'Jam ditambahkan ke ' . (Jadwal::HARI[$data['hari']] ?? '') . '.');
     }
 
     public function jamDestroy(string $uuid)
     {
-        JamPelajaran::findOrFail($uuid)->delete();
-        return back()->with('success', 'Jam pelajaran dihapus.');
+        $jam = JamPelajaran::findOrFail($uuid);
+        $hari = $jam->hari;
+        // bersihkan jadwal yang menunjuk jam ini agar tak jadi orphan
+        Jadwal::where('id_jam', $uuid)->delete();
+        $jam->delete();
+        return redirect()->route('jadwal.index', ['hari' => $hari])->with('success', 'Jam dihapus.');
     }
 
-    /** Tampilan jadwal per kelas (read-only mingguan) */
+    /** Salin susunan jam satu hari ke hari lain (mereset jam & jadwal hari tujuan) */
+    public function jamCopy(Request $request)
+    {
+        $data = $request->validate([
+            'from_hari' => 'required|integer|between:1,6',
+            'to'        => 'required|array|min:1',
+            'to.*'      => 'integer|between:1,6',
+        ]);
+        $sumber = JamPelajaran::where('hari', $data['from_hari'])->orderBy('urutan')->get();
+        if ($sumber->isEmpty()) {
+            return back()->with('error', 'Hari sumber belum punya jam.');
+        }
+
+        $tujuan = array_values(array_unique(array_diff($data['to'], [$data['from_hari']])));
+        DB::transaction(function () use ($sumber, $tujuan) {
+            foreach ($tujuan as $hari) {
+                // reset jam & jadwal hari tujuan
+                $oldIds = JamPelajaran::where('hari', $hari)->pluck('uuid');
+                Jadwal::whereIn('id_jam', $oldIds)->delete();
+                JamPelajaran::where('hari', $hari)->delete();
+                // salin
+                foreach ($sumber as $s) {
+                    JamPelajaran::create([
+                        'hari' => $hari, 'jam_ke' => $s->jam_ke,
+                        'jam_mulai' => $s->jam_mulai, 'jam_selesai' => $s->jam_selesai,
+                        'jenis' => $s->jenis, 'label' => $s->label, 'urutan' => $s->urutan,
+                    ]);
+                }
+            }
+        });
+        return redirect()->route('jadwal.index', ['hari' => $data['from_hari']])
+            ->with('success', 'Susunan jam disalin ke ' . count($tujuan) . ' hari (jadwal hari tujuan direset).');
+    }
+
+    /** Rapikan urutan jam dalam satu hari mengikuti jam_mulai */
+    private function resequence(int $hari): void
+    {
+        $jams = JamPelajaran::where('hari', $hari)->orderBy('jam_mulai')->orderBy('urutan')->get();
+        foreach ($jams as $i => $j) {
+            if ($j->urutan !== $i + 1) $j->update(['urutan' => $i + 1]);
+        }
+    }
+
+    /** Tampilan jadwal per kelas (read-only mingguan) — sumbu waktu gabungan semua hari */
     public function kelasView(Request $request)
     {
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
         $selectedKelas = $request->kelas ?: optional($kelasList->first())->uuid;
-        $jamList = JamPelajaran::orderBy('urutan')->orderBy('jam_mulai')->get();
 
+        // Baris = gabungan jam semua hari, unik per (mulai|selesai|jenis), urut jam mulai
+        $rows = JamPelajaran::orderBy('jam_mulai')->orderBy('urutan')->get()
+            ->unique(fn($j) => substr($j->jam_mulai, 0, 5) . '|' . substr($j->jam_selesai, 0, 5) . '|' . $j->jenis)
+            ->sortBy('jam_mulai')->values();
+
+        // cells: "H:i|hari" => jadwal (cocokkan berdasarkan jam mulai)
         $cells = [];
         if ($selectedKelas) {
             foreach (Jadwal::with(['pelajaran', 'guru'])->where('id_kelas', $selectedKelas)->get() as $j) {
-                $cells[$j->id_jam . '|' . $j->hari] = $j;
+                $key = \Carbon\Carbon::parse($j->jam_mulai)->format('H:i') . '|' . $j->hari;
+                $cells[$key] = $j;
             }
         }
-        return view('jadwal.kelas', compact('kelasList', 'selectedKelas', 'jamList', 'cells'));
+        return view('jadwal.kelas', compact('kelasList', 'selectedKelas', 'rows', 'cells'));
     }
 }

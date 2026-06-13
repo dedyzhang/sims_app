@@ -32,7 +32,7 @@
         </form>
     </div>
 
-    @if($jamList->isEmpty() || !$selectedKelas)
+    @if($rows->isEmpty() || !$selectedKelas)
     <div class="card p-10 text-center text-slate-400">
         <i data-lucide="calendar-x" class="w-12 h-12 mx-auto mb-3 opacity-30"></i>
         <p class="font-medium">Belum ada data jadwal.</p>
@@ -50,12 +50,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach($jamList as $jam)
-                        @if($jam->jenis==='istirahat')
+                    @foreach($rows as $jam)
+                        @if($jam->jenis!=='pelajaran')
                         <tr>
-                            <td class="px-3 py-1.5 text-xs font-bold text-amber-600">{{ $jam->label ?? 'Istirahat' }}</td>
+                            <td class="px-3 py-1.5 text-xs font-bold text-amber-600">{{ $jam->nama_khusus }}</td>
                             <td colspan="6" class="px-3 py-1.5 text-center text-xs text-amber-600 font-semibold bg-amber-50/50 dark:bg-amber-900/10">
-                                <i data-lucide="coffee" class="w-3.5 h-3.5 inline"></i> {{ $jam->label ?? 'Istirahat' }} &bull; {{ $jam->rentang }}
+                                <i data-lucide="{{ $jam->ikon }}" class="w-3.5 h-3.5 inline"></i> {{ $jam->nama_khusus }} &bull; {{ $jam->rentang }}
                             </td>
                         </tr>
                         @else
@@ -65,7 +65,7 @@
                                 <p class="text-[11px] text-slate-400 font-mono">{{ $jam->rentang }}</p>
                             </td>
                             @foreach(\App\Models\Jadwal::HARI as $no => $nama)
-                            @php $j = $cells[$jam->uuid.'|'.$no] ?? null; @endphp
+                            @php $j = $cells[\Carbon\Carbon::parse($jam->jam_mulai)->format('H:i').'|'.$no] ?? null; @endphp
                             <td class="p-1.5 align-top">
                                 @if($j && ($j->pelajaran || $j->keterangan))
                                 <div class="rounded-lg px-2 py-1.5 h-full" style="background:color-mix(in srgb,var(--cp) 9%,#fff)">
