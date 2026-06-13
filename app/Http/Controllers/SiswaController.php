@@ -189,12 +189,14 @@ class SiswaController extends Controller
     {
         $request->validate([
             'descriptors'   => 'required|array|min:1|max:5',
-            'descriptors.*' => 'array|size:128',
+            'descriptors.*' => 'array|min:64',   // embedding (face-api 128 / Human ~1024)
+            'photo'         => 'nullable|string',
         ]);
         $siswa = Siswa::findOrFail($uuid);
         $siswa->update([
             'face_descriptor'    => $request->descriptors,
             'face_registered_at' => now(),
+            'face_photo'         => $request->photo,
         ]);
         return response()->json(['success' => true, 'message' => 'Wajah ' . $siswa->nama . ' terdaftar.']);
     }

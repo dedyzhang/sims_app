@@ -13,10 +13,18 @@ class Absensi extends Model
     protected $primaryKey = 'uuid';
     protected $table = 'absensis';
     protected $fillable = [
-        'id_siswa', 'id_kelas', 'tanggal', 'status', 'keterangan', 'dicatat_oleh',
+        'id_siswa', 'id_kelas', 'tanggal', 'jam_masuk', 'status', 'keterangan', 'dicatat_oleh',
     ];
 
-    protected $casts = ['tanggal' => 'date'];
+    /** True bila hadir & jam_masuk melewati batas (HH:MM). */
+    public function terlambat(string $batas): bool
+    {
+        return $this->status === 'hadir'
+            && $this->jam_masuk
+            && substr($this->jam_masuk, 0, 5) > $batas;
+    }
+
+    protected $casts = ['tanggal' => 'date:Y-m-d'];
 
     public const STATUS = [
         'hadir' => 'Hadir',

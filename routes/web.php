@@ -2,14 +2,17 @@
 
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FaceController;
 use App\Http\Controllers\GuruController;
 use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\KelasController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\PelajaranController;
+use App\Http\Controllers\PresensiGuruController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SiswaController;
+use App\Http\Middleware\EnsureFaceRegistered;
 use App\Http\Middleware\IsAdmin;
 use Illuminate\Support\Facades\Route;
 use Laragear\WebAuthn\Http\Routes as WebAuthnRoutes;
@@ -30,10 +33,15 @@ Route::post('/password/request', [LoginController::class, 'requestResetPassword'
 WebAuthnRoutes::register('webauthn');
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
-Route::middleware('auth')->group(function () {
+// Gate EnsureFaceRegistered: siswa & guru wajib daftar wajah dulu sebelum lanjut
+Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     Route::get('/home', [LoginController::class, 'home'])->name('auth.home');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Wajib daftar wajah sendiri (dipakai gate di atas)
+    Route::get('/wajah-saya', [FaceController::class, 'self'])->name('face.self');
+    Route::post('/wajah-saya', [FaceController::class, 'selfStore'])->name('face.self.store');
 
     // Ganti password & PIN
     Route::get('/ganti-password', [LoginController::class, 'changePasswordPage'])->name('ganti.password');
@@ -98,6 +106,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/jadwal/cell', [JadwalController::class, 'clearCell'])->name('jadwal.cell.clear');
         Route::post('/jadwal/generate', [JadwalController::class, 'generate'])->name('jadwal.generate');
         Route::post('/jadwal/jam', [JadwalController::class, 'jamStore'])->name('jadwal.jam.store');
+        Route::post('/jadwal/jam/copy', [JadwalController::class, 'jamCopy'])->name('jadwal.jam.copy');
         Route::delete('/jadwal/jam/{uuid}', [JadwalController::class, 'jamDestroy'])->name('jadwal.jam.destroy');
 
         // Absensi
@@ -110,6 +119,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/absensi/mark', [AbsensiController::class, 'mark'])->name('absensi.mark');
         Route::post('/siswa/{uuid}/wajah', [SiswaController::class, 'storeFace'])->name('siswa.face.store');
         Route::delete('/siswa/{uuid}/wajah', [SiswaController::class, 'destroyFace'])->name('siswa.face.destroy');
+
+        // Presensi Guru (scan wajah kiosk + koreksi manual)
+        Route::get('/presensi-guru', [PresensiGuruController::class, 'index'])->name('presensi-guru.index');
+        Route::post('/presensi-guru', [PresensiGuruController::class, 'store'])->name('presensi-guru.store');
+        Route::get('/presensi-guru/scan', [AbsensiController::class, 'scan'])->name('presensi-guru.scan');
+        Route::get('/presensi-guru/rekap', [PresensiGuruController::class, 'rekap'])->name('presensi-guru.rekap');
+        Route::post('/presensi-guru/mark', [PresensiGuruController::class, 'mark'])->name('presensi-guru.mark');
+        Route::post('/guru/{uuid}/wajah', [GuruController::class, 'storeFace'])->name('guru.face.store');
+        Route::delete('/guru/{uuid}/wajah', [GuruController::class, 'destroyFace'])->name('guru.face.destroy');
+        Route::get('/wajah-galeri', [FaceController::class, 'gallery'])->name('wajah.galeri');
 
         // Setting
         Route::controller(SettingController::class)->prefix('settings')->group(function () {

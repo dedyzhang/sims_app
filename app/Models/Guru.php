@@ -15,6 +15,12 @@ class Guru extends Model
         'id_login', 'nama', 'nik', 'nip', 'jk', 'tempat_lahir',
         'tanggal_lahir', 'agama', 'alamat', 'tingkat_studi', 'program_studi',
         'universitas', 'tahun_tamat', 'tmt_ngajar', 'tmt_smp', 'no_telp', 'foto',
+        'face_descriptor', 'face_registered_at', 'face_photo',
+    ];
+
+    protected $casts = [
+        'face_descriptor'    => 'array',
+        'face_registered_at' => 'datetime',
     ];
 
     public function user()
