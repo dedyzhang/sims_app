@@ -58,21 +58,23 @@ class PresensiGuruController extends Controller
     {
         $request->validate([
             'tanggal' => 'required|date',
-            'status'  => 'required|array',
+            'status'  => 'nullable|array',   // hanya guru yang ditandai yang disimpan
         ]);
 
         $tanggal = $request->tanggal;
         $count = 0;
-        foreach ($request->status as $guruUuid => $status) {
+        foreach (($request->status ?? []) as $guruUuid => $status) {
             if (!in_array($status, array_keys(PresensiGuru::STATUS))) continue;
-            PresensiGuru::updateOrCreate(
-                ['id_guru' => $guruUuid, 'tanggal' => $tanggal],
-                [
-                    'status'       => $status,
-                    'keterangan'   => $request->keterangan[$guruUuid] ?? null,
-                    'dicatat_oleh' => auth()->id(),
-                ]
-            );
+
+            $row = PresensiGuru::firstOrNew(['id_guru' => $guruUuid, 'tanggal' => $tanggal]);
+            $row->status       = $status;
+            $row->dicatat_oleh = auth()->id();
+            $ket = $request->keterangan[$guruUuid] ?? null;
+            if ($ket !== null && $ket !== '') {
+                $row->keterangan = $ket;
+            }
+            // jam_masuk & jam_pulang SENGAJA tidak disentuh → waktu scan tetap
+            $row->save();
             $count++;
         }
 

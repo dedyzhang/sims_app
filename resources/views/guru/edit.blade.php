@@ -78,6 +78,27 @@
             </div>
         </div>
 
+        {{-- Akun & Akses (admin) --}}
+        <div class="card p-6">
+            <div class="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100 dark:border-slate-700">
+                <span class="grid place-items-center w-8 h-8 rounded-lg bg-primary-50 text-primary"><i data-lucide="shield" class="w-4 h-4"></i></span>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100">Akun &amp; Akses</h2>
+            </div>
+            <div class="sm:max-w-xs">
+                <label class="form-label">Role / Akses Login</label>
+                <select name="access" class="form-select" {{ $guru->user?->access === 'superadmin' ? 'disabled' : '' }}>
+                    @foreach(\App\Http\Controllers\GuruController::ROLES as $key => $lbl)
+                    <option value="{{ $key }}" @selected(old('access', $guru->user?->access) === $key)>{{ $lbl }}</option>
+                    @endforeach
+                </select>
+                @if(!$guru->user)
+                <p class="text-xs text-amber-600 mt-1.5">Guru ini belum punya akun login.</p>
+                @elseif($guru->user->access === 'superadmin')
+                <p class="text-xs text-amber-600 mt-1.5">Akun superadmin — role tidak dapat diubah.</p>
+                @endif
+            </div>
+        </div>
+
         <div class="flex gap-3">
             <button type="submit" class="btn-primary px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2">
                 <i data-lucide="save" class="w-4 h-4"></i> Simpan Perubahan

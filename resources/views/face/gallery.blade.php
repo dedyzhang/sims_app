@@ -10,9 +10,14 @@
             <h1 class="page-title">Validasi Wajah Terdaftar</h1>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Lihat foto wajah yang terdaftar untuk memastikan tidak ada yang keliru atau ganda.</p>
         </div>
-        <a href="{{ route('absensi.wajah') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
-            <i data-lucide="user-plus" class="w-4 h-4"></i> Registrasi Wajah
-        </a>
+        <div class="flex items-center gap-2 flex-wrap">
+            <a href="{{ route('wajah.ganda') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/30 transition">
+                <i data-lucide="users" class="w-4 h-4"></i> Cek Wajah Ganda
+            </a>
+            <a href="{{ route('absensi.wajah') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                <i data-lucide="user-plus" class="w-4 h-4"></i> Registrasi Wajah
+            </a>
+        </div>
     </div>
 
     {{-- Filter & tabs --}}
@@ -50,7 +55,7 @@
             <div class="card p-3 text-center" x-show="q==='' || @js(strtolower($s->nama)).includes(q.toLowerCase())">
                 <div class="aspect-square rounded-xl overflow-hidden mb-2 grid place-items-center text-white text-2xl font-bold" style="background:{{ $s->jk==='L' ? 'var(--cp)' : '#ec4899' }}">
                     @if($s->face_photo)
-                    <img src="{{ $s->face_photo }}" loading="lazy" class="w-full h-full object-cover cursor-zoom-in" @click="zoomSrc=@js($s->face_photo); zoomNama=@js($s->nama)" alt="wajah {{ $s->nama }}">
+                    <img src="{{ $s->face_photo_url }}" loading="lazy" class="w-full h-full object-cover cursor-zoom-in" @click="zoomSrc=@js($s->face_photo_url); zoomNama=@js($s->nama)" alt="wajah {{ $s->nama }}">
                     @else
                     <div class="flex flex-col items-center gap-1">
                         <span>{{ strtoupper(substr($s->nama,0,1)) }}</span>
@@ -80,7 +85,7 @@
             <div class="card p-3 text-center" x-show="q==='' || @js(strtolower($g->nama)).includes(q.toLowerCase())">
                 <div class="aspect-square rounded-xl overflow-hidden mb-2 grid place-items-center text-white text-2xl font-bold" style="background:{{ $g->jk==='P' ? '#ec4899' : 'var(--cp)' }}">
                     @if($g->face_photo)
-                    <img src="{{ $g->face_photo }}" loading="lazy" class="w-full h-full object-cover cursor-zoom-in" @click="zoomSrc=@js($g->face_photo); zoomNama=@js($g->nama)" alt="wajah {{ $g->nama }}">
+                    <img src="{{ $g->face_photo_url }}" loading="lazy" class="w-full h-full object-cover cursor-zoom-in" @click="zoomSrc=@js($g->face_photo_url); zoomNama=@js($g->nama)" alt="wajah {{ $g->nama }}">
                     @else
                     <div class="flex flex-col items-center gap-1">
                         <span>{{ strtoupper(substr($g->nama,0,1)) }}</span>

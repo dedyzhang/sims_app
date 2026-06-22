@@ -79,7 +79,7 @@ class GuruController extends Controller
 
     public function edit(string $uuid)
     {
-        $guru = Guru::findOrFail($uuid);
+        $guru = Guru::with('user')->findOrFail($uuid);
         return view('guru.edit', compact('guru'));
     }
 
@@ -102,13 +102,19 @@ class GuruController extends Controller
             'tmt_ngajar'    => 'nullable|date',
             'tmt_smp'       => 'nullable|date',
             'no_telp'       => 'nullable|string|max:20',
+            'access'        => 'nullable|in:' . implode(',', array_keys(self::ROLES)),
         ]);
 
+        $access = $data['access'] ?? null;
+        unset($data['access']); // bukan kolom guru
         $guru->update($data);
 
-        // Sync identifier di users
+        // Sync identifier + role/akses login (hanya admin yang bisa, route sudah IsAdmin)
         if ($guru->user) {
             $guru->user->update(['identifier' => $data['nik'] ?? $data['nip'] ?? null]);
+            if ($access && $guru->user->access !== 'superadmin') {
+                $guru->user->update(['access' => $access]);
+            }
         }
 
         return redirect()->route('guru.show', $uuid)->with('success', 'Data guru diperbarui.');
@@ -145,6 +151,17 @@ class GuruController extends Controller
         ])->with('success', "Password direset. Password baru: {$password}");
     }
 
+    /** Role/akses yang boleh diberikan ke seorang guru */
+    public const ROLES = [
+        'guru'      => 'Guru',
+        'walikelas' => 'Wali Kelas',
+        'kurikulum' => 'Kurikulum',
+        'kesiswaan' => 'Kesiswaan',
+        'sapras'    => 'Sarana & Prasarana',
+        'kepala'    => 'Kepala Sekolah',
+        'admin'     => 'Admin',
+    ];
+
     // Halaman assign pelajaran
     public function pelajaran(string $uuid)
     {
@@ -153,25 +170,72 @@ class GuruController extends Controller
         $kelas     = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
         $ngajars   = Ngajar::with(['pelajaran', 'kelas'])->where('id_guru', $uuid)->get();
 
-        return view('guru.pelajaran', compact('guru', 'pelajarans', 'kelas', 'ngajars'));
+        // Peta kelas yang SUDAH diajar guru LAIN per pelajaran → utk nonaktifkan di form
+        $takenMap = [];
+        $lain = Ngajar::with('guru')->whereNotNull('id_pelajaran')->whereNotNull('id_guru')
+            ->where('id_guru', '!=', $uuid)->get();
+        foreach ($lain as $ng) {
+            $nama = $ng->guru?->nama ?? 'guru lain';
+            if (empty($ng->id_kelas)) {
+                foreach ($kelas as $k) {
+                    $takenMap[$ng->id_pelajaran][$k->uuid] = $nama; // "semua kelas"
+                }
+            } else {
+                $takenMap[$ng->id_pelajaran][$ng->id_kelas] = $nama;
+            }
+        }
+
+        return view('guru.pelajaran', compact('guru', 'pelajarans', 'kelas', 'ngajars', 'takenMap'));
     }
 
     public function ngajar(Request $request, string $uuid)
     {
-        $request->validate([
+        $data = $request->validate([
             'id_pelajaran' => 'required|exists:pelajarans,uuid',
-            'id_kelas'     => 'nullable|exists:kelas,uuid',
+            'id_kelas'     => 'required|array|min:1',
+            'id_kelas.*'   => 'exists:kelas,uuid',
+        ], [
+            'id_kelas.required' => 'Pilih minimal satu kelas.',
+            'id_kelas.min'      => 'Pilih minimal satu kelas.',
         ]);
 
         Guru::findOrFail($uuid);
 
-        Ngajar::firstOrCreate([
-            'id_guru'      => $uuid,
-            'id_pelajaran' => $request->id_pelajaran,
-            'id_kelas'     => $request->id_kelas,
-        ]);
+        // Satu pelajaran bisa ditugaskan ke BANYAK kelas sekaligus,
+        // tapi 1 (pelajaran + kelas) hanya boleh diajar SATU guru (anti-bentrok).
+        $count = 0;
+        $conflicts = [];
+        foreach (array_unique($data['id_kelas']) as $kelasUuid) {
+            // Sudah diajar guru LAIN? (kelas spesifik ini, atau penugasan "semua kelas")
+            $taken = Ngajar::with('guru')
+                ->where('id_pelajaran', $data['id_pelajaran'])
+                ->where('id_guru', '!=', $uuid)
+                ->where(fn($q) => $q->where('id_kelas', $kelasUuid)->orWhereNull('id_kelas'))
+                ->first();
 
-        return back()->with('success', 'Pelajaran berhasil ditambahkan.');
+            if ($taken) {
+                $k = Kelas::find($kelasUuid);
+                $conflicts[] = ($k ? $k->tingkat . $k->kelas : '-') . ' → ' . ($taken->guru?->nama ?? 'guru lain');
+                continue;
+            }
+
+            $ng = Ngajar::firstOrCreate([
+                'id_guru'      => $uuid,
+                'id_pelajaran' => $data['id_pelajaran'],
+                'id_kelas'     => $kelasUuid,
+            ]);
+            if ($ng->wasRecentlyCreated) $count++;
+        }
+
+        if (!empty($conflicts)) {
+            $msg = ($count > 0 ? "{$count} kelas ditambahkan. " : '')
+                . 'Dilewati karena pelajaran ini sudah diajar guru lain di: ' . implode(', ', $conflicts) . '.';
+            return back()->with('error', $msg);
+        }
+
+        return back()->with('success', $count > 0
+            ? "Pelajaran ditambahkan ke {$count} kelas."
+            : 'Penugasan sudah ada (tidak ada yang baru ditambahkan).');
     }
 
     public function hapusNgajar(string $ngajarUuid)

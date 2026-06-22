@@ -12,7 +12,7 @@
             <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Edit Profil
         </a>
         <div class="relative z-10 px-6 py-7 flex items-center gap-4">
-            @php $profFace = $user->siswa?->face_photo ?? $user->guru?->face_photo; @endphp
+            @php $profFace = $user->siswa?->face_photo_url ?? $user->guru?->face_photo_url; @endphp
             <div class="w-20 h-20 rounded-2xl grid place-items-center text-3xl font-black flex-shrink-0 bg-white shadow-lg overflow-hidden {{ $profFace ? 'cursor-zoom-in' : '' }}" style="color:var(--cp)" @if($profFace) @click="avatarZoom=true" title="Lihat foto profil" @endif>
                 @if($profFace)<img src="{{ $profFace }}" class="w-full h-full object-cover" alt="foto profil">@else{{ strtoupper(substr($user->guru?->nama ?? $user->siswa?->nama ?? $user->username, 0, 1)) }}@endif
             </div>
@@ -75,7 +75,7 @@
         <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
             <i data-lucide="shield-check" class="w-[18px] h-[18px] text-primary"></i> Keamanan &amp; Tampilan
         </h3>
-        <div class="grid sm:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 {{ ($user->siswa || $user->guru) ? 'lg:grid-cols-4' : 'lg:grid-cols-3' }} gap-3">
             <a href="{{ route('ganti.password') }}" class="group flex items-center gap-3 p-4 rounded-xl border border-slate-100 dark:border-slate-700 card-hover">
                 <span class="grid place-items-center w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex-shrink-0"><i data-lucide="key-round" class="w-5 h-5"></i></span>
                 <div><p class="text-sm font-bold text-slate-700 dark:text-slate-200">Password</p><p class="text-xs text-slate-400">Ubah kata sandi</p></div>
@@ -88,6 +88,12 @@
                 <span class="grid place-items-center w-10 h-10 rounded-xl bg-primary-50 text-primary flex-shrink-0"><i data-lucide="palette" class="w-5 h-5"></i></span>
                 <div><p class="text-sm font-bold text-slate-700 dark:text-slate-200">Tampilan</p><p class="text-xs text-slate-400">Tema &amp; warna</p></div>
             </a>
+            @if($user->siswa || $user->guru)
+            <a href="{{ route('face.self', ['ulang'=>1]) }}" class="group flex items-center gap-3 p-4 rounded-xl border border-slate-100 dark:border-slate-700 card-hover">
+                <span class="grid place-items-center w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 flex-shrink-0"><i data-lucide="scan-face" class="w-5 h-5"></i></span>
+                <div><p class="text-sm font-bold text-slate-700 dark:text-slate-200">Wajah</p><p class="text-xs text-slate-400">{{ $profFace ? 'Daftar ulang wajah' : 'Daftarkan wajah' }}</p></div>
+            </a>
+            @endif
         </div>
     </div>
 </div>

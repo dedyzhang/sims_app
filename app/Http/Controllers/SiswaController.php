@@ -192,11 +192,26 @@ class SiswaController extends Controller
             'descriptors.*' => 'array|min:64',   // embedding (face-api 128 / Human ~1024)
             'photo'         => 'nullable|string',
         ]);
+
+        // Deteksi wajah ganda: cocok dengan orang lain yang sudah terdaftar?
+        if (!$request->boolean('force')) {
+            $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $uuid);
+            if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::THRESHOLD) {
+                return response()->json([
+                    'duplicate'  => true,
+                    'nama'       => $dup['nama'],
+                    'tipe'       => $dup['tipe'],
+                    'similarity' => round($dup['similarity'] * 100),
+                    'message'    => 'Wajah ini mirip ' . $dup['nama'] . ' (' . $dup['tipe'] . ').',
+                ], 422);
+            }
+        }
+
         $siswa = Siswa::findOrFail($uuid);
         $siswa->update([
             'face_descriptor'    => $request->descriptors,
             'face_registered_at' => now(),
-            'face_photo'         => $request->photo,
+            'face_photo'         => \App\Support\FaceMatch::saveFromDataUrl($request->photo, $siswa->uuid, $siswa->face_photo),
         ]);
         return response()->json(['success' => true, 'message' => 'Wajah ' . $siswa->nama . ' terdaftar.']);
     }

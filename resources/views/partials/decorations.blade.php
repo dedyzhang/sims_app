@@ -139,7 +139,89 @@
 
 {{-- ===================== MINIMAL ===================== --}}
 <div class="motif-set" data-motif="minimal">
-    <svg width="380" height="380" style="position:absolute;top:-120px;right:-100px;opacity:.07"><circle cx="190" cy="190" r="190" fill="var(--cp)"/></svg>
-    <svg width="260" height="260" style="position:absolute;bottom:-90px;right:120px;opacity:.06"><circle cx="130" cy="130" r="130" fill="var(--ca)"/></svg>
-    <svg width="160" height="160" style="position:absolute;top:46%;right:60px;opacity:.05"><rect width="160" height="160" rx="48" fill="var(--cps)"/></svg>
+    @php
+        $cp = strtolower($pref->primary_color ?? '');
+    @endphp
+    @if($cp === '#0f5132')
+        {{-- Zamrud Pro (Emerald Diamonds) --}}
+        <svg width="450" height="450" style="position:absolute;top:-150px;right:-100px;opacity:.06;transform:rotate(15deg);" fill="none" stroke="var(--cp)" stroke-width="4"><polygon points="225,20 430,225 225,430 20,225"/></svg>
+        <svg width="300" height="300" style="position:absolute;bottom:-100px;right:100px;opacity:.05;transform:rotate(-10deg);" fill="none" stroke="var(--cps)" stroke-width="3"><polygon points="150,15 285,150 150,285 15,150"/></svg>
+    @elseif($cp === '#3d2314')
+        {{-- Kopi Karamel (Coffee Rings) --}}
+        <svg width="500" height="500" style="position:absolute;top:-150px;right:-120px;opacity:.06;" fill="none" stroke="var(--cp)" stroke-width="3"><circle cx="250" cy="250" r="220" stroke-dasharray="8 8"/><circle cx="250" cy="250" r="170"/><circle cx="250" cy="250" r="120" stroke-dasharray="4 4"/></svg>
+        <svg width="320" height="320" style="position:absolute;bottom:-80px;right:80px;opacity:.05;" fill="none" stroke="var(--cps)" stroke-width="2.5"><circle cx="160" cy="160" r="140"/><circle cx="160" cy="160" r="90" stroke-dasharray="6 6"/></svg>
+    @elseif($cp === '#212529')
+        {{-- Arang Pro (Charcoal Hexagons) --}}
+        <svg width="480" height="480" style="position:absolute;top:-120px;right:-80px;opacity:.05;transform:rotate(30deg);" fill="none" stroke="var(--cp)" stroke-width="3"><polygon points="240,20 430,130 430,350 240,460 50,350 50,130"/></svg>
+        <svg width="320" height="320" style="position:absolute;bottom:-100px;right:120px;opacity:.04;transform:rotate(-15deg);" fill="none" stroke="var(--cps)" stroke-width="2"><polygon points="160,15 285,90 285,230 160,305 35,230 35,90"/></svg>
+    @else
+        {{-- Minimalis Default --}}
+        <svg width="380" height="380" style="position:absolute;top:-120px;right:-100px;opacity:.07"><circle cx="190" cy="190" r="190" fill="var(--cp)"/></svg>
+        <svg width="260" height="260" style="position:absolute;bottom:-90px;right:120px;opacity:.06"><circle cx="130" cy="130" r="130" fill="var(--ca)"/></svg>
+        <svg width="160" height="160" style="position:absolute;top:46%;right:60px;opacity:.05"><rect width="160" height="160" rx="48" fill="var(--cps)"/></svg>
+    @endif
 </div>
+
+{{-- ===================== NIGHT OCEAN (Samudera Malam) ===================== --}}
+<div class="motif-set" data-motif="nightocean">
+    {{-- compass rose top-right --}}
+    <svg width="180" height="180" style="position:absolute;top:28px;right:60px;opacity:.12">
+        <g transform="translate(90,90)">
+            <circle r="72" fill="none" stroke="var(--cp)" stroke-width="2.5" opacity=".4"/>
+            <circle r="56" fill="none" stroke="var(--cps)" stroke-width="1.5" opacity=".3"/>
+            @foreach([0,90,180,270] as $a)
+            <polygon points="0,-66 6,-24 -6,-24" fill="var(--cp)" transform="rotate({{ $a }})"/>
+            @endforeach
+            @foreach([45,135,225,315] as $a)
+            <polygon points="0,-48 4,-22 -4,-22" fill="var(--cps)" opacity=".6" transform="rotate({{ $a }})"/>
+            @endforeach
+            <circle r="8" fill="var(--ca)"/>
+            <circle r="3" fill="#fff"/>
+        </g>
+    </svg>
+    {{-- deep waves bottom --}}
+    <svg viewBox="0 0 1440 260" preserveAspectRatio="none" style="position:absolute;bottom:0;left:0;width:100%;height:220px;opacity:.10">
+        <path d="M0,120 C180,60 360,180 540,120 C720,60 900,180 1080,120 C1200,80 1320,160 1440,130 L1440,260 L0,260 Z" fill="var(--cp)"/>
+        <path d="M0,160 C200,120 400,200 600,160 C800,120 1000,200 1200,160 C1320,130 1440,180 1440,170 L1440,260 L0,260 Z" fill="var(--cps)" opacity=".6"/>
+        <path d="M0,200 C240,180 480,220 720,200 C960,180 1200,220 1440,210 L1440,260 L0,260 Z" fill="var(--cp)" opacity=".35"/>
+    </svg>
+    {{-- lighthouse mid-right --}}
+    <svg width="80" height="160" style="position:absolute;top:38%;right:40px;opacity:.11">
+        <g transform="translate(40,140)">
+            {{-- light beam --}}
+            <polygon points="0,-128 -60,-80 60,-80" fill="var(--ca)" opacity=".25"/>
+            {{-- tower --}}
+            <rect x="-12" y="-120" width="24" height="100" rx="4" fill="var(--cp)"/>
+            {{-- stripes --}}
+            <rect x="-12" y="-90" width="24" height="12" fill="var(--ca)" opacity=".5"/>
+            <rect x="-12" y="-60" width="24" height="12" fill="var(--ca)" opacity=".5"/>
+            {{-- lantern --}}
+            <rect x="-16" y="-132" width="32" height="16" rx="4" fill="var(--cps)"/>
+            <circle cx="0" cy="-124" r="5" fill="var(--ca)"/>
+            {{-- base --}}
+            <rect x="-20" y="-22" width="40" height="8" rx="3" fill="var(--cp)"/>
+        </g>
+    </svg>
+    {{-- anchor bottom-right --}}
+    <svg width="120" height="140" style="position:absolute;bottom:30px;right:32%;opacity:.10">
+        <g transform="translate(60,70)" fill="none" stroke="var(--cps)" stroke-width="5" stroke-linecap="round">
+            {{-- ring --}}
+            <circle cx="0" cy="-48" r="12"/>
+            {{-- shank --}}
+            <line x1="0" y1="-36" x2="0" y2="40"/>
+            {{-- arms --}}
+            <path d="M-36,40 C-36,14 0,14 0,40 C0,14 36,14 36,40"/>
+            {{-- crossbar --}}
+            <line x1="-18" y1="-20" x2="18" y2="-20"/>
+        </g>
+    </svg>
+    {{-- small bubbles scattered --}}
+    <svg width="100%" height="100%" preserveAspectRatio="none" style="position:absolute;inset:0;opacity:.08">
+        <g fill="var(--cps)">
+            @foreach([[82,22],[68,45],[55,18],[92,55],[76,70],[62,38],[88,80],[50,65]] as [$x,$y])
+            <circle cx="{{ $x }}%" cy="{{ $y }}%" r="{{ $loop->index % 3 == 0 ? 4 : 2.5 }}"/>
+            @endforeach
+        </g>
+    </svg>
+</div>
+

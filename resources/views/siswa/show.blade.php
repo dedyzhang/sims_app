@@ -8,7 +8,7 @@
 
     {{-- Hero --}}
     @php $heroGrad = $siswa->jk==='L' ? 'var(--cp),var(--cps) 55%,var(--ca)' : '#ec4899,#db2777 60%,var(--ca)'; @endphp
-    <div class="relative overflow-hidden rounded-2xl shadow-lg" style="background:linear-gradient(120deg,{{ $heroGrad }})">
+    <div class="relative overflow-hidden rounded-2xl shadow-lg" style="background:linear-gradient(120deg,{{ $heroGrad }})" x-data="{ fz:false }">
         <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10"></div>
         <div class="absolute right-24 -bottom-10 w-28 h-28 rounded-full bg-white/10"></div>
         <div class="absolute top-4 right-4 flex gap-2 z-20">
@@ -20,9 +20,9 @@
             </a>
         </div>
         <div class="relative z-10 px-6 py-7 flex items-center gap-4">
-            <div class="w-20 h-20 rounded-2xl grid place-items-center text-3xl font-black flex-shrink-0 bg-white shadow-lg"
-                 style="color:{{ $siswa->jk==='L' ? 'var(--cp)' : '#db2777' }}">
-                {{ strtoupper(substr($siswa->nama, 0, 1)) }}
+            <div class="w-20 h-20 rounded-2xl grid place-items-center text-3xl font-black flex-shrink-0 bg-white shadow-lg overflow-hidden {{ $siswa->face_photo ? 'cursor-zoom-in' : '' }}"
+                 style="color:{{ $siswa->jk==='L' ? 'var(--cp)' : '#db2777' }}" @if($siswa->face_photo) @click="fz=true" title="Lihat foto" @endif>
+                @if($siswa->face_photo)<img src="{{ $siswa->face_photo_url }}" class="w-full h-full object-cover" alt="Foto {{ $siswa->nama }}">@else{{ strtoupper(substr($siswa->nama, 0, 1)) }}@endif
             </div>
             <div>
                 <h2 class="text-2xl font-bold text-white drop-shadow-sm">{{ $siswa->nama }}</h2>
@@ -36,6 +36,17 @@
                 </div>
             </div>
         </div>
+
+        @if($siswa->face_photo)
+        {{-- Lightbox foto wajah --}}
+        <div x-show="fz" x-cloak @click="fz=false" @keydown.escape.window="fz=false" class="fixed inset-0 z-[10000] flex items-center justify-center p-6" style="display:none; background:rgba(15,12,10,.78); backdrop-filter:blur(6px)">
+            <div class="text-center" @click.stop>
+                <img src="{{ $siswa->face_photo_url }}" class="max-h-[78vh] max-w-[92vw] rounded-3xl shadow-2xl ring-4 ring-white/15" alt="Foto {{ $siswa->nama }}">
+                <p class="text-white/80 mt-3 font-semibold">{{ $siswa->nama }}</p>
+                <p class="text-white/50 text-xs">Klik di mana saja untuk menutup</p>
+            </div>
+        </div>
+        @endif
     </div>
 
     {{-- Identitas Lengkap Siswa --}}

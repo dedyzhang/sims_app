@@ -40,7 +40,26 @@ class JadwalController extends Controller
         }
         $bentrok = array_keys(array_filter($conflicts, fn($c) => $c > 1));
 
-        return view('jadwal.index', compact('hari', 'kelasList', 'jamList', 'pelajarans', 'gurus', 'cells', 'bentrok'));
+        // Peta penugasan: kelas → pelajaran → guru (dari profil guru / Ngajar)
+        $ngajars = Ngajar::with(['pelajaran', 'guru'])
+            ->whereNotNull('id_guru')->whereNotNull('id_pelajaran')->get();
+        $ngajarMap = [];
+        foreach ($kelasList as $k) {
+            foreach ($ngajars as $ng) {
+                if ($ng->id_kelas === $k->uuid || empty($ng->id_kelas)) {
+                    if (!isset($ngajarMap[$k->uuid][$ng->id_pelajaran])) {
+                        $ngajarMap[$k->uuid][$ng->id_pelajaran] = [
+                            'g'  => $ng->id_guru,
+                            'gn' => $ng->guru?->nama ?? '',
+                            'pn' => $ng->pelajaran?->nama ?? '',
+                            'pk' => $ng->pelajaran?->kode ?? '',
+                        ];
+                    }
+                }
+            }
+        }
+
+        return view('jadwal.index', compact('hari', 'kelasList', 'jamList', 'pelajarans', 'gurus', 'cells', 'bentrok', 'ngajarMap'));
     }
 
     /** Simpan / update satu sel (AJAX) */

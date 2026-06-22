@@ -15,6 +15,7 @@ use App\Http\Middleware\IsSiswaOrangtua;
 use App\Http\Middleware\IsWalidanSekre;
 use App\Http\Middleware\IsWalikelas;
 use App\Http\Middleware\IsWaliSekredanGuru;
+use App\Http\Middleware\UpdateLastSeen;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -26,6 +27,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Percayai proxy (mis. tunnel cloudflared/ngrok) agar HTTPS terdeteksi benar
+        // → URL form jadi https, tak ada peringatan "not secure".
+        $middleware->trustProxies(at: '*');
+
+        // Presence Forum: catat last_seen_at tiap request web (auth saja, dithrottle 60 dtk)
+        $middleware->web(append: [UpdateLastSeen::class]);
+
         // Alias middleware role
         $middleware->alias([
             'role'                   => CheckRole::class,

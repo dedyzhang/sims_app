@@ -309,9 +309,24 @@ function faceScan(data){
             } catch(e){}
         },
 
+        // Suara sapaan: masuk → "Selamat datang, nama", pulang → "Terima kasih, nama"
+        speak(label, nama){
+            try {
+                if(!('speechSynthesis' in window)) return;
+                const panggil = (nama||'').split(',')[0].trim();
+                const teks = (label === 'pulang' ? 'Terima kasih, ' : 'Selamat datang, ') + panggil;
+                const u = new SpeechSynthesisUtterance(teks);
+                u.lang='id-ID'; u.rate=0.97; u.pitch=1;
+                const id = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('id'));
+                if(id) u.voice = id;
+                speechSynthesis.speak(u);   // antre — tiap orang tersapa berurutan
+            } catch(e){}
+        },
+
         async start(){
             this.enterFs(); // panggil dalam gesture klik (sebelum await) agar fullscreen diizinkan
             try { this.audioCtx = this.audioCtx || new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
+            try { if('speechSynthesis' in window){ speechSynthesis.getVoices(); speechSynthesis.speak(new SpeechSynthesisUtterance(' ')); } } catch(e){} // buka izin suara (gesture)
             this.enrolled = this.attendees.filter(s=>s.desc && s.desc.length);
             if(this.enrolled.length===0){ this.status='Belum ada wajah terdaftar.'; showToast('Daftarkan wajah siswa/guru dulu','error'); return; }
             this.loading=true; this.status='Mengaktifkan kamera...';
@@ -380,6 +395,7 @@ function faceScan(data){
                 if(s.pulangMarked) return;
                 s.pulangMarked=true; s.justMarked=true;
                 this.playDing();
+                this.speak('pulang', s.nama);
                 const k=++this._seq;
                 const jamK=this.nowHM();
                 this.lastMatch={ key:k, nama:s.nama, type:s.type, kelas:'Guru', mode:'pulang', jam:jamK };
@@ -402,6 +418,7 @@ function faceScan(data){
             if(s.marked) return;
             s.marked=true; s.justMarked=true;
             this.playDing();   // bunyi sukses
+            this.speak('masuk', s.nama);
 
             // feedback visual (langsung tampil dengan jam lokal, dikoreksi jam server)
             const key = ++this._seq;

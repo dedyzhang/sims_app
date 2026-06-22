@@ -2,7 +2,7 @@
 @section('title', 'Registrasi Wajah')
 
 @section('content')
-<div class="space-y-5" x-data="faceEnroll()">
+<div class="space-y-5" x-data="faceEnroll()" @keydown.space.window="onSpace($event)">
 
     {{-- Header --}}
     <div class="flex items-center justify-between flex-wrap gap-3">
@@ -47,7 +47,7 @@
         <div class="card p-3.5 flex items-center gap-3">
             <div class="w-11 h-11 rounded-full grid place-items-center text-white font-bold flex-shrink-0 relative overflow-hidden" style="background:{{ $s->jk==='L' ? 'var(--cp)' : '#ec4899' }}">
                 @if($s->face_photo)
-                <img src="{{ $s->face_photo }}" class="w-full h-full object-cover cursor-zoom-in" @click="zoom('{{ $s->face_photo }}', @js($s->nama))" alt="wajah">
+                <img src="{{ $s->face_photo_url }}" class="w-full h-full object-cover cursor-zoom-in" @click="zoom('{{ $s->face_photo_url }}', @js($s->nama))" alt="wajah">
                 @else
                 {{ strtoupper(substr($s->nama,0,1)) }}
                 @endif
@@ -114,6 +114,7 @@
                 <button @click="close()" class="px-4 py-2 rounded-xl text-sm border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700">Batal</button>
                 <button @click="capture()" :disabled="!streaming || capturing || samples.length>=3" class="px-4 py-2 rounded-xl text-sm font-semibold border border-primary text-primary hover:bg-primary-50 transition flex items-center gap-1.5 disabled:opacity-40">
                     <i data-lucide="aperture" class="w-4 h-4"></i> Ambil Sampel (<span x-text="samples.length"></span>/3)
+                    <kbd class="text-[10px] px-1.5 py-0.5 rounded bg-primary-50 border border-primary/30">Spasi</kbd>
                 </button>
                 <button @click="save()" :disabled="samples.length<1 || saving" class="btn-primary px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-40">
                     <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin" x-show="saving"></i><span x-text="saving?'Menyimpan...':'Simpan'"></span>
@@ -185,11 +186,21 @@ function faceEnroll(){
                 this.$refs.video.srcObject = this.stream;
                 this.streaming=true;
                 await loadHuman();
+                // Warm-up: kompilasi shader sekali (saat loading) agar capture pertama tak nge-lag
+                this.status='Menyiapkan model (sekali saja)...';
+                try { const cv=document.createElement('canvas'); cv.width=256; cv.height=256; cv.getContext('2d').fillRect(0,0,256,256); await human.detect(cv); } catch(e){}
                 this.loading=false;
-                this.msg='Posisikan wajah dalam bingkai, lalu klik Ambil Sampel.';
+                this.msg='Posisikan wajah dalam bingkai, lalu tekan Spasi / klik Ambil Sampel.';
             } catch(e){
                 this.loading=false;
                 this.status='Gagal: ' + (e.name==='NotAllowedError' ? 'akses kamera ditolak' : e.message);
+            }
+        },
+        // Spasi = ambil sampel (saat modal kamera terbuka)
+        onSpace(e){
+            if(this.modal && this.streaming && !this.capturing && !this.saving && this.samples.length < 3){
+                e.preventDefault();
+                this.capture();
             }
         },
         async capture(){
@@ -211,18 +222,33 @@ function faceEnroll(){
             } catch(e){ this.msg='Error: '+e.message; this.msgErr=true; }
             this.capturing=false;
         },
-        async save(){
+        async save(force=false){
             this.saving=true;
             try {
                 const res = await fetch(`/siswa/${this.uuid}/wajah`, {
                     method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                    body: JSON.stringify({ descriptors: this.samples, photo: this.photo })
+                    body: JSON.stringify({ descriptors: this.samples, photo: this.photo, force })
                 });
-                const data = await res.json();
-                if(res.ok){ showToast(data.message||'Wajah terdaftar.'); this.close(); setTimeout(()=>location.reload(),700); }
-                else { showToast('Gagal menyimpan','error'); }
-            } catch { showToast('Gagal menghubungi server','error'); }
-            this.saving=false;
+                if(res.ok){ const data = await res.json(); showToast(data.message||'Wajah terdaftar.'); this.close(); setTimeout(()=>location.reload(),700); return; }
+                if(res.status===422){
+                    const d = await res.json();
+                    if(d.duplicate){
+                        this.saving=false;
+                        const self=this;
+                        $.confirm({
+                            title:'Wajah mirip terdeteksi',
+                            content:'<div class="text-slate-600 dark:text-slate-300">'+d.message+' Kemiripan <b class="text-rose-600">'+d.similarity+'%</b>.<br><br>Tetap daftarkan untuk <b>'+self.nama+'</b>?</div>',
+                            type:'orange', icon:'',
+                            buttons:{
+                                ya:{ text:'Ya, tetap daftarkan', btnClass:'btn-warning', keys:['enter'], action:()=>{ self.save(true); } },
+                                batal:{ text:'Batal', btnClass:'btn-default' }
+                            }
+                        });
+                        return;
+                    }
+                }
+                showToast('Gagal menyimpan','error'); this.saving=false;
+            } catch { showToast('Gagal menghubungi server','error'); this.saving=false; }
         },
         hapus(uuid){
             $.confirm({ title:'Hapus data wajah?', content:'Siswa perlu daftar ulang untuk absen scan.', type:'red',
