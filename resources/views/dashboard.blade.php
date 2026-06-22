@@ -36,7 +36,11 @@
     $siswaL = \App\Models\Siswa::where('jk','L')->count();
     $siswaP = \App\Models\Siswa::where('jk','P')->count();
     $recent = \App\Models\Siswa::with('kelas')->latest()->take(4)->get();
-    $motif = auth()->user()?->preference?->motif ?? 'botanical';
+    $pref = auth()->user()?->preference()->firstOrCreate(
+        ['user_uuid' => auth()->id()],
+        \App\Models\UserPreference::defaults()
+    );
+    $motif = $pref->motif ?? 'botanical';
     $motifIcon = ['botanical'=>'flower-2','ocean'=>'waves','forest'=>'trees','sunset'=>'sunset','robot'=>'bot','space'=>'rocket','minimal'=>'circle'][$motif] ?? 'flower-2';
 @endphp
 
@@ -337,7 +341,39 @@
 {{-- ===== Non-admin ===== --}}
 <div class="max-w-lg mx-auto mt-10">
     <div class="card p-8 text-center relative overflow-hidden">
-        <div class="absolute -right-4 -top-4 opacity-40">@include('partials.flower', ['s'=>90,'c1'=>'var(--cp)','c2'=>'var(--ca)','o'=>'.5'])</div>
+        <div class="absolute -right-6 -top-6 opacity-30 pointer-events-none">
+            @php
+                $motif = $pref->motif ?? 'botanical';
+                $cp = strtolower($pref->primary_color ?? '');
+            @endphp
+            @if($motif === 'botanical')
+                @include('partials.flower', ['s'=>110,'c1'=>'var(--cp)','c2'=>'var(--ca)','o'=>'.5'])
+            @elseif($motif === 'forest')
+                @include('partials.leaf', ['s'=>100,'c'=>'var(--cp)','o'=>'.5'])
+            @elseif($motif === 'ocean')
+                <svg width="100" height="100" viewBox="0 0 120 70" style="transform: rotate(-15deg);"><g fill="var(--cp)"><path d="M15,35 C45,8 85,8 100,35 C85,62 45,62 15,35 Z"/><path d="M100,35 L120,18 L115,35 L120,52 Z"/></g></svg>
+            @elseif($motif === 'nightocean')
+                <svg width="90" height="90" viewBox="0 0 120 140" fill="none" stroke="var(--cp)" stroke-width="6" stroke-linecap="round"><circle cx="60" cy="22" r="12"/><line x1="60" y1="34" x2="60" y2="110"/><path d="M24,110 C24,84 60,84 60,110 C60,84 96,84 96,110"/><line x1="42" y1="50" x2="78" y2="50"/></svg>
+            @elseif($motif === 'robot')
+                <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="var(--cp)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            @elseif($motif === 'space')
+                <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="var(--cp)" stroke-width="2"><path d="M4.5 16.5c-1.5 1.25-2.5 3.5-2.5 3.5s2.25-1 3.5-2.5L18.5 4.5 19.5 5.5l-13 13M12 5l2 2M9 8l2 2M6 11l2 2M19 3l2 2"/></svg>
+            @elseif($motif === 'sunset')
+                <svg width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="30" fill="var(--cp)" opacity=".8"/><path d="M10,70 L90,70 M20,80 L80,80 M35,90 L65,90" stroke="var(--cp)" stroke-width="4"/></svg>
+            @elseif($motif === 'minimal' && $cp === '#0f5132')
+                {{-- Zamrud Pro (Emerald Diamond) --}}
+                <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="var(--cp)" stroke-width="2" stroke-linejoin="round"><polygon points="50,10 90,50 50,90 10,50" opacity=".6" /><polygon points="50,25 75,50 50,75 25,50" opacity=".4" /><polygon points="50,38 62,50 50,62 38,50" fill="var(--ca)" opacity=".8" stroke="none" /><line x1="50" y1="10" x2="50" y2="25" opacity=".5"/><line x1="90" y1="50" x2="75" y2="50" opacity=".5"/><line x1="50" y1="90" x2="50" y2="75" opacity=".5"/><line x1="10" y1="50" x2="25" y2="50" opacity=".5"/></svg>
+            @elseif($motif === 'minimal' && $cp === '#3d2314')
+                {{-- Kopi Karamel (Coffee Ripples) --}}
+                <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="var(--cp)" stroke-dasharray="2 4" stroke-width="2.5"><circle cx="50" cy="50" r="40" opacity=".5" /><circle cx="50" cy="50" r="30" stroke-dasharray="none" opacity=".4" /><circle cx="50" cy="50" r="20" opacity=".3" /><circle cx="50" cy="50" r="10" fill="var(--ca)" opacity=".8" stroke="none" /><line x1="15" y1="15" x2="85" y2="85" stroke-width="1.5" opacity=".3"/></svg>
+            @elseif($motif === 'minimal' && $cp === '#212529')
+                {{-- Arang Pro (Charcoal Isometric Cube) --}}
+                <svg width="100" height="100" viewBox="0 0 100 100" stroke="var(--cp)" stroke-width="2" fill="none" stroke-linejoin="round"><g transform="translate(45, 45)"><polygon points="0,-25 22,-12 22,12 0,25 -22,12 -22,-12" opacity=".6"/><line x1="0" y1="25" x2="0" y2="0" opacity=".6"/><line x1="-22" y1="-12" x2="0" y2="0" opacity=".6"/><line x1="22" y1="-12" x2="0" y2="0" opacity=".6"/></g><g transform="translate(68, 62) scale(0.6)"><polygon points="0,-25 22,-12 22,12 0,25 -22,12 -22,-12" fill="var(--ca)" opacity=".8" stroke="none"/></g><g fill="var(--cps)" opacity=".4"><circle cx="20" cy="20" r="1.5"/><circle cx="40" cy="20" r="1.5"/><circle cx="60" cy="20" r="1.5"/><circle cx="80" cy="20" r="1.5"/><circle cx="20" cy="80" r="1.5"/><circle cx="40" cy="80" r="1.5"/><circle cx="60" cy="80" r="1.5"/></g></svg>
+            @else
+                {{-- Minimalis Default (#5b7a99) --}}
+                <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="var(--cp)" stroke-width="2"><rect x="15" y="15" width="70" height="70" rx="16" opacity=".5" /><circle cx="50" cy="50" r="24" fill="var(--ca)" stroke="none" opacity=".8" /><line x1="15" y1="50" x2="85" y2="50" opacity=".3" /></svg>
+            @endif
+        </div>
         <div class="w-16 h-16 rounded-2xl mx-auto mb-4 grid place-items-center text-white shadow-lg" style="background:linear-gradient(135deg,var(--cp),var(--ca))">
             <i data-lucide="layout-dashboard" class="w-8 h-8"></i>
         </div>

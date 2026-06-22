@@ -72,19 +72,19 @@
             </div>
             <div class="divide-y divide-slate-100 dark:divide-slate-700">
                 @foreach($siswas as $i => $s)
-                @php $row = $existing->get($s->uuid); $cur = $row?->status ?? 'hadir'; @endphp
+                @php $row = $existing->get($s->uuid); $cur = $row?->status; @endphp
                 <div class="p-3.5 flex items-center gap-3 flex-wrap sm:flex-nowrap hover:bg-slate-50 dark:hover:bg-slate-900/40 transition">
                     <span class="text-xs text-slate-400 w-5 flex-shrink-0">{{ $i+1 }}</span>
                     <div class="w-9 h-9 rounded-full grid place-items-center text-white text-xs font-bold flex-shrink-0" style="background:{{ $s->jk==='L' ? 'var(--cp)' : '#ec4899' }}">{{ strtoupper(substr($s->nama,0,1)) }}</div>
                     <div class="flex-1 min-w-0">
                         <p class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">{{ $s->nama }}</p>
-                        <p class="text-xs text-slate-400 font-mono flex items-center gap-2 flex-wrap">
+                        <p class="text-xs text-slate-400 font-mono flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
                             <span>{{ $s->nis }}</span>
                             @if($row?->jam_masuk)<span class="{{ $row->terlambat($batas) ? 'text-rose-500' : 'text-emerald-500' }} flex items-center gap-0.5 font-sans"><i data-lucide="clock" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::of($row->jam_masuk)->substr(0,5) }}</span>@endif
                             @if($row && $row->terlambat($batas))<span class="badge bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300 font-semibold font-sans">Terlambat</span>@endif
                         </p>
                     </div>
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <div class="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto justify-end ml-8 sm:ml-0">
                         @foreach(['hadir'=>['H','h'],'izin'=>['I','i'],'sakit'=>['S','s'],'alpa'=>['A','a']] as $val => [$abbr,$cls])
                         <label>
                             <input type="radio" name="status[{{ $s->uuid }}]" value="{{ $val }}" @checked($cur===$val) class="sr-only stat-radio stat-{{ $cls }}">

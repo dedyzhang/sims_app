@@ -2,7 +2,7 @@
 @section('title', 'Daftar Wajah')
 
 @section('content')
-<div class="max-w-3xl mx-auto" x-data="selfEnroll()">
+<div class="max-w-3xl mx-auto" x-data="selfEnroll()" @keydown.space.window="onSpace($event)">
 
     <div class="card overflow-hidden">
         {{-- Header --}}
@@ -10,9 +10,13 @@
             <div class="w-14 h-14 mx-auto rounded-2xl grid place-items-center text-white shadow mb-3" style="background:linear-gradient(135deg,var(--cp),var(--ca))">
                 <i data-lucide="scan-face" class="w-7 h-7"></i>
             </div>
-            <h1 class="page-title">Daftarkan Wajah Anda</h1>
+            <h1 class="page-title">{{ ($ulang ?? false) ? 'Perbarui Wajah' : 'Daftarkan Wajah Anda' }}</h1>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+                @if($ulang ?? false)
+                Hai <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $nama }}</span>, ambil ulang foto & data wajah Anda. Data wajah lama akan digantikan.
+                @else
                 Hai <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $nama }}</span>, sebelum melanjutkan Anda perlu mendaftarkan wajah untuk absensi otomatis. Cukup sekali saja.
+                @endif
             </p>
         </div>
 
@@ -45,6 +49,7 @@
                     </button>
                     <button x-show="streaming" @click="capture()" :disabled="capturing || samples.length>=3" class="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border border-primary text-primary hover:bg-primary-50 transition flex items-center justify-center gap-1.5 disabled:opacity-40">
                         <i data-lucide="aperture" class="w-4 h-4"></i> Ambil Sampel (<span x-text="samples.length"></span>/3)
+                        <kbd class="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-primary-50 border border-primary/30">Spasi</kbd>
                     </button>
                 </div>
                 <button x-show="streaming" @click="save()" :disabled="samples.length<1 || saving" class="btn-primary w-full px-5 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40">
@@ -67,10 +72,14 @@
         </div>
 
         <div class="p-4 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center">
+            @if($ulang ?? false)
+            <a href="{{ route('profile.index') }}" class="text-xs text-slate-400 hover:text-primary flex items-center gap-1"><i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Kembali ke Profil</a>
+            @else
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit" class="text-xs text-slate-400 hover:text-rose-500 flex items-center gap-1"><i data-lucide="log-out" class="w-3.5 h-3.5"></i> Keluar</button>
             </form>
+            @endif
         </div>
     </div>
 </div>
@@ -124,12 +133,22 @@ function selfEnroll(){
                 this.$refs.video.srcObject = this.stream;
                 this.streaming=true;
                 await loadHuman();
+                // Warm-up: kompilasi shader GPU sekali (saat loading) agar capture pertama tak nge-lag
+                this.status='Menyiapkan model (sekali saja)...';
+                try { const cv=document.createElement('canvas'); cv.width=256; cv.height=256; cv.getContext('2d').fillRect(0,0,256,256); await human.detect(cv); } catch(e){}
                 this.loading=false;
-                this.msg='Ikuti panduan, lalu klik Ambil Sampel.';
+                this.msg='Ikuti panduan, lalu tekan Spasi / klik Ambil Sampel.';
                 setTimeout(()=> window.lucide && lucide.createIcons(), 40);
             } catch(e){
                 this.loading=false;
                 this.status='Gagal: ' + (e.name==='NotAllowedError' ? 'akses kamera ditolak' : e.message);
+            }
+        },
+        // Spasi = ambil sampel (saat kamera aktif)
+        onSpace(e){
+            if(this.streaming && !this.capturing && !this.saving && this.samples.length < 3){
+                e.preventDefault();
+                this.capture();
             }
         },
         async capture(){
@@ -149,18 +168,37 @@ function selfEnroll(){
             } catch(e){ this.msg='Error: '+e.message; this.msgErr=true; }
             this.capturing=false;
         },
-        async save(){
+        async save(force=false){
             this.saving=true;
             try {
                 const res = await fetch('{{ route('face.self.store') }}', {
                     method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                    body: JSON.stringify({ descriptors: this.samples, photo: this.photo })
+                    body: JSON.stringify({ descriptors: this.samples, photo: this.photo, force })
                 });
                 if(res.ok){
-                    showToast('Wajah berhasil didaftarkan!');
+                    showToast('Wajah berhasil disimpan!');
                     if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); }
-                    setTimeout(()=> window.location.href='{{ route('dashboard') }}', 800);
-                } else { showToast('Gagal menyimpan, coba lagi','error'); this.saving=false; }
+                    setTimeout(()=> window.location.href='{{ $redirectAfter ?? route('dashboard') }}', 800);
+                    return;
+                }
+                if(res.status===422){
+                    const d = await res.json();
+                    if(d.duplicate){
+                        this.saving=false;
+                        const self=this;
+                        $.confirm({
+                            title:'Wajah mirip terdeteksi',
+                            content:'<div class="text-slate-600 dark:text-slate-300">'+d.message+' Kemiripan <b class="text-rose-600">'+d.similarity+'%</b>.<br><br>Tetap daftarkan wajah ini?</div>',
+                            type:'orange', icon:'',
+                            buttons:{
+                                ya:{ text:'Ya, tetap daftarkan', btnClass:'btn-warning', keys:['enter'], action:()=>{ self.save(true); } },
+                                batal:{ text:'Batal', btnClass:'btn-default' }
+                            }
+                        });
+                        return;
+                    }
+                }
+                showToast('Gagal menyimpan, coba lagi','error'); this.saving=false;
             } catch { showToast('Gagal menghubungi server','error'); this.saving=false; }
         }
     }

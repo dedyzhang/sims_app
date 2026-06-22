@@ -85,18 +85,54 @@
         <form method="POST" action="{{ route('setting.rumusRapor') }}" class="card p-6 space-y-4">
             @csrf
             <div>
-                <h2 class="font-bold text-slate-800 dark:text-slate-100">Rumus Nilai Rapor</h2>
-                <p class="text-sm text-slate-400 mt-0.5">Total bobot harus = 100%</p>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100">Rumus Perhitungan Nilai Rapor</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Pilih metode perhitungan nilai rapor akhir siswa secara universal di satu tempat saja.</p>
             </div>
-            <div class="grid grid-cols-3 gap-4">
-                @foreach(['bobot_harian'=>'Harian (%)','bobot_pts'=>'PTS (%)','bobot_pas'=>'PAS (%)'] as $key => $label)
-                <div>
-                    <label class="form-label">{{ $label }}</label>
-                    <input type="number" name="{{ $key }}" value="{{ old($key, $settings[$key] ?? '') }}" min="0" max="100" class="form-input text-center font-bold">
+            <div class="space-y-1.5">
+                <label class="form-label">Metode Perhitungan Rapor</label>
+                <select name="rumus_rapor" class="form-select">
+                    @foreach(\App\Support\Penilaian::RUMUS as $key => $label)
+                        <option value="{{ $key }}" @selected(($settings['rumus_rapor'] ?? 'bagi4') === $key)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan Rumus Rapor</button>
+        </form>
+
+        <a href="{{ route('setting.penjabaran') }}" class="card p-6 flex items-center justify-between gap-3 hover:border-primary transition">
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="list-tree" class="w-[18px] h-[18px] text-primary"></i> Nilai Penjabaran</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Atur mata pelajaran yang punya nilai penjabaran &amp; komponen nilainya (mis. B. Inggris: Listening, Speaking, Reading, Writing).</p>
+            </div>
+            <i data-lucide="chevron-right" class="w-5 h-5 text-slate-400 flex-shrink-0"></i>
+        </a>
+
+        <a href="{{ route('setting.kopRapor') }}" class="card p-6 flex items-center justify-between gap-3 hover:border-primary transition">
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="stamp" class="w-[18px] h-[18px] text-primary"></i> Kop Surat Rapor</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Upload logo (kiri &amp; kanan), ubah teks kepala surat, dan ganti gambar latar (backdrop) pada cetak rapor.</p>
+            </div>
+            <i data-lucide="chevron-right" class="w-5 h-5 text-slate-400 flex-shrink-0"></i>
+        </a>
+
+
+        <form method="POST" action="{{ route('setting.tpRange') }}" class="card p-6 space-y-4">
+            @csrf
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="list-checks" class="w-[18px] h-[18px] text-primary"></i> Batas Tujuan Pembelajaran per Materi</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Tentukan jumlah minimal &amp; maksimal TP yang boleh ditambahkan guru di tiap materi. Isi <b>0</b> untuk tanpa batas.</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <div class="space-y-1.5">
+                    <label class="form-label">Minimal TP</label>
+                    <input type="number" name="tp_min" min="0" max="50" value="{{ $settings['tp_min'] ?? 0 }}" class="form-input w-28">
                 </div>
-                @endforeach
+                <div class="space-y-1.5">
+                    <label class="form-label">Maksimal TP</label>
+                    <input type="number" name="tp_max" min="0" max="50" value="{{ $settings['tp_max'] ?? 0 }}" class="form-input w-28">
+                </div>
             </div>
-            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan Batas TP</button>
         </form>
     </div>
 
@@ -148,6 +184,78 @@
                 <button type="submit" class="btn-primary px-4 py-2.5 rounded-xl text-sm font-bold w-full">Simpan</button>
             </form>
         </div>
+
+        {{-- Lokasi & QR Absensi --}}
+        <div class="card p-6" x-data="qrLokasi({ lat:@js($settings['sekolah_lat'] ?? ''), lng:@js($settings['sekolah_lng'] ?? '') })" x-init="init()">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="map-pin" class="w-[18px] h-[18px] text-primary"></i> Lokasi & QR Absensi</h2>
+                <a href="{{ route('qr.absensi') }}" class="text-xs text-primary font-semibold flex items-center gap-1"><i data-lucide="qr-code" class="w-3.5 h-3.5"></i> Lihat QR hari ini</a>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">Tetapkan titik sekolah & radius. Absen QR hanya berhasil di dalam radius ini.</p>
+            <form method="POST" action="{{ route('setting.lokasiQr') }}" class="space-y-4">
+                @csrf
+                <div id="setMap" style="height:240px" class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 z-0"></div>
+                <p class="text-xs text-slate-400">Klik di peta untuk menetapkan titik sekolah, atau gunakan tombol lokasi.</p>
+                <div class="grid sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="form-label">Latitude</label>
+                        <input type="text" name="sekolah_lat" x-model="lat" class="form-input font-mono" placeholder="-0.917">
+                    </div>
+                    <div>
+                        <label class="form-label">Longitude</label>
+                        <input type="text" name="sekolah_lng" x-model="lng" class="form-input font-mono" placeholder="104.46">
+                    </div>
+                    <div>
+                        <label class="form-label">Radius (meter)</label>
+                        <input type="number" name="absen_radius" value="{{ $settings['absen_radius'] ?? 100 }}" min="10" max="5000" class="form-input">
+                    </div>
+                </div>
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                    <button type="button" @click="useMyLocation()" class="text-sm font-semibold text-primary flex items-center gap-1.5"><i data-lucide="locate-fixed" class="w-4 h-4"></i> Gunakan lokasi saya sekarang</button>
+                    <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                        <input type="checkbox" name="qr_absensi_aktif" value="1" @checked(($settings['qr_absensi_aktif'] ?? '1')=='1') class="accent-[color:var(--cp)] w-4 h-4"> Aktifkan Absen QR
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan Lokasi</button>
+            </form>
+        </div>
     </div>
 </div>
+
+@push('styles')<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />@endpush
+@push('scripts')
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+function qrLokasi(cfg){
+    return {
+        lat: cfg.lat || '', lng: cfg.lng || '', map:null, marker:null,
+        init(){
+            const has = this.lat && this.lng;
+            const start = has ? [parseFloat(this.lat), parseFloat(this.lng)] : [-0.9177, 104.4602]; // default Tanjungpinang
+            this.$nextTick(()=>{
+                if(!document.getElementById('setMap')) return;
+                this.map = L.map('setMap').setView(start, has?16:12);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(this.map);
+                if(has) this.place(start[0], start[1], false);
+                this.map.on('click', e=> this.place(e.latlng.lat, e.latlng.lng));
+                // refresh ukuran saat container mendapat lebar penuh (anti peta cuma sebagian)
+                try { new ResizeObserver(()=> this.map && this.map.invalidateSize()).observe(document.getElementById('setMap')); } catch(e){}
+                [100,400,900,1500].forEach(t=> setTimeout(()=> this.map && this.map.invalidateSize(), t));
+            });
+        },
+        place(la, ln, recenter=true){
+            this.lat = (+la).toFixed(6); this.lng = (+ln).toFixed(6);
+            if(this.marker) this.map.removeLayer(this.marker);
+            this.marker = L.marker([la,ln]).addTo(this.map);
+            if(recenter) this.map.setView([la,ln], 16);
+        },
+        useMyLocation(){
+            if(!navigator.geolocation){ showToast('Perangkat tak mendukung lokasi','error'); return; }
+            navigator.geolocation.getCurrentPosition(p=> this.place(p.coords.latitude, p.coords.longitude),
+                ()=> showToast('Gagal baca lokasi','error'), { enableHighAccuracy:true });
+        }
+    }
+}
+</script>
+@endpush
 @endsection

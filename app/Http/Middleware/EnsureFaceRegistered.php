@@ -7,8 +7,9 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Memaksa siswa & guru yang BELUM mendaftarkan wajah untuk mendaftar dulu
- * sebelum bisa mengakses halaman lain. Role lain (admin, ortu, dll) dilewati.
+ * Memaksa SEMUA role (siswa, guru, kepala, kurikulum, kesiswaan, sapras, admin, dll)
+ * mendaftarkan wajah sebelum mengakses halaman lain. HANYA orang tua yang dikecualikan.
+ * User yang belum ganti password bawaan dipaksa ke halaman ganti password dulu.
  */
 class EnsureFaceRegistered
 {
@@ -16,8 +17,9 @@ class EnsureFaceRegistered
     private array $allowed = [
         'face.self', 'face.self.store',
         'logout', 'auth.home',
-        'ganti.password', 'ganti.username', 'ganti.pin',
+        'ganti.password', 'ganti.password.post', 'ganti.username', 'ganti.pin', 'ganti.pin.post',
         'profile.style',
+        'absen.qr', 'absen.qr.mark',   // absen QR boleh tanpa wajib daftar wajah
     ];
 
     public function handle(Request $request, Closure $next): Response
@@ -38,9 +40,11 @@ class EnsureFaceRegistered
             return $next($request);
         }
 
-        // Biarkan alur ganti password bawaan selesai dulu
+        // Wajib selesaikan ganti password dulu — JANGAN dilewatkan begitu saja
+        // (kalau dilewatkan, user bisa menerobos ke dashboard tanpa daftar wajah).
+        // Rute ganti password sudah di-whitelist di atas, jadi tidak loop.
         if ($user->must_change_password) {
-            return $next($request);
+            return redirect()->route('ganti.password');
         }
 
         // Selain ortu (siswa, guru, kepala, kurikulum, kesiswaan, sapras, admin, dll)

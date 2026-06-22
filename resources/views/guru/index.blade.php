@@ -49,9 +49,9 @@
                         <td class="text-slate-400 text-xs">{{ $gurus->firstItem() + $i }}</td>
                         <td>
                             <div class="flex items-center gap-3">
-                                <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                                <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0 overflow-hidden"
                                      style="background:var(--cp)">
-                                    {{ strtoupper(substr($guru->nama, 0, 1)) }}
+                                    @if($guru->face_photo)<img src="{{ $guru->face_photo_url }}" class="w-full h-full object-cover" alt="">@else{{ strtoupper(substr($guru->nama, 0, 1)) }}@endif
                                 </div>
                                 <div>
                                     <p class="font-semibold text-slate-800 dark:text-slate-200">{{ $guru->nama }}</p>

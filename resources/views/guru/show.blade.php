@@ -7,7 +7,7 @@
 <div class="max-w-4xl mx-auto space-y-5">
 
     {{-- Hero --}}
-    <div class="relative overflow-hidden rounded-2xl shadow-lg" style="background:linear-gradient(120deg,var(--cp),var(--cps) 55%,var(--ca))">
+    <div class="relative overflow-hidden rounded-2xl shadow-lg" style="background:linear-gradient(120deg,var(--cp),var(--cps) 55%,var(--ca))" x-data="{ fz:false }">
         <div class="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-white/10"></div>
         <div class="absolute right-24 -bottom-10 w-28 h-28 rounded-full bg-white/10"></div>
         <div class="absolute top-4 right-4 flex gap-2 z-20">
@@ -19,12 +19,13 @@
             </a>
         </div>
         <div class="relative z-10 px-6 py-7 flex items-center gap-4">
-            <div class="w-20 h-20 rounded-2xl grid place-items-center text-3xl font-black flex-shrink-0 bg-white shadow-lg" style="color:var(--cp)">
-                {{ strtoupper(substr($guru->nama, 0, 1)) }}
+            <div class="w-20 h-20 rounded-2xl grid place-items-center text-3xl font-black flex-shrink-0 bg-white shadow-lg overflow-hidden {{ $guru->face_photo ? 'cursor-zoom-in' : '' }}" style="color:var(--cp)" @if($guru->face_photo) @click="fz=true" title="Lihat foto" @endif>
+                @if($guru->face_photo)<img src="{{ $guru->face_photo_url }}" class="w-full h-full object-cover" alt="Foto {{ $guru->nama }}">@else{{ strtoupper(substr($guru->nama, 0, 1)) }}@endif
             </div>
             <div>
                 <h2 class="text-2xl font-bold text-white drop-shadow-sm">{{ $guru->nama }}</h2>
                 <div class="flex items-center gap-2 mt-2 flex-wrap">
+                    <span class="badge bg-white/30 text-white backdrop-blur font-semibold flex items-center gap-1"><i data-lucide="shield" class="w-3 h-3"></i> {{ \App\Http\Controllers\GuruController::ROLES[$guru->user?->access] ?? \Illuminate\Support\Str::headline($guru->user?->access ?? 'Guru') }}</span>
                     <span class="badge bg-white/25 text-white backdrop-blur font-mono">{{ $guru->nik ?? $guru->nip ?? 'No NIK/NIP' }}</span>
                     @if($guru->walikelas)
                     <span class="badge bg-white/25 text-white backdrop-blur">Wali Kelas {{ $guru->walikelas->kelas?->tingkat }}{{ $guru->walikelas->kelas?->kelas }}</span>
@@ -32,6 +33,17 @@
                 </div>
             </div>
         </div>
+
+        @if($guru->face_photo)
+        {{-- Lightbox foto wajah --}}
+        <div x-show="fz" x-cloak @click="fz=false" @keydown.escape.window="fz=false" class="fixed inset-0 z-[10000] flex items-center justify-center p-6" style="display:none; background:rgba(15,12,10,.78); backdrop-filter:blur(6px)">
+            <div class="text-center" @click.stop>
+                <img src="{{ $guru->face_photo_url }}" class="max-h-[78vh] max-w-[92vw] rounded-3xl shadow-2xl ring-4 ring-white/15" alt="Foto {{ $guru->nama }}">
+                <p class="text-white/80 mt-3 font-semibold">{{ $guru->nama }}</p>
+                <p class="text-white/50 text-xs">Klik di mana saja untuk menutup</p>
+            </div>
+        </div>
+        @endif
     </div>
 
     <div class="grid md:grid-cols-2 gap-5">

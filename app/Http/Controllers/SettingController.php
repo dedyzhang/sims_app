@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kelas;
+use App\Models\NilaiPenjabaran;
 use App\Models\Pelajaran;
+use App\Models\PenjabaranKomponen;
 use App\Models\Semester;
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class SettingController extends Controller
@@ -70,6 +74,20 @@ class SettingController extends Controller
         return back()->with('success', 'Batas jam terlambat siswa & guru disimpan.');
     }
 
+    public function setLokasiQr(Request $request)
+    {
+        $request->validate([
+            'sekolah_lat'  => 'nullable|numeric|between:-90,90',
+            'sekolah_lng'  => 'nullable|numeric|between:-180,180',
+            'absen_radius' => 'required|integer|min:10|max:5000',
+        ]);
+        Setting::set('sekolah_lat', $request->sekolah_lat);
+        Setting::set('sekolah_lng', $request->sekolah_lng);
+        Setting::set('absen_radius', $request->absen_radius);
+        Setting::set('qr_absensi_aktif', $request->boolean('qr_absensi_aktif') ? '1' : '0');
+        return back()->with('success', 'Lokasi & QR absensi disimpan.');
+    }
+
     public function setMapelRapor(Request $request)
     {
         Setting::set('mapel_rapor', json_encode($request->input('mapels', [])));
@@ -93,19 +111,115 @@ class SettingController extends Controller
     public function setRumusRapor(Request $request)
     {
         $request->validate([
-            'bobot_harian' => 'required|integer|min:0|max:100',
-            'bobot_pts'    => 'required|integer|min:0|max:100',
-            'bobot_pas'    => 'required|integer|min:0|max:100',
+            'rumus_rapor' => 'required|in:bagi3,bagi4,jumlahDulu',
         ]);
-        Setting::set('bobot_harian', $request->bobot_harian);
-        Setting::set('bobot_pts', $request->bobot_pts);
-        Setting::set('bobot_pas', $request->bobot_pas);
-        return back()->with('success', 'Rumus rapor disimpan.');
+        Setting::set('rumus_rapor', $request->rumus_rapor);
+        return back()->with('success', 'Rumus perhitungan nilai rapor berhasil diperbarui.');
     }
 
     public function setBarcodeAbsensi()
     {
         // Generate QR untuk setiap guru
         return redirect()->route('setting.index')->with('success', 'Barcode akan digenerate.');
+    }
+
+    /** Batas min/maks Tujuan Pembelajaran per materi (0 = tanpa batas). */
+    public function setTpRange(Request $request)
+    {
+        $data = $request->validate([
+            'tp_min' => 'nullable|integer|min:0|max:50',
+            'tp_max' => 'nullable|integer|min:0|max:50',
+        ]);
+        $min = (int) ($data['tp_min'] ?? 0);
+        $max = (int) ($data['tp_max'] ?? 0);
+        if ($max > 0 && $min > $max) {
+            return back()->with('error', 'Minimal TP tidak boleh lebih besar dari maksimal.');
+        }
+        Setting::set('tp_min', $min);
+        Setting::set('tp_max', $max);
+        return back()->with('success', 'Batas jumlah Tujuan Pembelajaran disimpan.');
+    }
+
+    /** ====== Konfigurasi Nilai Penjabaran (admin) ====== */
+    public function penjabaran()
+    {
+        $pelajarans = Pelajaran::with('penjabaranKomponen')->orderBy('urutan')->orderBy('nama')->get();
+        return view('setting.penjabaran', compact('pelajarans'));
+    }
+
+    public function penjabaranSave(Request $request)
+    {
+        $data = $request->validate([
+            'k_uuid'      => 'array',
+            'k_uuid.*'    => 'nullable|string',
+            'k_pelajaran' => 'array',
+            'k_pelajaran.*' => 'nullable|string',
+            'k_nama'      => 'array',
+            'k_nama.*'    => 'nullable|string|max:60',
+        ]);
+
+        DB::transaction(function () use ($data) {
+            $keep = [];
+            $urutByPel = [];
+            foreach ($data['k_nama'] ?? [] as $i => $nama) {
+                $nama = trim((string) $nama);
+                $pel  = $data['k_pelajaran'][$i] ?? null;
+                if ($nama === '' || !$pel) continue;
+                $uuid = $data['k_uuid'][$i] ?? null;
+                $urut = ($urutByPel[$pel] = ($urutByPel[$pel] ?? 0) + 1);
+                if ($uuid && ($row = PenjabaranKomponen::find($uuid))) {
+                    $row->update(['nama' => $nama, 'urutan' => $urut]);
+                    $keep[] = $uuid;
+                } else {
+                    $keep[] = PenjabaranKomponen::create(['id_pelajaran' => $pel, 'nama' => $nama, 'urutan' => $urut])->uuid;
+                }
+            }
+            // hapus komponen yang dibuang dari form (beserta nilainya)
+            $dibuang = PenjabaranKomponen::whereNotIn('uuid', $keep ?: ['-'])->pluck('uuid');
+            if ($dibuang->isNotEmpty()) {
+                NilaiPenjabaran::whereIn('id_komponen', $dibuang)->delete();
+                PenjabaranKomponen::whereIn('uuid', $dibuang)->delete();
+            }
+        });
+
+        return back()->with('success', 'Konfigurasi nilai penjabaran disimpan.');
+    }
+
+    /** Halaman pengaturan Kop Surat rapor (admin: logo, teks, backdrop). */
+    public function kopRapor()
+    {
+        abort_unless(auth()->user()->isAdmin(), 403);
+        $settings = Setting::pluck('value', 'key');
+        return view('setting.kop-rapor', compact('settings'));
+    }
+
+    public function kopRaporSave(Request $request)
+    {
+        abort_unless(auth()->user()->isAdmin(), 403);
+        $request->validate([
+            'kop_logo_kiri'  => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
+            'kop_logo_kanan' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
+            'kop_backdrop'   => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
+            'kop_teks'       => 'nullable|string|max:20000',
+        ]);
+
+        foreach (['kop_logo_kiri', 'kop_logo_kanan', 'kop_backdrop'] as $field) {
+            if ($request->hasFile($field)) {
+                // hapus file lama bila ada
+                $old = Setting::get($field);
+                if ($old && Storage::disk('public')->exists($old)) Storage::disk('public')->delete($old);
+                $ext  = $request->file($field)->getClientOriginalExtension() ?: 'png';
+                $path = $request->file($field)->storeAs('kop', $field . '_' . now()->format('YmdHis') . '.' . $ext, 'public');
+                Setting::set($field, $path);
+            } elseif ($request->boolean('hapus_' . $field)) {
+                $old = Setting::get($field);
+                if ($old && Storage::disk('public')->exists($old)) Storage::disk('public')->delete($old);
+                Setting::set($field, '');
+            }
+        }
+
+        Setting::set('kop_teks', $request->input('kop_teks', ''));
+
+        return back()->with('success', 'Pengaturan kop surat rapor disimpan.');
     }
 }

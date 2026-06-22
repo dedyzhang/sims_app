@@ -21,11 +21,51 @@ class ProfileController extends Controller
 
     public function update(Request $request)
     {
-        $request->validate([
-            'username' => 'required|string|unique:users,username,' . auth()->id() . ',uuid',
+        $user = auth()->user();
+
+        $rules = [
+            'username' => 'required|string|min:4|max:50|regex:/^[a-zA-Z0-9_.]+$/|unique:users,username,' . $user->uuid . ',uuid',
+        ];
+
+        // Guru boleh mengedit data dirinya sendiri
+        if ($user->guru) {
+            $rules += [
+                'nama'          => 'required|string|max:100',
+                'nik'           => 'nullable|string|max:30|unique:gurus,nik,' . $user->guru->uuid . ',uuid',
+                'nip'           => 'nullable|string|max:30',
+                'jk'            => 'required|in:L,P',
+                'tempat_lahir'  => 'nullable|string|max:100',
+                'tanggal_lahir' => 'nullable|date',
+                'agama'         => 'nullable|string|max:30',
+                'alamat'        => 'nullable|string',
+                'no_telp'       => 'nullable|string|max:20',
+                'tingkat_studi' => 'nullable|string|max:30',
+                'program_studi' => 'nullable|string|max:100',
+                'universitas'   => 'nullable|string|max:100',
+                'tahun_tamat'   => 'nullable|string|max:10',
+            ];
+        }
+
+        $data = $request->validate($rules, [
+            'username.regex'  => 'Username hanya boleh huruf, angka, titik (.), dan underscore (_).',
+            'username.unique' => 'Username sudah dipakai pengguna lain.',
+            'nik.unique'      => 'NIK tersebut sudah digunakan guru lain.',
         ]);
 
-        auth()->user()->update(['username' => $request->username]);
+        $user->update(['username' => $data['username']]);
+
+        if ($user->guru) {
+            $guruData = collect($data)->only([
+                'nama', 'nik', 'nip', 'jk', 'tempat_lahir', 'tanggal_lahir',
+                'agama', 'alamat', 'no_telp', 'tingkat_studi', 'program_studi',
+                'universitas', 'tahun_tamat',
+            ])->toArray();
+            $user->guru->update($guruData);
+
+            // sinkronkan identifier login dengan NIK/NIP
+            $idf = ($guruData['nik'] ?? null) ?: ($guruData['nip'] ?? null);
+            if ($idf) $user->update(['identifier' => $idf]);
+        }
 
         return redirect()->route('profile.index')->with('success', 'Profil diperbarui.');
     }
@@ -51,7 +91,7 @@ class ProfileController extends Controller
             'sidebar_bg'       => 'required|regex:/^#[0-9A-Fa-f]{6}$/',
             'sidebar_text'     => 'required|regex:/^#[0-9A-Fa-f]{6}$/',
             'theme_mode'       => 'required|in:light,dark',
-            'motif'            => 'nullable|in:botanical,ocean,forest,sunset,robot,space,minimal',
+            'motif'            => 'nullable|in:botanical,ocean,forest,sunset,robot,space,minimal,nightocean',
             'ui_style'         => 'nullable|in:soft,corporate',
             'font_size'        => 'required|in:sm,md,lg',
             'compact_mode'     => 'boolean',

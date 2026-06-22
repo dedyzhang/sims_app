@@ -63,9 +63,9 @@
                         <td class="text-slate-400 text-xs">{{ $siswas->firstItem() + $i }}</td>
                         <td>
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden"
                                      style="background: {{ $siswa->jk==='L' ? 'var(--cp)' : '#ec4899' }}">
-                                    {{ strtoupper(substr($siswa->nama, 0, 1)) }}
+                                    @if($siswa->face_photo)<img src="{{ $siswa->face_photo_url }}" class="w-full h-full object-cover" alt="">@else{{ strtoupper(substr($siswa->nama, 0, 1)) }}@endif
                                 </div>
                                 <div>
                                     <p class="font-medium text-slate-800 dark:text-slate-200">{{ $siswa->nama }}</p>
