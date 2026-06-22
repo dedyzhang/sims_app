@@ -325,6 +325,21 @@
                     $groups['penilaian'] = ['Penilaian & Rapor', 'notebook-pen', $penilaianItems];
                 }
 
+                // Grup Sarana & Prasarana (staf sekolah; kelola penuh utk superadmin/admin/sapras)
+                if (in_array($access, ['superadmin','admin','sapras','kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru'])) {
+                    $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
+                        ['sarpras.dashboard',        ['sarpras.dashboard'],                          'gauge',           'Dashboard'],
+                        ['sarpras.aset.index',       ['sarpras.aset.*'],                             'package',         'Katalog Aset'],
+                        ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',             'Denah Gedung'],
+                        ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',  'Kerusakan'],
+                        ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                          'handshake',       'Peminjaman & Booking'],
+                        ['sarpras.perbaikan.index',  ['sarpras.perbaikan.*','sarpras.teknisi.*','sarpras.jadwal.*'], 'wrench', 'Perbaikan'],
+                        ['sarpras.pengadaan.index',  ['sarpras.pengadaan.*','sarpras.supplier.*'],   'shopping-cart',   'Pengadaan'],
+                        ['sarpras.penghapusan.index',['sarpras.penghapusan.*','sarpras.mutasi.*'],   'trash-2',         'Penghapusan & Mutasi'],
+                        ['sarpras.laporan.index',    ['sarpras.laporan.*','sarpras.kategori.*'],     'file-bar-chart',  'Laporan'],
+                    ]];
+                }
+
                 if ($isAdmin) {
                     $groups['sistem'] = ['Sistem', 'sliders-horizontal', [
                         ['setting.index', ['setting.*'], 'settings-2', 'Pengaturan'],
