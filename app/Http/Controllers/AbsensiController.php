@@ -38,22 +38,25 @@ class AbsensiController extends Controller
         $request->validate([
             'id_kelas' => 'required|exists:kelas,uuid',
             'tanggal'  => 'required|date',
-            'status'   => 'required|array',
+            'status'   => 'nullable|array',   // hanya siswa yang ditandai yang disimpan
         ]);
 
         $tanggal = $request->tanggal;
         $count = 0;
-        foreach ($request->status as $siswaUuid => $status) {
+        foreach (($request->status ?? []) as $siswaUuid => $status) {
             if (!in_array($status, array_keys(Absensi::STATUS))) continue;
-            Absensi::updateOrCreate(
-                ['id_siswa' => $siswaUuid, 'tanggal' => $tanggal],
-                [
-                    'id_kelas'     => $request->id_kelas,
-                    'status'       => $status,
-                    'keterangan'   => $request->keterangan[$siswaUuid] ?? null,
-                    'dicatat_oleh' => auth()->id(),
-                ]
-            );
+
+            $row = Absensi::firstOrNew(['id_siswa' => $siswaUuid, 'tanggal' => $tanggal]);
+            $row->id_kelas     = $request->id_kelas;
+            $row->status       = $status;
+            $row->dicatat_oleh = auth()->id();
+            // keterangan: jangan timpa dengan kosong (pertahankan mis. "Scan wajah")
+            $ket = $request->keterangan[$siswaUuid] ?? null;
+            if ($ket !== null && $ket !== '') {
+                $row->keterangan = $ket;
+            }
+            // jam_masuk SENGAJA tidak disentuh → waktu absen hasil scan tetap tersimpan
+            $row->save();
             $count++;
         }
 

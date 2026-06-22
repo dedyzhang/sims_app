@@ -29,6 +29,11 @@ class Siswa extends Model
         'face_registered_at' => 'datetime',
     ];
 
+    public function getFacePhotoUrlAttribute(): ?string
+    {
+        return \App\Support\FaceMatch::photoUrl($this->face_photo);
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class, 'id_login', 'uuid');

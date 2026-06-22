@@ -30,7 +30,7 @@
 @endpush
 
 @section('content')
-<div class="space-y-4" x-data="jadwalGrid(@js($bentrok))">
+<div class="space-y-4" x-data="jadwalGrid(@js($bentrok), @js($ngajarMap))">
 
     {{-- Header --}}
     <div class="flex items-center justify-between flex-wrap gap-3">
@@ -164,11 +164,12 @@
                     </select>
                 </div>
                 <div>
-                    <label class="form-label">Guru Pengajar</label>
+                    <label class="form-label flex items-center gap-1.5">Guru Pengajar <span class="text-[10px] font-normal px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500">otomatis dari penugasan</span></label>
                     <select id="cellGuru" class="form-select">
-                        <option value="">— Pilih guru —</option>
+                        <option value="">— Otomatis dari penugasan —</option>
                         @foreach($gurus as $g)<option value="{{ $g->uuid }}">{{ $g->nama }}</option>@endforeach
                     </select>
+                    <p class="text-xs text-rose-500 mt-1.5" x-show="guruHint" x-text="guruHint"></p>
                     <p class="text-xs text-amber-600 mt-1.5 hidden" id="cellWarn"><i data-lucide="alert-triangle" class="w-3 h-3 inline"></i> Guru ini sudah mengajar di kelas lain pada jam ini.</p>
                 </div>
                 <div>
@@ -322,34 +323,77 @@ function jamJenisChange(v){
 function confirmCopyJam(form){
     const n = form.querySelectorAll('input[name="to[]"]:checked').length;
     if(n === 0){ showToast('Pilih minimal satu hari tujuan','error'); return false; }
-    return confirm('Salin susunan jam ke ' + n + ' hari? Jadwal pada hari tujuan akan direset.');
+    $.confirm({
+        title:'Salin susunan jam?',
+        content:'<div class="text-slate-600 dark:text-slate-300">Susunan jam akan disalin ke <b>'+n+' hari</b>.<br><span class="text-amber-600 font-semibold">Jadwal pada hari tujuan akan direset.</span> Lanjutkan?</div>',
+        type:'orange', icon:'',
+        buttons:{
+            ya:{ text:'Ya, salin', btnClass:'btn-warning', keys:['enter'], action:function(){ form.submit(); } },
+            batal:{ text:'Batal', btnClass:'btn-default' }
+        }
+    });
+    return false; // submit dilakukan lewat tombol "Ya"
 }
-function jadwalGrid(bentrok) {
+function jadwalGrid(bentrok, ngajarMap) {
     return {
         cellModal:false, jamModal:false, genModal:false, saving:false,
         bentrok: bentrok || [],
+        ngajarMap: ngajarMap || {},
+        guruHint:'',
         currentBtn:null,
         tsPel:null, tsGuru:null,
         form:{ kelasnama:'', jamlabel:'' },
 
         initTom(){
-            if(!this.tsPel) this.tsPel = new TomSelect('#cellPelajaran', { create:false });
+            if(!this.tsPel) this.tsPel = new TomSelect('#cellPelajaran', { create:false, onChange:(v)=>this.onPelChange(v) });
             if(!this.tsGuru){
                 this.tsGuru = new TomSelect('#cellGuru', { create:false });
                 this.tsGuru.on('change', ()=> this.checkWarn());
+                this.tsGuru.lock();   // guru otomatis dari penugasan — tak bisa dipilih manual
             }
+        },
+        // Setelah pilih mapel → isi guru otomatis dari penugasan kelas ini
+        onPelChange(pel){
+            const kelas = this.currentBtn?.dataset.kelas;
+            const m = (this.ngajarMap[kelas] || {})[pel];
+            this.tsGuru.unlock();
+            if(pel && m){
+                if(!this.tsGuru.options[m.g]) this.tsGuru.addOption({ value:m.g, text:m.gn });
+                this.tsGuru.setValue(m.g, true);
+                this.guruHint = '';
+            } else {
+                this.tsGuru.setValue('', true);
+                this.guruHint = pel ? 'Belum ada guru yang ditugaskan untuk pelajaran ini di kelas ini. Atur di Profil Guru → Pelajaran Diajar.' : '';
+            }
+            this.tsGuru.lock();
+            this.checkWarn();
+        },
+        // Bangun ulang pilihan mapel: HANYA yang ditugaskan ke kelas sel ini
+        rebuildPel(kelas, currentPel, currentPnama){
+            const map = this.ngajarMap[kelas] || {};
+            this.tsPel.clearOptions();
+            this.tsPel.addOption({ value:'', text:'— Kosong / Istirahat —' });
+            Object.keys(map).forEach(p => {
+                const m = map[p];
+                this.tsPel.addOption({ value:p, text: m.pn + (m.pk ? ' ('+m.pk+')' : '') });
+            });
+            if(currentPel && !map[currentPel]){
+                this.tsPel.addOption({ value:currentPel, text: (currentPnama || 'Pelajaran') });
+            }
+            this.tsPel.refreshOptions(false);
+            this.tsPel.setValue(currentPel || '', true);   // silent → tak picu onChange
+            this.onPelChange(currentPel || '');            // isi guru sesuai
         },
         openCell(btn){
             this.currentBtn = btn;
             this.form.kelasnama = 'Kelas ' + btn.dataset.kelasnama;
             this.form.jamlabel = btn.dataset.jamlabel;
             this.cellModal = true;
+            this.guruHint = '';
             this.$nextTick(()=>{
                 this.initTom();
-                this.tsPel.setValue(btn.dataset.pelajaran || '', true);
-                this.tsGuru.setValue(btn.dataset.guru || '', true);
+                this.rebuildPel(btn.dataset.kelas, btn.dataset.pelajaran || '', btn.dataset.pnama || '');
                 document.getElementById('cellKet').value = btn.dataset.ket || '';
-                this.checkWarn();
                 lucide.createIcons();
             });
         },

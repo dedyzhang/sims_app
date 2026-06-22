@@ -61,14 +61,14 @@
                 @foreach($gurus as $i => $g)
                 @php
                     $row = $existing->get($g->uuid);
-                    $cur = $row?->status ?? 'hadir';
+                    $cur = $row?->status;
                 @endphp
                 <div class="p-3.5 flex items-center gap-3 flex-wrap sm:flex-nowrap hover:bg-slate-50 dark:hover:bg-slate-900/40 transition">
                     <span class="text-xs text-slate-400 w-5 flex-shrink-0">{{ $i+1 }}</span>
                     <div class="w-9 h-9 rounded-full grid place-items-center text-white text-xs font-bold flex-shrink-0" style="background:{{ $g->jk==='P' ? '#ec4899' : 'var(--cp)' }}">{{ strtoupper(substr($g->nama,0,1)) }}</div>
                     <div class="flex-1 min-w-0">
                         <p class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">{{ $g->nama }}</p>
-                        <p class="text-xs text-slate-400 flex items-center gap-2">
+                        <p class="text-xs text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
                             <span>{{ $g->nip ?: ($g->nik ?: 'Guru') }}</span>
                             @if($row?->jam_masuk)<span class="{{ $row->terlambat($batas) ? 'text-rose-500' : 'text-emerald-500' }} flex items-center gap-0.5" title="Jam masuk"><i data-lucide="log-in" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::of($row->jam_masuk)->substr(0,5) }}</span>@endif
                             @if($row?->jam_pulang)<span class="text-slate-500 flex items-center gap-0.5" title="Jam pulang"><i data-lucide="log-out" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::of($row->jam_pulang)->substr(0,5) }}</span>@endif
@@ -76,7 +76,7 @@
                             @if(!$g->face_descriptor)<span class="text-amber-500">⚠ belum daftar wajah</span>@endif
                         </p>
                     </div>
-                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <div class="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto justify-end ml-8 sm:ml-0">
                         @foreach(['hadir'=>['H','h'],'izin'=>['I','i'],'sakit'=>['S','s'],'alpa'=>['A','a']] as $val => [$abbr,$cls])
                         <label>
                             <input type="radio" name="status[{{ $g->uuid }}]" value="{{ $val }}" @checked($cur===$val) class="sr-only stat-radio stat-{{ $cls }}">

@@ -114,6 +114,7 @@
                             <i :data-lucide="s2?'eye-off':'eye'" class="w-4 h-4"></i>
                         </button>
                     </div>
+                    @error('new_password')<p class="text-rose-500 text-xs mt-1.5">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label class="form-label">Konfirmasi Password Baru</label>
@@ -144,6 +145,7 @@
                 <div>
                     <label class="form-label">PIN Baru (6 digit)</label>
                     <input type="password" name="pin" inputmode="numeric" maxlength="6" pattern="\d{6}" required placeholder="••••••" class="form-input text-center text-2xl tracking-[0.5em] font-mono">
+                    @error('pin')<p class="text-rose-500 text-xs mt-1.5">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label class="form-label">Konfirmasi PIN</label>
@@ -180,7 +182,7 @@
             showToast('Menghubungkan ke authenticator...', 'info');
             
             // 1. Get options from server
-            const optionsResponse = await fetch('/webauthn/register/options', {
+            const optionsResponse = await fetch('{{ route('webauthn.register.options') }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -189,8 +191,7 @@
                 body: JSON.stringify({})
             });
             if (!optionsResponse.ok) {
-                const errData = await optionsResponse.json();
-                throw new Error(errData.message || 'Gagal mengambil opsi registrasi.');
+                throw new Error(await _errMessage(optionsResponse, 'Gagal mengambil opsi registrasi.'));
             }
             const options = await optionsResponse.json();
             
@@ -208,7 +209,7 @@
             const credential = await navigator.credentials.create({ publicKey: options });
             
             // 4. Send credential to server for registration
-            const registerResponse = await fetch('/webauthn/register', {
+            const registerResponse = await fetch('{{ route('webauthn.register') }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -232,13 +233,20 @@
                     window.location.href = '{{ route('dashboard') }}';
                 }, 1000);
             } else {
-                const errData = await registerResponse.json();
-                showToast(errData.message || 'Gagal mendaftarkan biometrik.', 'error');
+                showToast(await _errMessage(registerResponse, 'Gagal mendaftarkan biometrik.'), 'error');
             }
         } catch (err) {
             console.error(err);
             showToast(err.message || 'Pendaftaran biometrik dibatalkan atau tidak didukung.', 'error');
         }
+    }
+
+    // Ambil pesan error yang manusiawi walau server membalas HTML (mis. 419/500),
+    // supaya tidak muncul "Unexpected token '<'" dari JSON.parse.
+    async function _errMessage(res, fallback) {
+        const text = await res.text().catch(() => '');
+        try { const j = JSON.parse(text); if (j && j.message) return j.message; } catch (e) {}
+        return fallback + ' (HTTP ' + res.status + ')';
     }
 
     function _b64(s) { const b=atob(s.replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(b,c=>c.charCodeAt(0)).buffer; }
