@@ -19,6 +19,9 @@
 /storage/*.key
 /storage/pail
 /vendor
+# Backup database lokal — jangan ikut ter-commit.
+/database/*.backup-*.sqlite
+/database/*.sqlite-journal
 Homestead.json
 Homestead.yaml
 Thumbs.db

@@ -3,14 +3,19 @@
 namespace App\Sarpras\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Sarpras\Exports\RuanganTemplateExport;
 use App\Sarpras\Http\Requests\RuanganPosisiRequest;
 use App\Sarpras\Http\Requests\RuanganRequest;
+use App\Sarpras\Imports\RuanganImport;
 use App\Sarpras\Models\Denah;
 use App\Sarpras\Models\DenahRuangan;
 use App\Sarpras\Services\FotoCompressor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RuanganController extends Controller
 {
@@ -25,7 +30,7 @@ class RuanganController extends Controller
 
     public function store(RuanganRequest $request, Denah $denah, FotoCompressor $compressor): RedirectResponse
     {
-        $data = $request->safe()->only(['kode', 'nama', 'pos_x', 'pos_y', 'lebar', 'tinggi', 'kapasitas', 'deskripsi']);
+        $data = $request->safe()->only(['kode', 'nama', 'pos_x', 'pos_y', 'lebar', 'tinggi', 'warna', 'kapasitas', 'deskripsi']);
         $data['denah_id'] = $denah->id;
 
         try {
@@ -44,9 +49,44 @@ class RuanganController extends Controller
         return back()->with('sukses', 'Ruangan "' . $data['kode'] . '" ditambahkan.');
     }
 
+    /** Unduh template Excel kosong (header + contoh) untuk import ruangan. */
+    public function templateImport()
+    {
+        return Excel::download(new RuanganTemplateExport(), 'template-import-ruangan.xlsx');
+    }
+
+    /** Import data ruangan ke sebuah denah dari berkas Excel/CSV. UPSERT berdasarkan kode. */
+    public function import(Request $request, Denah $denah): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120'],
+        ], [
+            'file.required' => 'Pilih berkas Excel/CSV terlebih dahulu.',
+            'file.mimes' => 'Format didukung: xlsx, xls, csv.',
+            'file.max' => 'Ukuran berkas maksimal 5MB.',
+        ]);
+
+        $import = new RuanganImport($denah);
+
+        try {
+            // Bungkus transaksi: bila ada baris yang gagal di tengah jalan,
+            // seluruh import dibatalkan (tidak ada data setengah masuk).
+            DB::transaction(fn () => Excel::import($import, $request->file('file')));
+        } catch (\Throwable $e) {
+            return back()->with('gagal', 'Gagal memproses berkas (tidak ada data tersimpan): ' . $e->getMessage());
+        }
+
+        $msg = "Import selesai — {$import->dibuat} ruangan baru, {$import->diperbarui} diperbarui";
+        $msg .= $import->jumlahDilewati() ? ", {$import->jumlahDilewati()} catatan." : '.';
+
+        return redirect()->route('sarpras.denah.show', $denah)
+            ->with('sukses', $msg)
+            ->with('import_catatan', $import->dilewati);
+    }
+
     public function update(RuanganRequest $request, DenahRuangan $ruangan, FotoCompressor $compressor): RedirectResponse
     {
-        $data = $request->safe()->only(['kode', 'nama', 'pos_x', 'pos_y', 'lebar', 'tinggi', 'kapasitas', 'deskripsi']);
+        $data = $request->safe()->only(['kode', 'nama', 'pos_x', 'pos_y', 'lebar', 'tinggi', 'warna', 'kapasitas', 'deskripsi']);
 
         try {
             if ($request->hasFile('gambar_denah')) {
@@ -85,6 +125,7 @@ class RuanganController extends Controller
             'pos_y' => (float) $ruangan->pos_y,
             'lebar' => (float) $ruangan->lebar,
             'tinggi' => (float) $ruangan->tinggi,
+            'warna' => $ruangan->warna_hex,
         ]);
     }
 

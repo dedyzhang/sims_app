@@ -38,8 +38,12 @@
             <textarea name="deskripsi" rows="3" required class="w-full border rounded px-3 py-2">{{ old('deskripsi') }}</textarea>
         </div>
         <div>
-            <label class="block text-gray-700 mb-1">Foto (1–4, maks 10MB/foto — otomatis dikompres ≤2MB)</label>
-            <input name="foto[]" type="file" accept="image/jpeg,image/png,image/webp" multiple class="w-full text-xs">
+            @include('sarpras.partials.foto-picker', [
+                'name' => 'foto[]',
+                'label' => 'Foto bagian yang rusak (1–4, otomatis dikompres ≤2MB)',
+                'max' => 4,
+                'live' => true,
+            ])
         </div>
         <div class="flex gap-2">
             <button class="bg-red-600 text-white rounded px-4 py-2">Kirim ke Waka Sarpras</button>

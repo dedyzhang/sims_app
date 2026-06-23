@@ -6,6 +6,13 @@
     <h2 class="text-lg font-semibold text-gray-800">Atur Blok Ruangan — {{ $denah->nama }}</h2>
     <div class="flex items-center gap-3 text-sm">
         <a href="{{ route('sarpras.denah.gambar', $denah) }}" class="text-indigo-600 hover:underline">✏️ Gambar Denah</a>
+        @if ($denah->gambar_path)
+            <form method="POST" action="{{ route('sarpras.denah.gambar.hapus', $denah) }}"
+                  onsubmit="return confirm('Hapus gambar denah ini? Blok ruangan tetap tersimpan dan Anda bisa import / menggambar ulang.')">
+                @csrf @method('DELETE')
+                <button type="submit" class="text-red-600 hover:underline">🗑️ Hapus Gambar</button>
+            </form>
+        @endif
         <a href="{{ route('sarpras.denah.show', $denah) }}" class="text-blue-600 hover:underline">← Lihat Denah</a>
     </div>
 </div>
@@ -23,6 +30,8 @@
                     <span>Grid</span>
                 </label>
                 <select id="grid-size" class="border rounded px-2 py-1 text-xs">
+                    <option value="1">1%</option>
+                    <option value="2">2%</option>
                     <option value="2.5">2.5%</option>
                     <option value="5" selected>5%</option>
                     <option value="10">10%</option>
@@ -57,8 +66,8 @@
             @endphp
             @foreach ($denah->ruangan as $r)
                 <div data-id="{{ $r->id }}"
-                     class="hotspot absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-md border-2 border-white bg-emerald-600/85 text-white shadow cursor-move"
-                     style="left: {{ $r->pos_x }}%; top: {{ $r->pos_y }}%; width: {{ $r->lebar ?? 14 }}%; height: {{ $r->tinggi ?? 9 }}%;">
+                     class="hotspot absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-md border-2 border-white shadow cursor-move"
+                     style="left: {{ $r->pos_x }}%; top: {{ $r->pos_y }}%; width: {{ $r->lebar ?? 14 }}%; height: {{ $r->tinggi ?? 9 }}%; background-color: {{ $r->warna_hex }}; color: {{ $r->warna_teks }};">
                     <span class="absolute inset-0 flex items-center justify-center font-bold text-xs px-1 truncate pointer-events-none">{{ $r->kode }}</span>
                     @foreach ($gagang as $dir => [$css, $cursor])
                         <span class="rz absolute w-2.5 h-2.5 bg-white border border-emerald-700 rounded-sm"
@@ -106,9 +115,16 @@
                     <input name="tinggi" type="number" min="1" max="100" step="0.5" value="9" class="w-full border rounded px-3 py-2">
                 </div>
             </div>
-            <div>
-                <label class="block text-gray-700 mb-1">Kapasitas</label>
-                <input name="kapasitas" type="number" min="0" class="w-full border rounded px-3 py-2">
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-gray-700 mb-1">Kapasitas</label>
+                    <input name="kapasitas" type="number" min="0" class="w-full border rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-gray-700 mb-1">Warna Blok</label>
+                    <input name="warna" type="color" value="{{ \App\Sarpras\Models\DenahRuangan::WARNA_DEFAULT }}"
+                           class="w-full h-[42px] border rounded px-1 py-1 cursor-pointer">
+                </div>
             </div>
             <div>
                 <label class="block text-gray-700 mb-1">Foto Ruangan (opsional)</label>
@@ -120,8 +136,12 @@
         <h3 class="font-semibold text-gray-800 mt-6 mb-2">Ruangan ({{ $denah->ruangan->count() }})</h3>
         <ul class="text-sm divide-y">
             @foreach ($denah->ruangan as $r)
-                <li class="py-2 flex justify-between items-center">
-                    <span><b>{{ $r->kode }}</b> · {{ number_format($r->pos_x,1) }}%, {{ number_format($r->pos_y,1) }}%</span>
+                <li class="py-2 flex justify-between items-center gap-2">
+                    <span class="flex items-center gap-2">
+                        <input type="color" value="{{ $r->warna_hex }}" data-id="{{ $r->id }}"
+                               class="warna-input w-6 h-6 p-0 border rounded cursor-pointer" title="Ubah warna {{ $r->kode }}">
+                        <span><b>{{ $r->kode }}</b> · {{ number_format($r->pos_x,1) }}%, {{ number_format($r->pos_y,1) }}%</span>
+                    </span>
                     <form method="POST" action="{{ route('sarpras.ruangan.destroy', $r) }}"
                           onsubmit="return confirm('Hapus ruangan {{ $r->kode }}?')">
                         @csrf @method('DELETE')
@@ -278,6 +298,32 @@
             body.tinggi = parseFloat(el.style.height);
         }
         simpan(el, body);
+    });
+
+    // === Ubah warna blok dari daftar ruangan ===
+    function teksKontras(hex) {
+        const h = hex.replace('#', '');
+        const r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16);
+        return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#111827' : '#ffffff';
+    }
+    document.querySelectorAll('.warna-input').forEach(function (inp) {
+        const hs = kanvas.querySelector('.hotspot[data-id="' + inp.dataset.id + '"]');
+        function terapkan() {
+            if (!hs) return;
+            hs.style.backgroundColor = inp.value;
+            hs.style.color = teksKontras(inp.value);
+        }
+        inp.addEventListener('input', terapkan);   // preview langsung saat menggeser
+        inp.addEventListener('change', function () { // simpan saat selesai memilih
+            terapkan();
+            const body = { warna: inp.value };
+            if (hs) { body.pos_x = parseFloat(hs.style.left); body.pos_y = parseFloat(hs.style.top); }
+            fetch('{{ url('sarpras/ruangan') }}/' + inp.dataset.id + '/posisi', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                body: JSON.stringify(body),
+            }).then(r => r.json()).catch(() => alert('Gagal menyimpan warna.'));
+        });
     });
 })();
 </script>

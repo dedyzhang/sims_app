@@ -25,24 +25,11 @@
         @endif
     </div>
 
-    {{-- Flash & error --}}
-    @if (session('sukses'))
-        <div class="mb-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 px-4 py-3 text-sm">
-            {{ session('sukses') }}
-        </div>
-    @endif
-    @if (session('gagal'))
-        <div class="mb-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-3 text-sm">
-            {{ session('gagal') }}
-        </div>
-    @endif
-    @if ($errors->any())
-        <div class="mb-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 px-4 py-3">
-            <ul class="list-disc list-inside text-sm space-y-0.5">
-                @foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach
-            </ul>
-        </div>
-    @endif
+    {{--
+        Flash & error: ditangani terpusat oleh toast di layout utama SIMS
+        (resources/views/layouts/app.blade.php) yang sudah mendukung key
+        'sukses'/'gagal' modul Sarpras. Banner inline dihapus agar tidak dobel.
+    --}}
 
     {{-- Konten halaman modul --}}
     @yield('sarpras_body')

@@ -570,19 +570,26 @@
 @endif
 
 {{-- Toasts --}}
+@php
+    // Satu sistem notifikasi: dukung dua konvensi key flash —
+    // 'success'/'error' (umum SIMS) & 'sukses'/'gagal' (modul Sarpras).
+    // Hanya tampil bila benar-benar ADA teks (cegah toast judul tanpa keterangan).
+    $toastSukses = trim((string) (session('success') ?? session('sukses') ?? ''));
+    $toastGagal  = trim((string) (session('error') ?? session('gagal') ?? ''));
+@endphp
 <div class="fixed bottom-6 right-6 z-[9999] space-y-2" id="toastWrap">
-    @if(session('success'))
+    @if($toastSukses !== '')
     <div class="toast-item card !rounded-2xl border-l-4 !border-l-emerald-500 px-4 py-3 flex items-start gap-3 min-w-[290px] max-w-md shadow-xl" style="animation:slideToast .35s both">
         <div class="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900 grid place-items-center flex-shrink-0"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i></div>
-        <div class="flex-1 min-w-0"><p class="font-bold text-sm text-slate-800 dark:text-slate-100">Berhasil</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 break-words">{{ session('success') }}</p></div>
+        <div class="flex-1 min-w-0"><p class="font-bold text-sm text-slate-800 dark:text-slate-100">Berhasil</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 break-words">{{ $toastSukses }}</p></div>
         <button onclick="this.closest('.toast-item').remove()" class="text-slate-300 hover:text-slate-500"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
     @endif
-    @if(session('error') || $errors->any())
+    @if($toastGagal !== '' || $errors->any())
     <div class="toast-item card !rounded-2xl border-l-4 !border-l-rose-500 px-4 py-3 flex items-start gap-3 min-w-[290px] max-w-md shadow-xl" style="animation:slideToast .35s both">
         <div class="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-900 grid place-items-center flex-shrink-0"><i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i></div>
         <div class="flex-1 min-w-0"><p class="font-bold text-sm text-slate-800 dark:text-slate-100">Terjadi Kesalahan</p>
-            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 space-y-0.5">@if(session('error'))<p>{{ session('error') }}</p>@endif @foreach($errors->all() as $err)<p>{{ $err }}</p>@endforeach</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 space-y-0.5">@if($toastGagal !== '')<p>{{ $toastGagal }}</p>@endif @foreach($errors->all() as $err)<p>{{ $err }}</p>@endforeach</div>
         </div>
         <button onclick="this.closest('.toast-item').remove()" class="text-slate-300 hover:text-slate-500"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>

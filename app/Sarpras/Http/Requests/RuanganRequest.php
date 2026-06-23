@@ -23,6 +23,8 @@ class RuanganRequest extends FormRequest
             'tinggi' => ['nullable', 'numeric', 'between:1,100'],
             'kapasitas' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'deskripsi' => ['nullable', 'string', 'max:1000'],
+            // Warna blok dalam format hex #rrggbb.
+            'warna' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'gambar_denah' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'foto' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ];
@@ -34,6 +36,7 @@ class RuanganRequest extends FormRequest
             'kode.required' => 'Kode ruangan wajib diisi (mis. 7A).',
             'pos_x.between' => 'Koordinat X harus di antara 0–100 (persen).',
             'pos_y.between' => 'Koordinat Y harus di antara 0–100 (persen).',
+            'warna.regex' => 'Warna harus format hex (mis. #059669).',
         ];
     }
 }

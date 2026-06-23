@@ -3,7 +3,9 @@
 namespace App\Sarpras\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Sarpras\Exports\AsetTemplateExport;
 use App\Sarpras\Http\Requests\AsetRequest;
+use App\Sarpras\Imports\AsetImport;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\DenahRuangan;
 use App\Sarpras\Models\KategoriAset;
@@ -12,7 +14,9 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AsetController extends Controller
@@ -58,6 +62,41 @@ class AsetController extends Controller
         $aset = Aset::create($data);
 
         return redirect()->route('sarpras.aset.show', $aset)->with('sukses', 'Aset ditambahkan.');
+    }
+
+    /** Unduh template Excel kosong (header + contoh) untuk import aset. */
+    public function templateImport()
+    {
+        return Excel::download(new AsetTemplateExport(), 'template-import-aset.xlsx');
+    }
+
+    /** Import katalog aset dari berkas Excel/CSV. UPSERT berdasarkan kode. */
+    public function import(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120'],
+        ], [
+            'file.required' => 'Pilih berkas Excel/CSV terlebih dahulu.',
+            'file.mimes' => 'Format didukung: xlsx, xls, csv.',
+            'file.max' => 'Ukuran berkas maksimal 5MB.',
+        ]);
+
+        $import = new AsetImport();
+
+        try {
+            // Bungkus transaksi: bila ada baris yang gagal di tengah jalan,
+            // seluruh import dibatalkan (tidak ada data setengah masuk).
+            DB::transaction(fn () => Excel::import($import, $request->file('file')));
+        } catch (\Throwable $e) {
+            return back()->with('gagal', 'Gagal memproses berkas (tidak ada data tersimpan): ' . $e->getMessage());
+        }
+
+        $msg = "Import selesai — {$import->dibuat} aset baru, {$import->diperbarui} diperbarui";
+        $msg .= $import->jumlahDilewati() ? ", {$import->jumlahDilewati()} catatan." : '.';
+
+        return redirect()->route('sarpras.aset.index')
+            ->with('sukses', $msg)
+            ->with('import_catatan', $import->dilewati);
     }
 
     public function show(Aset $aset): View

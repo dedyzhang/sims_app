@@ -4,7 +4,10 @@ namespace App\Sarpras\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Sarpras\Http\Requests\DenahRequest;
+use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\Denah;
+use App\Sarpras\Models\LaporanKerusakan;
+use App\Sarpras\Models\Peminjaman;
 use App\Sarpras\Services\FotoCompressor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,7 +40,25 @@ class DenahController extends Controller
             ? Denah::where('gedung', $denah->gedung)->orderBy('lantai')->orderBy('nama')->get(['id', 'nama', 'lantai'])
             : collect([$denah]);
 
-        return view('sarpras.denah.show', compact('denah', 'lantaiSegedung'));
+        // Agregat status per ruangan untuk pewarnaan interaktif (mode "Status").
+        $ruanganIds = $denah->ruangan->pluck('id');
+
+        $jmlAset = Aset::whereIn('ruangan_id', $ruanganIds)
+            ->selectRaw('ruangan_id, count(*) as c')->groupBy('ruangan_id')->pluck('c', 'ruangan_id');
+
+        $jmlKerusakan = LaporanKerusakan::whereIn('ruangan_id', $ruanganIds)
+            ->whereIn('status', ['dilaporkan', 'diterima'])
+            ->selectRaw('ruangan_id, count(*) as c')->groupBy('ruangan_id')->pluck('c', 'ruangan_id');
+
+        // Ruangan yang sedang dipinjam/dibooking pada saat ini.
+        $sedangDipinjam = Peminjaman::whereIn('ruangan_id', $ruanganIds)
+            ->whereIn('status', ['disetujui', 'dipinjam', 'terlambat'])
+            ->where('mulai', '<=', now())->where('selesai', '>=', now())
+            ->pluck('ruangan_id')->unique()->flip();
+
+        return view('sarpras.denah.show', compact(
+            'denah', 'lantaiSegedung', 'jmlAset', 'jmlKerusakan', 'sedangDipinjam'
+        ));
     }
 
     public function create(Request $request): View
@@ -171,6 +192,24 @@ class DenahController extends Controller
 
         return redirect()->route('sarpras.denah.hotspot', $denah)
             ->with('sukses', 'Gambar denah tersimpan. Sekarang atur blok ruangan.');
+    }
+
+    /** Hapus gambar denah (mis. hasil import yang tidak sesuai). Blok ruangan tetap. */
+    public function hapusGambar(Denah $denah, FotoCompressor $compressor): RedirectResponse
+    {
+        if (empty($denah->gambar_path)) {
+            return back()->with('gagal', 'Belum ada gambar denah untuk dihapus.');
+        }
+
+        try {
+            $compressor->hapus($denah->gambar_path);
+            $denah->update(['gambar_path' => null]);
+        } catch (\Throwable $e) {
+            return back()->with('gagal', 'Gagal menghapus gambar denah: ' . $e->getMessage());
+        }
+
+        return redirect()->route('sarpras.denah.hotspot', $denah)
+            ->with('sukses', 'Gambar denah dihapus. Anda bisa import ulang atau menggambar baru.');
     }
 
     /**

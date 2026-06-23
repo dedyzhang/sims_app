@@ -60,9 +60,14 @@ Route::middleware(['web', 'auth'])->prefix('sarpras')->name('sarpras.')->group(f
         Route::post('denah/{denah}/gambar', [DenahController::class, 'simpanGambar'])->name('denah.gambar.simpan');
         // Import gambar denah dari file (jpg/png/webp/gif/bmp).
         Route::post('denah/{denah}/import', [DenahController::class, 'imporGambar'])->name('denah.import');
+        // Hapus gambar denah (mis. hasil import yang tidak sesuai).
+        Route::delete('denah/{denah}/gambar', [DenahController::class, 'hapusGambar'])->name('denah.gambar.hapus');
         // Editor hotspot (penempatan ruangan dengan koordinat persen).
         Route::get('denah/{denah}/hotspot', [DenahController::class, 'editorHotspot'])->name('denah.hotspot');
         Route::post('denah/{denah}/ruangan', [RuanganController::class, 'store'])->name('ruangan.store');
+        // Import data ruangan ke denah dari Excel/CSV + unduh template.
+        Route::get('ruangan-import/template', [RuanganController::class, 'templateImport'])->name('ruangan.import.template');
+        Route::post('denah/{denah}/ruangan-import', [RuanganController::class, 'import'])->name('ruangan.import');
         Route::put('ruangan/{ruangan}', [RuanganController::class, 'update'])->name('ruangan.update');
         Route::post('ruangan/{ruangan}/posisi', [RuanganController::class, 'simpanPosisi'])->name('ruangan.posisi');
         Route::delete('ruangan/{ruangan}', [RuanganController::class, 'destroy'])->name('ruangan.destroy');
@@ -100,6 +105,9 @@ Route::middleware(['web', 'auth'])->prefix('sarpras')->name('sarpras.')->group(f
     Route::middleware('can:sarpras.aset.kelola')->group(function () {
         Route::get('aset-baru/form', [AsetController::class, 'create'])->name('aset.create');
         Route::post('aset', [AsetController::class, 'store'])->name('aset.store');
+        // Import katalog aset dari Excel/CSV + unduh template.
+        Route::get('aset-import/template', [AsetController::class, 'templateImport'])->name('aset.import.template');
+        Route::post('aset-import', [AsetController::class, 'import'])->name('aset.import');
         Route::get('aset/{aset}/edit', [AsetController::class, 'edit'])->name('aset.edit');
         Route::put('aset/{aset}', [AsetController::class, 'update'])->name('aset.update');
         Route::delete('aset/{aset}', [AsetController::class, 'destroy'])->name('aset.destroy');
@@ -167,6 +175,11 @@ Route::middleware(['web', 'auth'])->prefix('sarpras')->name('sarpras.')->group(f
         Route::get('laporan/aset/excel', [LaporanController::class, 'exportAsetExcel'])->name('laporan.aset.excel');
         Route::get('laporan/aset/pdf', [LaporanController::class, 'exportAsetPdf'])->name('laporan.aset.pdf');
         Route::get('laporan/mutasi/excel', [LaporanController::class, 'exportMutasiExcel'])->name('laporan.mutasi.excel');
+    });
+    // Import kategori aset dari Excel/CSV + unduh template (sebelum resource).
+    Route::middleware('can:sarpras.pengaturan.kelola')->group(function () {
+        Route::get('kategori-import/template', [KategoriController::class, 'templateImport'])->name('kategori.import.template');
+        Route::post('kategori-import', [KategoriController::class, 'import'])->name('kategori.import');
     });
     Route::resource('kategori', KategoriController::class)
         ->middleware('can:sarpras.pengaturan.kelola')->except(['show']);

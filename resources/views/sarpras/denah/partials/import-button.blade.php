@@ -12,7 +12,7 @@
                    class="hidden" onchange="this.form.submit()">
         </label>
     @else
-        <label class="cursor-pointer inline-flex items-center gap-1 bg-amber-500 text-white px-4 py-2 rounded text-sm hover:bg-amber-600">
+        <label class="cursor-pointer inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1.5 rounded text-xs hover:bg-amber-600">
             ⬆️ Import Denah
             <input type="file" name="gambar" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp"
                    class="hidden" onchange="this.form.submit()">

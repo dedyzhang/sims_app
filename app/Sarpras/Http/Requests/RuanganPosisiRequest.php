@@ -22,6 +22,7 @@ class RuanganPosisiRequest extends FormRequest
             'pos_y' => ['required', 'numeric', 'between:0,100'],
             'lebar' => ['nullable', 'numeric', 'between:1,100'],
             'tinggi' => ['nullable', 'numeric', 'between:1,100'],
+            'warna' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ];
     }
 
@@ -30,6 +31,7 @@ class RuanganPosisiRequest extends FormRequest
         return [
             'pos_x.between' => 'Koordinat X harus 0–100 persen.',
             'pos_y.between' => 'Koordinat Y harus 0–100 persen.',
+            'warna.regex' => 'Warna harus format hex (mis. #059669).',
         ];
     }
 }
