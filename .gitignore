@@ -25,3 +25,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Upload gambar chat (bukti transaksi) — jangan ikut ter-commit.
+/public/uploads

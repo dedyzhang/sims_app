@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CanUseChatbot;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\IsAdmin;
 use App\Http\Middleware\IsAdminKesiswaan;
@@ -50,6 +51,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'isWaliSekre'            => IsWaliSekredanGuru::class,
             'isSiswa'                => IsSiswa::class,
             'isSiswaOrtu'            => IsSiswaOrangtua::class,
+            'chatbot.user'           => CanUseChatbot::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

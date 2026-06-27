@@ -376,6 +376,15 @@
             </a>
             @endcan
 
+            {{-- Asisten Sekolah: untuk pengguna non-admin dipakai lewat floating ball
+                 (lihat akhir layout). Admin tetap punya menu Inbox di sidebar. --}}
+            @if($isAdmin)
+            <a href="{{ route('chatbot.admin.inbox') }}" class="nav-link flex items-center gap-3 px-3 py-2.5 {{ request()->routeIs('chatbot.admin.*') ? 'active' : '' }}">
+                <i data-lucide="message-circle" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                <span x-show="!collapsed" class="text-sm truncate">Chat / Inbox</span>
+            </a>
+            @endif
+
             {{-- Grup kategori: accordion saat lebar, ikon datar saat ringkas --}}
             @foreach($groups as $gk => $g)
             @php [$glabel, $gicon, $gitems] = $g; @endphp
@@ -595,6 +604,82 @@
     </div>
     @endif
 </div>
+
+@if(!$isAdmin)
+{{-- ─── Floating Asisten Sekolah ─────────────────────────────────────────────
+     Bola mengambang untuk SEMUA role non-admin (siswa, ortu, guru, walikelas,
+     waka, kepala, dll). Klik membuka panel chat yang meng-embed /chatbot via
+     iframe (di-load saat pertama dibuka). Panel mengirim 'chatfab:close' lewat
+     postMessage saat tombol tutup di dalam widget ditekan. --}}
+<div x-data="chatFab()" x-cloak class="fixed bottom-6 right-6 z-[9990] flex flex-col items-end gap-3 print:hidden">
+    {{-- Panel chat --}}
+    <div x-show="open" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-3 scale-95"
+         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+         x-transition:leave-end="opacity-0 translate-y-3 scale-95"
+         class="fixed inset-0 z-[9990] w-screen h-screen h-[100dvh] origin-bottom-right overflow-hidden bg-white dark:bg-slate-900
+                sm:static sm:inset-auto sm:w-[380px] sm:h-[600px] sm:max-h-[80vh] sm:rounded-2xl sm:shadow-2xl sm:ring-1 sm:ring-slate-200 sm:dark:ring-slate-700">
+        <iframe x-ref="frame" :src="loaded ? src : 'about:blank'"
+                class="w-full h-full border-0" title="Asisten Sekolah"></iframe>
+    </div>
+
+    {{-- Bola pemicu (disembunyikan di mobile saat panel terbuka karena widget tampil fullscreen) --}}
+    <button type="button" @click="toggle()" :aria-expanded="open"
+            :class="open ? 'hidden sm:grid' : 'grid'"
+            class="relative h-14 w-14 rounded-full bg-gradient-to-br from-primary to-primary-700 text-white shadow-lg shadow-primary/30 place-items-center hover:scale-105 active:scale-95 transition focus:outline-none focus:ring-4 focus:ring-primary/40"
+            title="Asisten Sekolah">
+        {{-- Ikon chat (saat tertutup) --}}
+        <svg x-show="!open" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12a8 8 0 01-11.3 7.3L3 21l1.7-6.7A8 8 0 1121 12z"/>
+        </svg>
+        {{-- Ikon tutup (saat terbuka) --}}
+        <svg x-show="open" x-cloak class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+        {{-- Badge jumlah pesan belum dibaca (hanya saat panel tertutup) --}}
+        <span x-show="!open && unread > 0" x-cloak x-text="unread > 9 ? '9+' : unread"
+              class="absolute -top-0.5 -right-0.5 min-w-[20px] h-5 px-1 rounded-full bg-rose-500 text-white text-[11px] font-bold grid place-items-center ring-2 ring-white shadow"></span>
+    </button>
+</div>
+<script>
+    function chatFab() {
+        return {
+            open: false,
+            loaded: false,
+            unread: 0,
+            src: '{{ route('chatbot.show') }}',
+            unreadUrl: '{{ route('chatbot.unread') }}',
+            toggle() {
+                this.open = !this.open;
+                if (this.open) {
+                    this.loaded = true;   // lazy-load iframe sekali saja
+                    this.unread = 0;      // membuka panel = menandai sudah dilihat
+                } else {
+                    this.poll();          // segarkan badge saat ditutup
+                }
+            },
+            async poll() {
+                if (this.open) return;    // saat terbuka, widget mengurus state-nya sendiri
+                try {
+                    const r = await fetch(this.unreadUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (r.ok) { const d = await r.json(); this.unread = d.unread || 0; }
+                } catch (_) { /* offline sesaat → biarkan badge apa adanya */ }
+            },
+            init() {
+                // Widget (di dalam iframe) menekan tombol tutup → postMessage ke parent.
+                window.addEventListener('message', (e) => {
+                    if (e.data === 'chatfab:close') { this.open = false; this.poll(); }
+                });
+                this.poll();                                   // cek awal saat halaman dibuka
+                setInterval(() => this.poll(), 20000);         // polling latar tiap 20 detik
+            },
+        }
+    }
+</script>
+@endif
 
 <script>
     function appShell() {
