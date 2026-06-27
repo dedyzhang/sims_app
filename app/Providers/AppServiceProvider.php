@@ -3,8 +3,12 @@
 namespace App\Providers;
 
 use App\Models\Setting;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -16,6 +20,18 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Rate limiter login: cegah brute force username/password & PIN.
+        // Di-key per (kredensial + IP) agar penyerang tak bisa men-stuff banyak
+        // password ke satu akun, dan satu IP tak bisa menebak banyak akun.
+        RateLimiter::for('login', function (Request $request) {
+            $credential = Str::lower((string) $request->input('credential'));
+
+            return [
+                Limit::perMinute(5)->by($credential . '|' . $request->ip()),
+                Limit::perMinute(20)->by($request->ip()),
+            ];
+        });
+
         // WebAuthn: samakan Relying Party ID dengan host yang sedang diakses
         // (localhost saat dev, atau domain tunnel HTTPS saat uji dari HP). Tanpa ini
         // server memvalidasi RP ID = host APP_URL (localhost), sehingga pendaftaran

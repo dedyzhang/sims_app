@@ -41,11 +41,13 @@ Route::get('/', fn() => redirect()->route('login'));
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLogin'])->name('login');
-    Route::post('/login', [LoginController::class, 'login'])->name('login.post');
+    // Throttle: cegah brute force kredensial.
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:login')->name('login.post');
 });
-Route::post('/login/pin', [LoginController::class, 'loginPin'])->name('login.pin');
+// Throttle: PIN cuma 6 digit, tanpa throttle gampang di-brute force.
+Route::post('/login/pin', [LoginController::class, 'loginPin'])->middleware('throttle:login')->name('login.pin');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
-Route::post('/password/request', [LoginController::class, 'requestResetPassword'])->name('password.request');
+Route::post('/password/request', [LoginController::class, 'requestResetPassword'])->middleware('throttle:6,1')->name('password.request');
 
 // WebAuthn (Fingerprint / Face ID)
 WebAuthnRoutes::register('webauthn');
