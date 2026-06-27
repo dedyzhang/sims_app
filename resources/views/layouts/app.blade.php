@@ -558,10 +558,10 @@
             @endisset
         </div>
 
-        <main class="flex-1 overflow-y-auto px-5 md:px-7 py-4">
-            <div class="anim-fade">@yield('content')</div>
-            {{-- Footer --}}
-            <footer class="mt-8 pt-4 border-t border-slate-200/70 dark:border-slate-700/60 text-center text-xs text-slate-400">
+        <main class="flex-1 overflow-y-auto px-5 md:px-7 py-4 flex flex-col">
+            <div class="anim-fade flex-1">@yield('content')</div>
+            {{-- Footer — selalu menempel di bawah berkat mt-auto (konten flex-1 mendorongnya turun) --}}
+            <footer class="mt-auto pt-4 border-t border-slate-200/70 dark:border-slate-700/60 text-center text-xs text-slate-400">
                 &copy; {{ date('Y') }} <span class="font-semibold text-slate-500 dark:text-slate-400">{{ $namaSekolah ?? 'Edu Nusantara' }}</span>. Seluruh hak cipta dilindungi.
             </footer>
         </main>
