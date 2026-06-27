@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\AbsensiController;
+use App\Http\Controllers\Admin\ChatbotAdminController;
 use App\Http\Controllers\AgendaController;
+use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EkskulController;
 use App\Http\Controllers\FaceController;
@@ -315,4 +317,39 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/kop-rapor', 'kopRaporSave')->name('setting.kopRapor.save');
         });
     });
+});
+
+// ─── Chatbot Asisten Sekolah ────────────────────────────────────────────────
+// Sengaja DI LUAR gate EnsureFaceRegistered agar widget chat selalu bisa diakses.
+
+// Widget penanya (siswa & orang tua).
+Route::middleware(['auth', 'chatbot.user'])->group(function () {
+    Route::get('/chatbot', [ChatbotController::class, 'show'])->name('chatbot.show');
+    Route::post('/chatbot/send', [ChatbotController::class, 'send'])->name('chatbot.send');
+    Route::post('/chatbot/upload', [ChatbotController::class, 'upload'])->name('chatbot.upload');
+    Route::post('/chatbot/upload-file', [ChatbotController::class, 'uploadFile'])->name('chatbot.upload-file');
+    Route::get('/chatbot/poll', [ChatbotController::class, 'poll'])->name('chatbot.poll');
+    Route::get('/chatbot/unread', [ChatbotController::class, 'unread'])->name('chatbot.unread');
+
+    // Handoff sisi user.
+    Route::post('/chatbot/{conversation}/request-human', [ChatbotController::class, 'requestHuman'])->name('chatbot.request-human');
+    Route::post('/chatbot/{conversation}/back-to-bot', [ChatbotController::class, 'backToBot'])->name('chatbot.back-to-bot');
+});
+
+// Inbox admin (hanya admin/superadmin).
+Route::middleware(['auth', 'isAdmin'])->prefix('chatbot/admin')->name('chatbot.admin.')->group(function () {
+    Route::get('/inbox', [ChatbotAdminController::class, 'inbox'])->name('inbox');
+    Route::get('/queue', [ChatbotAdminController::class, 'queue'])->name('queue');
+    Route::get('/history', [ChatbotAdminController::class, 'history'])->name('history');
+    Route::get('/{conversation}/messages', [ChatbotAdminController::class, 'messages'])->name('messages');
+    Route::post('/{conversation}/assign', [ChatbotAdminController::class, 'assign'])->name('assign');
+    Route::post('/{conversation}/reply', [ChatbotAdminController::class, 'reply'])->name('reply');
+    Route::post('/{conversation}/reply-image', [ChatbotAdminController::class, 'replyImage'])->name('reply-image');
+    Route::post('/{conversation}/reply-file', [ChatbotAdminController::class, 'replyFile'])->name('reply-file');
+    Route::post('/{conversation}/back-to-bot', [ChatbotAdminController::class, 'backToBot'])->name('back-to-bot');
+    Route::post('/{conversation}/close', [ChatbotAdminController::class, 'close'])->name('close');
+    Route::delete('/{conversation}', [ChatbotAdminController::class, 'destroy'])->name('destroy');
+    Route::post('/settings', [ChatbotAdminController::class, 'settings'])->name('settings');
+    Route::post('/settings/avatar', [ChatbotAdminController::class, 'updateAvatar'])->name('settings.avatar');
+    Route::post('/settings/quick-questions', [ChatbotAdminController::class, 'updateQuickQuestions'])->name('settings.quick-questions');
 });
