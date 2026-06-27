@@ -18,7 +18,7 @@
                 <td>{{ $s->kontak }}</td><td>{{ $s->telepon }}</td><td>{{ $s->npwp }}</td>
                 <td class="px-4 flex gap-3">
                     <a href="{{ route('sarpras.supplier.edit', $s) }}" class="text-blue-600 hover:underline">Edit</a>
-                    <form method="POST" action="{{ route('sarpras.supplier.destroy', $s) }}" onsubmit="return confirm('Hapus supplier?')">
+                    <form method="POST" action="{{ route('sarpras.supplier.destroy', $s) }}" onsubmit="return confirmDelete(this)">
                         @csrf @method('DELETE')<button class="text-red-600 hover:underline">Hapus</button>
                     </form>
                 </td>

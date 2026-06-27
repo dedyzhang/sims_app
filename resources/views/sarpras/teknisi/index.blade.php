@@ -19,7 +19,7 @@
                 <td>{{ $t->spesialisasi }}</td><td>{{ $t->telepon }}</td>
                 <td class="px-4 flex gap-3">
                     <a href="{{ route('sarpras.teknisi.edit', $t) }}" class="text-blue-600 hover:underline">Edit</a>
-                    <form method="POST" action="{{ route('sarpras.teknisi.destroy', $t) }}" onsubmit="return confirm('Hapus teknisi?')">
+                    <form method="POST" action="{{ route('sarpras.teknisi.destroy', $t) }}" onsubmit="return confirmDelete(this)">
                         @csrf @method('DELETE')<button class="text-red-600 hover:underline">Hapus</button>
                     </form>
                 </td>

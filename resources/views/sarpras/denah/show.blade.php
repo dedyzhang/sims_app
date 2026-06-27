@@ -13,7 +13,7 @@
             @include('sarpras.denah.partials.import-button', ['denah' => $denah])
             @if ($denah->gambar_path)
                 <form method="POST" action="{{ route('sarpras.denah.gambar.hapus', $denah) }}"
-                      onsubmit="return confirm('Hapus gambar denah ini? Blok ruangan tetap tersimpan dan Anda bisa import / menggambar ulang.')">
+                      onsubmit="return confirmAction(this, 'Hapus gambar denah ini? Blok ruangan tetap tersimpan dan Anda bisa import / menggambar ulang.', 'red')">
                     @csrf @method('DELETE')
                     <button type="submit" class="inline-flex items-center gap-1 border border-red-300 text-red-600 px-3 py-1.5 rounded text-xs hover:bg-red-50">🗑️ Hapus Gambar</button>
                 </form>
@@ -295,7 +295,7 @@
             const cv = await render();
             unduh(cv.toDataURL('image/jpeg', 0.92), 'jpg');
         } catch (e) {
-            alert('Gagal export JPEG: ' + (e && e.message ? e.message : e));
+            $.alert({ title: 'Gagal Export JPEG', content: (e && e.message ? e.message : String(e)), type: 'red' });
         }
         this.disabled = false;
     });
@@ -314,7 +314,7 @@
             pdf.addImage(img, 'JPEG', 0, 0, cv.width, cv.height);
             pdf.save(namaFile + '.pdf');
         } catch (e) {
-            alert('Gagal export PDF: ' + (e && e.message ? e.message : e));
+            $.alert({ title: 'Gagal Export PDF', content: (e && e.message ? e.message : String(e)), type: 'red' });
         }
         this.disabled = false;
     });

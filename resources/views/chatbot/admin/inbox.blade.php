@@ -900,7 +900,7 @@
             if (data.status) { elStatus.textContent = statusLabel(data.status); iCStatus.textContent = statusLabel(data.status); }
             elInput.value = ''; autoSize();
         } catch (_) {
-            alert('Gagal mengirim balasan, coba lagi.');
+            $.alert({ title: 'Gagal', content: 'Gagal mengirim balasan, coba lagi.', type: 'red' });
         } finally {
             elSend.disabled = false; elInput.focus();
         }
@@ -936,7 +936,7 @@
         const file = aFileInput.files && aFileInput.files[0];
         aFileInput.value = '';
         if (!file || !file.type.startsWith('image/')) return;
-        try { aSetPending(await compressImage(file, 1280, 0.7)); } catch (_) { alert('Gagal memproses gambar.'); }
+        try { aSetPending(await compressImage(file, 1280, 0.7)); } catch (_) { $.alert({ title: 'Gagal', content: 'Gagal memproses gambar.', type: 'red' }); }
     });
     aImgRemove.addEventListener('click', aClearPending);
 
@@ -961,7 +961,7 @@
         const file = aFileInputDoc.files && aFileInputDoc.files[0];
         aFileInputDoc.value = '';
         if (!file) return;
-        if (file.size > A_MAX_FILE_BYTES) { alert('File terlalu besar (maks 5 MB).'); return; }
+        if (file.size > A_MAX_FILE_BYTES) { $.alert({ title: 'File Terlalu Besar', content: 'Ukuran file maksimal 5 MB.', type: 'orange' }); return; }
         aSetPendingFile(file);
     });
     aFileRemove.addEventListener('click', aClearPendingFile);
@@ -1023,7 +1023,7 @@
             if (data.status) { elStatus.textContent = statusLabel(data.status); iCStatus.textContent = statusLabel(data.status); }
             elInput.value = ''; autoSize();
         } catch (_) {
-            alert('Gagal mengirim gambar, coba lagi.');
+            $.alert({ title: 'Gagal', content: 'Gagal mengirim gambar, coba lagi.', type: 'red' });
         } finally {
             elSend.disabled = false; elInput.focus();
         }
@@ -1050,7 +1050,7 @@
             if (data.status) { elStatus.textContent = statusLabel(data.status); iCStatus.textContent = statusLabel(data.status); }
             elInput.value = ''; autoSize();
         } catch (_) {
-            alert('Gagal mengirim file, coba lagi.');
+            $.alert({ title: 'Gagal', content: 'Gagal mengirim file, coba lagi.', type: 'red' });
         } finally {
             elSend.disabled = false; elInput.focus();
         }
@@ -1079,65 +1079,83 @@
         } finally { btnBack.disabled = false; }
     }
 
-    async function closeChat() {
+    function closeChat() {
         if (!activeId) return;
-        if (!confirm('Selesaikan & tutup percakapan ini? Semua pesan tetap tersimpan sebagai histori/bukti.')) return;
-        btnClose.disabled = true;
-        try {
-            const res = await fetch(msgBase + '/' + activeId + '/close', {
-                method: 'POST', headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
-            });
-            if (res.ok) {
-                const d = await res.json();
-                // Tampilkan pesan penutup yang baru lalu alihkan panel ke mode arsip (read-only).
-                await loadMessages();
-                elStatus.textContent = statusLabel(d.status);
-                iCStatus.textContent = statusLabel(d.status);
-                applyReadonly(true, d.closed_at);
-                // Singkirkan dari antrian aktif & segarkan arsip.
-                allList = allList.filter(c => c.id !== activeId);
-                closedLoaded = false;
-                renderQueue(); updateCounts(lastWaiting || 0);
-                loadQueue(); loadHistory();
-            } else {
-                alert('Gagal menutup percakapan, coba lagi.');
+        $.confirm({
+            title: 'Selesaikan percakapan?',
+            content: 'Tutup percakapan ini? Semua pesan tetap tersimpan sebagai histori/bukti.',
+            type: 'orange',
+            buttons: {
+                ya: { text: 'Ya, Selesaikan', btnClass: 'btn-orange', keys: ['enter'], action: async () => {
+                    btnClose.disabled = true;
+                    try {
+                        const res = await fetch(msgBase + '/' + activeId + '/close', {
+                            method: 'POST', headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                        });
+                        if (res.ok) {
+                            const d = await res.json();
+                            // Tampilkan pesan penutup yang baru lalu alihkan panel ke mode arsip (read-only).
+                            await loadMessages();
+                            elStatus.textContent = statusLabel(d.status);
+                            iCStatus.textContent = statusLabel(d.status);
+                            applyReadonly(true, d.closed_at);
+                            // Singkirkan dari antrian aktif & segarkan arsip.
+                            allList = allList.filter(c => c.id !== activeId);
+                            closedLoaded = false;
+                            renderQueue(); updateCounts(lastWaiting || 0);
+                            loadQueue(); loadHistory();
+                        } else {
+                            $.alert({ title: 'Gagal', content: 'Gagal menutup percakapan, coba lagi.', type: 'red' });
+                        }
+                    } finally { btnClose.disabled = false; }
+                } },
+                batal: { text: 'Batal' }
             }
-        } finally { btnClose.disabled = false; }
+        });
     }
 
-    async function deleteChat(idToDelete) {
+    function deleteChat(idToDelete) {
         if (!idToDelete) return;
-        if (!confirm('Hapus percakapan ini secara permanen? Semua pesan dan lampiran akan terhapus.')) return;
-        try {
-            const res = await fetch(msgBase + '/' + idToDelete, {
-                method: 'DELETE',
-                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
-            });
-            if (res.ok) {
-                if (activeId === idToDelete) {
-                    activeId = null;
-                    root.classList.remove('has-active-chat');
-                    elActive.classList.add('hidden');
-                    elActive.classList.remove('flex');
-                    elEmpty.classList.remove('hidden');
+        $.confirm({
+            title: 'Hapus percakapan permanen?',
+            content: 'Hapus percakapan ini secara permanen? Semua pesan dan lampiran akan terhapus dan tidak dapat dikembalikan.',
+            type: 'red',
+            buttons: {
+                hapus: { text: 'Ya, Hapus', btnClass: 'btn-red', keys: ['enter'], action: async () => {
+                    try {
+                        const res = await fetch(msgBase + '/' + idToDelete, {
+                            method: 'DELETE',
+                            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                        });
+                        if (res.ok) {
+                            if (activeId === idToDelete) {
+                                activeId = null;
+                                root.classList.remove('has-active-chat');
+                                elActive.classList.add('hidden');
+                                elActive.classList.remove('flex');
+                                elEmpty.classList.remove('hidden');
 
-                    infoActive.classList.add('hidden');
-                    infoEmpty.classList.remove('hidden');
-                }
+                                infoActive.classList.add('hidden');
+                                infoEmpty.classList.remove('hidden');
+                            }
 
-                allList = allList.filter(c => c.id !== idToDelete);
-                closedList = closedList.filter(c => c.id !== idToDelete);
+                            allList = allList.filter(c => c.id !== idToDelete);
+                            closedList = closedList.filter(c => c.id !== idToDelete);
 
-                renderQueue();
-                updateCounts(lastWaiting || 0);
+                            renderQueue();
+                            updateCounts(lastWaiting || 0);
 
-                if (filter === 'closed') loadHistory(); else loadQueue();
-            } else {
-                alert('Gagal menghapus percakapan, coba lagi.');
+                            if (filter === 'closed') loadHistory(); else loadQueue();
+                        } else {
+                            $.alert({ title: 'Gagal', content: 'Gagal menghapus percakapan, coba lagi.', type: 'red' });
+                        }
+                    } catch (_) {
+                        $.alert({ title: 'Gagal', content: 'Gagal menghapus percakapan, coba lagi.', type: 'red' });
+                    }
+                } },
+                batal: { text: 'Batal' }
             }
-        } catch (_) {
-            alert('Gagal menghapus percakapan, coba lagi.');
-        }
+        });
     }
 
     // ---------- Settings ----------
@@ -1214,10 +1232,10 @@
                         }
                     }
                 } else {
-                    alert('Gagal memperbarui maskot.');
+                    $.alert({ title: 'Gagal', content: 'Gagal memperbarui maskot.', type: 'red' });
                 }
             } catch (_) {
-                alert('Terjadi kesalahan saat memperbarui maskot.');
+                $.alert({ title: 'Gagal', content: 'Terjadi kesalahan saat memperbarui maskot.', type: 'red' });
             }
         });
     });
@@ -1329,10 +1347,10 @@
             if (res.ok) {
                 closeQuickModal();
             } else {
-                alert('Gagal menyimpan pertanyaan bantuan.');
+                $.alert({ title: 'Gagal', content: 'Gagal menyimpan pertanyaan bantuan.', type: 'red' });
             }
         } catch (_) {
-            alert('Terjadi kesalahan saat menyimpan.');
+            $.alert({ title: 'Gagal', content: 'Terjadi kesalahan saat menyimpan.', type: 'red' });
         } finally {
             btnSaveQuick.disabled = false;
         }

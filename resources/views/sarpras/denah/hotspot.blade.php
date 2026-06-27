@@ -8,7 +8,7 @@
         <a href="{{ route('sarpras.denah.gambar', $denah) }}" class="text-indigo-600 hover:underline">✏️ Gambar Denah</a>
         @if ($denah->gambar_path)
             <form method="POST" action="{{ route('sarpras.denah.gambar.hapus', $denah) }}"
-                  onsubmit="return confirm('Hapus gambar denah ini? Blok ruangan tetap tersimpan dan Anda bisa import / menggambar ulang.')">
+                  onsubmit="return confirmAction(this, 'Hapus gambar denah ini? Blok ruangan tetap tersimpan dan Anda bisa import / menggambar ulang.', 'red')">
                 @csrf @method('DELETE')
                 <button type="submit" class="text-red-600 hover:underline">🗑️ Hapus Gambar</button>
             </form>
@@ -143,7 +143,7 @@
                         <span><b>{{ $r->kode }}</b> · {{ number_format($r->pos_x,1) }}%, {{ number_format($r->pos_y,1) }}%</span>
                     </span>
                     <form method="POST" action="{{ route('sarpras.ruangan.destroy', $r) }}"
-                          onsubmit="return confirm('Hapus ruangan {{ $r->kode }}?')">
+                          onsubmit="return confirmDelete(this)">
                         @csrf @method('DELETE')
                         <button class="text-red-600 hover:underline text-xs">Hapus</button>
                     </form>
@@ -227,7 +227,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
             body: JSON.stringify(body),
-        }).then(r => r.json()).catch(() => alert('Gagal menyimpan.'));
+        }).then(r => r.json()).catch(() => $.alert({ title: 'Gagal', content: 'Gagal menyimpan.', type: 'red' }));
     }
 
     const MIN = 2; // ukuran minimum blok (%)
@@ -322,7 +322,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
                 body: JSON.stringify(body),
-            }).then(r => r.json()).catch(() => alert('Gagal menyimpan warna.'));
+            }).then(r => r.json()).catch(() => $.alert({ title: 'Gagal', content: 'Gagal menyimpan warna.', type: 'red' }));
         });
     });
 })();

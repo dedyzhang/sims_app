@@ -104,7 +104,10 @@
             color: var(--stx);
             transition: width .28s cubic-bezier(.4,0,.2,1), transform .28s cubic-bezier(.4,0,.2,1);
         }
-        .dark .sidebar { background:#111c30; color:#cbd5e1; }
+        /* Dark mode: paksa --sbg & --stx jadi terang agar semua turunan (nav-link, nav-group,
+           nama sekolah, nama user) yang memakai var(--stx) tetap terbaca di atas sidebar gelap,
+           berapa pun warna preset/tema "cozy" yang dipilih. */
+        .dark .sidebar { background:#111c30; color:#cbd5e1; --sbg:#111c30; --stx:#cbd5e1; }
         .nav-link { position:relative; color: color-mix(in srgb, var(--stx) 72%, transparent); border-radius:14px; transition:all .16s; }
         .nav-link:hover { background: color-mix(in srgb, var(--cp) 12%, transparent); color: {{ $isSidebarDark ? '#ffffff' : 'color-mix(in srgb, var(--stx) 95%, black)' }}; }
         .nav-link.active {
@@ -198,9 +201,9 @@
         .jconfirm .jconfirm-buttons button.btn-blue { background:var(--cp) !important; color:#fff !important; }
         .jconfirm .jconfirm-buttons button.btn-warning { background:#f59e0b !important; color:#fff !important; }
         .jconfirm .jconfirm-buttons button.btn-default { background:#f1f5f9 !important; color:#475569 !important; }
-        .dark .jconfirm.jconfirm-material .jconfirm-box { background:#1e293b !important; }
-        .dark .jconfirm.jconfirm-material .jconfirm-title { color:#f1f5f9; }
-        .dark .jconfirm.jconfirm-material .jconfirm-content { color:#94a3b8; }
+        .dark .jconfirm .jconfirm-box { background:#1e293b !important; border: 1px solid #334155 !important; }
+        .dark .jconfirm .jconfirm-title { color:#f1f5f9 !important; }
+        .dark .jconfirm .jconfirm-content { color:#cbd5e1 !important; }
         .dark .jconfirm .jconfirm-buttons button.btn-default { background:#334155 !important; color:#cbd5e1 !important; }
 
         .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(40,35,30,.45); backdrop-filter:blur(2px); z-index:40; }
@@ -395,7 +398,9 @@
                         class="nav-group w-full flex items-center gap-3 px-3 py-2.5 {{ $activeGroup===$gk ? 'has-active' : '' }}">
                     <i data-lucide="{{ $gicon }}" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                     <span class="text-sm font-semibold truncate flex-1 text-left">{{ $glabel }}</span>
-                    <i data-lucide="chevron-down" class="w-4 h-4 flex-shrink-0 transition-transform duration-200" :class="openGroup==='{{ $gk }}' ? 'rotate-180' : ''"></i>
+                    <span class="flex-shrink-0 transition-transform duration-200 inline-block" :class="openGroup==='{{ $gk }}' ? 'rotate-180' : ''">
+                        <i data-lucide="chevron-down" class="w-4 h-4 flex-shrink-0"></i>
+                    </span>
                 </button>
                 <div x-show="openGroup==='{{ $gk }}'" x-collapse class="nav-submenu ml-[22px] pl-2.5 mt-0.5 space-y-0.5">
                     @foreach($gitems as [$iroute, $ipatterns, $iicon, $ilabel])
@@ -512,7 +517,9 @@
                         <span class="w-9 h-9 rounded-full ring-2 ring-white shadow overflow-hidden grid place-items-center text-white text-sm font-bold flex-shrink-0" style="background:linear-gradient(135deg,var(--cp),var(--ca))">
                             @if($myFace)<img src="{{ $myFace }}" class="w-full h-full object-cover" alt="profil">@else{{ $akunInisial }}@endif
                         </span>
-                        <i data-lucide="chevron-down" class="hidden sm:block w-4 h-4 text-slate-400 transition-transform" :class="{ 'rotate-180': pOpen }"></i>
+                        <span class="hidden sm:block transition-transform duration-200" :class="pOpen ? 'rotate-180' : ''">
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+                        </span>
                     </button>
 
                     <div x-show="pOpen" style="display:none" @click.away="pOpen=false"
@@ -772,7 +779,7 @@
             }
         }
     }
-    $.confirm.options = { theme:'material', animation:'scale', closeIcon:true, backgroundDismiss:true, useBootstrap:false, boxWidth:'420px' };
+    jconfirm.defaults = { theme:'material', animation:'scale', closeIcon:true, backgroundDismiss:true, useBootstrap:false, boxWidth:'420px' };
     window.confirmDelete = function(form){ $.confirm({ title:'Hapus data ini?', content:'Tindakan ini permanen dan tidak dapat dibatalkan.', type:'red', icon:'', buttons:{ hapus:{ text:'Ya, Hapus', btnClass:'btn-red', keys:['enter'], action:function(){ form.submit(); } }, batal:{ text:'Batal' } } }); return false; };
     window.confirmAction = function(form, msg, color){ $.confirm({ title:'Konfirmasi', content: msg || 'Lanjutkan?', type: color || 'orange', buttons:{ ya:{ text:'Ya, Lanjutkan', btnClass:'btn-blue', keys:['enter'], action:function(){ form.submit(); } }, batal:{ text:'Batal' } } }); return false; };
     window.showToast = function(msg, type='success'){

@@ -21,7 +21,7 @@
                 <td>{!! $j->aktif ? '✅' : '—' !!}</td>
                 <td class="px-4 flex gap-3">
                     <a href="{{ route('sarpras.jadwal.edit', $j) }}" class="text-blue-600 hover:underline">Edit</a>
-                    <form method="POST" action="{{ route('sarpras.jadwal.destroy', $j) }}" onsubmit="return confirm('Hapus jadwal?')">
+                    <form method="POST" action="{{ route('sarpras.jadwal.destroy', $j) }}" onsubmit="return confirmDelete(this)">
                         @csrf @method('DELETE')<button class="text-red-600 hover:underline">Hapus</button>
                     </form>
                 </td>

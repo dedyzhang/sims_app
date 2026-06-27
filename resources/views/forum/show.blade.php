@@ -240,7 +240,7 @@
                 await refreshForumComments();
             } else {
                 const err = await res.json();
-                alert(err.message || 'Gagal mengirim komentar.');
+                $.alert({ title: 'Gagal', content: err.message || 'Gagal mengirim komentar.', type: 'red' });
             }
         } catch (err) {
             console.error(err);

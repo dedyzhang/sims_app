@@ -194,10 +194,19 @@
 
     // Bersihkan.
     document.getElementById('btn-clear').addEventListener('click', function () {
-        if (!confirm('Bersihkan seluruh gambar?')) return;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, W, H);
-        pushUndo();
+        $.confirm({
+            title: 'Bersihkan seluruh gambar?',
+            content: 'Semua coretan pada kanvas akan dihapus dan tidak dapat dikembalikan.',
+            type: 'orange',
+            buttons: {
+                ya: { text: 'Ya, Bersihkan', btnClass: 'btn-orange', keys: ['enter'], action: function () {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, W, H);
+                    pushUndo();
+                } },
+                batal: { text: 'Batal' }
+            }
+        });
     });
 
     // Simpan -> isi hidden field dgn PNG data URL.
