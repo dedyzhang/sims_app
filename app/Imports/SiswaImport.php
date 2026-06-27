@@ -81,7 +81,7 @@ class SiswaImport implements ToCollection, WithStartRow
                 'username'   => 'ortu.' . $nis,
                 'identifier' => $nis . '-ortu',
                 'password'   => Str::random(8),
-                'access'     => 'ortu',
+                'access'     => 'orangtua',
                 'must_change_password' => true,
             ]);
             Orangtua::create([
