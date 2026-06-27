@@ -142,4 +142,27 @@ class AuthTest extends TestCase
         $response->assertSessionHasErrors('current_password');
         $this->assertTrue(Hash::check('lama12345', $user->fresh()->password));
     }
+
+    public function test_request_reset_menyimpan_token_terhash_bukan_plaintext(): void
+    {
+        $user = User::create([
+            'username' => 'lupa',
+            'password' => 'rahasia123',
+            'access'   => 'admin',
+        ]);
+
+        $this->post('/password/request', ['credential' => 'lupa'])
+            ->assertSessionHas('success');
+
+        $token = $user->fresh()->reset_token;
+        $this->assertNotNull($token);
+        // Token bcrypt ter-hash diawali $2y$ — bukan string acak plaintext.
+        $this->assertStringStartsWith('$2y$', $token);
+    }
+
+    public function test_request_reset_akun_tidak_ditemukan_memberi_error(): void
+    {
+        $this->post('/password/request', ['credential' => 'tidak-ada'])
+            ->assertSessionHasErrors('credential');
+    }
 }

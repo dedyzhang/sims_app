@@ -198,10 +198,15 @@ class LoginController extends Controller
             return back()->withErrors(['credential' => 'Akun tidak ditemukan.']);
         }
 
+        // Token disimpan ter-hash (selaras konvensi Laravel) agar bocoran DB
+        // tidak mengekspos token yang bisa dipakai ulang.
+        // CATATAN: saat ini token hanya penanda "ada permintaan reset" — belum
+        // ada alur self-service yang memverifikasinya; reset password aktual
+        // dilakukan admin (siswa.reset / guru.reset). Bila kelak dibuat alur
+        // self-service, tambahkan kolom kedaluwarsa (reset_token_expires_at).
         $token = Str::random(40);
-        $user->update(['reset_token' => $token]);
+        $user->update(['reset_token' => Hash::make($token)]);
 
-        // Token dikirim ke admin untuk diinformasikan ke user
         return back()->with('success', 'Permintaan reset dikirim ke admin.');
     }
 
@@ -217,15 +222,13 @@ class LoginController extends Controller
         return redirect($this->getRedirectUrl($user));
     }
 
+    /**
+     * Tujuan setelah login. Saat ini semua role diarahkan ke dashboard;
+     * method ini dipertahankan sebagai satu titik ubah bila nanti perlu
+     * landing page berbeda per role.
+     */
     private function getRedirectUrl(User $user): string
     {
-        return match ($user->access) {
-            'superadmin', 'admin', 'kurikulum', 'kesiswaan', 'sapras', 'kepala' => route('dashboard'),
-            'guru'      => route('dashboard'),
-            'walikelas' => route('dashboard'),
-            'siswa'     => route('dashboard'),
-            'ortu'      => route('dashboard'),
-            default     => route('dashboard'),
-        };
+        return route('dashboard');
     }
 }
