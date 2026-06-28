@@ -100,7 +100,7 @@ class SiswaController extends Controller
             'username'   => $usernameOrtu,
             'identifier' => $nis . '-ortu',
             'password'   => $passwordOrtu,
-            'access'     => 'ortu',
+            'access'     => 'orangtua',
             'must_change_password' => true,
         ]);
         Orangtua::create([

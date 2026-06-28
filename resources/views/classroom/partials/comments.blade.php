@@ -151,7 +151,7 @@
                         await this.fetchComments();
                     } else {
                         let err = await response.json();
-                        alert(err.message || 'Gagal mengirim komentar.');
+                        $.alert({ title: 'Gagal', content: err.message || 'Gagal mengirim komentar.', type: 'red' });
                     }
                 } catch (e) {
                     console.error(e);
@@ -160,25 +160,34 @@
                     hideGlobalSpinner();
                 }
             },
-            async deleteComment(commentUuid) {
-                if (!confirm('Hapus komentar ini?')) return;
-                showGlobalSpinner();
-                try {
-                    let response = await fetch(`/ruang-kelas/komentar/${commentUuid}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                        }
-                    });
-                    if (response.ok) {
-                        await this.fetchComments();
+            deleteComment(commentUuid) {
+                $.confirm({
+                    title: 'Hapus komentar ini?',
+                    content: 'Komentar yang dihapus tidak dapat dikembalikan.',
+                    type: 'red',
+                    buttons: {
+                        hapus: { text: 'Ya, Hapus', btnClass: 'btn-red', keys: ['enter'], action: async () => {
+                            showGlobalSpinner();
+                            try {
+                                let response = await fetch(`/ruang-kelas/komentar/${commentUuid}`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                                    }
+                                });
+                                if (response.ok) {
+                                    await this.fetchComments();
+                                }
+                            } catch (e) {
+                                console.error(e);
+                            } finally {
+                                hideGlobalSpinner();
+                            }
+                        } },
+                        batal: { text: 'Batal' }
                     }
-                } catch (e) {
-                    console.error(e);
-                } finally {
-                    hideGlobalSpinner();
-                }
+                });
             }
         }
     }

@@ -184,4 +184,14 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     {
         return $this->hasOne(UserPreference::class, 'user_uuid', 'uuid');
     }
+
+    /**
+     * Nama tampilan user. Diambil dari profil guru/siswa bila ada, jika tidak
+     * memakai username. Dipakai antara lain oleh modul Sarpras (pelapor,
+     * peminjam, pengaju, dst). SIMS tidak memiliki kolom `name`.
+     */
+    public function getNameAttribute(): ?string
+    {
+        return $this->guru?->nama ?? $this->siswa?->nama ?? $this->username;
+    }
 }

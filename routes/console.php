@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Terbitkan Ruang Kelas / materi / tugas terjadwal setiap menit.
 Schedule::command('classroom:publish-scheduled')->everyMinute()->withoutOverlapping();
+
+// Sarpras: pengingat jadwal pemeliharaan yang jatuh tempo (harian 07:00).
+Schedule::command('sarpras:pemeliharaan-reminder')->dailyAt('07:00')->withoutOverlapping();

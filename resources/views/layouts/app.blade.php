@@ -104,7 +104,10 @@
             color: var(--stx);
             transition: width .28s cubic-bezier(.4,0,.2,1), transform .28s cubic-bezier(.4,0,.2,1);
         }
-        .dark .sidebar { background:#111c30; color:#cbd5e1; }
+        /* Dark mode: paksa --sbg & --stx jadi terang agar semua turunan (nav-link, nav-group,
+           nama sekolah, nama user) yang memakai var(--stx) tetap terbaca di atas sidebar gelap,
+           berapa pun warna preset/tema "cozy" yang dipilih. */
+        .dark .sidebar { background:#111c30; color:#cbd5e1; --sbg:#111c30; --stx:#cbd5e1; }
         .nav-link { position:relative; color: color-mix(in srgb, var(--stx) 72%, transparent); border-radius:14px; transition:all .16s; }
         .nav-link:hover { background: color-mix(in srgb, var(--cp) 12%, transparent); color: {{ $isSidebarDark ? '#ffffff' : 'color-mix(in srgb, var(--stx) 95%, black)' }}; }
         .nav-link.active {
@@ -198,9 +201,9 @@
         .jconfirm .jconfirm-buttons button.btn-blue { background:var(--cp) !important; color:#fff !important; }
         .jconfirm .jconfirm-buttons button.btn-warning { background:#f59e0b !important; color:#fff !important; }
         .jconfirm .jconfirm-buttons button.btn-default { background:#f1f5f9 !important; color:#475569 !important; }
-        .dark .jconfirm.jconfirm-material .jconfirm-box { background:#1e293b !important; }
-        .dark .jconfirm.jconfirm-material .jconfirm-title { color:#f1f5f9; }
-        .dark .jconfirm.jconfirm-material .jconfirm-content { color:#94a3b8; }
+        .dark .jconfirm .jconfirm-box { background:#1e293b !important; border: 1px solid #334155 !important; }
+        .dark .jconfirm .jconfirm-title { color:#f1f5f9 !important; }
+        .dark .jconfirm .jconfirm-content { color:#cbd5e1 !important; }
         .dark .jconfirm .jconfirm-buttons button.btn-default { background:#334155 !important; color:#cbd5e1 !important; }
 
         .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(40,35,30,.45); backdrop-filter:blur(2px); z-index:40; }
@@ -325,6 +328,21 @@
                     $groups['penilaian'] = ['Penilaian & Rapor', 'notebook-pen', $penilaianItems];
                 }
 
+                // Grup Sarana & Prasarana (staf sekolah; kelola penuh utk superadmin/admin/sapras)
+                if (in_array($access, ['superadmin','admin','sapras','kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru'])) {
+                    $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
+                        ['sarpras.dashboard',        ['sarpras.dashboard'],                          'gauge',           'Dashboard'],
+                        ['sarpras.aset.index',       ['sarpras.aset.*'],                             'package',         'Katalog Aset'],
+                        ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',             'Denah Gedung'],
+                        ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',  'Kerusakan'],
+                        ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                          'handshake',       'Peminjaman & Booking'],
+                        ['sarpras.perbaikan.index',  ['sarpras.perbaikan.*','sarpras.teknisi.*','sarpras.jadwal.*'], 'wrench', 'Perbaikan'],
+                        ['sarpras.pengadaan.index',  ['sarpras.pengadaan.*','sarpras.supplier.*'],   'shopping-cart',   'Pengadaan'],
+                        ['sarpras.penghapusan.index',['sarpras.penghapusan.*','sarpras.mutasi.*'],   'trash-2',         'Penghapusan & Mutasi'],
+                        ['sarpras.laporan.index',    ['sarpras.laporan.*','sarpras.kategori.*'],     'file-bar-chart',  'Laporan'],
+                    ]];
+                }
+
                 if ($isAdmin) {
                     $groups['sistem'] = ['Sistem', 'sliders-horizontal', [
                         ['setting.index', ['setting.*'], 'settings-2', 'Pengaturan'],
@@ -361,6 +379,15 @@
             </a>
             @endcan
 
+            {{-- Asisten Sekolah: untuk pengguna non-admin dipakai lewat floating ball
+                 (lihat akhir layout). Admin tetap punya menu Inbox di sidebar. --}}
+            @if($isAdmin)
+            <a href="{{ route('chatbot.admin.inbox') }}" class="nav-link flex items-center gap-3 px-3 py-2.5 {{ request()->routeIs('chatbot.admin.*') ? 'active' : '' }}">
+                <i data-lucide="message-circle" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                <span x-show="!collapsed" class="text-sm truncate">Chat / Inbox</span>
+            </a>
+            @endif
+
             {{-- Grup kategori: accordion saat lebar, ikon datar saat ringkas --}}
             @foreach($groups as $gk => $g)
             @php [$glabel, $gicon, $gitems] = $g; @endphp
@@ -371,7 +398,9 @@
                         class="nav-group w-full flex items-center gap-3 px-3 py-2.5 {{ $activeGroup===$gk ? 'has-active' : '' }}">
                     <i data-lucide="{{ $gicon }}" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                     <span class="text-sm font-semibold truncate flex-1 text-left">{{ $glabel }}</span>
-                    <i data-lucide="chevron-down" class="w-4 h-4 flex-shrink-0 transition-transform duration-200" :class="openGroup==='{{ $gk }}' ? 'rotate-180' : ''"></i>
+                    <span class="flex-shrink-0 transition-transform duration-200 inline-block" :class="openGroup==='{{ $gk }}' ? 'rotate-180' : ''">
+                        <i data-lucide="chevron-down" class="w-4 h-4 flex-shrink-0"></i>
+                    </span>
                 </button>
                 <div x-show="openGroup==='{{ $gk }}'" x-collapse class="nav-submenu ml-[22px] pl-2.5 mt-0.5 space-y-0.5">
                     @foreach($gitems as [$iroute, $ipatterns, $iicon, $ilabel])
@@ -488,7 +517,9 @@
                         <span class="w-9 h-9 rounded-full ring-2 ring-white shadow overflow-hidden grid place-items-center text-white text-sm font-bold flex-shrink-0" style="background:linear-gradient(135deg,var(--cp),var(--ca))">
                             @if($myFace)<img src="{{ $myFace }}" class="w-full h-full object-cover" alt="profil">@else{{ $akunInisial }}@endif
                         </span>
-                        <i data-lucide="chevron-down" class="hidden sm:block w-4 h-4 text-slate-400 transition-transform" :class="{ 'rotate-180': pOpen }"></i>
+                        <span class="hidden sm:block transition-transform duration-200" :class="pOpen ? 'rotate-180' : ''">
+                            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+                        </span>
                     </button>
 
                     <div x-show="pOpen" style="display:none" @click.away="pOpen=false"
@@ -534,10 +565,10 @@
             @endisset
         </div>
 
-        <main class="flex-1 overflow-y-auto px-5 md:px-7 py-4">
-            <div class="anim-fade">@yield('content')</div>
-            {{-- Footer --}}
-            <footer class="mt-8 pt-4 border-t border-slate-200/70 dark:border-slate-700/60 text-center text-xs text-slate-400">
+        <main class="flex-1 overflow-y-auto px-5 md:px-7 py-4 flex flex-col">
+            <div class="anim-fade flex-1">@yield('content')</div>
+            {{-- Footer — selalu menempel di bawah berkat mt-auto (konten flex-1 mendorongnya turun) --}}
+            <footer class="mt-auto pt-4 border-t border-slate-200/70 dark:border-slate-700/60 text-center text-xs text-slate-400">
                 &copy; {{ date('Y') }} <span class="font-semibold text-slate-500 dark:text-slate-400">{{ $namaSekolah ?? 'Edu Nusantara' }}</span>. Seluruh hak cipta dilindungi.
             </footer>
         </main>
@@ -555,24 +586,107 @@
 @endif
 
 {{-- Toasts --}}
+@php
+    // Satu sistem notifikasi: dukung dua konvensi key flash —
+    // 'success'/'error' (umum SIMS) & 'sukses'/'gagal' (modul Sarpras).
+    // Hanya tampil bila benar-benar ADA teks (cegah toast judul tanpa keterangan).
+    $toastSukses = trim((string) (session('success') ?? session('sukses') ?? ''));
+    $toastGagal  = trim((string) (session('error') ?? session('gagal') ?? ''));
+@endphp
 <div class="fixed bottom-6 right-6 z-[9999] space-y-2" id="toastWrap">
-    @if(session('success'))
+    @if($toastSukses !== '')
     <div class="toast-item card !rounded-2xl border-l-4 !border-l-emerald-500 px-4 py-3 flex items-start gap-3 min-w-[290px] max-w-md shadow-xl" style="animation:slideToast .35s both">
         <div class="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900 grid place-items-center flex-shrink-0"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i></div>
-        <div class="flex-1 min-w-0"><p class="font-bold text-sm text-slate-800 dark:text-slate-100">Berhasil</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 break-words">{{ session('success') }}</p></div>
+        <div class="flex-1 min-w-0"><p class="font-bold text-sm text-slate-800 dark:text-slate-100">Berhasil</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 break-words">{{ $toastSukses }}</p></div>
         <button onclick="this.closest('.toast-item').remove()" class="text-slate-300 hover:text-slate-500"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
     @endif
-    @if(session('error') || $errors->any())
+    @if($toastGagal !== '' || $errors->any())
     <div class="toast-item card !rounded-2xl border-l-4 !border-l-rose-500 px-4 py-3 flex items-start gap-3 min-w-[290px] max-w-md shadow-xl" style="animation:slideToast .35s both">
         <div class="w-8 h-8 rounded-xl bg-rose-100 dark:bg-rose-900 grid place-items-center flex-shrink-0"><i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i></div>
         <div class="flex-1 min-w-0"><p class="font-bold text-sm text-slate-800 dark:text-slate-100">Terjadi Kesalahan</p>
-            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 space-y-0.5">@if(session('error'))<p>{{ session('error') }}</p>@endif @foreach($errors->all() as $err)<p>{{ $err }}</p>@endforeach</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 space-y-0.5">@if($toastGagal !== '')<p>{{ $toastGagal }}</p>@endif @foreach($errors->all() as $err)<p>{{ $err }}</p>@endforeach</div>
         </div>
         <button onclick="this.closest('.toast-item').remove()" class="text-slate-300 hover:text-slate-500"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
     @endif
 </div>
+
+@if(!$isAdmin)
+{{-- ─── Floating Asisten Sekolah ─────────────────────────────────────────────
+     Bola mengambang untuk SEMUA role non-admin (siswa, ortu, guru, walikelas,
+     waka, kepala, dll). Klik membuka panel chat yang meng-embed /chatbot via
+     iframe (di-load saat pertama dibuka). Panel mengirim 'chatfab:close' lewat
+     postMessage saat tombol tutup di dalam widget ditekan. --}}
+<div x-data="chatFab()" x-cloak class="fixed bottom-6 right-6 z-[9990] flex flex-col items-end gap-3 print:hidden">
+    {{-- Panel chat --}}
+    <div x-show="open" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 translate-y-3 scale-95"
+         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+         x-transition:leave-end="opacity-0 translate-y-3 scale-95"
+         class="fixed inset-0 z-[9990] w-screen h-screen h-[100dvh] origin-bottom-right overflow-hidden bg-white dark:bg-slate-900
+                sm:static sm:inset-auto sm:w-[380px] sm:h-[600px] sm:max-h-[80vh] sm:rounded-2xl sm:shadow-2xl sm:ring-1 sm:ring-slate-200 sm:dark:ring-slate-700">
+        <iframe x-ref="frame" :src="loaded ? src : 'about:blank'"
+                class="w-full h-full border-0" title="Asisten Sekolah"></iframe>
+    </div>
+
+    {{-- Bola pemicu (disembunyikan di mobile saat panel terbuka karena widget tampil fullscreen) --}}
+    <button type="button" @click="toggle()" :aria-expanded="open"
+            :class="open ? 'hidden sm:grid' : 'grid'"
+            class="relative h-14 w-14 rounded-full bg-gradient-to-br from-primary to-primary-700 text-white shadow-lg shadow-primary/30 place-items-center hover:scale-105 active:scale-95 transition focus:outline-none focus:ring-4 focus:ring-primary/40"
+            title="Asisten Sekolah">
+        {{-- Ikon chat (saat tertutup) --}}
+        <svg x-show="!open" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12a8 8 0 01-11.3 7.3L3 21l1.7-6.7A8 8 0 1121 12z"/>
+        </svg>
+        {{-- Ikon tutup (saat terbuka) --}}
+        <svg x-show="open" x-cloak class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+        {{-- Badge jumlah pesan belum dibaca (hanya saat panel tertutup) --}}
+        <span x-show="!open && unread > 0" x-cloak x-text="unread > 9 ? '9+' : unread"
+              class="absolute -top-0.5 -right-0.5 min-w-[20px] h-5 px-1 rounded-full bg-rose-500 text-white text-[11px] font-bold grid place-items-center ring-2 ring-white shadow"></span>
+    </button>
+</div>
+<script>
+    function chatFab() {
+        return {
+            open: false,
+            loaded: false,
+            unread: 0,
+            src: '{{ route('chatbot.show') }}',
+            unreadUrl: '{{ route('chatbot.unread') }}',
+            toggle() {
+                this.open = !this.open;
+                if (this.open) {
+                    this.loaded = true;   // lazy-load iframe sekali saja
+                    this.unread = 0;      // membuka panel = menandai sudah dilihat
+                } else {
+                    this.poll();          // segarkan badge saat ditutup
+                }
+            },
+            async poll() {
+                if (this.open) return;    // saat terbuka, widget mengurus state-nya sendiri
+                try {
+                    const r = await fetch(this.unreadUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    if (r.ok) { const d = await r.json(); this.unread = d.unread || 0; }
+                } catch (_) { /* offline sesaat → biarkan badge apa adanya */ }
+            },
+            init() {
+                // Widget (di dalam iframe) menekan tombol tutup → postMessage ke parent.
+                window.addEventListener('message', (e) => {
+                    if (e.data === 'chatfab:close') { this.open = false; this.poll(); }
+                });
+                this.poll();                                   // cek awal saat halaman dibuka
+                setInterval(() => this.poll(), 20000);         // polling latar tiap 20 detik
+            },
+        }
+    }
+</script>
+@endif
 
 <script>
     function appShell() {
@@ -665,7 +779,7 @@
             }
         }
     }
-    $.confirm.options = { theme:'material', animation:'scale', closeIcon:true, backgroundDismiss:true, useBootstrap:false, boxWidth:'420px' };
+    jconfirm.defaults = { theme:'material', animation:'scale', closeIcon:true, backgroundDismiss:true, useBootstrap:false, boxWidth:'420px' };
     window.confirmDelete = function(form){ $.confirm({ title:'Hapus data ini?', content:'Tindakan ini permanen dan tidak dapat dibatalkan.', type:'red', icon:'', buttons:{ hapus:{ text:'Ya, Hapus', btnClass:'btn-red', keys:['enter'], action:function(){ form.submit(); } }, batal:{ text:'Batal' } } }); return false; };
     window.confirmAction = function(form, msg, color){ $.confirm({ title:'Konfirmasi', content: msg || 'Lanjutkan?', type: color || 'orange', buttons:{ ya:{ text:'Ya, Lanjutkan', btnClass:'btn-blue', keys:['enter'], action:function(){ form.submit(); } }, batal:{ text:'Batal' } } }); return false; };
     window.showToast = function(msg, type='success'){
