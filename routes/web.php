@@ -93,6 +93,13 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
 
+    // Statistik real-time untuk ticker SIMS-NET (angka dari cache TickerStats).
+    Route::get('/dashboard/ticker-stats', function () {
+        return response()->json(
+            \App\Support\TickerStats::forRole(auth()->user()->access ?? '')
+        );
+    })->name('dashboard.ticker-stats');
+
     // ─── Penilaian (guru menilai penugasan mengajarnya; admin akses semua) ───
     Route::controller(NilaiController::class)->group(function () {
         Route::get('/nilai', 'index')->name('nilai.index');

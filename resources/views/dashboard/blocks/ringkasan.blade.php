@@ -1,18 +1,21 @@
 {{-- ===== Quick Overview + Featured ===== --}}
+@php
+    $isMaitreyawira = ($pref->primary_color === '#2563eb' && $pref->accent_color === '#f59e0b');
+@endphp
 <div class="grid lg:grid-cols-3 gap-5">
     <div class="lg:col-span-2">
         <h2 class="font-bold text-slate-700 dark:text-slate-200 mb-3 px-1">Ringkasan Cepat</h2>
         <div class="grid sm:grid-cols-3 gap-4 stagger">
             {{-- Card 1: Siswa (area) — warna primary --}}
             <a href="{{ route('siswa.index') }}" class="card card-hover overflow-hidden group"
-               style="background:linear-gradient(160deg, color-mix(in srgb, var(--cp) 22%, white), color-mix(in srgb, var(--cp) 9%, white))">
+               style="@if($isMaitreyawira) background: #ffffff; @else background:linear-gradient(160deg, color-mix(in srgb, var(--cp) 22%, white), color-mix(in srgb, var(--cp) 9%, white)) @endif">
                 <div class="p-4">
                     <div class="flex items-start justify-between">
                         <div>
-                            <p class="text-2xl font-extrabold" style="color:color-mix(in srgb, var(--cp) 78%, black)">{{ number_format($totalSiswa) }}</p>
-                            <p class="text-sm font-medium" style="color:color-mix(in srgb, var(--cp) 62%, black)">Siswa</p>
+                            <p class="text-2xl font-extrabold" style="color: @if($isMaitreyawira) var(--cp) @else color-mix(in srgb, var(--cp) 78%, black) @endif">{{ number_format($totalSiswa) }}</p>
+                            <p class="text-sm font-medium" style="color: @if($isMaitreyawira) #64748b @else color-mix(in srgb, var(--cp) 62%, black) @endif">Siswa</p>
                         </div>
-                        <span class="grid place-items-center w-7 h-7 rounded-lg bg-white/70 group-hover:bg-white transition" style="color:color-mix(in srgb, var(--cp) 78%, black)"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
+                        <span class="grid place-items-center w-7 h-7 rounded-lg @if($isMaitreyawira) bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-primary group-hover:text-white @else bg-white/70 group-hover:bg-white @endif transition" style="color: @if(!$isMaitreyawira) color-mix(in srgb, var(--cp) 78%, black) @endif"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
                     </div>
                 </div>
                 {{-- Ilustrasi: Topi Wisuda --}}
@@ -53,14 +56,14 @@
             </a>
             {{-- Card 2: Guru (line) — warna secondary --}}
             <a href="{{ route('guru.index') }}" class="card card-hover overflow-hidden group"
-               style="background:linear-gradient(160deg, color-mix(in srgb, var(--cps) 24%, white), color-mix(in srgb, var(--cps) 10%, white))">
+               style="@if($isMaitreyawira) background: #ffffff; @else background:linear-gradient(160deg, color-mix(in srgb, var(--cps) 24%, white), color-mix(in srgb, var(--cps) 10%, white)) @endif">
                 <div class="p-4">
                     <div class="flex items-start justify-between">
                         <div>
-                            <p class="text-2xl font-extrabold" style="color:color-mix(in srgb, var(--cps) 80%, black)">{{ number_format($totalGuru) }}</p>
-                            <p class="text-sm font-medium" style="color:color-mix(in srgb, var(--cps) 64%, black)">Guru</p>
+                            <p class="text-2xl font-extrabold" style="color: @if($isMaitreyawira) var(--cps) @else color-mix(in srgb, var(--cps) 80%, black) @endif">{{ number_format($totalGuru) }}</p>
+                            <p class="text-sm font-medium" style="color: @if($isMaitreyawira) #64748b @else color-mix(in srgb, var(--cps) 64%, black) @endif">Guru</p>
                         </div>
-                        <span class="grid place-items-center w-7 h-7 rounded-lg bg-white/70 group-hover:bg-white transition" style="color:color-mix(in srgb, var(--cps) 80%, black)"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
+                        <span class="grid place-items-center w-7 h-7 rounded-lg @if($isMaitreyawira) bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-primary group-hover:text-white @else bg-white/70 group-hover:bg-white @endif transition" style="color: @if(!$isMaitreyawira) color-mix(in srgb, var(--cps) 80%, black) @endif"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
                     </div>
                 </div>
                 {{-- Ilustrasi: Buku & Bohlam Ide --}}
@@ -110,14 +113,14 @@
             </a>
             {{-- Card 3: Kelas (bars) — warna accent --}}
             <a href="{{ route('kelas.index') }}" class="card card-hover overflow-hidden group"
-               style="background:linear-gradient(160deg, color-mix(in srgb, var(--ca) 24%, white), color-mix(in srgb, var(--ca) 10%, white))">
+               style="@if($isMaitreyawira) background: #ffffff; @else background:linear-gradient(160deg, color-mix(in srgb, var(--ca) 24%, white), color-mix(in srgb, var(--ca) 10%, white)) @endif">
                 <div class="p-4">
                     <div class="flex items-start justify-between">
                         <div>
-                            <p class="text-2xl font-extrabold" style="color:color-mix(in srgb, var(--ca) 80%, black)">{{ number_format($totalKelas) }}</p>
-                            <p class="text-sm font-medium" style="color:color-mix(in srgb, var(--ca) 64%, black)">Kelas</p>
+                            <p class="text-2xl font-extrabold" style="color: @if($isMaitreyawira) var(--ca) @else color-mix(in srgb, var(--ca) 80%, black) @endif">{{ number_format($totalKelas) }}</p>
+                            <p class="text-sm font-medium" style="color: @if($isMaitreyawira) #64748b @else color-mix(in srgb, var(--ca) 64%, black) @endif">Kelas</p>
                         </div>
-                        <span class="grid place-items-center w-7 h-7 rounded-lg bg-white/70 group-hover:bg-white transition" style="color:color-mix(in srgb, var(--ca) 80%, black)"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
+                        <span class="grid place-items-center w-7 h-7 rounded-lg @if($isMaitreyawira) bg-slate-50 dark:bg-slate-800 text-slate-400 group-hover:bg-primary group-hover:text-white @else bg-white/70 group-hover:bg-white @endif transition" style="color: @if(!$isMaitreyawira) color-mix(in srgb, var(--ca) 80%, black) @endif"><i data-lucide="arrow-up-right" class="w-4 h-4"></i></span>
                     </div>
                 </div>
                 {{-- Ilustrasi: Gedung Sekolah --}}

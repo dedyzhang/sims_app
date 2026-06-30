@@ -143,13 +143,19 @@
         .btn-primary { background:var(--cp); color:#fff; transition:all .18s; box-shadow:0 6px 16px -6px color-mix(in srgb, var(--cp) 60%, transparent); }
         .btn-primary:hover { filter:brightness(1.06); transform:translateY(-1px); box-shadow:0 10px 22px -6px color-mix(in srgb, var(--cp) 65%, transparent); }
         .btn-primary:active { transform:translateY(0); }
+        .btn-accent { background:var(--ca); color:#fff; transition:all .18s; box-shadow:0 6px 16px -6px color-mix(in srgb, var(--ca) 60%, transparent); }
+        .btn-accent:hover { filter:brightness(1.06); transform:translateY(-1px); box-shadow:0 10px 22px -6px color-mix(in srgb, var(--ca) 65%, transparent); }
+        .btn-accent:active { transform:translateY(0); }
+        .btn-yellow { background:#f59e0b; color:#fff; transition:all .18s; box-shadow:0 6px 16px -6px rgba(245,158,11,0.4); }
+        .btn-yellow:hover { filter:brightness(1.06); transform:translateY(-1px); box-shadow:0 10px 22px -6px rgba(245,158,11,0.5); }
+        .btn-yellow:active { transform:translateY(0); }
         .btn-ghost { transition:all .18s; }
         .btn-ghost:hover { background:var(--cp); color:#fff; border-color:var(--cp); }
 
         /* ===== Cards (tint halus ikut tema) ===== */
-        .card { background: color-mix(in srgb, var(--cp) 3.5%, #fff); border:1px solid color-mix(in srgb, var(--cp) 11%, #e2e8f0); border-radius:22px; box-shadow:0 4px 18px -10px rgba(15,23,42,.08); transition:box-shadow .2s, transform .2s, border-color .2s; }
+        .card { background: color-mix(in srgb, var(--cp) 3.5%, #fff); border:1.5px solid color-mix(in srgb, var(--ca) 25%, color-mix(in srgb, var(--cp) 11%, #e2e8f0)); border-radius:22px; box-shadow:0 4px 18px -10px rgba(15,23,42,.08); transition:box-shadow .2s, transform .2s, border-color .2s; }
         .card-hover:hover { box-shadow:0 16px 36px -16px color-mix(in srgb, var(--cp) 30%, rgba(15,23,42,.18)); transform:translateY(-3px); }
-        .dark .card { background:#1e293b; border-color:#334155; }
+        .dark .card { background:#1e293b; border-color: color-mix(in srgb, var(--ca) 15%, #334155); }
 
         /* ===== Table ===== */
         .data-table { width:100%; border-collapse:collapse; }
@@ -249,11 +255,15 @@
         body[data-style="corporate"] .nav-link.active { background: rgba(255,255,255,.13); color:#fff; }
         body[data-style="corporate"] .nav-link.active::before { display:none; }
         body[data-style="corporate"] .nav-link.active .nav-icon { color:#fff; filter:none; }
+        body[data-style="corporate"] .nav-group { border-radius:10px; color: color-mix(in srgb, var(--stx) 70%, transparent); }
+        body[data-style="corporate"] .nav-group:hover { background: rgba(255,255,255,.08); color:#fff; }
+        body[data-style="corporate"] .nav-group.has-active { color:#fff; }
+        body[data-style="corporate"] .nav-group.has-active .nav-icon { color:#fff; }
         body[data-style="corporate"] .nav-section { color: rgba(233,239,234,.4); }
 
         /* Kartu: putih, border tipis, sudut lebih kecil, shadow halus */
-        body[data-style="corporate"] .card { background:#fff !important; border:1px solid #ececec !important; border-radius:14px !important; box-shadow:0 1px 3px rgba(0,0,0,.05) !important; }
-        .dark body[data-style="corporate"] .card { background:#1e293b !important; border-color:#334155 !important; }
+        body[data-style="corporate"] .card { background:#fff !important; border:1.5px solid color-mix(in srgb, var(--ca) 20%, #ececec) !important; border-radius:14px !important; box-shadow:0 1px 3px rgba(0,0,0,.05) !important; }
+        .dark body[data-style="corporate"] .card { background:#1e293b !important; border-color: color-mix(in srgb, var(--ca) 15%, #334155) !important; }
         body[data-style="corporate"] .card-hover:hover { transform:none !important; box-shadow:0 6px 18px -8px rgba(0,0,0,.14) !important; }
 
         /* Tombol & input sedikit lebih kotak */
@@ -262,6 +272,20 @@
         body[data-style="corporate"] .form-input, body[data-style="corporate"] .form-select { border-radius:10px; }
         body[data-style="corporate"] .modal-box { border-radius:16px; }
         body[data-style="corporate"] .data-table thead th { background:#f7f9f8; }
+
+        /* Ticker status bar animation */
+        @keyframes ticker-scroll {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-50%, 0, 0); }
+        }
+        .animate-ticker {
+            display: flex;
+            white-space: nowrap;
+            animation: ticker-scroll 35s linear infinite;
+        }
+        .animate-ticker:hover {
+            animation-play-state: paused;
+        }
     </style>
     @stack('styles')
 </head>
@@ -630,6 +654,185 @@
                 &copy; {{ date('Y') }} <span class="font-semibold text-slate-500 dark:text-slate-400">{{ $namaSekolah ?? 'Edu Nusantara' }}</span>. Seluruh hak cipta dilindungi.
             </footer>
         </main>
+
+        {{-- SIMS-NET System Ticker Bar (Integrated for all roles, displaying real dashboard statistics) --}}
+        @php
+            // Angka ticker diambil dari cache (App\Support\TickerStats) — menghindari
+            // ~15 query agregat di setiap load halaman. Penyaringan per-role di bawah
+            // murni operasi array (tanpa query tambahan).
+            $role = auth()->user()->access ?? '';
+            $tickerFlags = \App\Support\TickerStats::flags($role);
+            $showManagementStats = $tickerFlags['management'];
+            $showTeacherStats = $tickerFlags['teacher'];
+            $showStudentStats = $tickerFlags['student'];
+            $showOnlineStats = $tickerFlags['online'];
+
+            $tickerData = \App\Support\TickerStats::raw();
+            $tickerSiswa = $tickerData['siswa'];
+            $tickerL = $tickerData['siswaL'];
+            $tickerP = $tickerData['siswaP'];
+            $tickerGuru = $tickerData['guru'];
+            $tickerKelas = $tickerData['kelas'];
+            $tickerMapel = $tickerData['mapel'];
+            $tickerSemesterLabel = $tickerData['semesterLabel'];
+            $tickerAset = $tickerData['aset'];
+            $tickerKerusakan = $tickerData['kerusakan'];
+            $tickerPeminjaman = $tickerData['peminjaman'];
+            $tickerOnlineText = \App\Support\TickerStats::onlineText($tickerData);
+        @endphp
+        <div class="h-8 bg-[#090d16] flex-shrink-0 flex items-center text-[10px] sm:text-[11px] font-mono tracking-wider overflow-hidden border-t border-slate-900 text-slate-400 select-none z-30 shadow-2xl">
+            <div class="flex items-center px-3 border-r border-slate-800/80 h-full flex-shrink-0 z-20">
+                <span class="bg-amber-500/10 text-amber-500 border border-amber-500/20 font-bold px-2 py-0.5 rounded text-[9px] sm:text-[10px] tracking-wider">
+                    SIMS-NET
+                </span>
+            </div>
+            <div class="flex-1 overflow-hidden relative flex items-center">
+                <div class="animate-ticker flex whitespace-nowrap gap-12 items-center pl-4 py-1">
+                    <div class="flex items-center gap-12">
+                        <span class="flex items-center gap-2">
+                            <span>SEMESTER:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-semester">{{ $tickerSemesterLabel }}</span>
+                        </span>
+                        
+                        @if($showStudentStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>TOTAL SISWA:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-siswa">{{ number_format($tickerSiswa) }} ({{ number_format($tickerL) }} L • {{ number_format($tickerP) }} P)</span>
+                        </span>
+                        @endif
+
+                        @if($showTeacherStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>GURU AKTIF:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-guru">{{ number_format($tickerGuru) }} GURU</span>
+                        </span>
+                        @endif
+
+                        @if($showTeacherStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>ROMBEL:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-kelas">{{ number_format($tickerKelas) }} KELAS</span>
+                        </span>
+                        @endif
+
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>KURIKULUM:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-mapel">{{ number_format($tickerMapel) }} MAPEL</span>
+                        </span>
+
+                        @if($showManagementStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>TOTAL ASET:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-aset">{{ number_format($tickerAset) }} UNIT</span>
+                        </span>
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>KERUSAKAN TERBUKA:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-kerusakan">{{ number_format($tickerKerusakan) }} LAPORAN</span>
+                        </span>
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>PEMINJAMAN AKTIF:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-peminjaman">{{ number_format($tickerPeminjaman) }} TRANSAKSI</span>
+                        </span>
+                        @endif
+
+                        @if($showOnlineStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>USER ONLINE:</span>
+                            <span class="text-cyan-400 font-bold ticker-val-online">{{ $tickerOnlineText }}</span>
+                        </span>
+                        @endif
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2 text-amber-400 font-bold">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                            </span>
+                            LIVE SYS
+                        </span>
+                    </div>
+                    <!-- Duplicate for seamless loop scrolling -->
+                    <div class="flex items-center gap-12" aria-hidden="true">
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>SEMESTER:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-semester">{{ $tickerSemesterLabel }}</span>
+                        </span>
+                        
+                        @if($showStudentStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>TOTAL SISWA:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-siswa">{{ number_format($tickerSiswa) }} ({{ number_format($tickerL) }} L • {{ number_format($tickerP) }} P)</span>
+                        </span>
+                        @endif
+
+                        @if($showTeacherStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>GURU AKTIF:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-guru">{{ number_format($tickerGuru) }} GURU</span>
+                        </span>
+                        @endif
+
+                        @if($showTeacherStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>ROMBEL:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-kelas">{{ number_format($tickerKelas) }} KELAS</span>
+                        </span>
+                        @endif
+
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>KURIKULUM:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-mapel">{{ number_format($tickerMapel) }} MAPEL</span>
+                        </span>
+
+                        @if($showManagementStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>TOTAL ASET:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-aset">{{ number_format($tickerAset) }} UNIT</span>
+                        </span>
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>KERUSAKAN TERBUKA:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-kerusakan">{{ number_format($tickerKerusakan) }} LAPORAN</span>
+                        </span>
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>PEMINJAMAN AKTIF:</span>
+                            <span class="text-emerald-400 font-bold ticker-val-peminjaman">{{ number_format($tickerPeminjaman) }} TRANSAKSI</span>
+                        </span>
+                        @endif
+
+                        @if($showOnlineStats)
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2">
+                            <span>USER ONLINE:</span>
+                            <span class="text-cyan-400 font-bold ticker-val-online">{{ $tickerOnlineText }}</span>
+                        </span>
+                        @endif
+                        <span class="text-slate-700">•</span>
+                        <span class="flex items-center gap-2 text-amber-400 font-bold">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                            </span>
+                            LIVE SYS
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -651,7 +854,7 @@
     $toastSukses = trim((string) (session('success') ?? session('sukses') ?? ''));
     $toastGagal  = trim((string) (session('error') ?? session('gagal') ?? ''));
 @endphp
-<div class="fixed bottom-6 right-6 z-[9999] space-y-2" id="toastWrap">
+<div class="fixed bottom-14 right-6 z-[9999] space-y-2" id="toastWrap">
     @if($toastSukses !== '')
     <div class="toast-item card !rounded-2xl border-l-4 !border-l-emerald-500 px-4 py-3 flex items-start gap-3 min-w-[290px] max-w-md shadow-xl" style="animation:slideToast .35s both">
         <div class="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900 grid place-items-center flex-shrink-0"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i></div>
@@ -676,7 +879,7 @@
      waka, kepala, dll). Klik membuka panel chat yang meng-embed /chatbot via
      iframe (di-load saat pertama dibuka). Panel mengirim 'chatfab:close' lewat
      postMessage saat tombol tutup di dalam widget ditekan. --}}
-<div x-data="chatFab()" x-cloak class="fixed bottom-6 right-6 z-[9990] flex flex-col items-end gap-3 print:hidden">
+<div x-data="chatFab()" x-cloak class="fixed bottom-14 right-6 z-[9990] flex flex-col items-end gap-3 print:hidden">
     {{-- Panel chat --}}
     <div x-show="open" x-cloak
          x-transition:enter="transition ease-out duration-200"
@@ -975,6 +1178,31 @@
                 showGlobalSpinner();
             }
         }, 0);
+    });
+
+    // Realtime update for footer ticker statistics from the database
+    document.addEventListener('DOMContentLoaded', () => {
+        const updateTickerStats = async () => {
+            try {
+                const response = await fetch('{{ route('dashboard.ticker-stats') }}');
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update all ticker elements by class name (for both original and duplicated elements)
+                    ['semester', 'siswa', 'guru', 'kelas', 'mapel', 'aset', 'kerusakan', 'peminjaman', 'online'].forEach(key => {
+                        const val = data[key];
+                        document.querySelectorAll(`.ticker-val-${key}`).forEach(el => {
+                            el.innerHTML = val;
+                        });
+                    });
+                }
+            } catch (e) {
+                console.error("Error updating ticker stats:", e);
+            }
+        };
+
+        // Update stats periodically every 20 seconds
+        setInterval(updateTickerStats, 20000);
     });
 </script>
 

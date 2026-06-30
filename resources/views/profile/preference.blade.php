@@ -283,10 +283,10 @@
             <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Ada perubahan belum disimpan
         </span>
         <button @click="revert()" class="px-3 py-2 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700">Batal</button>
-        <button @click="save()" :disabled="saving" class="btn-primary flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold">
+        <button @click="save()" :disabled="saving" class="btn-accent flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold">
             <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="saving"></i>
             <i data-lucide="check" class="w-4 h-4" x-show="!saving"></i>
-            <span x-text="saving ? 'Menyimpan...' : 'Simpan Tema'"></span>
+            <span x-text="saving ? 'Menyimpan...' : 'Simpan Tema'"></span >
         </button>
     </div>
 </div>
@@ -314,6 +314,7 @@ function prefStudio(data) {
         saving: false,
         presets: [
             { name:'Botanical', icon:'flower-2',    motif:'botanical', cp:'#7ba088', cps:'#9db89f', ca:'#e5996c', sbg:'#fceadb', stx:'#57534e' },
+            { name:'Awan Biru', icon:'school',    motif:'minimal',   cp:'#2563eb', cps:'#3b82f6', ca:'#f59e0b', sbg:'#ffffff', stx:'#475569' },
             { name:'Lautan',    icon:'waves',        motif:'ocean',     cp:'#2f8fb3', cps:'#56b4cf', ca:'#f2a65a', sbg:'#e6f4f8', stx:'#2c4a54' },
             { name:'Hutan',     icon:'trees',        motif:'forest',    cp:'#4a7c59', cps:'#6b9b6f', ca:'#c99a4b', sbg:'#e8f0e3', stx:'#3a4a36' },
             { name:'Senja',     icon:'sunset',       motif:'sunset',    cp:'#e07a5f', cps:'#f2a25c', ca:'#c75d8f', sbg:'#fdeee2', stx:'#6b4a3f' },

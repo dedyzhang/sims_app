@@ -154,6 +154,8 @@
         {{-- Arang Pro (Charcoal Hexagons) --}}
         <svg width="480" height="480" style="position:absolute;top:-120px;right:-80px;opacity:.05;transform:rotate(30deg);" fill="none" stroke="var(--cp)" stroke-width="3"><polygon points="240,20 430,130 430,350 240,460 50,350 50,130"/></svg>
         <svg width="320" height="320" style="position:absolute;bottom:-100px;right:120px;opacity:.04;transform:rotate(-15deg);" fill="none" stroke="var(--cps)" stroke-width="2"><polygon points="160,15 285,90 285,230 160,305 35,230 35,90"/></svg>
+    @elseif($cp === '#2563eb')
+        {{-- Maitreyawira (Clean - No background shapes) --}}
     @else
         {{-- Minimalis Default --}}
         <svg width="380" height="380" style="position:absolute;top:-120px;right:-100px;opacity:.07"><circle cx="190" cy="190" r="190" fill="var(--cp)"/></svg>

@@ -113,7 +113,7 @@
                 @if($semester) &bull; <span class="font-semibold text-slate-600 dark:text-slate-300">{{ $semester->nama_lengkap }}</span> @endif
             </p>
         </div>
-        <a href="{{ route('nilai.kktp') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+        <a href="{{ route('nilai.kktp') }}" class="btn-accent flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold">
             <i data-lucide="target" class="w-4 h-4"></i> Atur KKTP
         </a>
     </div>

@@ -109,12 +109,11 @@
         <div class="flex items-center gap-2">
             <span x-show="editing" x-cloak class="hidden sm:inline text-xs text-slate-400">Seret kartu untuk menyusun ulang</span>
             <button type="button" x-show="editing" x-cloak @click="reset()"
-                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-[#ece6df] dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                    class="btn-accent inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition shadow-sm">
                 <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset
             </button>
             <button type="button" @click="toggle()"
-                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition shadow-sm"
-                    :class="editing ? 'btn-primary' : 'border border-[#ece6df] dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'">
+                    class="btn-accent inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition shadow-sm">
                 <i data-lucide="layout-dashboard" class="w-3.5 h-3.5" x-show="!editing"></i>
                 <i data-lucide="check" class="w-3.5 h-3.5" x-show="editing" x-cloak></i>
                 <span x-text="editing ? 'Selesai' : 'Tata Letak'"></span>
