@@ -56,6 +56,18 @@ class SettingController extends Controller
         return back()->with('success', 'Identitas sekolah disimpan.');
     }
 
+    public function setMediaSosial(Request $request)
+    {
+        Setting::set('sosmed_aktif', $request->boolean('sosmed_aktif') ? '1' : '0');
+
+        foreach (array_keys(config('sosmed')) as $key) {
+            Setting::set("sosmed_{$key}_url", trim((string) $request->input("sosmed_{$key}_url", '')));
+            Setting::set("sosmed_{$key}_on", $request->boolean("sosmed_{$key}_on") ? '1' : '0');
+        }
+
+        return back()->with('success', 'Media sosial sekolah disimpan.');
+    }
+
     public function setPoinTerlambat(Request $request)
     {
         $request->validate(['poin_terlambat' => 'required|integer']);

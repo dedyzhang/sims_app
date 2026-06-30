@@ -10,7 +10,7 @@
 
     {{-- Tabs --}}
     <div class="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 mb-6 flex-wrap">
-        @foreach(['sekolah'=>['Identitas','building-2'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock']] as $key => [$label,$icon])
+        @foreach(['sekolah'=>['Identitas','building-2'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock'],'sosmed'=>['Media Sosial','share-2']] as $key => [$label,$icon])
         <button @click="tab='{{ $key }}'"
                 :class="tab==='{{ $key }}' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
                 class="seg flex-1 min-w-fit flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition">
@@ -39,6 +39,55 @@
                     <textarea name="alamat_sekolah" rows="2" class="form-input">{{ old('alamat_sekolah', $settings['alamat_sekolah'] ?? '') }}</textarea>
                 </div>
             </div>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
+        </form>
+    </div>
+
+    {{-- Media Sosial --}}
+    <div x-show="tab==='sosmed'" x-transition>
+        <form method="POST" action="{{ route('setting.mediaSosial') }}" class="card p-6 space-y-5"
+              x-data="{ master: {{ ($settings['sosmed_aktif'] ?? '1')=='1' ? 'true' : 'false' }} }">
+            @csrf
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="share-2" class="w-4 h-4 text-primary"></i> Media Sosial Sekolah</h2>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">Cukup tempel tautan — platform otomatis aktif dan ikonnya muncul di dashboard semua pengguna. Kosongkan tautan (atau matikan toggle) untuk menyembunyikan. <span class="font-semibold text-amber-600 dark:text-amber-400">Ikon tidak akan tampil bila tautan kosong.</span></p>
+            </div>
+
+            {{-- Master toggle: tampilkan di dashboard --}}
+            <div class="flex items-start justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-4 py-3">
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Tampilkan di Dashboard</p>
+                    <p class="text-xs mt-1 font-semibold" :class="master ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" x-text="master ? '● Aktif' : '○ Nonaktif'"></p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input type="checkbox" name="sosmed_aktif" value="1" class="sr-only peer" x-model="master">
+                    <div class="relative w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-[color:var(--cp)] transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition peer-checked:after:translate-x-5"></div>
+                </label>
+            </div>
+
+            {{-- Daftar platform --}}
+            <div class="space-y-3" :class="master ? '' : 'opacity-50 pointer-events-none'">
+                @foreach(config('sosmed') as $key => $meta)
+                @php $urlVal = old('sosmed_'.$key.'_url', $settings['sosmed_'.$key.'_url'] ?? ''); @endphp
+                <div class="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2.5"
+                     x-data="{ url: @js($urlVal), on: {{ ($settings['sosmed_'.$key.'_on'] ?? '0')=='1' ? 'true' : 'false' }} }">
+                    <span class="grid place-items-center w-9 h-9 rounded-lg bg-primary/10 text-primary flex-shrink-0">
+                        @include('partials.sosmed-icon', ['key' => $key, 'cls' => 'w-4 h-4'])
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-300">{{ $meta['label'] }}</label>
+                        <input type="text" name="sosmed_{{ $key }}_url" x-model="url"
+                               @input="if (url.trim() !== '') on = true"
+                               placeholder="{{ $meta['ph'] }}" class="form-input mt-0.5 py-1.5 text-sm">
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0" title="Tampilkan di dashboard">
+                        <input type="checkbox" name="sosmed_{{ $key }}_on" value="1" class="sr-only peer" x-model="on">
+                        <div class="relative w-9 h-5 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-[color:var(--cp)] transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition peer-checked:after:translate-x-4"></div>
+                    </label>
+                </div>
+                @endforeach
+            </div>
+
             <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
         </form>
     </div>

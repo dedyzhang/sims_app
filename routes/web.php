@@ -323,6 +323,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/semester', 'updateSemester')->name('setting.semester');
             Route::post('/semester/store', 'storeSemester')->name('setting.semester.store');
             Route::post('/identitas', 'setIdentitasSekolah')->name('setting.identitas');
+            Route::post('/media-sosial', 'setMediaSosial')->name('setting.mediaSosial');
             Route::post('/poin-terlambat', 'setPoinTerlambat')->name('setting.poinTerlambat');
             Route::post('/waktu-terlambat', 'setWaktuTerlambat')->name('setting.waktuTerlambat');
             Route::post('/mapel-rapor', 'setMapelRapor')->name('setting.mapelRapor');

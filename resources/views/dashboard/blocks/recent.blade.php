@@ -1,26 +1,36 @@
 {{-- ===== Recent + Activity ===== --}}
 <div class="grid lg:grid-cols-5 gap-5">
-    {{-- Recent students --}}
-    <div class="lg:col-span-2 card p-5">
+    {{-- Siswa per Tingkat --}}
+    @php
+        $perTingkat = \App\Models\Kelas::withCount('siswa')->get()
+            ->groupBy('tingkat')
+            ->map(fn($g) => $g->sum('siswa_count'))
+            ->sortKeys(SORT_NATURAL);
+        $maxTingkat = max($perTingkat->max() ?? 0, 1);
+    @endphp
+    <div class="lg:col-span-2 card p-5 flex flex-col">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="font-bold text-slate-700 dark:text-slate-200">Siswa Terbaru</h2>
+            <h2 class="font-bold text-slate-700 dark:text-slate-200">Siswa per Tingkat</h2>
             <a href="{{ route('siswa.index') }}" class="text-xs font-semibold text-primary hover:underline">Lihat Semua</a>
         </div>
-        <div class="space-y-2">
-            @forelse($recent as $s)
-            <a href="{{ route('siswa.show', $s->uuid) }}" class="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-primary-50 transition group">
-                <div class="w-10 h-10 rounded-full grid place-items-center text-white font-bold flex-shrink-0" style="background:{{ $s->jk==='L' ? 'linear-gradient(135deg,var(--cp),var(--cps))' : 'linear-gradient(135deg,#ec9aae,#db7793)' }}">
-                    {{ strtoupper(substr($s->nama,0,1)) }}
+        <div class="space-y-3.5 flex-1">
+            @forelse($perTingkat as $tingkat => $jml)
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Tingkat {{ $tingkat }}</span>
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-200">{{ number_format($jml) }} <span class="font-medium text-slate-400">siswa</span></span>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <p class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">{{ $s->nama }}</p>
-                    <p class="text-xs text-slate-400">{{ $s->created_at?->diffForHumans() }}</p>
+                <div class="h-2.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-500" style="width: {{ max(round($jml / $maxTingkat * 100), 3) }}%; background:linear-gradient(90deg,var(--cp),var(--ca))"></div>
                 </div>
-                @if($s->kelas)<span class="badge bg-primary-50 text-primary">{{ $s->kelas->tingkat }}{{ $s->kelas->kelas }}</span>@endif
-            </a>
+            </div>
             @empty
-            <p class="text-sm text-slate-400 text-center py-8">Belum ada siswa</p>
+            <p class="text-sm text-slate-400 text-center py-8">Belum ada data kelas</p>
             @endforelse
+        </div>
+        <div class="mt-4 pt-4 border-t border-[#f4efe8] dark:border-slate-700 flex items-center justify-between text-xs">
+            <span class="text-slate-400">{{ $perTingkat->count() }} tingkat aktif</span>
+            <span class="font-bold text-slate-600 dark:text-slate-300">{{ number_format($perTingkat->sum()) }} total siswa</span>
         </div>
     </div>
 

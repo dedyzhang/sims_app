@@ -23,6 +23,12 @@
         .ill-bob,.ill-glow,.ill-tw1,.ill-tw2,.ill-flag,.ill-w1,.ill-w2,.ill-w3,.ill-w4 { animation: none; }
     }
 
+    /* ===== Kutipan harian: minimalis & modern ===== */
+    .motiv-card { animation: motivIn .55s cubic-bezier(.2,.8,.2,1) both; }
+    .motiv-label { font-size: 10px; letter-spacing: .22em; }
+    @keyframes motivIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { .motiv-card { animation: none; } }
+
     /* ===== Mode atur tata letak (drag & drop) ===== */
     .dash-block { position: relative; }
     .dash-handle { display: none; }
@@ -45,6 +51,28 @@
     .dash-block.sortable-drag { box-shadow: 0 18px 40px rgba(15,12,10,.22); }
     /* matikan link saat sedang menyusun supaya tidak salah klik */
     .dash-editing .dash-block a { pointer-events: none; }
+
+    /* tombol hapus/sembunyikan blok */
+    .dash-remove { display: none; }
+    .dash-editing .dash-remove {
+        display: inline-flex; align-items: center; justify-content: center;
+        position: absolute; top: -.7rem; right: 1rem; z-index: 21;
+        width: 1.7rem; height: 1.7rem; border-radius: 9999px;
+        background: #ef4444; color: #fff; cursor: pointer;
+        box-shadow: 0 4px 12px rgba(15,12,10,.2); transition: transform .15s, background .15s;
+    }
+    .dash-editing .dash-remove:hover { transform: scale(1.12); }
+
+    /* blok yang disembunyikan */
+    .dash-hidden { display: none; }
+    .dash-editing .dash-hidden { display: block; opacity: .55; filter: grayscale(.6); }
+    .dash-editing .dash-hidden .dash-remove { background: var(--cp); }
+    .dash-hidden-badge { display: none; }
+    .dash-editing .dash-hidden .dash-hidden-badge {
+        display: inline-block; position: absolute; top: -.7rem; left: 50%; transform: translateX(-50%);
+        z-index: 21; padding: .15rem .6rem; border-radius: 9999px;
+        background: #64748b; color: #fff; font-size: 11px; font-weight: 700; user-select: none;
+    }
 </style>
 @endpush
 
@@ -58,13 +86,137 @@
     $totalMapel = \App\Models\Pelajaran::count();
     $siswaL = \App\Models\Siswa::where('jk','L')->count();
     $siswaP = \App\Models\Siswa::where('jk','P')->count();
-    $recent = \App\Models\Siswa::with('kelas')->latest()->take(4)->get();
     $pref = auth()->user()?->preference()->firstOrCreate(
         ['user_uuid' => auth()->id()],
         \App\Models\UserPreference::defaults()
     );
     $motif = $pref->motif ?? 'botanical';
     $motifIcon = ['botanical'=>'flower-2','ocean'=>'waves','forest'=>'trees','sunset'=>'sunset','robot'=>'bot','space'=>'rocket','minimal'=>'circle'][$motif] ?? 'flower-2';
+
+    // Salam berdasarkan waktu + tanggal hari ini (Bahasa Indonesia)
+    $now  = \Carbon\Carbon::now();
+    $jam  = (int) $now->format('H');
+    $salam     = $jam < 11 ? 'Selamat Pagi' : ($jam < 15 ? 'Selamat Siang' : ($jam < 18 ? 'Selamat Sore' : 'Selamat Malam'));
+    $salamIcon = $jam < 11 ? 'sunrise' : ($jam < 15 ? 'sun' : ($jam < 18 ? 'sunset' : 'moon'));
+    $tanggalHari = $now->locale('id')->isoFormat('dddd, D MMMM Y');
+
+    // Kata motivasi harian — tetap sepanjang hari, berganti otomatis tiap hari.
+    $motivasiList = [
+        // ── Bahasa Indonesia ──
+        'Pendidikan adalah senjata paling ampuh untuk mengubah dunia.',
+        'Sedikit demi sedikit, lama-lama menjadi bukit. Konsistensi mengalahkan kesempurnaan.',
+        'Hari yang baik dimulai dari niat yang baik. Semangat untuk hari ini!',
+        'Guru terbaik adalah mereka yang menyalakan rasa ingin tahu, bukan sekadar mengisi.',
+        'Tidak ada usaha yang sia-sia, setiap langkah kecil mendekatkanmu pada tujuan.',
+        'Belajar hari ini, memimpin esok hari.',
+        'Kesabaran dan ketekunan adalah dua sahabat terbaik dalam mendidik.',
+        'Setiap anak adalah bintang dengan caranya sendiri untuk bersinar.',
+        'Mulailah dari yang kecil, mulailah dari sekarang, mulailah dari tempatmu berada.',
+        'Kualitas pendidikan menentukan kualitas masa depan bangsa.',
+        'Senyum dan semangatmu hari ini bisa menjadi inspirasi bagi orang lain.',
+        'Kerja keras tidak pernah mengkhianati hasil.',
+        'Disiplin adalah jembatan antara cita-cita dan pencapaian.',
+        'Ilmu yang bermanfaat adalah warisan terbaik yang tak pernah habis.',
+        'Jangan menunggu termotivasi untuk memulai; mulailah, maka motivasi akan datang.',
+        'Hari ini adalah kesempatan baru untuk menjadi lebih baik dari kemarin.',
+        'Mendidik dengan hati akan dikenang sepanjang masa.',
+        'Kegagalan hanyalah cara lain untuk belajar melakukannya dengan benar.',
+        'Bersyukur atas hal kecil membuat hal besar terasa lebih ringan.',
+        'Pikiran yang tenang menghasilkan keputusan yang bijak.',
+        'Ing ngarsa sung tuladha, ing madya mangun karsa, tut wuri handayani. — Ki Hajar Dewantara',
+        'Bermimpilah setinggi langit. Jika engkau jatuh, engkau akan jatuh di antara bintang-bintang. — Ir. Soekarno',
+        'Orang boleh pandai setinggi langit, tapi selama ia tidak menulis, ia akan hilang dari masyarakat dan sejarah. — Pramoedya Ananta Toer',
+        'Membaca adalah jendela dunia, dan ilmu adalah cahayanya.',
+        'Belajar tanpa berpikir itu sia-sia, berpikir tanpa belajar itu berbahaya.',
+        'Guru menggenggam masa depan bangsa di ujung penanya.',
+        'Tuntutlah ilmu dari buaian hingga ke liang lahat.',
+        'Tidak ada kata terlambat untuk belajar hal baru.',
+        'Sebaik-baik manusia adalah yang paling bermanfaat bagi sesamanya.',
+        'Kecerdasan bukan tujuan akhir, melainkan kebaikan hati yang menyertainya.',
+        'Rajin pangkal pandai, hemat pangkal kaya, malu bertanya sesat di jalan.',
+        'Pendidikan bukan mempersiapkan hidup; pendidikan adalah hidup itu sendiri.',
+        'Anak-anak kita bukan untuk kehidupan kita, melainkan untuk zamannya sendiri.',
+        'Berani bermimpi, berani belajar, berani mencoba, berani gagal, berani bangkit.',
+        'Jadikan kesalahan sebagai guru, bukan sebagai penjara.',
+        'Sebuah buku adalah teman yang tidak pernah mengkhianati.',
+        'Akar pendidikan memang pahit, tetapi buahnya manis.',
+        'Membimbing satu anak berarti menanam pohon yang teduh bagi banyak orang.',
+        'Setiap pertanyaan adalah benih dari sebuah penemuan.',
+        'Karakter yang baik lebih berharga daripada nilai yang sempurna.',
+        'Hari ini membaca, esok memimpin.',
+        'Jangan takut melangkah pelan, takutlah jika hanya berdiam diri.',
+        'Pengetahuan adalah harta yang tidak bisa dicuri.',
+        'Mengajar adalah menyentuh kehidupan selamanya.',
+        'Semangat belajar adalah api yang harus terus dijaga agar tetap menyala.',
+        'Kerendahan hati adalah awal dari semua pembelajaran.',
+        'Yang penting bukan seberapa cepat kau berlari, tapi seberapa jauh kau bertahan.',
+        'Doa, usaha, dan ilmu adalah tiga sahabat menuju kesuksesan.',
+        'Pendidikan terbaik adalah teladan yang nyata.',
+        'Sukses adalah hasil dari kebiasaan kecil yang diulang setiap hari.',
+
+        // ── English ──
+        'Education is the most powerful weapon which you can use to change the world. — Nelson Mandela',
+        'The beautiful thing about learning is that no one can take it away from you. — B.B. King',
+        'Live as if you were to die tomorrow. Learn as if you were to live forever. — Mahatma Gandhi',
+        'The roots of education are bitter, but the fruit is sweet. — Aristotle',
+        'Tell me and I forget. Teach me and I remember. Involve me and I learn. — Benjamin Franklin',
+        'The mind is not a vessel to be filled, but a fire to be kindled. — Plutarch',
+        'Education is not the filling of a pail, but the lighting of a fire. — W.B. Yeats',
+        'An investment in knowledge pays the best interest. — Benjamin Franklin',
+        'The expert in anything was once a beginner.',
+        'The only person who is educated is the one who has learned how to learn. — Carl Rogers',
+        'Develop a passion for learning. If you do, you will never cease to grow. — Anthony J. D’Angelo',
+        'Education is the passport to the future, for tomorrow belongs to those who prepare for it today. — Malcolm X',
+        'A teacher affects eternity; he can never tell where his influence stops. — Henry Adams',
+        'Learning never exhausts the mind. — Leonardo da Vinci',
+        'The capacity to learn is a gift; the ability to learn is a skill; the willingness to learn is a choice.',
+        'Change is the end result of all true learning. — Leo Buscaglia',
+        'It is the supreme art of the teacher to awaken joy in creative expression and knowledge. — Albert Einstein',
+        'The more that you read, the more things you will know. The more that you learn, the more places you’ll go. — Dr. Seuss',
+        'Anyone who stops learning is old, whether at twenty or eighty. — Henry Ford',
+        'They cannot stop me. I will get my education, if it is in the home, school, or anyplace. — Rosa Parks',
+        'The function of education is to teach one to think intensively and to think critically. — Martin Luther King Jr.',
+        'I am still learning. — Michelangelo',
+        'Success is the sum of small efforts repeated day in and day out. — Robert Collier',
+        'Strive for progress, not perfection.',
+        'Believe you can and you’re halfway there. — Theodore Roosevelt',
+        'The future belongs to those who believe in the beauty of their dreams. — Eleanor Roosevelt',
+        'Don’t watch the clock; do what it does. Keep going. — Sam Levenson',
+        'A little progress each day adds up to big results.',
+        'The harder you work for something, the greater you’ll feel when you achieve it.',
+        'Wisdom is not a product of schooling but of the lifelong attempt to acquire it. — Albert Einstein',
+        'Knowledge is power. — Francis Bacon',
+        'Curiosity is the wick in the candle of learning. — William Arthur Ward',
+        'The best way to predict your future is to create it. — Abraham Lincoln',
+        'Education breeds confidence. Confidence breeds hope. Hope breeds peace. — Confucius',
+        'The whole purpose of education is to turn mirrors into windows. — Sydney J. Harris',
+        'Learn from yesterday, live for today, hope for tomorrow. — Albert Einstein',
+        'You don’t have to be great to start, but you have to start to be great. — Zig Ziglar',
+        'Every accomplishment starts with the decision to try.',
+        'Education is not preparation for life; education is life itself. — John Dewey',
+        'There are no shortcuts to any place worth going.',
+        'Teaching is the one profession that creates all other professions.',
+        'A good teacher can inspire hope, ignite the imagination, and instill a love of learning. — Brad Henry',
+        'Genius is one percent inspiration and ninety-nine percent perspiration. — Thomas Edison',
+        'The journey of a thousand miles begins with a single step. — Lao Tzu',
+        'Do not go where the path may lead, go instead where there is no path and leave a trail. — Ralph Waldo Emerson',
+        'Small daily improvements over time lead to stunning results. — Robin Sharma',
+        'The more I learn, the more I realize how much I don’t know. — Albert Einstein',
+        'Push yourself, because no one else is going to do it for you.',
+        'Great things are done by a series of small things brought together. — Vincent van Gogh',
+        'Be a lifelong student; the day you stop learning is the day you stop growing.',
+    ];
+    // Pilih via hash tanggal: terasa acak antar-hari, tetap stabil sepanjang hari.
+    $kataMotivasi = $motivasiList[abs(crc32($now->toDateString())) % count($motivasiList)];
+
+    // Pisahkan teks dengan penulisnya (jika ada "— Penulis" di akhir).
+    if (preg_match('/^(.*?)\s+—\s+([^—]+)$/u', $kataMotivasi, $mm)) {
+        $kataTeks = trim($mm[1]);
+        $kataPenulis = trim($mm[2]);
+    } else {
+        $kataTeks = $kataMotivasi;
+        $kataPenulis = null;
+    }
 @endphp
 
 @if(auth()->user()->must_change_password)
@@ -93,19 +245,37 @@
         array_values(array_intersect($savedLayout, $allBlocks)),
         $allBlocks
     )));
+    $hiddenBlocks = is_array($pref->dashboard_hidden)
+        ? array_values(array_intersect($pref->dashboard_hidden, $allBlocks))
+        : [];
     $blockLabel = [
-        'stats'     => 'Statistik',
-        'ringkasan' => 'Ringkasan & Tahun Ajaran',
-        'sarpras'   => 'Sarana & Prasarana',
-        'recent'    => 'Siswa Terbaru & Komposisi',
+        'stats'      => 'Statistik',
+        'ringkasan'  => 'Ringkasan & Tahun Ajaran',
+        'insight'    => 'Analitik Sekolah',
+        'recent'     => 'Distribusi & Komposisi Siswa',
+        'sebaran'    => 'Sebaran Siswa per Kelas',
+        'quicklinks' => 'Tautan Cepat',
+        'sarpras'    => 'Sarana & Prasarana',
     ];
 @endphp
 
 <div x-data="dashLayout()" :class="{ 'dash-editing': editing }">
 
-    {{-- Toolbar: judul + tombol Tata Letak --}}
-    <div class="flex items-center justify-between gap-3 mb-5">
-        <h1 class="text-lg font-extrabold text-slate-700 dark:text-slate-100">Dashboard</h1>
+    {{-- Toolbar: salam + tombol Tata Letak --}}
+    <div class="flex items-start justify-between gap-3 mb-5">
+        <div>
+            <h1 class="flex items-center gap-2 text-lg sm:text-xl font-extrabold text-slate-700 dark:text-slate-100">
+                <span class="js-salam-icon inline-flex flex-shrink-0" data-icon-class="w-5 h-5 text-primary flex-shrink-0"><i data-lucide="{{ $salamIcon }}" class="w-5 h-5 text-primary flex-shrink-0"></i></span>
+                <span><span class="js-salam-text">{{ $salam }}</span>, {{ $nama }} <span class="ml-0.5">👋</span></span>
+            </h1>
+            <p class="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-300 mt-1 flex items-center gap-1.5">
+                <i data-lucide="calendar-days" class="w-3.5 h-3.5 flex-shrink-0"></i>
+                <span class="js-dash-date capitalize font-semibold text-slate-600 dark:text-slate-200">{{ $tanggalHari }}</span>
+                <span class="text-slate-300 dark:text-slate-600">&bull;</span>
+                <i data-lucide="clock" class="w-3.5 h-3.5 flex-shrink-0"></i>
+                <span class="js-dash-clock tabular-nums font-semibold text-slate-600 dark:text-slate-200">--:--:--</span>
+            </p>
+        </div>
         <div class="flex items-center gap-2">
             <span x-show="editing" x-cloak class="hidden sm:inline text-xs text-slate-400">Seret kartu untuk menyusun ulang</span>
             <button type="button" x-show="editing" x-cloak @click="reset()"
@@ -121,19 +291,36 @@
         </div>
     </div>
 
+    {{-- Kutipan harian — minimalis --}}
+    <div class="motiv-card mb-6 border-l-2 border-primary/40 pl-4">
+        <p class="motiv-label font-bold uppercase text-primary/70">Quote of the Day</p>
+        <p class="mt-2 text-sm sm:text-[15px] font-normal leading-relaxed text-slate-600 dark:text-slate-300">{{ $kataTeks }}</p>
+        @if($kataPenulis)
+            <p class="mt-1.5 text-xs font-medium text-slate-400 dark:text-slate-500">{{ $kataPenulis }}</p>
+        @endif
+    </div>
+
     {{-- Grid blok yang bisa di-drag --}}
     <div id="dashGrid" class="space-y-6" x-ref="grid">
         @foreach($blockOrder as $block)
             @if($block === 'sarpras' && ! auth()->user()->can('sarpras.dashboard.lihat'))
                 @continue
             @endif
-            <div class="dash-block" data-block="{{ $block }}">
+            <div class="dash-block {{ in_array($block, $hiddenBlocks) ? 'dash-hidden' : '' }}" data-block="{{ $block }}" :class="{ 'dash-hidden': hidden.includes('{{ $block }}') }">
                 <span class="dash-handle"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i> {{ $blockLabel[$block] ?? $block }}</span>
+                <button type="button" class="dash-remove" @click.stop.prevent="toggleHide('{{ $block }}')"
+                        :title="hidden.includes('{{ $block }}') ? 'Tampilkan blok' : 'Sembunyikan blok'">
+                    <i data-lucide="x" class="w-3.5 h-3.5" x-show="!hidden.includes('{{ $block }}')"></i>
+                    <i data-lucide="plus" class="w-3.5 h-3.5" x-show="hidden.includes('{{ $block }}')" x-cloak></i>
+                </button>
+                <span class="dash-hidden-badge">Disembunyikan</span>
                 @includeIf('dashboard.blocks.'.$block)
             </div>
         @endforeach
     </div>
 </div>
+
+@include('partials.sosmed-bar')
 
 @else
 {{-- ===== Non-admin ===== --}}
@@ -172,16 +359,92 @@
                 <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="var(--cp)" stroke-width="2"><rect x="15" y="15" width="70" height="70" rx="16" opacity=".5" /><circle cx="50" cy="50" r="24" fill="var(--ca)" stroke="none" opacity=".8" /><line x1="15" y1="50" x2="85" y2="50" opacity=".3" /></svg>
             @endif
         </div>
-        <div class="w-16 h-16 rounded-2xl mx-auto mb-4 grid place-items-center text-white shadow-lg" style="background:linear-gradient(135deg,var(--cp),var(--ca))">
-            <i data-lucide="layout-dashboard" class="w-8 h-8"></i>
+        <div class="js-salam-icon w-16 h-16 rounded-2xl mx-auto mb-4 grid place-items-center text-white shadow-lg" data-icon-class="w-8 h-8" style="background:linear-gradient(135deg,var(--cp),var(--ca))">
+            <i data-lucide="{{ $salamIcon }}" class="w-8 h-8"></i>
         </div>
-        <h2 class="text-xl font-extrabold text-slate-700 dark:text-slate-100">Halo, {{ $nama }} 👋</h2>
+        <h2 class="text-xl font-extrabold text-slate-700 dark:text-slate-100"><span class="js-salam-text">{{ $salam }}</span>, {{ $nama }} 👋</h2>
+        <p class="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 dark:text-slate-200">
+            <i data-lucide="calendar-days" class="w-4 h-4 text-slate-400"></i>
+            <span class="js-dash-date capitalize">{{ $tanggalHari }}</span>
+        </p>
+        <p class="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 dark:text-slate-200">
+            <i data-lucide="clock" class="w-4 h-4 text-slate-400"></i>
+            <span class="js-dash-clock tabular-nums">--:--:--</span> WIB
+        </p>
         <p class="text-sm text-slate-500 mt-1 capitalize">{{ $access }} @if($semester) • Semester {{ $semester->semester }} / {{ $semester->tahun }} @endif</p>
+        <div class="motiv-card mt-6 pt-5 border-t border-slate-100 dark:border-slate-700/60">
+            <p class="motiv-label font-bold uppercase text-primary/70">Quote of the Day</p>
+            <p class="mt-2 text-sm font-normal leading-relaxed text-slate-600 dark:text-slate-300">{{ $kataTeks }}</p>
+            @if($kataPenulis)
+                <p class="mt-1.5 text-xs font-medium text-slate-400 dark:text-slate-500">{{ $kataPenulis }}</p>
+            @endif
+        </div>
         <p class="text-sm text-slate-400 mt-4">Gunakan menu di sidebar untuk mengakses fitur yang tersedia.</p>
     </div>
+
+    @include('partials.sosmed-bar')
 </div>
 @endif
 @endsection
+
+@push('scripts')
+<script>
+// Jam + salam realtime dashboard — selalu mengikuti waktu WIB (Asia/Jakarta)
+(function () {
+    var TZ = 'Asia/Jakarta';
+    var fmtJam, fmtJam24, fmtTanggal;
+    try {
+        fmtJam     = new Intl.DateTimeFormat('id-ID', { timeZone: TZ, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        fmtJam24   = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour12: false, hour: '2-digit' });
+        fmtTanggal = new Intl.DateTimeFormat('id-ID', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (e) { fmtJam = fmtJam24 = fmtTanggal = null; }
+
+    // Nilai awal dari server agar tidak ada "kedip" saat halaman dibuka.
+    var lastSalam = @json($salam);
+    var lastDate  = @json($tanggalHari);
+
+    function salamFor(h) {
+        if (h < 11) return ['Selamat Pagi',  'sunrise'];
+        if (h < 15) return ['Selamat Siang', 'sun'];
+        if (h < 18) return ['Selamat Sore',  'sunset'];
+        return ['Selamat Malam', 'moon'];
+    }
+
+    function tick() {
+        var now = new Date();
+
+        // Jam berdetak
+        document.querySelectorAll('.js-dash-clock').forEach(function (n) {
+            n.textContent = fmtJam ? fmtJam.format(now) : now.toTimeString().slice(0, 8);
+        });
+
+        if (!fmtJam24) return;
+
+        // Salam — perbarui hanya saat melewati batas waktu (mis. malam → pagi)
+        var jam = parseInt(fmtJam24.format(now), 10);
+        var s = salamFor(jam);
+        if (s[0] !== lastSalam) {
+            lastSalam = s[0];
+            document.querySelectorAll('.js-salam-text').forEach(function (n) { n.textContent = s[0]; });
+            document.querySelectorAll('.js-salam-icon').forEach(function (n) {
+                n.innerHTML = '<i data-lucide="' + s[1] + '" class="' + (n.getAttribute('data-icon-class') || '') + '"></i>';
+            });
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        // Tanggal — perbarui saat berganti hari (lewat tengah malam)
+        var d = fmtTanggal.format(now);
+        if (d !== lastDate) {
+            lastDate = d;
+            document.querySelectorAll('.js-dash-date').forEach(function (n) { n.textContent = d; });
+        }
+    }
+
+    tick();
+    setInterval(tick, 1000);
+})();
+</script>
+@endpush
 
 @if(in_array($access, ['superadmin','admin']))
 @push('scripts')
@@ -190,6 +453,7 @@ function dashLayout() {
     return {
         editing: false,
         sortable: null,
+        hidden: @json($hiddenBlocks),
         saveUrl: '{{ route('dashboard.layout') }}',
         csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
 
@@ -200,6 +464,13 @@ function dashLayout() {
             } else {
                 this.save();
             }
+            this.$nextTick(() => window.lucide && window.lucide.createIcons());
+        },
+
+        toggleHide(block) {
+            const i = this.hidden.indexOf(block);
+            if (i === -1) this.hidden.push(block);
+            else this.hidden.splice(i, 1);
             this.$nextTick(() => window.lucide && window.lucide.createIcons());
         },
 
@@ -221,7 +492,10 @@ function dashLayout() {
         },
 
         save() {
-            const layout = this.currentOrder();
+            // Urutan blok yang tampil saja; blok tersembunyi dikirim terpisah.
+            const order  = this.currentOrder();
+            const layout = order.filter(b => !this.hidden.includes(b));
+            const hidden = this.hidden;
             fetch(this.saveUrl, {
                 method: 'POST',
                 headers: {
@@ -229,7 +503,7 @@ function dashLayout() {
                     'X-CSRF-TOKEN': this.csrf,
                     'Accept': 'application/json',
                 },
-                body: JSON.stringify({ layout }),
+                body: JSON.stringify({ layout, hidden }),
             })
             .then(r => r.json())
             .then(() => window.showToast && window.showToast('Tata letak dashboard tersimpan', 'success'))
@@ -243,6 +517,7 @@ function dashLayout() {
                 const el = grid.querySelector('.dash-block[data-block="' + key + '"]');
                 if (el) grid.appendChild(el); // urutkan ulang sesuai default
             });
+            this.hidden = []; // tampilkan kembali semua blok
             this.save();
             this.$nextTick(() => window.lucide && window.lucide.createIcons());
         },
