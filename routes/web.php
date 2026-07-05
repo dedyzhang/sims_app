@@ -436,6 +436,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     // ─── Keuangan: Tagihan SPP siswa & orang tua ───────────────────────────
     Route::prefix('tagihan-spp')->name('keuangan.tagihan.')->group(function () {
         Route::get('/', [TagihanController::class, 'index'])->name('index');
+        // Streaming bukti dari disk privat (auth + cek role/kepemilikan). Sebelum {pembayaran}.
+        Route::get('/{pembayaran}/bukti-file', [TagihanController::class, 'buktiFile'])->name('bukti');
         Route::get('/{pembayaran}', [TagihanController::class, 'show'])->name('show');
         Route::post('/{pembayaran}/bukti', [TagihanController::class, 'upload'])->name('upload');
     });

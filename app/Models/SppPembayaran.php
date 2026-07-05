@@ -52,9 +52,13 @@ class SppPembayaran extends Model
         return TahunAjaran::labelBulan($this->tahun_ajaran, (int) $this->bulan);
     }
 
+    /**
+     * URL bukti → route terautentikasi (cek kepemilikan/role), BUKAN URL publik.
+     * Bukti disimpan di disk privat (local) agar tidak dapat diakses tanpa auth.
+     */
     public function getBuktiUrlAttribute(): ?string
     {
-        return $this->bukti_path ? \Illuminate\Support\Facades\Storage::url($this->bukti_path) : null;
+        return $this->bukti_path ? route('keuangan.tagihan.bukti', $this) : null;
     }
 
     public function isLunas(): bool

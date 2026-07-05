@@ -117,15 +117,15 @@ class TagihanController extends Controller
         $firstPath = null;
         foreach ($targets as $t) {
             if ($t->bukti_path) {
-                Storage::disk('public')->delete($t->bukti_path);
+                Storage::disk('local')->delete($t->bukti_path);
             }
             $name = 'spp-' . $t->bulan . '-' . Str::random(8) . '.' . $ext;
             $path = $dir . '/' . $name;
             if ($firstPath === null) {
-                $firstPath = $file->storeAs($dir, $name, 'public');
+                $firstPath = $file->storeAs($dir, $name, 'local');
                 $path = $firstPath;
             } else {
-                Storage::disk('public')->copy($firstPath, $path);
+                Storage::disk('local')->copy($firstPath, $path);
             }
             $t->fill([
                 'status'        => SppPembayaran::STATUS_MENUNGGU,
@@ -147,6 +147,25 @@ class TagihanController extends Controller
         return redirect()
             ->route('keuangan.tagihan.index', ['anak' => $siswa->uuid])
             ->with('success', $msg);
+    }
+
+    /**
+     * Streaming file bukti dari disk PRIVAT. Diizinkan untuk bendahara/admin
+     * (verifikasi) atau pemilik tagihan (siswa/ortu). Tidak dapat diakses tanpa auth.
+     */
+    public function buktiFile(SppPembayaran $pembayaran)
+    {
+        $isStaff = in_array(auth()->user()->access, ['superadmin', 'admin', 'bendahara'], true);
+        if (! $isStaff) {
+            $this->guard($pembayaran); // pemilik saja (siswa/ortu)
+        }
+
+        abort_if(
+            ! $pembayaran->bukti_path || ! Storage::disk('local')->exists($pembayaran->bukti_path),
+            Response::HTTP_NOT_FOUND
+        );
+
+        return Storage::disk('local')->response($pembayaran->bukti_path);
     }
 
     // ─────────────────────────── helper ───────────────────────────
