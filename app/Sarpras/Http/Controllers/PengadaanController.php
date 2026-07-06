@@ -21,7 +21,7 @@ class PengadaanController extends Controller
     {
         $pengadaan = Pengadaan::with('pengaju:uuid,username')
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->latest()->paginate(15)->withQueryString();
+            ->latest()->get();
 
         return view('sarpras.pengadaan.index', compact('pengadaan'));
     }

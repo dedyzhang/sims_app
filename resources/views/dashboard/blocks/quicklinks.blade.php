@@ -1,14 +1,26 @@
 {{-- ===== Tautan Cepat ===== --}}
 @php
-    $shortcuts = [
-        ['Tambah Siswa', 'siswa.create',   'user-plus'],
-        ['Tambah Guru',  'guru.create',    'user-round-plus'],
-        ['Set Kelas',    'kelas.setKelas', 'layout-grid'],
-        ['Data Siswa',   'siswa.index',    'users'],
-        ['Absensi',      'absensi.index',  'clipboard-check'],
-        ['Kalender',     'kalender.index', 'calendar-days'],
-        ['Pengaturan',   'setting.index',  'settings-2'],
-    ];
+    $access = auth()->user()?->access;
+    if ($access === 'kepala') {
+        $shortcuts = [
+            ['Data Siswa',    'siswa.index',           'users'],
+            ['Data Guru',     'guru.index',            'graduation-cap'],
+            ['Absensi Siswa', 'absensi.index',         'clipboard-check'],
+            ['Presensi Guru', 'presensi-guru.index',   'user-check'],
+            ['Jadwal',        'jadwal.index',          'calendar-clock'],
+            ['Laporan Sarpras', 'sarpras.laporan.index', 'bar-chart-3'],
+        ];
+    } else {
+        $shortcuts = [
+            ['Tambah Siswa', 'siswa.create',   'user-plus'],
+            ['Tambah Guru',  'guru.create',    'user-round-plus'],
+            ['Set Kelas',    'kelas.setKelas', 'layout-grid'],
+            ['Data Siswa',   'siswa.index',    'users'],
+            ['Absensi',      'absensi.index',  'clipboard-check'],
+            ['Kalender',     'kalender.index', 'calendar-days'],
+            ['Pengaturan',   'setting.index',  'settings-2'],
+        ];
+    }
 @endphp
 <div>
     <h2 class="font-bold text-slate-700 dark:text-slate-200 mb-3 px-1">Tautan Cepat</h2>

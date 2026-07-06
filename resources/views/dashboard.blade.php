@@ -292,13 +292,15 @@
 </div>
 @endif
 
-@if(in_array($access, ['superadmin','admin']))
+@if(in_array($access, ['superadmin','admin','kepala']))
 @php
     // Urutan blok: pakai preferensi tersimpan dulu, lalu blok baru yang belum tercatat.
     // (DASHBOARD_BLOCKS juga memuat blok khusus per-peran lain — disaring di sini karena bukan blok admin.
     // sarpras_* dikecualikan dari filter ini karena admin memang memakainya juga.)
     $rolePrefixes = ['siswa_', 'guru_', 'kesiswaan_', 'kurikulum_'];
-    $allBlocks = array_values(array_filter(\App\Models\UserPreference::DASHBOARD_BLOCKS, function ($b) use ($rolePrefixes) {
+    $accessRole = auth()->user()?->access;
+    $allBlocks = array_values(array_filter(\App\Models\UserPreference::DASHBOARD_BLOCKS, function ($b) use ($rolePrefixes, $accessRole) {
+        if ($accessRole === 'kepala' && $b === 'quicklinks') return false;
         foreach ($rolePrefixes as $prefix) {
             if (str_starts_with($b, $prefix)) return false;
         }
@@ -331,18 +333,18 @@
         'quicklinks'      => 'Tautan Cepat',
     ];
     $spans = [
-        'ringkasan_siswa' => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'ringkasan_guru'  => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'ringkasan_kelas' => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'ringkasan_tahun' => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'presensi_hadir'   => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'presensi_terlambat' => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'presensi_tidak_hadir' => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'presensi_belum'   => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'sarpras_aset'    => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'sarpras_kerusakan' => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'sarpras_peminjaman' => 'col-span-12 sm:col-span-6 lg:col-span-3',
-        'sarpras_pengadaan' => 'col-span-12 sm:col-span-6 lg:col-span-3',
+        'ringkasan_siswa' => 'col-span-6 lg:col-span-3',
+        'ringkasan_guru'  => 'col-span-6 lg:col-span-3',
+        'ringkasan_kelas' => 'col-span-6 lg:col-span-3',
+        'ringkasan_tahun' => 'col-span-6 lg:col-span-3',
+        'presensi_hadir'   => 'col-span-6 lg:col-span-3',
+        'presensi_terlambat' => 'col-span-6 lg:col-span-3',
+        'presensi_tidak_hadir' => 'col-span-6 lg:col-span-3',
+        'presensi_belum'   => 'col-span-6 lg:col-span-3',
+        'sarpras_aset'    => 'col-span-6 lg:col-span-3',
+        'sarpras_kerusakan' => 'col-span-6 lg:col-span-3',
+        'sarpras_peminjaman' => 'col-span-6 lg:col-span-3',
+        'sarpras_pengadaan' => 'col-span-6 lg:col-span-3',
         'recent_tingkat'  => 'col-span-12 lg:col-span-5',
         'recent_komposisi' => 'col-span-12 lg:col-span-7',
         'sebaran'         => 'col-span-12',
@@ -608,7 +610,7 @@
 </script>
 @endpush
 
-@if(in_array($access, ['superadmin','admin']) || (in_array($access, ['siswa', 'orangtua']) && $siswaWidget) || in_array($access, ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'sapras']))
+@if(in_array($access, ['superadmin','admin','kepala']) || (in_array($access, ['siswa', 'orangtua']) && $siswaWidget) || in_array($access, ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'sapras']))
 @push('scripts')
 <script>
 function dashLayout() {

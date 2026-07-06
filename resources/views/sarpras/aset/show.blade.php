@@ -61,14 +61,12 @@
         <div class="bg-white rounded-lg shadow p-5">
             <h3 class="font-semibold text-gray-700 mb-3 text-sm">Riwayat Perubahan</h3>
             <ul class="text-xs space-y-2 max-h-72 overflow-y-auto">
-                @forelse ($riwayat as $r)
+                @foreach($riwayat as $r)
                     <li class="border-l-2 border-gray-200 pl-2">
                         <span class="capitalize font-medium">{{ $r->description ?? $r->event }}</span>
                         <span class="text-gray-400 block">{{ $r->created_at->format('d/m/Y H:i') }} · {{ $r->causer?->name ?? 'sistem' }}</span>
                     </li>
-                @empty
-                    <li class="text-gray-400">Belum ada riwayat.</li>
-                @endforelse
+                @endforeach
             </ul>
         </div>
     </div>

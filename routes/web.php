@@ -251,7 +251,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     // ─── Poin/Aturan (lama, ledger basis 100) — dua sistem, dipilih di Pengaturan ───
     Route::prefix('poin')->name('poin.')->group(function () {
-        Route::middleware('role:admin,kesiswaan')->group(function () {
+        // Guard peran kini ditangani langsung di PoinController (RBAC)
+        Route::group([], function () {
             Route::get('/', [PoinController::class, 'index'])->name('index');
             Route::get('/buat', [PoinController::class, 'create'])->name('create');
             Route::post('/', [PoinController::class, 'store'])->name('store');
@@ -276,7 +277,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         });
 
         // Lihat ringkasan poin siswa: admin/kesiswaan (semua kelas) + walikelas (kelasnya saja, disaring di controller)
-        Route::middleware('role:admin,kesiswaan,walikelas')->group(function () {
+        // Guard peran ditangani langsung di PoinController
+        Route::group([], function () {
             Route::get('/siswa', [PoinController::class, 'poinIndex'])->name('siswa.index');
             Route::get('/siswa/{siswa}', [PoinController::class, 'poinShow'])->name('siswa.show');
         });
@@ -293,7 +295,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     // ─── P3: Pelanggaran, Prestasi, Partisipasi (baru, akumulatif per semester) ───
     Route::prefix('p3')->name('p3.')->group(function () {
-        Route::middleware('role:admin,kesiswaan')->group(function () {
+        // Guard peran kini ditangani langsung di P3Controller (RBAC)
+        Route::group([], function () {
             Route::get('/', [P3Controller::class, 'index'])->name('index');
             Route::get('/buat', [P3Controller::class, 'create'])->name('create');
             Route::post('/', [P3Controller::class, 'store'])->name('store');
@@ -316,7 +319,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         });
 
         // Lihat ringkasan P3 siswa: admin/kesiswaan (semua kelas) + walikelas (kelasnya saja, disaring di controller)
-        Route::middleware('role:admin,kesiswaan,walikelas')->group(function () {
+        // Guard peran ditangani langsung di P3Controller
+        Route::group([], function () {
             Route::get('/siswa', [P3Controller::class, 'siswaIndex'])->name('siswa.index');
             Route::get('/siswa/{siswa}', [P3Controller::class, 'siswaShow'])->name('siswa.show');
         });
@@ -330,7 +334,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Absensi Siswa: admin (semua kelas) + wali kelas (kelasnya saja, disaring di controller) ───
-    Route::middleware('role:admin,walikelas')->group(function () {
+    Route::middleware('permission:manage_absensi')->group(function () {
         Route::get('/absensi', [AbsensiController::class, 'index'])->name('absensi.index');
         Route::post('/absensi', [AbsensiController::class, 'store'])->name('absensi.store');
         Route::get('/absensi/rekap', [AbsensiController::class, 'rekap'])->name('absensi.rekap');
@@ -348,8 +352,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Admin ─────────────────────────────────────────────────────────────
-    Route::middleware('role:admin')->group(function () {
-
+    Route::middleware('permission:manage_users')->group(function () {
         // Guru
         Route::resource('/guru', GuruController::class);
         Route::post('/guru/{uuid}/reset', [GuruController::class, 'reset'])->name('guru.reset');
@@ -383,6 +386,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/siswa/import', [SiswaController::class, 'import'])->name('siswa.import');
         Route::get('/siswa/import/template', [SiswaController::class, 'downloadTemplate'])->name('siswa.template');
 
+    });
+
+    Route::middleware('permission:manage_jadwal')->group(function () {
         // Jadwal Pelajaran — editor grid per hari + generate + master jam
         Route::get('/jadwal', [JadwalController::class, 'index'])->name('jadwal.index');
         Route::get('/jadwal/kelas', [JadwalController::class, 'kelasView'])->name('jadwal.kelas');
@@ -395,6 +401,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/jadwal/jam/copy', [JadwalController::class, 'jamCopy'])->name('jadwal.jam.copy');
         Route::delete('/jadwal/jam/{uuid}', [JadwalController::class, 'jamDestroy'])->name('jadwal.jam.destroy');
 
+    });
+
+    Route::middleware('permission:manage_absensi')->group(function () {
         // Absensi wajah (face recognition)
         Route::get('/absensi/wajah', [AbsensiController::class, 'wajah'])->name('absensi.wajah');
         Route::get('/absensi/scan', [AbsensiController::class, 'scan'])->name('absensi.scan');
@@ -415,6 +424,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/wajah-galeri', [FaceController::class, 'gallery'])->name('wajah.galeri');
         Route::get('/wajah-ganda', [FaceController::class, 'duplicates'])->name('wajah.ganda');
 
+    });
+
+    Route::middleware('permission:manage_settings')->group(function () {
         // Setting
         Route::controller(SettingController::class)->prefix('settings')->group(function () {
             Route::get('/', 'index')->name('setting.index');
@@ -438,11 +450,20 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/tp-range', 'setTpRange')->name('setting.tpRange');
             Route::get('/kop-rapor', 'kopRapor')->name('setting.kopRapor');
             Route::post('/kop-rapor', 'kopRaporSave')->name('setting.kopRapor.save');
+
+            // Role Permissions
+            Route::get('/roles', 'roles')->name('setting.roles');
+            Route::post('/roles', 'rolesSave')->name('setting.roles.save');
         });
     });
 
+    // ─── Akses Jadwal per Guru (Admin + Ekstra Role) ───────────────────────
+    Route::middleware('role:admin,kurikulum,kepala,kesiswaan,sapras,guru,walikelas')->group(function () {
+        Route::get('/jadwal/guru', [JadwalController::class, 'guruView'])->name('jadwal.guru');
+    });
+
     // ─── Keuangan: Bendahara (juga admin/superadmin) ───────────────────────
-    Route::middleware('role:admin,bendahara')->prefix('keuangan')->name('keuangan.')->group(function () {
+    Route::middleware('permission:manage_keuangan')->prefix('keuangan')->name('keuangan.')->group(function () {
         Route::get('/', [KeuanganController::class, 'index'])->name('index');
         Route::get('/verifikasi', [KeuanganController::class, 'verifikasi'])->name('verifikasi');
         Route::post('/verifikasi/verify', [KeuanganController::class, 'verifyBatch'])->name('verify-batch');

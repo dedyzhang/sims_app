@@ -40,7 +40,7 @@
                     <th class="pb-2 font-semibold">Deskripsi Perbaikan</th><th class="pb-2 font-semibold">Teknisi</th><th class="pb-2 font-semibold">Biaya</th><th class="pb-2 font-semibold">Tanggal</th><th class="pb-2 font-semibold">Status</th><th class="pb-2 font-semibold">Aksi</th>
                 </tr></thead>
                 <tbody>
-                @forelse ($perbaikan as $p)
+                @foreach($perbaikan as $p)
                     @php [$sl, $sc] = $prbStatus[$p->status] ?? [ucfirst($p->status), 'bg-slate-100 text-slate-500']; @endphp
                     <tr class="border-b border-slate-50 dark:border-slate-700/50 align-top">
                         <td class="py-3">
@@ -68,13 +68,11 @@
                             @endif
                         </td>
                     </tr>
-                @empty
-                    <tr><td colspan="6" class="py-8 text-center text-slate-400">Belum ada order perbaikan.</td></tr>
-                @endforelse
+                @endforeach
                 </tbody>
             </table>
         </div>
-        @if($perbaikan->hasPages())<div class="mt-3">{{ $perbaikan->links() }}</div>@endif
+        
     </div>
 
     {{-- Jadwal pemeliharaan rutin --}}
@@ -83,7 +81,7 @@
             <span class="grid place-items-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-500"><i data-lucide="calendar-clock" class="w-4 h-4"></i></span>
             Jadwal Pemeliharaan Rutin
         </h3>
-        @forelse ($jadwal as $j)
+        @foreach($jadwal as $j)
         <div class="flex items-start justify-between gap-2 py-2.5 border-b border-slate-50 dark:border-slate-700/50 last:border-0">
             <div>
                 <p class="font-semibold text-slate-700 dark:text-slate-200">{{ $j->nama }}</p>
@@ -94,9 +92,7 @@
                 <p class="text-xs font-semibold {{ optional($j->tgl_berikutnya)->isPast() ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200' }}">{{ optional($j->tgl_berikutnya)->format('d/m/Y') ?? '—' }}</p>
             </div>
         </div>
-        @empty
-        <p class="text-sm text-slate-400 text-center py-10">Tidak ada jadwal pemeliharaan terdaftar.</p>
-        @endforelse
+        @endforeach
     </div>
 </div>
 @endsection

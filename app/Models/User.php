@@ -63,6 +63,17 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         return \App\Models\ForumRolePermission::granted((string) $this->access, $permission);
     }
 
+    /**
+     * Check if the user's role has a specific application permission.
+     */
+    public function canAccess(string $permission): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+        return \App\Models\RolePermission::granted((string) $this->access, $permission);
+    }
+
     // ─────────────── Forum: relasi orang tua → kelas anak ───────────────
 
     /**

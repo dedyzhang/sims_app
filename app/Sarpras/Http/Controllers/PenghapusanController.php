@@ -19,7 +19,7 @@ class PenghapusanController extends Controller
     {
         $penghapusan = Penghapusan::with(['aset:id,kode,nama', 'pengaju:uuid,username'])
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->latest()->paginate(15)->withQueryString();
+            ->latest()->get();
 
         return view('sarpras.penghapusan.index', compact('penghapusan'));
     }

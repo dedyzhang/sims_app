@@ -254,14 +254,14 @@ class SettingController extends Controller
     /** Halaman pengaturan Kop Surat rapor (admin: logo, teks, backdrop). */
     public function kopRapor()
     {
-        abort_unless(auth()->user()->isAdmin(), 403);
+        abort_unless(auth()->user()->canAccess('manage_settings'), 403);
         $settings = Setting::pluck('value', 'key');
         return view('setting.kop-rapor', compact('settings'));
     }
 
     public function kopRaporSave(Request $request)
     {
-        abort_unless(auth()->user()->isAdmin(), 403);
+        abort_unless(auth()->user()->canAccess('manage_settings'), 403);
         $request->validate([
             'kop_logo_kiri'  => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
             'kop_logo_kanan' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
@@ -287,5 +287,50 @@ class SettingController extends Controller
         Setting::set('kop_teks', $request->input('kop_teks', ''));
 
         return back()->with('success', 'Pengaturan kop surat rapor disimpan.');
+    }
+
+    public function roles()
+    {
+        $roles = ['kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'guru', 'orangtua', 'siswa'];
+        $permissions = [
+            'manage_users'   => 'Mengelola Data Siswa & Guru (Data Master)',
+            'manage_absensi' => 'Mengelola Absensi & Presensi',
+            'manage_jadwal'  => 'Mengelola Jadwal Pelajaran',
+            'view_all_nilai' => 'Melihat Nilai Semua Mapel & Guru',
+            'edit_all_nilai' => 'Mengubah Nilai Semua Mapel & Guru',
+            'manage_agenda'  => 'Mengelola & Validasi Rekap Agenda',
+            'manage_rapor'   => 'Mengelola Rekap Nilai & Cetak Rapor',
+            'manage_disiplin'=> 'Mengelola Modul Kedisiplinan (Poin/P3)',
+            'manage_sarpras' => 'Mengelola Sarana & Prasarana',
+            'manage_keuangan'=> 'Mengelola Modul Keuangan',
+            'manage_settings'=> 'Mengelola Pengaturan Sistem',
+        ];
+        
+        $granted = \App\Models\RolePermission::all()->groupBy('role')->map(function($items) {
+            return $items->pluck('permission')->toArray();
+        })->toArray();
+
+        return view('settings.roles', compact('roles', 'permissions', 'granted'));
+    }
+
+    public function rolesSave(\Illuminate\Http\Request $request)
+    {
+        $perms = $request->input('perms', []); // array of role => [permission => 1]
+        
+        \Illuminate\Support\Facades\DB::transaction(function() use ($perms) {
+            \App\Models\RolePermission::truncate();
+            foreach ($perms as $role => $rolePerms) {
+                foreach ($rolePerms as $permission => $val) {
+                    if ($val) {
+                        \App\Models\RolePermission::create([
+                            'role' => $role,
+                            'permission' => $permission
+                        ]);
+                    }
+                }
+            }
+        });
+
+        return back()->with('success', 'Pengaturan hak akses peran berhasil disimpan.');
     }
 }

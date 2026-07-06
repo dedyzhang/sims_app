@@ -17,7 +17,7 @@ return new class extends Migration
 
             $table->foreign('assignment_id')->references('uuid')->on('classroom_assignments')->cascadeOnDelete();
             $table->foreign('classroom_id')->references('uuid')->on('classrooms')->cascadeOnDelete();
-            $table->unique(['assignment_id', 'classroom_id']);
+            $table->unique(['assignment_id', 'classroom_id'], 'classroom_assign_links_unique');
         });
     }
 

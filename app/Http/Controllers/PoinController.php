@@ -26,7 +26,7 @@ class PoinController extends Controller
 
     private function bisaKelola(): bool
     {
-        return in_array(auth()->user()->access, ['superadmin', 'admin', 'kesiswaan'], true);
+        return auth()->user()?->canAccess('manage_disiplin') ?? false;
     }
 
     private function guardKelola(): void

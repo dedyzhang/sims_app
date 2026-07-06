@@ -151,15 +151,13 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($perKategori as $row)
+                @foreach($perKategori as $row)
                 <tr class="border-b border-slate-50 dark:border-slate-700/50">
                     <td class="py-2.5 font-medium text-slate-700 dark:text-slate-200">{{ $row->kategori?->nama ?? 'Tanpa Kategori' }}</td>
                     <td class="py-2.5 text-center text-slate-600 dark:text-slate-300">{{ $row->jml }}</td>
                     <td class="py-2.5 text-right text-slate-600 dark:text-slate-300">{{ Rupiah::format((int) $row->nilai) }}</td>
                 </tr>
-                @empty
-                <tr><td colspan="3" class="py-6 text-center text-slate-400">Belum ada aset.</td></tr>
-                @endforelse
+                @endforeach
             </tbody>
         </table>
     </div>
@@ -189,7 +187,7 @@
             <th class="py-2 px-4">Kode</th><th>Nama</th><th>Kategori</th><th>Ruangan</th><th>Kondisi</th><th>Nilai Perolehan</th><th>Nilai Buku</th><th></th>
         </tr></thead>
         <tbody>
-        @forelse ($aset as $a)
+        @foreach($aset as $a)
             <tr class="border-b">
                 <td class="py-2 px-4 font-medium">{{ $a->kode }}</td>
                 <td>{{ $a->nama }}</td>
@@ -200,13 +198,11 @@
                 <td>{{ $a->nilai_buku_rp }}</td>
                 <td class="px-4"><a href="{{ route('sarpras.aset.show', $a) }}" class="text-blue-600 hover:underline">Detail</a></td>
             </tr>
-        @empty
-            <tr><td colspan="8" class="py-4 px-4 text-gray-400">Belum ada aset.</td></tr>
-        @endforelse
+        @endforeach
         </tbody>
     </table>
 </div>
-<div>{{ $aset->links() }}</div>
+
 
 @push('scripts')
 <script>

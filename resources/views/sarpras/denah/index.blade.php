@@ -12,7 +12,7 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start" data-drag-container="denah_buildings">
-@forelse ($gedungGroups as $gedung => $lantaiList)
+@foreach($gedungGroups as $gedung => $lantaiList)
     <div class="mb-6 bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-100 dark:border-slate-700/50 transition-all duration-200" data-drag-id="{{ Str::slug($gedung) }}">
         {{-- Header gedung --}}
         <div class="flex items-center justify-between gap-3 mb-2">
@@ -71,10 +71,6 @@
             @endforeach
         </div>
     </div>
-@empty
-    <div class="col-span-full">
-        <p class="text-gray-400">Belum ada denah. Tambahkan gedung/denah baru.</p>
-    </div>
-@endforelse
+@endforeach
 </div>
 @endsection

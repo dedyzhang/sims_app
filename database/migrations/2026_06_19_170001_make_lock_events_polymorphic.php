@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('student_id')->references('uuid')->on('users')->cascadeOnDelete();
-            $table->index(['lockable_type', 'lockable_id', 'created_at']);
+            $table->index(['lockable_type', 'lockable_id', 'created_at'], 'class_lock_events_lockable_created_index');
         });
     }
 

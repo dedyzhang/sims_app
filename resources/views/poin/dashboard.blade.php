@@ -12,14 +12,14 @@
     </div>
 
     {{-- Scope tabs --}}
-    <div class="flex items-center gap-2 flex-wrap">
-        <a href="{{ route('poin.dashboard', ['scope' => 'sekolah']) }}" class="px-4 py-2 rounded-xl text-sm font-semibold transition {{ $scope === 'sekolah' ? 'btn-primary shadow-sm' : 'border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' }}">
+    <div class="flex items-center gap-2 overflow-x-auto pb-1">
+        <a href="{{ route('poin.dashboard', ['scope' => 'sekolah']) }}" class="whitespace-nowrap px-4 py-2 rounded-xl text-sm font-semibold transition {{ $scope === 'sekolah' ? 'btn-primary shadow-sm' : 'border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' }}">
             <i data-lucide="school" class="w-4 h-4 inline -mt-0.5"></i> Seluruh Sekolah
         </a>
-        <a href="{{ route('poin.dashboard', ['scope' => 'tingkat', 'tingkat' => $selTingkat ?? $tingkatList->first()]) }}" class="px-4 py-2 rounded-xl text-sm font-semibold transition {{ $scope === 'tingkat' ? 'btn-primary shadow-sm' : 'border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' }}">
+        <a href="{{ route('poin.dashboard', ['scope' => 'tingkat', 'tingkat' => $selTingkat ?? $tingkatList->first()]) }}" class="whitespace-nowrap px-4 py-2 rounded-xl text-sm font-semibold transition {{ $scope === 'tingkat' ? 'btn-primary shadow-sm' : 'border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' }}">
             <i data-lucide="layers" class="w-4 h-4 inline -mt-0.5"></i> Per Tingkat
         </a>
-        <a href="{{ route('poin.dashboard', ['scope' => 'kelas', 'kelas' => $selKelas ?? optional($kelasList->first())?->uuid]) }}" class="px-4 py-2 rounded-xl text-sm font-semibold transition {{ $scope === 'kelas' ? 'btn-primary shadow-sm' : 'border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' }}">
+        <a href="{{ route('poin.dashboard', ['scope' => 'kelas', 'kelas' => $selKelas ?? optional($kelasList->first())?->uuid]) }}" class="whitespace-nowrap px-4 py-2 rounded-xl text-sm font-semibold transition {{ $scope === 'kelas' ? 'btn-primary shadow-sm' : 'border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700' }}">
             <i data-lucide="door-open" class="w-4 h-4 inline -mt-0.5"></i> Per Kelas
         </a>
     </div>
@@ -57,9 +57,10 @@
     </div>
     @else
     {{-- Podium peringkat 1-3 --}}
-    <div class="card p-6 md:p-10 relative overflow-hidden">
+    <div class="card p-4 sm:p-6 md:p-10 relative overflow-hidden">
         <div class="absolute inset-0 opacity-5 pointer-events-none" style="background:radial-gradient(circle at 50% 0%, #f59e0b, transparent 60%)"></div>
         <x-podium :items="$top10" />
+    </div>
 
     {{-- Peringkat 4-10 --}}
     @if($top10->count() > 3)

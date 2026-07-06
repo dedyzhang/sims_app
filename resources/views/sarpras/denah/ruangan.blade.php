@@ -46,16 +46,14 @@
             <th class="py-2">Kode</th><th>Nama</th><th>Kategori</th><th>Kondisi</th>
         </tr></thead>
         <tbody>
-        @forelse ($ruangan->aset as $a)
+        @foreach($ruangan->aset as $a)
             <tr class="border-b">
                 <td class="py-2"><a class="text-blue-600 hover:underline" href="{{ route('sarpras.aset.show', $a) }}">{{ $a->kode }}</a></td>
                 <td>{{ $a->nama }}</td>
                 <td>{{ $a->kategori?->nama }}</td>
                 <td class="capitalize">{{ str_replace('_', ' ', $a->kondisi) }}</td>
             </tr>
-        @empty
-            <tr><td colspan="4" class="py-3 text-gray-400">Belum ada aset di ruangan ini.</td></tr>
-        @endforelse
+        @endforeach
         </tbody>
     </table>
 </div>

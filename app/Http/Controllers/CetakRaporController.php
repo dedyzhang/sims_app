@@ -27,11 +27,11 @@ class CetakRaporController extends Controller
     private function akses(): array
     {
         $user = auth()->user();
-        $bolehSemua = in_array($user->access, ['superadmin', 'admin', 'kurikulum', 'kepala'], true);
+        $bolehSemua = $user->canAccess('manage_rapor');
         $wkKelas = null;
         if (!$bolehSemua) {
             $wk = $user->guru?->walikelas;
-            abort_unless($wk, 403, 'Hanya admin, kurikulum, kepala sekolah, atau wali kelas yang dapat mencetak rapor.');
+            abort_unless($wk, 403, 'Hanya pengelola dan wali kelas yang dapat mencetak rapor.');
             $wkKelas = $wk->id_kelas;
         }
         return [$bolehSemua, $wkKelas];

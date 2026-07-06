@@ -22,7 +22,7 @@ return new class extends Migration
             $table->text('catatan')->nullable();
             $table->timestamps();
 
-            $table->index(['school_id', 'aktif', 'tgl_berikutnya']);
+            $table->index(['school_id', 'aktif', 'tgl_berikutnya'], 'sarpras_jadwal_pemeliharaan_school_aktif_tgl_index');
         });
     }
 

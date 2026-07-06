@@ -17,7 +17,7 @@ class MutasiController extends Controller
     public function index(): View
     {
         $mutasi = MutasiAset::with(['aset:id,kode,nama', 'ruanganAsal:id,kode', 'ruanganTujuan:id,kode'])
-            ->latest()->paginate(15);
+            ->latest()->get();
 
         return view('sarpras.mutasi.index', compact('mutasi'));
     }

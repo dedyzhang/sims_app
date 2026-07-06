@@ -4,10 +4,10 @@
     <div class="relative z-10">
         <div class="w-10 h-10 rounded-xl bg-white/25 grid place-items-center mb-3"><i data-lucide="calendar-days" class="w-5 h-5"></i></div>
         <p class="text-white/70 text-xs">Semester Aktif</p>
-        <p class="text-2xl font-extrabold">{{ $semester ? 'Semester '.$semester->semester : '—' }}</p>
+        <p class="text-lg md:text-2xl font-extrabold">{{ $semester ? 'Semester '.$semester->semester : '—' }}</p>
         <p class="text-white/80 text-sm">{{ $semester->tahun ?? 'Belum diatur' }}</p>
     </div>
-    <a href="{{ route('setting.index') }}" class="relative z-10 inline-flex items-center gap-1.5 text-xs font-semibold bg-white/20 hover:bg-white/30 transition rounded-lg px-3 py-2 w-fit">
-        <i data-lucide="settings-2" class="w-3.5 h-3.5"></i> Kelola
+    <a href="{{ route('setting.index') }}" class="absolute z-20 top-4 right-4 grid place-items-center w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 text-white transition duration-300 backdrop-blur-sm" title="Kelola">
+        <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
     </a>
 </div>

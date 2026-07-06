@@ -380,4 +380,26 @@ class JadwalController extends Controller
         }
         return view('jadwal.kelas', compact('kelasList', 'selectedKelas', 'rows', 'cells'));
     }
+
+    /** Tampilan jadwal per guru (read-only mingguan) — sumbu waktu gabungan semua hari */
+    public function guruView(Request $request)
+    {
+        $guruList = Guru::orderBy('nama')->get();
+        $selectedGuru = $request->guru ?: optional($guruList->first())->uuid;
+
+        // Baris = gabungan jam semua hari, unik per (mulai|selesai|jenis), urut jam mulai
+        $rows = JamPelajaran::orderBy('jam_mulai')->orderBy('urutan')->get()
+            ->unique(fn($j) => substr($j->jam_mulai, 0, 5) . '|' . substr($j->jam_selesai, 0, 5) . '|' . $j->jenis)
+            ->sortBy('jam_mulai')->values();
+
+        // cells: "H:i|hari" => jadwal (cocokkan berdasarkan jam mulai)
+        $cells = [];
+        if ($selectedGuru) {
+            foreach (Jadwal::with(['pelajaran', 'kelas'])->where('id_guru', $selectedGuru)->get() as $j) {
+                $key = \Carbon\Carbon::parse($j->jam_mulai)->format('H:i') . '|' . $j->hari;
+                $cells[$key] = $j;
+            }
+        }
+        return view('jadwal.guru', compact('guruList', 'selectedGuru', 'rows', 'cells'));
+    }
 }

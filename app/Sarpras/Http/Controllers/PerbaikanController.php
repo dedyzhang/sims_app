@@ -21,7 +21,7 @@ class PerbaikanController extends Controller
     {
         $perbaikan = Perbaikan::with(['aset:id,kode,nama', 'teknisi:id,nama'])
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->latest()->paginate(15)->withQueryString();
+            ->latest()->get();
 
         // Jadwal pemeliharaan rutin untuk panel di samping.
         $jadwal = JadwalPemeliharaan::with('aset:id,kode,nama')

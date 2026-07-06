@@ -124,6 +124,7 @@
 @push('scripts')
 <script>
 function confirmAction(form, message) {
+    if (form.dataset.submitting) return false;
     $.confirm({
         title: 'Konfirmasi',
         content: message,
@@ -133,7 +134,10 @@ function confirmAction(form, message) {
             ya: {
                 text: 'Ya, Lanjutkan',
                 btnClass: 'btn-warning',
-                action: function() { form.submit(); }
+                action: function() { 
+                    form.dataset.submitting = 'true';
+                    form.submit(); 
+                }
             },
             tidak: { text: 'Batal' }
         }

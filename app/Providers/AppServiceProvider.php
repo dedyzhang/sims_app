@@ -47,13 +47,13 @@ class AppServiceProvider extends ServiceProvider
 
         // Bagikan nama & identitas sekolah ke layout & login (dari Pengaturan)
         View::composer(['layouts.app', 'auth.login'], function ($view) {
-            $nama = 'Edu Nusantara';
+            $nama = 'Edutive';
             $alamat = null;
             $logoUrl = null;
             $logoExt = null;
             try {
                 if (Schema::hasTable('settings')) {
-                    $nama   = Setting::get('nama_sekolah', 'Edu Nusantara') ?: 'Edu Nusantara';
+                    $nama   = Setting::get('nama_sekolah', 'Edutive') ?: 'Edutive';
                     $alamat = Setting::get('alamat_sekolah');
                     $logoPath = Setting::get('sekolah_logo');
                     if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {

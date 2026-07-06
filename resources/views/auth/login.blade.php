@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Masuk — {{ $namaSekolah ?? 'Edu Nusantara' }}</title>
+    <title>Masuk — {{ $namaSekolah ?? 'Edutive' }}</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -94,10 +94,14 @@
 
         {{-- Content Container --}}
         <div class="relative z-10 max-w-md space-y-8">
-            <div class="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 grid place-items-center shadow-lg shadow-black/10">
-                <svg viewBox="0 0 24 24" fill="none" class="w-8 h-8 text-white" stroke="currentColor" stroke-width="2.2">
-                    <path d="M12 3L1 9l11 6 9-4.91V17M1 9v7" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+            <div class="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 grid place-items-center shadow-lg shadow-black/10 overflow-hidden">
+                @if($sekolahLogoUrl)
+                    <img src="{{ $sekolahLogoUrl }}" class="w-full h-full {{ in_array($sekolahLogoExt ?? 'png', ['jpg', 'jpeg']) ? 'object-contain' : 'object-cover' }}" alt="Logo">
+                @else
+                    <svg viewBox="0 0 24 24" fill="none" class="w-8 h-8 text-white" stroke="currentColor" stroke-width="2.2">
+                        <path d="M12 3L1 9l11 6 9-4.91V17M1 9v7" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                @endif
             </div>
             
             <div class="space-y-3">
@@ -136,7 +140,7 @@
                 </div>
             </div>
 
-            <p class="text-xs text-slate-400 pt-8 border-t border-white/10">SIAKAD — {{ $namaSekolah ?? 'Edu Nusantara' }} &copy; {{ date('Y') }}</p>
+            <p class="text-xs text-slate-400 pt-8 border-t border-white/10">Edutive — {{ $namaSekolah ?? 'Edutive' }} &copy; {{ date('Y') }}</p>
         </div>
     </div>
 
@@ -154,13 +158,17 @@
 
             {{-- Mobile Logo/Header (Hidden on Desktop, shown on Mobile) --}}
             <div class="flex flex-col items-center mb-8 text-center lg:hidden">
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-900 to-indigo-950 grid place-items-center mb-4 shadow-md shadow-blue-950/20 border border-blue-800/30">
-                    <svg viewBox="0 0 24 24" fill="none" class="w-7 h-7 text-white" stroke="currentColor" stroke-width="2.2">
-                        <path d="M12 3L1 9l11 6 9-4.91V17M1 9v7" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-900 to-indigo-950 grid place-items-center mb-4 shadow-md shadow-blue-950/20 border border-blue-800/30 overflow-hidden">
+                    @if($sekolahLogoUrl)
+                        <img src="{{ $sekolahLogoUrl }}" class="w-full h-full {{ in_array($sekolahLogoExt ?? 'png', ['jpg', 'jpeg']) ? 'object-contain' : 'object-cover' }}" alt="Logo">
+                    @else
+                        <svg viewBox="0 0 24 24" fill="none" class="w-7 h-7 text-white" stroke="currentColor" stroke-width="2.2">
+                            <path d="M12 3L1 9l11 6 9-4.91V17M1 9v7" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    @endif
                 </div>
-                <h1 class="text-xl font-black text-slate-800 tracking-tight">{{ $namaSekolah ?? 'Edu Nusantara' }}</h1>
-                <p class="text-sm text-slate-500 mt-1">Sistem Informasi Absensi Sekolah Terpadu</p>
+                <h1 class="text-xl font-black text-slate-800 tracking-tight">{{ $namaSekolah ?? 'Edutive' }}</h1>
+                <p class="text-sm text-slate-500 mt-1">SIMS ( Sistem Informasi Manajemen Sekolah )</p>
             </div>
 
             {{-- Desktop Header (Hidden on Mobile, shown on Desktop) --}}
@@ -199,11 +207,7 @@
                             class="flex-1 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5">
                         <i data-lucide="grid" class="w-3.5 h-3.5"></i> PIN
                     </button>
-                    <button @click="tab='biometric'; tryBiometric()" x-show="biometricAvailable"
-                            :class="tab==='biometric' ? 'bg-white shadow-sm text-slate-800 font-bold' : 'text-slate-500 hover:text-slate-800'"
-                            class="flex-1 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5" x-cloak>
-                        <i data-lucide="fingerprint" class="w-3.5 h-3.5"></i> Biometrik
-                    </button>
+                    {{-- Biometric button disabled --}}
                 </div>
 
                 {{-- 1. Tab Password --}}
@@ -216,7 +220,7 @@
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                                     <i data-lucide="user" class="w-4 h-4"></i>
                                 </span>
-                                <input type="text" name="credential" value="{{ old('credential') }}" required autofocus placeholder="Masukkan username atau nomor induk"
+                                <input type="text" name="credential" x-model="pinCredential" required autofocus placeholder="Masukkan username atau nomor induk"
                                        class="premium-input w-full border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 bg-white">
                             </div>
                         </div>
@@ -236,12 +240,11 @@
                             </div>
                         </div>
                         
-                        <div class="flex items-center justify-between pt-1">
+                        <div class="flex items-center pt-1">
                             <label class="flex items-center gap-2 text-sm text-slate-500 cursor-pointer select-none">
                                 <input type="checkbox" name="remember" class="w-4 h-4 rounded-lg border-slate-300 text-blue-900 focus:ring-blue-900/10"> 
                                 <span>Ingat saya</span>
                             </label>
-                            <button type="button" @click="tab='forgot'" class="text-sm font-semibold text-blue-900 hover:text-blue-800 transition">Lupa password?</button>
                         </div>
                         
                         <button type="submit" class="w-full py-3 rounded-2xl bg-blue-900 hover:bg-blue-800 active:scale-[0.99] text-white text-sm font-bold transition-all shadow-md shadow-blue-900/15 flex items-center justify-center gap-2">
@@ -268,11 +271,12 @@
                         </div>
                         
                         <div class="py-2 text-center bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                            <p class="text-xs font-semibold text-slate-400 mb-3">MASUKKAN PIN 6 DIGIT</p>
+                            <p class="text-xs font-semibold text-slate-400 mb-3" x-text="pinLoading ? 'MEMVERIFIKASI PIN...' : 'MASUKKAN PIN 6 DIGIT'"></p>
                             <div class="flex justify-center gap-3.5" :class="{ shake: pinError }">
                                 <template x-for="i in 6">
                                     <div :class="pin.length>=i ? 'bg-blue-900 scale-110 border-blue-900 shadow-sm shadow-blue-900/20' : 'bg-white border-slate-300'" 
-                                         class="w-4 h-4 rounded-full border-2 transition-all duration-150"></div>
+                                         class="w-4 h-4 rounded-full border-2 transition-all duration-150"
+                                         :style="pinLoading ? 'animation: fingerprint-pulse 1s infinite ' + (i*0.1) + 's' : ''"></div>
                                 </template>
                             </div>
                             <p x-show="pinError" class="text-rose-500 font-semibold text-xs mt-3 flex items-center justify-center gap-1" x-cloak>
@@ -283,9 +287,9 @@
                         {{-- Numeric Keypad --}}
                         <div class="grid grid-cols-3 gap-2">
                             <template x-for="btn in ['1','2','3','4','5','6','7','8','9','','0','⌫']">
-                                <button @click="pinPress(btn)" 
+                                <button @click="pinPress(btn)" :disabled="pinLoading"
                                         :class="btn==='' ? 'opacity-0 pointer-events-none' : (btn==='⌫' ? 'bg-slate-100 hover:bg-slate-200 text-slate-500' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold')"
-                                        class="key-btn rounded-2xl py-3.5 text-lg transition-all border border-slate-100 shadow-sm flex items-center justify-center">
+                                        class="key-btn rounded-2xl py-3.5 text-lg transition-all border border-slate-100 shadow-sm flex items-center justify-center disabled:opacity-50 disabled:pointer-events-none">
                                     <template x-if="btn==='⌫'">
                                         <i data-lucide="delete" class="w-5 h-5"></i>
                                     </template>
@@ -298,23 +302,7 @@
                     </div>
                 </div>
 
-                {{-- 3. Tab Biometrik --}}
-                <div x-show="tab==='biometric'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100" x-cloak>
-                    <div class="text-center py-6 space-y-5">
-                        <div @click="tryBiometric()" class="pulse-fp inline-flex items-center justify-center w-24 h-24 rounded-full bg-blue-50 hover:bg-blue-100 cursor-pointer transition-all duration-300 mx-auto border border-blue-100 shadow-inner">
-                            <i data-lucide="fingerprint" class="w-12 h-12 text-blue-900"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-base font-bold text-slate-700">Verifikasi Biometrik</h3>
-                            <p class="text-xs text-slate-400 mt-1 max-w-[240px] mx-auto leading-relaxed" x-text="biometricStatus">
-                                Ketuk ikon sidik jari di atas untuk mendeteksi biometrik perangkat Anda
-                            </p>
-                        </div>
-                        <button @click="tab='password'" class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-900 transition mx-auto">
-                            <i data-lucide="keyboard" class="w-4 h-4"></i> Gunakan password
-                        </button>
-                    </div>
-                </div>
+                {{-- 3. Tab Biometrik (Disabled) --}}
 
                 {{-- 4. Tab Lupa Password --}}
                 <div x-show="tab==='forgot'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100" x-cloak>
@@ -341,14 +329,16 @@
                 </div>
             </div>
 
-            <p class="text-center text-xs text-slate-400 mt-8 font-medium lg:hidden">&copy; {{ date('Y') }} {{ $namaSekolah ?? 'Edu Nusantara' }} • Hak Cipta Dilindungi</p>
+            <p class="text-center text-xs text-slate-400 mt-8 font-medium lg:hidden">&copy; {{ date('Y') }} {{ $namaSekolah ?? 'Edutive' }} • Hak Cipta Dilindungi</p>
         </div>
     </div>
 
     <script>
     function loginApp() {
         return {
-            tab: 'password', showPass: false, pin: '', pinCredential: '', pinError: false,
+            tab: 'password', showPass: false, pin: '', 
+            pinCredential: @json(old('credential')) || localStorage.getItem('last_credential') || '', 
+            pinError: false, pinLoading: false,
             biometricAvailable: false, biometricStatus: 'Ketuk untuk verifikasi biometrik',
             async init() {
                 if (window.PublicKeyCredential) {
@@ -361,6 +351,9 @@
                     this.$nextTick(() => {
                         if (window.lucide) lucide.createIcons();
                     });
+                });
+                this.$watch('pinCredential', (val) => {
+                    localStorage.setItem('last_credential', val);
                 });
             },
             handleKeyboard(e) {
@@ -382,11 +375,12 @@
             },
             async submitPin() {
                 if (!this.pinCredential) { this.pinError = true; this.pin = ''; return; }
+                this.pinLoading = true;
                 try {
                     const res = await fetch('{{ route('login.pin') }}', { method:'POST', headers:{ 'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify({ credential:this.pinCredential, pin:this.pin }) });
                     const data = await res.json();
-                    if (res.ok) { window.location.href = data.redirect || '/home'; } else { this.pinError = true; this.pin = ''; }
-                } catch { this.pinError = true; this.pin = ''; }
+                    if (res.ok) { window.location.href = data.redirect || '/home'; } else { this.pinError = true; this.pin = ''; this.pinLoading = false; }
+                } catch { this.pinError = true; this.pin = ''; this.pinLoading = false; }
             },
             async tryBiometric() {
                 this.biometricStatus = 'Menunggu verifikasi...';

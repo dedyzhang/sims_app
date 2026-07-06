@@ -19,13 +19,13 @@ class RekapController extends Controller
     public function nilai(Request $request)
     {
         $user = auth()->user();
-        $bolehSemua = in_array($user->access, ['superadmin', 'admin', 'kurikulum', 'kepala'], true);
+        $bolehSemua = $user->canAccess('manage_rapor');
 
         // Walikelas: hanya kelasnya
         $wkKelas = null;
         if (!$bolehSemua) {
             $wk = $user->guru?->walikelas;
-            abort_unless($wk, 403, 'Hanya admin, kurikulum, kepala sekolah, atau wali kelas yang dapat melihat rekap nilai.');
+            abort_unless($wk, 403, 'Hanya pengelola dan wali kelas yang dapat melihat rekap nilai.');
             $wkKelas = $wk->id_kelas;
         }
 

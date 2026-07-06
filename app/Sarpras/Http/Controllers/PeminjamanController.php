@@ -22,7 +22,7 @@ class PeminjamanController extends Controller
         $peminjaman = Peminjaman::with(['peminjam:uuid,username', 'ruangan:id,kode,nama'])
             ->withCount('items')
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->latest()->paginate(15)->withQueryString();
+            ->latest()->get();
 
         // Log reservasi & jadwal ruangan (booking) untuk panel di samping.
         $bookings = BookingRuangan::with(['ruangan:id,kode,nama,gedung,lantai', 'pemohon'])

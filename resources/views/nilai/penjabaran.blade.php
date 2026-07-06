@@ -39,7 +39,7 @@
                         <td class="font-medium text-slate-700 dark:text-slate-200 sticky-col-nama">{{ $s->nama }}</td>
                         @foreach($komponen as $ki => $k)
                         <td class="text-center col-nilai">
-                            <div class="nilai-cell" contenteditable="{{ $terkunci ? 'false' : 'true' }}" inputmode="numeric" data-col="{{ $ki }}" data-kkm="{{ $kktp }}"
+                            <div class="nilai-cell" contenteditable="{{ ($terkunci || !empty($readOnly)) ? 'false' : 'true' }}" inputmode="numeric" data-col="{{ $ki }}" data-kkm="{{ $kktp }}"
                                  data-url="{{ route('nilai.penjabaran.cell', $ngajar->uuid) }}"
                                  data-body='@json(["id_komponen" => $k->uuid, "id_siswa" => $s->uuid])'>{{ isset($skor[$k->uuid][$s->uuid]) ? (int) $skor[$k->uuid][$s->uuid] : '' }}</div>
                         </td>

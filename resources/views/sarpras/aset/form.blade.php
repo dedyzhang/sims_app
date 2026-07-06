@@ -78,17 +78,12 @@
             <label class="block text-gray-700 mb-1">Spesifikasi (key — value)</label>
             <div id="spek-list" class="space-y-2">
                 @php $spek = old('spek_key') ? array_combine(old('spek_key', []), old('spek_val', [])) : ($aset->spesifikasi ?? []); @endphp
-                @forelse ($spek as $k => $v)
+                @foreach($spek as $k => $v)
                     <div class="flex gap-2">
                         <input name="spek_key[]" value="{{ $k }}" placeholder="key" class="w-1/2 border rounded px-3 py-2">
                         <input name="spek_val[]" value="{{ $v }}" placeholder="value" class="w-1/2 border rounded px-3 py-2">
                     </div>
-                @empty
-                    <div class="flex gap-2">
-                        <input name="spek_key[]" placeholder="key" class="w-1/2 border rounded px-3 py-2">
-                        <input name="spek_val[]" placeholder="value" class="w-1/2 border rounded px-3 py-2">
-                    </div>
-                @endforelse
+                @endforeach
             </div>
             <button type="button" onclick="tambahSpek()" class="mt-2 text-blue-600 text-xs hover:underline">+ Tambah baris</button>
         </div>

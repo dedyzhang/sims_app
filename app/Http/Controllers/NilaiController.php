@@ -29,11 +29,10 @@ class NilaiController extends Controller
         return Semester::aktif() ?? Semester::first();
     }
 
-    /** Admin atau guru pengajar penugasan ini (boleh mengubah nilai). */
     private function bisaEdit(Ngajar $ngajar): bool
     {
         $user = auth()->user();
-        if ($user->isAdmin()) return true;
+        if ($user->canAccess('edit_all_nilai')) return true;
         return (bool) ($user->guru && $ngajar->id_guru === $user->guru->uuid);
     }
 
@@ -45,12 +44,12 @@ class NilaiController extends Controller
         return $idKelasWali && $idKelasWali === $ngajar->id_kelas;
     }
 
-    /** Ambil ngajar + cek hak akses. $write=true (default) = admin/guru pengajar saja (ubah nilai).
-     *  $write=false = boleh juga wali kelas read-only (lihat formatif/sumatif/PAS mapel lain di kelasnya). */
     private function ngajarOrAbort(string $uuid, bool $write = true): Ngajar
     {
         $ngajar = Ngajar::with(['pelajaran', 'kelas', 'guru'])->findOrFail($uuid);
         if ($this->bisaEdit($ngajar)) return $ngajar;
+        $user = auth()->user();
+        if (!$write && $user->canAccess('view_all_nilai')) return $ngajar;
         abort_unless(!$write && $this->walikelasBolehLihat($ngajar), 403, 'Anda tidak mengajar kelas/mapel ini.');
         return $ngajar;
     }
@@ -81,7 +80,7 @@ class NilaiController extends Controller
         $q = Ngajar::with(['pelajaran', 'kelas', 'guru'])
             ->whereNotNull('id_guru')->whereNotNull('id_pelajaran')->whereNotNull('id_kelas');
 
-        if (!$user->isAdmin()) {
+        if (!$user->canAccess('view_all_nilai')) {
             $guru = $user->guru;
             $q->where('id_guru', $guru?->uuid ?? '-');
         }
@@ -159,7 +158,7 @@ class NilaiController extends Controller
         $user = auth()->user();
         $q = Ngajar::with(['pelajaran', 'kelas', 'guru'])
             ->whereNotNull('id_guru')->whereNotNull('id_pelajaran')->whereNotNull('id_kelas');
-        if (!$user->isAdmin()) {
+        if (!$user->canAccess('view_all_nilai')) {
             $q->where('id_guru', $user->guru?->uuid ?? '-');
         }
         $ngajars = $q->get()->sortBy(fn ($n) => [$n->pelajaran?->urutan, $n->pelajaran?->nama, $n->kelas?->tingkat, $n->kelas?->kelas])->values();
@@ -190,7 +189,8 @@ class NilaiController extends Controller
     /** ====== Materi + Tujuan Pembelajaran ====== */
     public function materi(string $uuid)
     {
-        $ngajar = $this->ngajarOrAbort($uuid);
+        $ngajar = $this->ngajarOrAbort($uuid, write: false);
+        $readOnly = !$this->bisaEdit($ngajar);
         $sem = $this->semester();
         $materi = Materi::with('tujuan')
             ->where('id_ngajar', $uuid)->where('id_semester', $sem?->id)
@@ -209,7 +209,7 @@ class NilaiController extends Controller
         $terkunci = $this->terkunci($ngajar);
         $tpMin = (int) Setting::get('tp_min', 0);
         $tpMax = (int) Setting::get('tp_max', 0);
-        return view('nilai.materi', compact('ngajar', 'materi', 'sem', 'otherNgajars', 'terkunci', 'tpMin', 'tpMax'));
+        return view('nilai.materi', compact('ngajar', 'materi', 'sem', 'otherNgajars', 'terkunci', 'tpMin', 'tpMax', 'readOnly'));
     }
 
     public function duplicateMateri(Request $request, string $uuid)
@@ -506,7 +506,8 @@ class NilaiController extends Controller
     /** ====== Penjabaran: grid siswa × komponen (komponen dikonfigurasi admin per mapel) ====== */
     public function penjabaran(string $uuid)
     {
-        $ngajar = $this->ngajarOrAbort($uuid);
+        $ngajar = $this->ngajarOrAbort($uuid, write: false);
+        $readOnly = !$this->bisaEdit($ngajar);
         $sem = $this->semester();
         $komponen = PenjabaranKomponen::where('id_pelajaran', $ngajar->id_pelajaran)->orderBy('urutan')->get();
         $siswas = $this->siswaKelas($ngajar->id_kelas);
@@ -518,7 +519,7 @@ class NilaiController extends Controller
 
         $kktp = $ngajar->kktp;
         $terkunci = $this->terkunci($ngajar);
-        return view('nilai.penjabaran', compact('ngajar', 'komponen', 'siswas', 'skor', 'sem', 'kktp', 'terkunci'));
+        return view('nilai.penjabaran', compact('ngajar', 'komponen', 'siswas', 'skor', 'sem', 'kktp', 'terkunci', 'readOnly'));
     }
 
     public function penjabaranCell(Request $request, string $uuid)
@@ -544,14 +545,15 @@ class NilaiController extends Controller
     /** ====== PTS: 1 nilai per siswa (TIDAK masuk rumus rapor, hanya dicatat) ====== */
     public function pts(string $uuid)
     {
-        $ngajar = $this->ngajarOrAbort($uuid);
+        $ngajar = $this->ngajarOrAbort($uuid, write: false);
+        $readOnly = !$this->bisaEdit($ngajar);
         $sem = $this->semester();
         $siswas = $this->siswaKelas($ngajar->id_kelas);
         $skor = NilaiPts::where('id_ngajar', $uuid)->where('id_semester', $sem?->id)
             ->pluck('nilai', 'id_siswa')->toArray();
         $kktp = $ngajar->kktp;
         $terkunci = $this->terkunci($ngajar);
-        return view('nilai.pts', compact('ngajar', 'siswas', 'skor', 'sem', 'kktp', 'terkunci'));
+        return view('nilai.pts', compact('ngajar', 'siswas', 'skor', 'sem', 'kktp', 'terkunci', 'readOnly'));
     }
 
     public function ptsCell(Request $request, string $uuid)
@@ -597,7 +599,8 @@ class NilaiController extends Controller
     /** ====== Rapor: hitung otomatis + deskripsi, bisa override & konfirmasi ====== */
     public function rapor(string $uuid)
     {
-        $ngajar = $this->ngajarOrAbort($uuid);
+        $ngajar = $this->ngajarOrAbort($uuid, write: false);
+        $readOnly = !$this->bisaEdit($ngajar);
         $sem = $this->semester();
         $rumus = Setting::get('rumus_rapor', 'bagi4');
         $kkm = $ngajar->kktp;
@@ -670,7 +673,7 @@ class NilaiController extends Controller
         return view('nilai.rapor', [
             'ngajar' => $ngajar, 'sem' => $sem, 'rumus' => $rumus, 'kktp' => $kkm,
             'baris' => $baris, 'rumusList' => Penilaian::RUMUS, 'tupeList' => $tupeList,
-            'terkunci' => $this->terkunci($ngajar),
+            'terkunci' => $this->terkunci($ngajar), 'readOnly' => $readOnly
         ]);
     }
 

@@ -15,7 +15,7 @@
             <th class="py-2 px-4">Nama</th><th>Tipe</th><th>Spesialisasi</th><th>Telepon</th><th></th>
         </tr></thead>
         <tbody>
-        @forelse ($teknisi as $t)
+        @foreach($teknisi as $t)
             <tr class="border-b">
                 <td class="py-2 px-4 font-medium">{{ $t->nama }}</td>
                 <td class="capitalize">{{ $t->tipe }}</td>
@@ -27,11 +27,9 @@
                     </form>
                 </td>
             </tr>
-        @empty
-            <tr><td colspan="5" class="py-4 px-4 text-gray-400">Belum ada teknisi.</td></tr>
-        @endforelse
+        @endforeach
         </tbody>
     </table>
 </div>
-<div class="mt-4">{{ $teknisi->links() }}</div>
+
 @endsection

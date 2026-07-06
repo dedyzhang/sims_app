@@ -40,7 +40,7 @@
                     <th class="pb-2 font-semibold">Peminjam</th><th class="pb-2 font-semibold">Barang Dipinjam</th><th class="pb-2 font-semibold">Batas Waktu</th><th class="pb-2 font-semibold">Status</th><th class="pb-2"></th>
                 </tr></thead>
                 <tbody>
-                @forelse ($peminjaman as $p)
+                @foreach($peminjaman as $p)
                     @php [$pl, $pc] = $bStatus[$p->status] ?? [ucfirst($p->status), 'bg-slate-100 text-slate-500']; @endphp
                     <tr class="border-b border-slate-50 dark:border-slate-700/50">
                         <td class="py-2.5 font-medium text-slate-700 dark:text-slate-200">{{ $p->peminjam?->name ?? '—' }}</td>
@@ -49,13 +49,11 @@
                         <td class="py-2.5"><span class="badge {{ $pc }}">{{ $pl }}</span></td>
                         <td class="py-2.5"><a href="{{ route('sarpras.peminjaman.show', $p) }}" class="text-blue-600 hover:underline text-xs">Detail</a></td>
                     </tr>
-                @empty
-                    <tr><td colspan="5" class="py-8 text-center text-slate-400">Belum ada peminjaman barang.</td></tr>
-                @endforelse
+                @endforeach
                 </tbody>
             </table>
         </div>
-        @if($peminjaman->hasPages())<div class="mt-3">{{ $peminjaman->links() }}</div>@endif
+        
     </div>
 
     {{-- Log reservasi & jadwal ruangan --}}
@@ -70,7 +68,7 @@
                     <th class="pb-2 font-semibold">Ruangan</th><th class="pb-2 font-semibold">Kegiatan</th><th class="pb-2 font-semibold">Waktu / Tanggal</th><th class="pb-2 font-semibold">Status</th>
                 </tr></thead>
                 <tbody>
-                @forelse ($bookings as $b)
+                @foreach($bookings as $b)
                     @php [$bl, $bc] = $bStatus[$b->status] ?? [ucfirst($b->status), 'bg-slate-100 text-slate-500']; @endphp
                     <tr class="border-b border-slate-50 dark:border-slate-700/50">
                         <td class="py-2.5">
@@ -86,9 +84,7 @@
                         </td>
                         <td class="py-2.5"><span class="badge {{ $bc }}">{{ $bl }}</span></td>
                     </tr>
-                @empty
-                    <tr><td colspan="4" class="py-8 text-center text-slate-400">Belum ada reservasi ruangan.</td></tr>
-                @endforelse
+                @endforeach
                 </tbody>
             </table>
         </div>

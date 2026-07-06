@@ -44,7 +44,7 @@
                     <h2 class="font-bold text-slate-800 dark:text-slate-100">Aset per Kategori</h2>
                 </div>
                 <ul class="space-y-1">
-                    @forelse($asetPerKategori as $row)
+                    @foreach($asetPerKategori as $row)
                     <li>
                         <a href="{{ route('sarpras.aset.index', ['kategori_id' => $row->kategori_id]) }}"
                            class="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/40 hover:text-amber-600 dark:hover:text-amber-400 transition-all duration-150 group">
@@ -52,9 +52,7 @@
                             <span class="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 group-hover:bg-amber-100 dark:group-hover:bg-amber-950/40 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{{ $row->jml }} unit</span>
                         </a>
                     </li>
-                    @empty
-                    <li class="text-sm text-slate-400 py-10 text-center">Belum ada aset.</li>
-                    @endforelse
+                    @endforeach
                 </ul>
             </div>
         </div>
@@ -131,7 +129,7 @@
                 <a href="{{ route('sarpras.kerusakan.index') }}" class="text-xs font-semibold text-rose-500 hover:underline">Lihat Semua</a>
             </div>
             <div class="space-y-2.5">
-                @forelse($kerusakanTerbaru as $k)
+                @foreach($kerusakanTerbaru as $k)
                 <a href="{{ route('sarpras.kerusakan.show', $k) }}" class="block p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/60 hover:border-rose-400 dark:hover:border-rose-500/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/60 transition-all duration-150 group">
                     <div class="flex justify-between items-start gap-2">
                         <p class="font-bold text-sm text-slate-800 dark:text-slate-100 group-hover:text-rose-500 transition-colors truncate flex-1">{{ $k->deskripsi }}</p>
@@ -150,12 +148,7 @@
                         <span>{{ $k->created_at?->diffForHumans() }}</span>
                     </div>
                 </a>
-                @empty
-                <div class="text-center py-10 text-slate-400">
-                    <i data-lucide="info" class="w-9 h-9 mx-auto mb-2 opacity-30"></i>
-                    <p class="text-sm">Tidak ada laporan kerusakan.</p>
-                </div>
-                @endforelse
+                @endforeach
             </div>
         </div>
 
@@ -169,7 +162,7 @@
                 <a href="{{ route('sarpras.booking.index') }}" class="text-xs font-semibold text-blue-500 hover:underline">Lihat Semua</a>
             </div>
             <div class="space-y-2.5">
-                @forelse($bookingHariIni as $b)
+                @foreach($bookingHariIni as $b)
                 <a href="{{ route('sarpras.booking.index') }}" class="block p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700/60 hover:border-blue-400 dark:hover:border-blue-500/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/60 transition-all duration-150 group">
                     <p class="font-bold text-slate-800 dark:text-slate-100 group-hover:text-blue-500 transition-colors">{{ $b->ruangan?->nama ?? $b->ruangan?->kode ?? 'Ruangan' }}</p>
                     <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -178,12 +171,7 @@
                     </div>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Oleh: {{ $b->pemohon?->name ?? '-' }}</p>
                 </a>
-                @empty
-                <div class="text-center py-10 text-slate-400">
-                    <i data-lucide="calendar-x" class="w-9 h-9 mx-auto mb-2 opacity-30"></i>
-                    <p class="text-sm">Belum ada booking ruangan hari ini.</p>
-                </div>
-                @endforelse
+                @endforeach
             </div>
         </div>
 

@@ -14,7 +14,7 @@ class JadwalController extends Controller
     public function index(): View
     {
         $jadwal = JadwalPemeliharaan::with('aset:id,kode,nama')
-            ->orderBy('tgl_berikutnya')->paginate(15);
+            ->orderBy('tgl_berikutnya')->get();
 
         return view('sarpras.jadwal.index', compact('jadwal'));
     }

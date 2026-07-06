@@ -57,7 +57,7 @@ class DatabaseSeeder extends Seeder
 
         // ─── SETTING DEFAULT ──────────────────────────────────────────────────
         $defaults = [
-            'nama_sekolah'      => 'SMP Edu Nusantara',
+            'nama_sekolah'      => 'SMP Edutive',
             'npsn'              => '00000000',
             'alamat_sekolah'    => 'Jl. Pendidikan No. 1',
             'kepala_sekolah'    => 'Nama Kepala Sekolah',

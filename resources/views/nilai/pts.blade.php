@@ -24,7 +24,7 @@
                         <td class="text-center text-slate-400 sticky-col-no">{{ $i + 1 }}</td>
                         <td class="font-medium text-slate-700 dark:text-slate-200 sticky-col-nama">{{ $s->nama }}</td>
                         <td class="text-center">
-                            <div class="nilai-cell" contenteditable="{{ $terkunci ? 'false' : 'true' }}" inputmode="numeric" data-col="0" data-kkm="{{ $kktp }}"
+                            <div class="nilai-cell" contenteditable="{{ ($terkunci || !empty($readOnly)) ? 'false' : 'true' }}" inputmode="numeric" data-col="0" data-kkm="{{ $kktp }}"
                                  data-url="{{ route('nilai.pts.cell', $ngajar->uuid) }}"
                                  data-body='@json(["id_siswa" => $s->uuid])'>{{ isset($skor[$s->uuid]) ? (int) $skor[$s->uuid] : '' }}</div>
                         </td>

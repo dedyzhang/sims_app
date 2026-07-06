@@ -16,14 +16,14 @@ class AbsensiController extends Controller
     /** Kelas homeroom guru saat ini bila BUKAN admin (null berarti admin = boleh semua kelas). */
     private function walikelasKelasId(): ?string
     {
-        return auth()->user()->isAdmin() ? null : auth()->user()->guru?->walikelas?->id_kelas;
+        return auth()->user()->canAccess('manage_absensi') ? null : auth()->user()->guru?->walikelas?->id_kelas;
     }
 
     public function index(Request $request)
     {
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
         $walikelasKelas = $this->walikelasKelasId();
-        abort_if(!auth()->user()->isAdmin() && !$walikelasKelas, 403, 'Hanya admin/wali kelas yang dapat mengakses absensi.');
+        abort_if(!auth()->user()->canAccess('manage_absensi') && !$walikelasKelas, 403, 'Hanya admin/wali kelas yang dapat mengakses absensi.');
         if ($walikelasKelas) {
             $kelasList = $kelasList->where('uuid', $walikelasKelas)->values();
         }
@@ -53,7 +53,7 @@ class AbsensiController extends Controller
         ]);
 
         $walikelasKelas = $this->walikelasKelasId();
-        abort_if(!auth()->user()->isAdmin() && $request->id_kelas !== $walikelasKelas, 403, 'Anda hanya dapat mengisi absensi kelas Anda sendiri.');
+        abort_if(!auth()->user()->canAccess('manage_absensi') && $request->id_kelas !== $walikelasKelas, 403, 'Anda hanya dapat mengisi absensi kelas Anda sendiri.');
 
         $tanggal = $request->tanggal;
         $count = 0;
@@ -81,7 +81,7 @@ class AbsensiController extends Controller
     {
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
         $walikelasKelas = $this->walikelasKelasId();
-        abort_if(!auth()->user()->isAdmin() && !$walikelasKelas, 403, 'Hanya admin/wali kelas yang dapat mengakses rekap absensi.');
+        abort_if(!auth()->user()->canAccess('manage_absensi') && !$walikelasKelas, 403, 'Hanya pengelola yang dapat mengakses rekap absensi.');
         if ($walikelasKelas) {
             $kelasList = $kelasList->where('uuid', $walikelasKelas)->values();
         }

@@ -24,7 +24,7 @@
                 <th class="pb-2 font-semibold">Nama Supplier</th><th class="pb-2 font-semibold">Kontak</th><th class="pb-2 font-semibold">Alamat</th><th class="pb-2 font-semibold">NPWP</th><th class="pb-2 font-semibold text-right">Aksi</th>
             </tr></thead>
             <tbody>
-            @forelse ($supplier as $s)
+            @foreach($supplier as $s)
                 <tr class="border-b border-slate-50 dark:border-slate-700/50">
                     <td class="py-3 font-semibold text-slate-700 dark:text-slate-200">{{ $s->nama }}</td>
                     <td class="py-3 text-slate-600 dark:text-slate-300">{{ $s->telepon ?: $s->kontak ?: '—' }}</td>
@@ -42,12 +42,10 @@
                         </div>
                     </td>
                 </tr>
-            @empty
-                <tr><td colspan="5" class="py-10 text-center text-slate-400">Belum ada supplier terdaftar.</td></tr>
-            @endforelse
+            @endforeach
             </tbody>
         </table>
     </div>
-    @if($supplier->hasPages())<div class="mt-4">{{ $supplier->links() }}</div>@endif
+    
 </div>
 @endsection

@@ -15,7 +15,7 @@
             <th class="py-2 px-4">Nama</th><th>Aset</th><th>Interval</th><th>Berikutnya</th><th>Aktif</th><th></th>
         </tr></thead>
         <tbody>
-        @forelse ($jadwal as $j)
+        @foreach($jadwal as $j)
             <tr class="border-b @if($j->jatuh_tempo) bg-red-50 @endif">
                 <td class="py-2 px-4 font-medium">{{ $j->nama }}</td>
                 <td>{{ $j->aset?->nama ?? '-' }}</td>
@@ -29,11 +29,9 @@
                     </form>
                 </td>
             </tr>
-        @empty
-            <tr><td colspan="6" class="py-4 px-4 text-gray-400">Belum ada jadwal.</td></tr>
-        @endforelse
+        @endforeach
         </tbody>
     </table>
 </div>
-<div class="mt-4">{{ $jadwal->links() }}</div>
+
 @endsection

@@ -12,7 +12,7 @@ class SupplierController extends Controller
 {
     public function index(): View
     {
-        $supplier = Supplier::orderBy('nama')->paginate(15);
+        $supplier = Supplier::orderBy('nama')->get();
 
         return view('sarpras.supplier.index', compact('supplier'));
     }

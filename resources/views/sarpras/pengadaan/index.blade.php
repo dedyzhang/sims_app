@@ -17,7 +17,7 @@
             <th class="py-2 px-4">Kode</th><th>Judul</th><th>Pengaju</th><th>Total Estimasi</th><th>Status</th><th></th>
         </tr></thead>
         <tbody>
-        @forelse ($pengadaan as $p)
+        @foreach($pengadaan as $p)
             <tr class="border-b">
                 <td class="py-2 px-4 font-medium">{{ $p->kode }}</td>
                 <td>{{ $p->judul }}</td>
@@ -26,11 +26,9 @@
                 <td class="capitalize">{{ $p->status }}</td>
                 <td class="px-4"><a href="{{ route('sarpras.pengadaan.show', $p) }}" class="text-blue-600 hover:underline">Detail</a></td>
             </tr>
-        @empty
-            <tr><td colspan="6" class="py-4 px-4 text-gray-400">Belum ada pengajuan.</td></tr>
-        @endforelse
+        @endforeach
         </tbody>
     </table>
 </div>
-<div class="mt-4">{{ $pengadaan->links() }}</div>
+
 @endsection

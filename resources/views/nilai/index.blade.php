@@ -1,5 +1,6 @@
 @extends('layouts.app')
-@section('title', $isAdmin ? 'Penilaian' : 'Buku Guru')
+@php $canViewAll = $isAdmin || auth()->user()?->access === 'kepala'; @endphp
+@section('title', $canViewAll ? 'Penilaian' : 'Buku Guru')
 
 @section('content')
 @php
@@ -107,9 +108,9 @@
 
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
-            <h1 class="page-title">{{ $isAdmin ? 'Penilaian' : 'Buku Guru' }}</h1>
+            <h1 class="page-title">{{ $canViewAll ? 'Penilaian' : 'Buku Guru' }}</h1>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {{ $isAdmin ? 'Semua penugasan mengajar' : 'Penugasan mengajar Anda' }}
+                {{ $canViewAll ? 'Semua penugasan mengajar' : 'Penugasan mengajar Anda' }}
                 @if($semester) &bull; <span class="font-semibold text-slate-600 dark:text-slate-300">{{ $semester->nama_lengkap }}</span> @endif
             </p>
         </div>

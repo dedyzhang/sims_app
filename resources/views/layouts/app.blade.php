@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Dashboard') — {{ $namaSekolah ?? 'Edu Nusantara' }}</title>
+    <title>@yield('title', 'Dashboard') — {{ $namaSekolah ?? 'Edutive' }}</title>
 
     @if($sekolahLogoUrl)
         <link rel="shortcut icon" href="{{ $sekolahLogoUrl }}" type="image/x-icon">
@@ -87,7 +87,53 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    
+    <!-- DataTables CSS & JS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
+    <style>
+        /* Penyesuaian DataTables dengan Tailwind & Dark Mode */
+        .dataTables_wrapper { font-size: var(--fsm); margin-top: 1rem; }
+        .dataTables_wrapper .dataTables_length select, .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.25rem 0.5rem; outline: none;
+        }
+        .dark .dataTables_wrapper .dataTables_length select, .dark .dataTables_wrapper .dataTables_filter input {
+            background-color: #1e293b; border-color: #334155; color: #f8fafc;
+        }
+        .dark .dataTables_wrapper .dataTables_length, .dark .dataTables_wrapper .dataTables_filter, .dark .dataTables_wrapper .dataTables_info {
+            color: #94a3b8 !important;
+        }
+        /* Sembunyikan ikon accordion (jika masih tersisa) */
+        table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control:before, table.dataTable.dtr-inline.collapsed>tbody>tr>th.dtr-control:before {
+            display: none;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+            background: var(--cp) !important; color: white !important; border: none; border-radius: 0.375rem;
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button { border-radius: 0.375rem; padding: 0.25rem 0.75rem; }
+    </style>
+    
+    <script>
+        $(document).ready(function() {
+            // Auto initialize datatables for sarpras tables
+            if (window.location.pathname.includes('/sarpras')) {
+                // Initialize on generic tables (except .ttd which is for signatures, or explicit .no-dt)
+                $('table:not(.ttd, .no-dt)').addClass('display nowrap w-full').DataTable({
+                    scrollX: true,
+                    pageLength: 15,
+                    language: {
+                        search: "Cari:",
+                        lengthMenu: "Tampilkan _MENU_ baris",
+                        info: "Menampilkan _START_ - _END_ dari _TOTAL_ data",
+                        infoEmpty: "Tidak ada data",
+                        zeroRecords: "Data tidak ditemukan",
+                        paginate: { first: "Awal", last: "Akhir", next: "Selanjutnya", previous: "Sebelumnya" }
+                    }
+                });
+            }
+        });
+    </script>
     <style>
         * { font-family: 'Plus Jakarta Sans','Inter',sans-serif; }
         [x-cloak] { display:none !important; }
@@ -319,7 +365,7 @@
                         <svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 text-white" stroke="currentColor" stroke-width="2.2"><path d="M12 3L1 9l11 6 9-4.91V17M1 9v7" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     @endif
                 </div>
-                <span x-show="!mini" class="font-extrabold text-[15px] truncate" style="color:var(--stx)">{{ $namaSekolah ?? 'Edu Nusantara' }}</span>
+                <span x-show="!mini" class="font-extrabold text-[15px] leading-tight break-words" style="color:var(--stx)">{{ $namaSekolah ?? 'Edutive' }}</span>
             </div>
         </div>
 
@@ -330,21 +376,25 @@
 
                 // Grup menu: key => [label, ikon, items[]]; item = [route, [pattern...], ikon, label]
                 $groups = [];
-                if ($isAdmin) {
-                    $groups['master'] = ['Data Master', 'database', [
-                        ['guru.index',      ['guru.*'],            'users',          'Data Guru'],
-                        ['kelas.index',     ['kelas.*'],           'door-open',      'Data Kelas'],
-                        ['siswa.index',     ['siswa.*'],           'graduation-cap', 'Data Siswa'],
-                        ['pelajaran.index', ['pelajaran.*'],       'book-open-text', 'Mata Pelajaran'],
-                    ]];
+                if ($isAdmin || auth()->user()?->canAccess('manage_users')) {
+                    $masterItems = [];
+                    if ($isAdmin || auth()->user()?->canAccess('manage_users')) {
+                        $masterItems[] = ['guru.index',      ['guru.*'],            'users',          'Data Guru'];
+                        $masterItems[] = ['siswa.index',     ['siswa.*'],           'graduation-cap', 'Data Siswa'];
+                    }
+                    if ($isAdmin) {
+                        $masterItems[] = ['kelas.index',     ['kelas.*'],           'door-open',      'Data Kelas'];
+                        $masterItems[] = ['pelajaran.index', ['pelajaran.*'],       'book-open-text', 'Mata Pelajaran'];
+                    }
+                    if (!empty($masterItems)) {
+                        $groups['master'] = ['Data Master', 'database', $masterItems];
+                    }
                 }
 
                 // ── Absensi & Presensi (admin penuh; kurikulum hanya Kalender) ──
                 $presensiItems = [];
-                if ($isAdmin || $access === 'kurikulum') {
+                if ($isAdmin || auth()->user()?->canAccess('manage_absensi')) {
                     $presensiItems[] = ['kalender.index', ['kalender.*'], 'calendar-days', 'Kalender Absensi'];
-                }
-                if ($isAdmin) {
                     $presensiItems[] = ['absensi.index',       ['absensi.*'],       'clipboard-check', 'Absensi Siswa'];
                     $presensiItems[] = ['presensi-guru.index', ['presensi-guru.*'], 'user-check',      'Presensi Guru'];
                     $presensiItems[] = ['wajah.galeri',        ['wajah.*'],         'scan-face',       'Validasi Wajah'];
@@ -359,11 +409,14 @@
                 if ($access !== 'orangtua') {
                     $akademik[] = ['classroom.index', ['classroom.*'], 'graduation-cap', 'Ruang Kelas'];
                 }
-                if ($isAdmin) {
+                if ($isAdmin || auth()->user()?->canAccess('manage_jadwal')) {
                     $akademik[] = ['jadwal.index', ['jadwal.*'], 'calendar-clock', 'Jadwal Pelajaran'];
+                } elseif (in_array($access, ['kurikulum','kepala','kesiswaan','sapras','guru','walikelas'])) {
+                    $akademik[] = ['jadwal.guru', ['jadwal.guru'], 'calendar-clock', 'Jadwal Mengajar'];
                 }
-                if (auth()->user()?->guru || $isAdmin) {
-                    $akademik[] = ['nilai.index', ['nilai.*'], 'pencil-line', $isAdmin ? 'Penilaian' : 'Buku Guru'];
+                $canViewNilai = auth()->user()?->guru || auth()->user()?->canAccess('view_all_nilai');
+                if ($canViewNilai) {
+                    $akademik[] = ['nilai.index', ['nilai.*'], 'pencil-line', auth()->user()?->canAccess('view_all_nilai') ? 'Penilaian' : 'Buku Guru'];
                     $akademik[] = ['ekskul.index', ['ekskul.*'], 'volleyball', 'Ekstrakurikuler'];
                 }
                 if (auth()->user()?->siswa || $access === 'orangtua') {
@@ -378,7 +431,7 @@
                 if (auth()->user()?->guru) {
                     $agendaItems[] = ['agenda.index', ['agenda.index','agenda.create','agenda.edit'], 'clipboard-pen-line', 'Agenda Guru'];
                 }
-                if ($isAdmin || in_array($access, ['kurikulum','kepala'])) {
+                if ($isAdmin || auth()->user()?->canAccess('manage_agenda')) {
                     $agendaItems[] = ['agenda.rekap', ['agenda.rekap','agenda.validasi'], 'calendar-check-2', 'Rekap Agenda'];
                 }
                 if (!empty($agendaItems)) {
@@ -387,7 +440,7 @@
 
                 // ── Rapor (Rekap Nilai & Cetak Rapor) ──
                 $raporItems = [];
-                if ($isAdmin || in_array($access, ['kurikulum','kepala']) || auth()->user()?->guru?->walikelas) {
+                if ($isAdmin || auth()->user()?->canAccess('manage_rapor') || auth()->user()?->guru?->walikelas) {
                     $raporItems[] = ['rekap.nilai', ['rekap.*'], 'table-2', 'Rekap Nilai'];
                     $raporItems[] = ['cetak.rapor.index', ['cetak.*'], 'printer', 'Cetak Rapor'];
                 }
@@ -397,7 +450,7 @@
 
                 // ── Kedisiplinan (Poin/Aturan lama ATAU P3, dipilih di Pengaturan) ──
                 $jenisAturan = \App\Models\Setting::get('jenis_aturan', 'p3');
-                $bolehKelolaDisiplin = $isAdmin || $access === 'kesiswaan';
+                $bolehKelolaDisiplin = $isAdmin || auth()->user()?->canAccess('manage_disiplin');
                 $bolehAjukanDisiplin = auth()->user()?->guru
                     || (auth()->user()?->siswa && \App\Models\Sekretaris::where('id_siswa', auth()->user()->siswa->uuid)->exists());
                 $bolehLihatDisiplin = auth()->user()?->siswa || $access === 'orangtua';
@@ -451,7 +504,8 @@
                 }
 
                 // Grup Sarana & Prasarana (staf sekolah; kelola penuh utk superadmin/admin/sapras)
-                if (in_array($access, ['superadmin','admin','sapras','kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru'])) {
+                $bolehKelolaSarpras = $isAdmin || auth()->user()?->canAccess('manage_sarpras');
+                if ($bolehKelolaSarpras || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru'])) {
                     $sarprasFull = [
                         ['sarpras.dashboard',        ['sarpras.dashboard'],                          'layout-dashboard', 'Dashboard Sarpras'],
                         ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Interaktif'],
@@ -465,7 +519,7 @@
                         ['sarpras.laporan.index',    ['sarpras.laporan.*'],                          'file-bar-chart',   'Laporan'],
                     ];
                     // Penuh hanya utk admin & sapras. Role lain: cukup Denah Interaktif, Maintenance Lapor, dan Peminjaman Aset.
-                    if (in_array($access, ['superadmin', 'admin', 'sapras'])) {
+                    if ($bolehKelolaSarpras) {
                         $sarprasItems = $sarprasFull;
                     } else {
                         $bolehTerbatas = ['sarpras.denah.index', 'sarpras.kerusakan.index', 'sarpras.peminjaman.index'];
@@ -475,7 +529,7 @@
                 }
 
                 // Grup Keuangan (Bendahara + admin/superadmin)
-                if (in_array($access, ['superadmin','admin','bendahara'])) {
+                if ($isAdmin || auth()->user()?->canAccess('manage_keuangan')) {
                     $groups['keuangan'] = ['Keuangan', 'wallet', [
                         ['keuangan.index',      ['keuangan.index','keuangan.kelas'], 'layout-dashboard', 'Pembayaran SPP'],
                         ['keuangan.verifikasi', ['keuangan.verifikasi'],             'badge-check',      'Verifikasi'],
@@ -483,7 +537,7 @@
                     ]];
                 }
 
-                if ($isAdmin) {
+                if (auth()->user()?->canAccess('manage_settings')) {
                     $groups['sistem'] = ['Sistem', 'sliders-horizontal', [
                         ['setting.index', ['setting.*'], 'settings-2', 'Pengaturan'],
                     ]];
@@ -710,7 +764,7 @@
             <div class="anim-fade flex-1">@yield('content')</div>
             {{-- Footer — selalu menempel di bawah berkat mt-auto (konten flex-1 mendorongnya turun) --}}
             <footer class="mt-auto pt-4 border-t border-slate-200/70 dark:border-slate-700/60 text-center text-xs text-slate-400">
-                &copy; {{ date('Y') }} <span class="font-semibold text-slate-500 dark:text-slate-400">{{ $namaSekolah ?? 'Edu Nusantara' }}</span>. Seluruh hak cipta dilindungi.
+                &copy; {{ date('Y') }} <span class="font-semibold text-slate-500 dark:text-slate-400">{{ $namaSekolah ?? 'Edutive' }}</span>. Seluruh hak cipta dilindungi.
             </footer>
         </main>
     </div>
@@ -1170,20 +1224,21 @@
         setMotif(document.body.dataset.motif || 'botanical');
         lucide.createIcons();
 
-        @if(session('reset_account'))
+        @if(session()->has('reset_account'))
+        @php $ra = session('reset_account'); @endphp
         $.confirm({
             title: '🔑 Password Berhasil Direset',
             content: `
                 <div class="space-y-3.5 text-left text-slate-600 dark:text-slate-300">
-                    <p class="text-sm">Berikut kredensial baru untuk <strong>{{ session('reset_account.name') }}</strong> ({{ session('reset_account.role') }}):</p>
+                    <p class="text-sm">Berikut kredensial baru untuk <strong>{{ $ra['name'] ?? '' }}</strong> ({{ $ra['role'] ?? '' }}):</p>
                     <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 space-y-2">
                         <div class="flex items-center justify-between text-xs">
                             <span class="text-slate-400">Username</span>
-                            <span class="font-mono font-bold text-slate-700 dark:text-slate-200 select-all">{{ session('reset_account.username') }}</span>
+                            <span class="font-mono font-bold text-slate-700 dark:text-slate-200 select-all">{{ $ra['username'] ?? '' }}</span>
                         </div>
                         <div class="flex items-center justify-between text-xs">
                             <span class="text-slate-400">Password Baru</span>
-                            <span class="font-mono font-bold text-amber-600 dark:text-amber-400 select-all">{{ session('reset_account.password') }}</span>
+                            <span class="font-mono font-bold text-amber-600 dark:text-amber-400 select-all">{{ $ra['password'] ?? '' }}</span>
                         </div>
                     </div>
                     <p class="text-[11px] text-slate-400 font-medium">💡 Anda dapat menyalin kredensial di atas dengan mengklik tombol di bawah ini.</p>
@@ -1194,10 +1249,11 @@
                     text: '📋 Salin Kredensial',
                     btnClass: 'btn-blue',
                     action: function() {
-                        const text = "Username: {{ session('reset_account.username') }}\nPassword: {{ session('reset_account.password') }}";
+                        const text = "Username: {{ $ra['username'] ?? '' }}\nPassword: {{ $ra['password'] ?? '' }}";
                         navigator.clipboard.writeText(text).then(() => {
                             showToast('Kredensial berhasil disalin!');
                         });
+                        return false;
                     }
                 },
                 tutup: {

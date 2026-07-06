@@ -29,7 +29,7 @@ class AsetController extends Controller
                 ->where('nama', 'like', "%{$s}%")->orWhere('kode', 'like', "%{$s}%")))
             ->when($request->kategori_id, fn ($q, $v) => $q->where('kategori_id', $v))
             ->when($request->kondisi, fn ($q, $v) => $q->where('kondisi', $v))
-            ->latest()->paginate(15)->withQueryString();
+            ->latest()->get();
 
         // ── Ringkasan neraca aset (seluruh aset, bukan hanya yang terfilter) ──
         $kondisiUrut = ['baik', 'rusak_ringan', 'rusak_berat', 'hilang'];

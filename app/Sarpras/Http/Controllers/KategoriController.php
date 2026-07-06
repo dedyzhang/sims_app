@@ -18,7 +18,7 @@ class KategoriController extends Controller
     public function index(): View
     {
         $kategori = KategoriAset::with('parent:id,nama')->withCount('aset')
-            ->orderBy('nama')->paginate(20);
+            ->orderBy('nama')->get();
 
         return view('sarpras.kategori.index', compact('kategori'));
     }

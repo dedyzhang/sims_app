@@ -72,11 +72,9 @@
 
         <div class="bg-white rounded-lg shadow p-5">
             <h3 class="font-semibold text-gray-700 mb-2 text-sm">Dokumen / Nota</h3>
-            @forelse ($pengadaan->dokumen as $d)
+            @foreach($pengadaan->dokumen as $d)
                 <a href="{{ $d->url }}" target="_blank" class="block text-blue-600 hover:underline text-sm">{{ $d->nama }}</a>
-            @empty
-                <p class="text-gray-400 text-sm">Belum ada dokumen.</p>
-            @endforelse
+            @endforeach
             @can('sarpras.pengadaan.kelola')
                 <form method="POST" action="{{ route('sarpras.pengadaan.dokumen', $pengadaan) }}" enctype="multipart/form-data" class="mt-3 space-y-2 text-sm">
                     @csrf

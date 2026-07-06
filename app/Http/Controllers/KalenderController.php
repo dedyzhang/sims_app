@@ -13,7 +13,7 @@ class KalenderController extends Controller
     private function guard(): void
     {
         $u = auth()->user();
-        abort_unless($u->isAdmin() || $u->access === 'kurikulum', 403);
+        abort_unless($u->canAccess('manage_absensi'), 403);
     }
 
     public function index(Request $request)

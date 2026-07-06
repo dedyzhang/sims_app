@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // (dan modul Sarpras memakai `can:`).
         $middleware->alias([
             'role'         => CheckRole::class,
+            'permission'   => \App\Http\Middleware\CheckPermission::class,
             'chatbot.user' => CanUseChatbot::class,
         ]);
     })

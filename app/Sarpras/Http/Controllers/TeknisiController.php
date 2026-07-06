@@ -12,7 +12,7 @@ class TeknisiController extends Controller
 {
     public function index(): View
     {
-        $teknisi = Teknisi::orderBy('nama')->paginate(15);
+        $teknisi = Teknisi::orderBy('nama')->get();
 
         return view('sarpras.teknisi.index', compact('teknisi'));
     }

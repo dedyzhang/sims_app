@@ -40,16 +40,14 @@
         <div class="rounded-lg border border-gray-200 p-3">
             <label class="block text-gray-700 mb-1 font-medium">Aset <span class="text-gray-400 font-normal">(opsional)</span></label>
             <div class="border rounded p-3 max-h-60 overflow-y-auto space-y-2">
-                @forelse ($aset as $a)
+                @foreach($aset as $a)
                     <label class="flex items-center gap-2">
                         <input type="checkbox" name="aset_id[]" value="{{ $a->id }}"
                                @checked(collect(old('aset_id', []))->contains($a->id))>
                         <span class="flex-1">{{ $a->kode }} — {{ $a->nama }}</span>
                         <input type="number" name="qty[{{ $a->id }}]" value="{{ old('qty.' . $a->id, 1) }}" min="1" class="w-20 border rounded px-2 py-1">
                     </label>
-                @empty
-                    <p class="text-gray-400">Tidak ada aset tersedia.</p>
-                @endforelse
+                @endforeach
             </div>
             <p class="text-xs text-gray-400 mt-1">Centang aset yang dipinjam beserta jumlahnya.</p>
         </div>

@@ -21,7 +21,7 @@
             <th class="py-2 px-4">Tanggal</th><th>Aset</th><th>Asal</th><th>Tujuan</th><th>Alasan</th><th></th>
         </tr></thead>
         <tbody>
-        @forelse ($mutasi as $m)
+        @foreach($mutasi as $m)
             <tr class="border-b">
                 <td class="py-2 px-4">{{ $m->tgl_mutasi->format('d/m/Y') }}</td>
                 <td>{{ $m->aset?->nama }}</td>
@@ -30,11 +30,9 @@
                 <td>{{ $m->alasan }}</td>
                 <td class="px-4"><a href="{{ route('sarpras.mutasi.berita', $m) }}" target="_blank" class="text-blue-600 hover:underline">Berita Acara</a></td>
             </tr>
-        @empty
-            <tr><td colspan="6" class="py-4 px-4 text-gray-400">Belum ada mutasi.</td></tr>
-        @endforelse
+        @endforeach
         </tbody>
     </table>
 </div>
-<div class="mt-4">{{ $mutasi->links() }}</div>
+
 @endsection

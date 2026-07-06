@@ -25,7 +25,7 @@ class KerusakanController extends Controller
         // Eager load pelapor + foto untuk cegah N+1.
         $laporan = LaporanKerusakan::with(['pelapor:uuid,username', 'aset:id,nama', 'ruangan:id,kode,nama'])
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->latest()->paginate(15)->withQueryString();
+            ->latest()->get();
 
         return view('sarpras.kerusakan.index', compact('laporan'));
     }

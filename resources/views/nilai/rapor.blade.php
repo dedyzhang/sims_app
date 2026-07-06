@@ -56,7 +56,7 @@
             <span class="text-slate-400">&bull; KKTP {{ $kktp }}</span>
         </div>
         <div class="flex items-center gap-2">
-            @if($terkunci)
+            @if($terkunci || !empty($readOnly))
                 <span class="badge bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 flex items-center gap-1"><i data-lucide="lock" class="w-3.5 h-3.5"></i> Terkunci</span>
                 @if(auth()->user()->isAdmin())
                 <form method="POST" action="{{ route('nilai.rapor.batal', $ngajar->uuid) }}" onsubmit="return confirmAction(this, 'Batalkan konfirmasi? Nilai akan bisa diubah lagi.', 'orange')">

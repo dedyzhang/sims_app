@@ -22,7 +22,7 @@ return new class extends Migration
 
         Schema::create('webauthn_credentials', function (Blueprint $table) {
             $table->string('id', 255)->primary();
-            $table->uuidMorphs('authenticatable');
+            $table->uuidMorphs('authenticatable', 'webauthn_cred_auth_index');
             $table->string('name')->nullable();
             $table->string('type', 32);
             $table->json('transports');

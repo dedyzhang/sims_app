@@ -60,7 +60,7 @@
             <th class="py-2 px-4">Kode</th><th>Nama</th><th>Induk</th><th>Jml Aset</th><th></th>
         </tr></thead>
         <tbody>
-        @forelse ($kategori as $k)
+        @foreach($kategori as $k)
             <tr class="border-b">
                 <td class="py-2 px-4">{{ $k->kode }}</td>
                 <td class="font-medium">{{ $k->nama }}</td>
@@ -73,13 +73,11 @@
                     </form>
                 </td>
             </tr>
-        @empty
-            <tr><td colspan="5" class="py-4 px-4 text-gray-400">Belum ada kategori.</td></tr>
-        @endforelse
+        @endforeach
         </tbody>
     </table>
 </div>
-<div class="mt-4">{{ $kategori->links() }}</div>
+
 
 @push('scripts')
 <script>

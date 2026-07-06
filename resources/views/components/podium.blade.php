@@ -7,11 +7,11 @@
         2 => ['label' => '3', 'ring' => 'ring-orange-300', 'badge' => 'bg-orange-600', 'grad' => 'linear-gradient(135deg,#fdba74,#c2762f)', 'h' => $compact ? 'h-10' : 'h-14', 'avatar' => $compact ? 'w-12 h-12 text-base' : 'w-16 h-16 text-xl', 'crown' => false, 'color' => '#c2762f'],
     ];
 @endphp
-<div class="relative flex items-end justify-center gap-3 {{ $compact ? 'md:gap-5' : 'md:gap-8' }} flex-wrap">
+<div class="relative flex items-end justify-center gap-1 sm:gap-3 {{ $compact ? 'md:gap-5' : 'md:gap-8' }}">
     @foreach($order as $idx)
         @continue(!isset($items[$idx]))
         @php $r = $items[$idx]; $m = $medal[$idx]; @endphp
-        <div class="flex flex-col items-center gap-2 {{ $compact ? 'w-24 md:w-28' : 'w-28 md:w-36' }}">
+        <div class="flex flex-col items-center gap-1 sm:gap-2 {{ $compact ? 'w-20 sm:w-24 md:w-28' : 'w-24 sm:w-28 md:w-36' }}">
             <div class="h-6 flex items-center">
                 @if($m['crown'])
                 <i data-lucide="crown" class="w-6 h-6 text-amber-400"></i>

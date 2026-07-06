@@ -28,8 +28,7 @@ class AgendaController extends Controller
     /** Akses rekap: admin, kepala sekolah, kurikulum. */
     private function bisaRekap(): bool
     {
-        return Auth::user()->isAdmin()
-            || in_array(Auth::user()->access, ['kepala', 'kurikulum'], true);
+        return \Illuminate\Support\Facades\Auth::user()?->canAccess('manage_agenda') ?? false;
     }
 
     /**

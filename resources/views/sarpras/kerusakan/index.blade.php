@@ -27,7 +27,7 @@
             <th class="py-2 px-4">Kode</th><th>Objek</th><th>Pelapor</th><th>Urgensi</th><th>Status</th><th>Waktu</th><th></th>
         </tr></thead>
         <tbody>
-        @forelse ($laporan as $l)
+        @foreach($laporan as $l)
             <tr class="border-b">
                 <td class="py-2 px-4 font-medium">{{ $l->kode }}</td>
                 <td>{{ $l->aset?->nama ?? $l->ruangan?->kode ?? '-' }}</td>
@@ -40,11 +40,9 @@
                 <td>{{ $l->created_at->format('d/m/Y H:i') }}</td>
                 <td class="px-4"><a href="{{ route('sarpras.kerusakan.show', $l) }}" class="text-blue-600 hover:underline">Detail</a></td>
             </tr>
-        @empty
-            <tr><td colspan="7" class="py-4 px-4 text-gray-400">Belum ada laporan.</td></tr>
-        @endforelse
+        @endforeach
         </tbody>
     </table>
 </div>
-<div class="mt-4">{{ $laporan->links() }}</div>
+
 @endsection

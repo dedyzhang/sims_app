@@ -139,7 +139,7 @@
 
     {{-- Kartu ruangan --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" data-drag-container="booking_rooms">
-        @forelse($rooms as $room)
+        @foreach($rooms as $room)
         @php [$slabel, $scolor, $schip] = $statusMeta[$room->status] ?? $statusMeta['tersedia']; @endphp
         <div class="card p-5 flex flex-col gap-3 transition-all duration-200" data-drag-id="{{ $room->id }}">
             <div class="flex items-start justify-between gap-2">
@@ -194,12 +194,7 @@
                 @endcan
             </div>
         </div>
-        @empty
-        <div class="card p-10 text-center text-slate-400 col-span-full">
-            <i data-lucide="building" class="w-10 h-10 mx-auto mb-2 opacity-30"></i>
-            <p class="text-sm">Belum ada ruangan. Tambahkan ruangan lewat menu Denah Interaktif.</p>
-        </div>
-        @endforelse
+        @endforeach
     </div>
 
     {{-- Riwayat booking (untuk pemohon: miliknya) --}}

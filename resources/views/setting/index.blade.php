@@ -212,6 +212,14 @@
             <i data-lucide="chevron-right" class="w-5 h-5 text-slate-400 flex-shrink-0"></i>
         </a>
 
+        <a href="{{ route('setting.roles') }}" class="card p-6 flex items-center justify-between group hover:border-primary/30 transition-all cursor-pointer">
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 group-hover:text-primary transition-colors"><i data-lucide="shield-check" class="w-[18px] h-[18px] text-primary"></i> Hak Akses Peran (RBAC)</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Atur fitur apa saja yang dapat diakses oleh masing-masing peran (Admin, Kepala, Kurikulum, dll).</p>
+            </div>
+            <i data-lucide="chevron-right" class="w-5 h-5 text-slate-400 flex-shrink-0"></i>
+        </a>
+
 
         <form method="POST" action="{{ route('setting.tpRange') }}" class="card p-6 space-y-4">
             @csrf

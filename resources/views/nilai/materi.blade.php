@@ -9,7 +9,7 @@
     @include('nilai._terkunci')
 
     {{-- Tambah materi --}}
-    @if(!$terkunci)
+    @if(!$terkunci && empty($readOnly))
     <form method="POST" action="{{ route('nilai.materi.store', $ngajar->uuid) }}" class="card p-4 flex flex-wrap items-end gap-3">
         @csrf
         <div class="flex-1 min-w-48">
@@ -22,7 +22,7 @@
     </form>
     @endif
 
-    @if(!$otherNgajars->isEmpty() && !$materi->isEmpty() && !$terkunci)
+    @if(!$otherNgajars->isEmpty() && !$materi->isEmpty() && !$terkunci && empty($readOnly))
     {{-- Trigger button panel --}}
     <div class="flex justify-between items-center bg-white/40 dark:bg-slate-800/20 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 backdrop-blur-md">
         <div class="flex items-center gap-2 text-slate-500">
