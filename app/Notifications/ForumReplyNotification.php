@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\ForumComment;
+use App\Notifications\Channels\FcmChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -14,10 +15,23 @@ class ForumReplyNotification extends Notification
     {
     }
 
-    /** Hanya database channel (tanpa broadcast/mail) agar ringan. */
+    /** Database (bell icon) + push FCM. */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
+    }
+
+    /** Payload data-only untuk FCM; reuse pesan dari toArray(). */
+    public function toFcm(object $notifiable): array
+    {
+        $data = $this->toArray($notifiable);
+
+        return [
+            'title'   => 'Balasan forum baru',
+            'message' => $data['message'],
+            'url'     => '/forum/'.$data['topic_slug'].'#c-'.$data['comment_id'],
+            'type'    => 'forum_reply',
+        ];
     }
 
     public function toArray(object $notifiable): array

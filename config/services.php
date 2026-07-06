@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'firebase' => [
+        // Path ke service account JSON Firebase (TIDAK di-commit). Bila file tidak
+        // ada, FcmService->enabled() = false dan push FCM dilewati diam-diam.
+        'credentials' => env('FIREBASE_CREDENTIALS', storage_path('app/firebase/service-account.json')),
+    ],
+
 ];

@@ -92,7 +92,7 @@ class KeuanganSppTest extends TestCase
 
     public function test_siswa_upload_bukti_jadi_menunggu(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
 
         $ortu = $this->makeUser('orangtua', 'ortu_upload');
         $kelas = $this->makeKelas();
@@ -113,7 +113,7 @@ class KeuanganSppTest extends TestCase
         $this->assertSame('menunggu', $p->status);
         $this->assertSame('BCA', $p->bank);
         $this->assertNotNull($p->bukti_path);
-        Storage::disk('public')->assertExists($p->bukti_path);
+        Storage::disk('local')->assertExists($p->bukti_path);
     }
 
     public function test_verifikasi_dua_tahap_menunggu_terverifikasi_lunas(): void
@@ -242,7 +242,7 @@ class KeuanganSppTest extends TestCase
 
     public function test_upload_sekaligus_beberapa_bulan(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
 
         $ortu = $this->makeUser('orangtua', 'ortu_batch');
         $kelas = $this->makeKelas();
@@ -264,7 +264,7 @@ class KeuanganSppTest extends TestCase
             $b->refresh();
             $this->assertSame('menunggu', $b->status, "Bulan {$b->bulan} harusnya menunggu");
             $this->assertNotNull($b->bukti_path);
-            Storage::disk('public')->assertExists($b->bukti_path);
+            Storage::disk('local')->assertExists($b->bukti_path);
         }
         // Tiap bulan punya salinan file sendiri (path berbeda).
         $this->assertNotSame($b1->bukti_path, $b2->bukti_path);
@@ -273,7 +273,7 @@ class KeuanganSppTest extends TestCase
 
     public function test_upload_batch_mengabaikan_bulan_milik_siswa_lain(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         $kelas = $this->makeKelas();
 
         $ortu = $this->makeUser('orangtua', 'ortu_safe');
@@ -303,7 +303,7 @@ class KeuanganSppTest extends TestCase
 
     public function test_bendahara_verifikasi_batch_sekaligus(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
 
         $ortu = $this->makeUser('orangtua', 'ortu_batchverif');
         $kelas = $this->makeKelas();
@@ -480,6 +480,38 @@ class KeuanganSppTest extends TestCase
 
         // Ortu A mencoba membuka tagihan anak Ortu B → 403
         $this->actingAs($ortuA)->get('/tagihan-spp/' . $pB->uuid)->assertForbidden();
+    }
+
+    public function test_bukti_file_hanya_pemilik_atau_bendahara(): void
+    {
+        Storage::fake('local');
+        $kelas = $this->makeKelas();
+
+        $ortuA = $this->makeUser('orangtua', 'ortuA_bukti');
+        $anakA = $this->makeSiswa($kelas, null, 150000, '8810FA');
+        Orangtua::create(['id_login' => $ortuA->uuid, 'id_siswa' => $anakA->uuid]);
+
+        $ortuB = $this->makeUser('orangtua', 'ortuB_bukti');
+        $anakB = $this->makeSiswa($kelas, null, 150000, '8810FB');
+        Orangtua::create(['id_login' => $ortuB->uuid, 'id_siswa' => $anakB->uuid]);
+
+        // Bukti milik anak A (file ada di disk privat).
+        Storage::disk('local')->put('bukti-spp/' . $anakA->uuid . '/x.jpg', 'dummy');
+        $p = SppPembayaran::create([
+            'id_siswa' => $anakA->uuid, 'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 1, 'nominal' => 150000, 'status' => 'menunggu',
+            'bukti_path' => 'bukti-spp/' . $anakA->uuid . '/x.jpg',
+        ]);
+        $url = '/tagihan-spp/' . $p->uuid . '/bukti-file';
+
+        // Pemilik → boleh
+        $this->actingAs($ortuA)->get($url)->assertOk();
+        // Ortu lain → 403 (bukan pemilik & bukan staf)
+        $this->actingAs($ortuB)->get($url)->assertForbidden();
+        // Bendahara → boleh (verifikasi)
+        $this->actingAs($this->makeUser('bendahara', 'bendahara_bukti'))->get($url)->assertOk();
+        // Guru (bukan pemilik, bukan staf keuangan) → 403
+        $this->actingAs($this->makeUser('guru', 'guru_bukti'))->get($url)->assertForbidden();
     }
 
     public function test_tahun_ajaran_juli_juni(): void

@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\ClassroomComment;
+use App\Notifications\Channels\FcmChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -16,7 +17,26 @@ class ClassroomCommentNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', FcmChannel::class];
+    }
+
+    /** Payload data-only untuk FCM; url sama dgn navigasi bell icon. */
+    public function toFcm(object $notifiable): array
+    {
+        $data = $this->toArray($notifiable);
+
+        $url = '/ruang-kelas/'.$data['commentable_type'].'/'.$data['commentable_id'];
+        if (! empty($data['classroom_id'])) {
+            $url .= '?class='.$data['classroom_id'];
+        }
+        $url .= '#c-'.$data['comment_id'];
+
+        return [
+            'title'   => 'Komentar baru',
+            'message' => $data['message'],
+            'url'     => $url,
+            'type'    => 'classroom_comment',
+        ];
     }
 
     public function toArray(object $notifiable): array

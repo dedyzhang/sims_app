@@ -196,6 +196,12 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         return $this->hasOne(UserPreference::class, 'user_uuid', 'uuid');
     }
 
+    /** Token FCM perangkat (multi-device) untuk push notification. */
+    public function fcmTokens()
+    {
+        return $this->hasMany(UserFcmToken::class, 'user_uuid', 'uuid');
+    }
+
     /**
      * Nama tampilan user. Diambil dari profil guru/siswa bila ada, jika tidak
      * memakai username. Dipakai antara lain oleh modul Sarpras (pelapor,

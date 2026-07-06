@@ -1199,6 +1199,20 @@
             }
         }
     }
+    // Registrasi token FCM dari Android (WebView memanggil ini setelah login).
+    // Pola fetch()+CSRF SAMA seperti simpan tata letak dashboard — tanpa mekanisme baru.
+    window.registerFcmToken = function(token, deviceType) {
+        if (!token) return;
+        fetch('{{ route('notifications.fcmToken.store') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ token: token, device_type: deviceType || 'android' }),
+        }).catch(e => console.error('registerFcmToken gagal:', e));
+    };
     jconfirm.defaults = { theme:'material', animation:'scale', closeIcon:true, backgroundDismiss:true, useBootstrap:false, boxWidth:'420px' };
     window.confirmDelete = function(form){ $.confirm({ title:'Hapus data ini?', content:'Tindakan ini permanen dan tidak dapat dibatalkan.', type:'red', icon:'', buttons:{ hapus:{ text:'Ya, Hapus', btnClass:'btn-red', keys:['enter'], action:function(){ form.submit(); } }, batal:{ text:'Batal' } } }); return false; };
     window.confirmAction = function(form, msg, color){ $.confirm({ title:'Konfirmasi', content: msg || 'Lanjutkan?', type: color || 'orange', buttons:{ ya:{ text:'Ya, Lanjutkan', btnClass:'btn-blue', keys:['enter'], action:function(){ form.submit(); } }, batal:{ text:'Batal' } } }); return false; };

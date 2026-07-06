@@ -30,3 +30,6 @@ Thumbs.db
 
 # Upload gambar chat (bukti transaksi) — jangan ikut ter-commit.
 /public/uploads
+
+# Service account Firebase (FCM) — rahasia, jangan ikut ter-commit.
+/storage/app/firebase/*.json
