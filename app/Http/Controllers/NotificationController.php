@@ -31,10 +31,16 @@ class NotificationController extends Controller
 
         $unreadCount = $user->unreadNotifications()->count();
 
+        // Khusus pengumuman resmi → dipakai badge di menu sidebar "Pengumuman".
+        $unreadPengumuman = $user->unreadNotifications()
+            ->where('data->type', 'pengumuman')
+            ->count();
+
         return response()->json([
             'ok' => true,
             'notifications' => $formatted,
             'unreadCount' => $unreadCount,
+            'unreadPengumuman' => $unreadPengumuman,
         ]);
     }
 

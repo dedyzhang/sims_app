@@ -164,6 +164,26 @@
     @endif
 </div>
 
+{{-- ===================== WARNA-WARNI ===================== --}}
+<div class="motif-set" data-motif="rainbow">
+    <svg viewBox="0 0 1440 900" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;opacity:.82">
+        <path d="M-120 160 C210 30 430 220 730 112 C980 22 1160 30 1540 124" fill="none" stroke="#4285f4" stroke-width="64" stroke-linecap="round" opacity=".14"/>
+        <path d="M-90 265 C190 160 440 340 705 225 C980 105 1195 180 1530 250" fill="none" stroke="#34a853" stroke-width="54" stroke-linecap="round" opacity=".12"/>
+        <path d="M900 -80 L1530 210 L1500 350 L820 70 Z" fill="#fbbc05" opacity=".12"/>
+        <path d="M-80 700 L460 540 L620 760 L70 930 Z" fill="#ea4335" opacity=".10"/>
+        <path d="M1080 520 L1440 430 L1510 760 L1160 820 Z" fill="var(--cp)" opacity=".08"/>
+        <g fill="none" stroke-linecap="round" stroke-width="4" opacity=".16">
+            <path d="M1090 150 L1130 190 M1130 150 L1090 190" stroke="#ea4335"/>
+            <path d="M260 390 L300 430 M300 390 L260 430" stroke="#4285f4"/>
+            <path d="M1180 610 L1220 650 M1220 610 L1180 650" stroke="#34a853"/>
+        </g>
+        <g fill="var(--ca)" opacity=".16">
+            <rect x="185" y="140" width="42" height="42" rx="10" transform="rotate(18 206 161)"/>
+            <rect x="1015" y="310" width="50" height="50" rx="12" transform="rotate(-16 1040 335)"/>
+            <rect x="650" y="640" width="38" height="38" rx="10" transform="rotate(28 669 659)"/>
+        </g>
+    </svg>
+</div>
 {{-- ===================== NIGHT OCEAN (Samudera Malam) ===================== --}}
 <div class="motif-set" data-motif="nightocean">
     {{-- compass rose top-right --}}

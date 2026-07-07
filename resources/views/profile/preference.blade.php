@@ -320,6 +320,7 @@ function prefStudio(data) {
             { name:'Senja',     icon:'sunset',       motif:'sunset',    cp:'#e07a5f', cps:'#f2a25c', ca:'#c75d8f', sbg:'#fdeee2', stx:'#6b4a3f' },
             { name:'Robot',     icon:'bot',          motif:'robot',     cp:'#3b6fe0', cps:'#5b8def', ca:'#22d3ee', sbg:'#161d2e', stx:'#c7d2e0' },
             { name:'Galaksi',   icon:'rocket',       motif:'space',     cp:'#7c6cf0', cps:'#a78bfa', ca:'#f0a3c8', sbg:'#1a1830', stx:'#d8d4f0' },
+            { name:'Warna-warni', icon:'sparkles',    motif:'rainbow',   cp:'#4285f4', cps:'#34a853', ca:'#fbbc05', sbg:'#ffffff', stx:'#475569' },
             { name:'Minimalis', icon:'minus',        motif:'minimal',   cp:'#5b7a99', cps:'#7d97b0', ca:'#e2a04a', sbg:'#eef1f4', stx:'#3a4654' },
             { name:'Samudera Malam', icon:'anchor', motif:'nightocean', cp:'#132039', cps:'#203254', ca:'#e8a04e', sbg:'#132039', stx:'#cbd5e1' },
             { name:'Zamrud Pro', icon:'gem',          motif:'minimal',   cp:'#0f5132', cps:'#198754', ca:'#0dcaf0', sbg:'#08331e', stx:'#d1e7dd' },

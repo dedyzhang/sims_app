@@ -13,6 +13,21 @@
     .dark .q-item:hover{ background: #1e293b; }                         /* slate-800 */
     .dark .q-item.is-active{ background: #1e293b; box-shadow: inset 0 0 0 1px var(--cp); }
     .dropdown-container.is-open { opacity: 1 !important; }
+    .inbox-resize-handle {
+        flex: 0 0 10px; cursor: col-resize; position: relative; z-index: 12;
+        background: transparent; touch-action: none;
+    }
+    .inbox-resize-handle::after {
+        content:""; position:absolute; top:50%; left:50%; width:3px; height:52px;
+        transform:translate(-50%,-50%); border-radius:9999px;
+        background: color-mix(in srgb, var(--cp) 35%, transparent); opacity:0; transition:opacity .15s, height .15s;
+    }
+    .inbox-resize-handle:hover::after, .inbox-resize-handle.is-dragging::after { opacity:1; height:76px; }
+    #chat-active.chat-collapsed #chat-archived,
+    #chat-active.chat-collapsed #chat-messages,
+    #chat-active.chat-collapsed #chat-composer { display:none !important; }
+    #chat-collapsed-note { display:none; }
+    #chat-active.chat-collapsed #chat-collapsed-note { display:flex; }
 
     @media (max-width: 767.98px) {
         #queue-sidebar {
@@ -23,6 +38,7 @@
         #inbox.has-active-chat #queue-sidebar {
             display: none !important;
         }
+        .inbox-resize-handle { display: none !important; }
 
         #chat-panel {
             display: none !important;
@@ -172,6 +188,8 @@
                 </div>
             </section>
 
+            <div id="queue-resizer" class="inbox-resize-handle" role="separator" aria-orientation="vertical" title="Seret untuk mengubah lebar daftar percakapan. Klik dua kali untuk reset."></div>
+
             {{-- ---------------- Chat panel ---------------- --}}
             <section class="flex-1 flex flex-col bg-slate-50/60 dark:bg-slate-800/40 min-w-0" id="chat-panel">
                 <div class="flex-1 flex flex-col items-center justify-center text-center px-6 text-slate-400" id="chat-empty">
@@ -200,6 +218,13 @@
                                 class="rounded-full border border-primary-200 bg-primary-50 px-4 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-100">
                             Kembalikan ke Bot
                         </button>
+                        <button id="btn-toggle-chat-collapse"
+                                class="inline-flex items-center justify-center h-8 w-8 rounded-full border border-slate-200 bg-white/70 text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                                title="Ciutkan percakapan">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 15l-7-7-7 7"/>
+                            </svg>
+                        </button>
                         <button id="btn-close-chat"
                                 class="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100">
                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
@@ -207,6 +232,14 @@
                             </svg>
                             Selesaikan
                         </button>
+                    </div>
+
+                    <div id="chat-collapsed-note" class="flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-slate-400 dark:text-slate-500">
+                        <div class="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-800 grid place-items-center text-primary">
+                            <i data-lucide="panel-top-close" class="w-6 h-6"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">Percakapan diciutkan</p>
+                        <p class="text-xs max-w-sm">Klik tombol panah di header percakapan untuk membuka kembali area pesan.</p>
                     </div>
 
                     {{-- Banner arsip: muncul saat membuka percakapan yang sudah ditutup (read-only) --}}
@@ -380,6 +413,8 @@
 <script>
 (() => {
     const root   = document.getElementById('inbox');
+    const queueSidebar = document.getElementById('queue-sidebar');
+    const queueResizer = document.getElementById('queue-resizer');
     const csrf   = document.querySelector('meta[name="csrf-token"]').content;
     const btnQuickQuestions = document.getElementById('btn-quick-questions');
     const modalQuickQuestions = document.getElementById('modal-quick-questions');
@@ -408,6 +443,7 @@
     const btnBack   = document.getElementById('btn-back-to-bot');
     const btnClose  = document.getElementById('btn-close-chat');
     const btnChatBack = document.getElementById('btn-chat-back');
+    const btnToggleChatCollapse = document.getElementById('btn-toggle-chat-collapse');
     const elComposer = document.getElementById('chat-composer');
     const elArchived = document.getElementById('chat-archived');
     const elArchivedText = document.getElementById('chat-archived-text');
@@ -471,6 +507,7 @@
     let search    = '';          // kata kunci pencarian
     let aPendingBlob = null;     // gambar admin terkompres siap kirim
     let aPendingFile = null;     // file/dokumen admin mentah siap kirim (tanpa kompresi)
+    let chatCollapsed = localStorage.getItem('chat_inbox_conversation_collapsed') === '1';
     let aPendingUrl  = null;     // object URL pratinjau
 
     // ---------- Avatar ----------
@@ -1262,6 +1299,64 @@
     }));
     elSearch.addEventListener('input', () => { search = elSearch.value.trim().toLowerCase(); renderQueue(); });
 
+    // ---------- Resize & collapse ----------
+    function clampQueueWidth(value) {
+        const max = Math.max(320, Math.floor(root.clientWidth * 0.58));
+        return Math.min(max, Math.max(260, value));
+    }
+
+    function applyQueueWidth(value, persist = false) {
+        if (!queueSidebar) return;
+        const width = clampQueueWidth(value);
+        queueSidebar.style.width = width + 'px';
+        queueSidebar.style.flexBasis = width + 'px';
+        if (persist) localStorage.setItem('chat_inbox_queue_width', String(width));
+    }
+
+    function initQueueResize() {
+        if (!queueSidebar || !queueResizer) return;
+        applyQueueWidth(parseInt(localStorage.getItem('chat_inbox_queue_width') || '320', 10) || 320);
+        queueResizer.addEventListener('dblclick', () => applyQueueWidth(320, true));
+        queueResizer.addEventListener('pointerdown', (e) => {
+            if (window.matchMedia('(max-width: 767.98px)').matches) return;
+            e.preventDefault();
+            const startX = e.clientX;
+            const startW = queueSidebar.getBoundingClientRect().width;
+            queueResizer.classList.add('is-dragging');
+            const move = (ev) => applyQueueWidth(startW + ev.clientX - startX);
+            const up = () => {
+                localStorage.setItem('chat_inbox_queue_width', String(Math.round(queueSidebar.getBoundingClientRect().width)));
+                queueResizer.classList.remove('is-dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                window.removeEventListener('pointermove', move);
+                window.removeEventListener('pointerup', up);
+            };
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+            window.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', up, { once:true });
+        });
+    }
+
+    function renderChatCollapse() {
+        elActive.classList.toggle('chat-collapsed', chatCollapsed);
+        if (btnToggleChatCollapse) {
+            btnToggleChatCollapse.title = chatCollapsed ? 'Buka percakapan' : 'Ciutkan percakapan';
+            btnToggleChatCollapse.innerHTML = chatCollapsed
+                ? '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 9l7 7 7-7"/></svg>'
+                : '<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 15l-7-7-7 7"/></svg>';
+        }
+        if (!chatCollapsed) scrollBottom();
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function toggleChatCollapse() {
+        chatCollapsed = !chatCollapsed;
+        localStorage.setItem('chat_inbox_conversation_collapsed', chatCollapsed ? '1' : '0');
+        renderChatCollapse();
+    }
+
     // ---------- Helpers ----------
     function statusLabel(s) {
         return { waiting: 'Menunggu', assigned: 'Sedang ditangani', active: 'Kembali ke bot', closed: 'Ditutup' }[s] || s;
@@ -1276,6 +1371,7 @@
     elSend.addEventListener('click', dispatchSend);
     btnBack.addEventListener('click', backToBot);
     btnClose.addEventListener('click', closeChat);
+    if (btnToggleChatCollapse) btnToggleChatCollapse.addEventListener('click', toggleChatCollapse);
 
     btnChatBack.addEventListener('click', () => {
         activeId = null;
@@ -1373,6 +1469,8 @@
     window.addEventListener('beforeunload', stop);
 
     // ---------- Init ----------
+    initQueueResize();
+    renderChatCollapse();
     loadQueue();
     if (document.visibilityState === 'visible') start();
 })();

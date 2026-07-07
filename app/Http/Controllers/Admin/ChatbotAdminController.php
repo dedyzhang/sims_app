@@ -93,6 +93,10 @@ class ChatbotAdminController extends Controller
         return response()->json([
             'conversations' => $conversations,
             'waiting_count' => ChatbotConversation::where('status', 'waiting')->count(),
+            'unread_count' => ChatbotMessage::where('sender', 'user')
+                ->whereNull('read_at')
+                ->whereHas('conversation', fn ($q) => $q->whereIn('status', ['waiting', 'assigned']))
+                ->count(),
         ]);
     }
 

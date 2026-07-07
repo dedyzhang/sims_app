@@ -119,6 +119,27 @@
     }
     .dash-editing .dash-remove:hover { transform: scale(1.12); }
 
+    /* tombol ciutkan blok dashboard */
+    .dash-collapse { display: none; }
+    .dash-editing .dash-collapse {
+        display: inline-flex; align-items: center; justify-content: center;
+        position: absolute; top: -.7rem; right: 3.05rem; z-index: 21;
+        width: 1.7rem; height: 1.7rem; border-radius: 9999px;
+        background: #0f172a; color: #fff; cursor: pointer;
+        box-shadow: 0 4px 12px rgba(15,12,10,.2); transition: transform .15s, background .15s;
+    }
+    .dash-editing .dash-collapse:hover { transform: scale(1.12); }
+    .dash-collapsed .dash-content { display: none; }
+    .dash-editing .dash-collapsed { min-height: 4.25rem; }
+    .dash-collapsed-badge { display: none; }
+    .dash-editing .dash-collapsed .dash-collapsed-badge {
+        display: inline-block; position: absolute; bottom: .85rem; left: 1rem;
+        z-index: 20; padding: .2rem .65rem; border-radius: 9999px;
+        background: color-mix(in srgb, var(--cp) 12%, #fff); color: var(--cp);
+        font-size: 11px; font-weight: 800; user-select: none;
+    }
+    .dark .dash-editing .dash-collapsed .dash-collapsed-badge { background: #1e293b; color: #cbd5e1; }
+
     /* blok yang disembunyikan */
     .dash-hidden { display: none; }
     .dash-editing .dash-hidden { display: block; opacity: .55; filter: grayscale(.6); }
@@ -147,7 +168,7 @@
         \App\Models\UserPreference::defaults()
     );
     $motif = $pref->motif ?? 'botanical';
-    $motifIcon = ['botanical'=>'flower-2','ocean'=>'waves','forest'=>'trees','sunset'=>'sunset','robot'=>'bot','space'=>'rocket','minimal'=>'circle'][$motif] ?? 'flower-2';
+    $motifIcon = ['botanical'=>'flower-2','ocean'=>'waves','forest'=>'trees','sunset'=>'sunset','robot'=>'bot','space'=>'rocket','minimal'=>'circle','nightocean'=>'anchor','rainbow'=>'sparkles'][$motif] ?? 'flower-2';
 
     // Salam berdasarkan waktu + tanggal hari ini (Bahasa Indonesia)
     $now  = \Carbon\Carbon::now();
@@ -503,6 +524,14 @@
                 <svg width="100" height="100" viewBox="0 0 120 70" style="transform: rotate(-15deg);"><g fill="var(--cp)"><path d="M15,35 C45,8 85,8 100,35 C85,62 45,62 15,35 Z"/><path d="M100,35 L120,18 L115,35 L120,52 Z"/></g></svg>
             @elseif($motif === 'nightocean')
                 <svg width="90" height="90" viewBox="0 0 120 140" fill="none" stroke="var(--cp)" stroke-width="6" stroke-linecap="round"><circle cx="60" cy="22" r="12"/><line x1="60" y1="34" x2="60" y2="110"/><path d="M24,110 C24,84 60,84 60,110 C60,84 96,84 96,110"/><line x1="42" y1="50" x2="78" y2="50"/></svg>
+            @elseif($motif === 'rainbow')
+                <svg width="104" height="104" viewBox="0 0 104 104" fill="none" aria-hidden="true">
+                    <path d="M8 76 C28 46 50 40 96 28" stroke="#4285f4" stroke-width="13" stroke-linecap="round" opacity=".62"/>
+                    <path d="M12 86 C34 58 58 53 96 46" stroke="#34a853" stroke-width="13" stroke-linecap="round" opacity=".55"/>
+                    <path d="M20 20 L80 80" stroke="#fbbc05" stroke-width="12" stroke-linecap="round" opacity=".52"/>
+                    <path d="M74 14 L94 34 L74 54 L54 34 Z" fill="#ea4335" opacity=".5"/>
+                    <circle cx="35" cy="34" r="8" fill="var(--ca)" opacity=".75"/>
+                </svg>
             @elseif($motif === 'robot')
                 <svg width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="var(--cp)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             @elseif($motif === 'space')
@@ -618,6 +647,7 @@ function dashLayout() {
         editing: false,
         sortable: null,
         hidden: @json($hiddenBlocks),
+        collapsed: (() => { try { return JSON.parse(localStorage.getItem('dash_collapsed_blocks') || '[]'); } catch (_) { return []; } })(),
         saveUrl: '{{ route('dashboard.layout') }}',
         csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
 
@@ -635,6 +665,14 @@ function dashLayout() {
             const i = this.hidden.indexOf(block);
             if (i === -1) this.hidden.push(block);
             else this.hidden.splice(i, 1);
+            this.$nextTick(() => window.lucide && window.lucide.createIcons());
+        },
+
+        toggleCollapse(block) {
+            const i = this.collapsed.indexOf(block);
+            if (i === -1) this.collapsed.push(block);
+            else this.collapsed.splice(i, 1);
+            localStorage.setItem('dash_collapsed_blocks', JSON.stringify(this.collapsed));
             this.$nextTick(() => window.lucide && window.lucide.createIcons());
         },
 
@@ -682,6 +720,8 @@ function dashLayout() {
                 if (el) grid.appendChild(el); // urutkan ulang sesuai default
             });
             this.hidden = []; // tampilkan kembali semua blok
+            this.collapsed = [];
+            localStorage.removeItem('dash_collapsed_blocks');
             this.save();
             this.$nextTick(() => window.lucide && window.lucide.createIcons());
         },

@@ -34,6 +34,7 @@ use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SiswaController;
 use App\Http\Controllers\WalikelasController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\Keuangan\KeuanganController;
 use App\Http\Controllers\Keuangan\TagihanController;
 use App\Http\Middleware\EnsureFaceRegistered;
@@ -97,6 +98,19 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
     Route::post('/notifications/fcm-token', [NotificationController::class, 'storeFcmToken'])->name('notifications.fcmToken.store');
     Route::delete('/notifications/fcm-token', [NotificationController::class, 'destroyFcmToken'])->name('notifications.fcmToken.destroy');
+
+    // Pengumuman: riwayat untuk semua user; buat/ubah/hapus butuh izin manage_pengumuman.
+    Route::controller(PengumumanController::class)->prefix('pengumuman')->name('pengumuman.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::middleware('permission:manage_pengumuman')->group(function () {
+            Route::get('/buat', 'create')->name('create');
+            Route::post('/', 'store')->middleware('throttle:20,1')->name('store');
+            Route::get('/{pengumuman}/edit', 'edit')->name('edit');
+            Route::put('/{pengumuman}', 'update')->name('update');
+            Route::delete('/{pengumuman}', 'destroy')->name('destroy');
+        });
+        Route::get('/{pengumuman}', 'show')->name('show');
+    });
 
     // Statistik real-time untuk ticker SIMS-NET (angka dari cache TickerStats).
     Route::get('/dashboard/ticker-stats', function () {

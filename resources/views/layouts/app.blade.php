@@ -146,6 +146,20 @@
         /* ===== App background (full screen, ikut tema) ===== */
         .app-bg { background: linear-gradient(135deg, color-mix(in srgb, var(--cp) 7%, white) 0%, color-mix(in srgb, var(--cps) 3%, white) 50%, #ffffff 100%); }
         .dark .app-bg { background:#0f172a; }
+        body[data-motif="rainbow"].app-bg {
+            background:
+                linear-gradient(115deg, rgba(66,133,244,.13) 0 18%, transparent 18% 100%),
+                linear-gradient(38deg, transparent 0 62%, rgba(251,188,5,.16) 62% 77%, transparent 77% 100%),
+                linear-gradient(145deg, transparent 0 42%, rgba(52,168,83,.12) 42% 55%, transparent 55% 100%),
+                linear-gradient(135deg, #ffffff 0%, color-mix(in srgb, var(--cp) 7%, white) 44%, color-mix(in srgb, var(--ca) 8%, white) 100%);
+        }
+        .dark body[data-motif="rainbow"].app-bg {
+            background:
+                linear-gradient(115deg, rgba(66,133,244,.18) 0 18%, transparent 18% 100%),
+                linear-gradient(38deg, transparent 0 62%, rgba(251,188,5,.15) 62% 77%, transparent 77% 100%),
+                linear-gradient(145deg, transparent 0 42%, rgba(52,168,83,.15) 42% 55%, transparent 55% 100%),
+                #0f172a;
+        }
         /* Motif decorations (hanya yang aktif tampil) */
         .motif-set { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; display:none; }
         .motif-set.on { display:block; }
@@ -156,6 +170,17 @@
             color: var(--stx);
             transition: width .28s cubic-bezier(.4,0,.2,1), transform .28s cubic-bezier(.4,0,.2,1);
         }
+        .sidebar-resize-handle {
+            position:absolute; top:0; right:-4px; width:8px; height:100%; z-index:60;
+            cursor:col-resize; border:0; background:transparent; display:none;
+        }
+        .sidebar-resize-handle::after {
+            content:""; position:absolute; top:50%; right:2px; width:3px; height:54px;
+            transform:translateY(-50%); border-radius:9999px; background:color-mix(in srgb, var(--cp) 42%, transparent);
+            opacity:0; transition:opacity .15s, height .15s;
+        }
+        .sidebar-resize-handle:hover::after, .sidebar-resize-handle:focus-visible::after { opacity:1; height:72px; }
+        @media (min-width:1024px){ .sidebar:not(.is-mini) .sidebar-resize-handle{ display:block; } }
         /* Dark mode: paksa --sbg & --stx jadi terang agar semua turunan (nav-link, nav-group,
            nama sekolah, nama user) yang memakai var(--stx) tetap terbaca di atas sidebar gelap,
            berapa pun warna preset/tema "cozy" yang dipilih. */
@@ -354,7 +379,8 @@
 
     {{-- ============ SIDEBAR ============ --}}
     <aside class="sidebar flex flex-col flex-shrink-0 z-50 fixed inset-y-0 left-0 lg:relative -translate-x-full lg:translate-x-0"
-           :class="mini ? 'w-[78px]' : 'w-[258px]'">
+           :class="mini ? 'w-[78px] is-mini' : 'w-[258px]'"
+           :style="sidebarStyle">
 
         <div class="flex items-center gap-3 h-16 px-5 pt-2 flex-shrink-0">
             <div class="flex items-center gap-2.5 min-w-0">
@@ -577,13 +603,26 @@
             </a>
             @endcan
 
+            <a href="{{ route('pengumuman.index') }}" data-tip="Pengumuman" class="nav-link relative flex items-center px-3 py-2.5 {{ request()->routeIs('pengumuman.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
+                <i data-lucide="megaphone" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                <span x-show="!mini" class="text-sm truncate flex-1">Pengumuman</span>
+                <span x-show="pengumumanUnread > 0 && !mini" x-cloak x-text="pengumumanUnread > 99 ? '99+' : pengumumanUnread"
+                      class="ml-auto inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm shadow-rose-500/30"></span>
+                <span x-show="pengumumanUnread > 0 && mini" x-cloak
+                      class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
+            </a>
+
 
             {{-- Asisten Sekolah: untuk pengguna non-admin dipakai lewat floating ball
                  (lihat akhir layout). Admin tetap punya menu Inbox di sidebar. --}}
             @if($isAdmin)
-            <a href="{{ route('chatbot.admin.inbox') }}" data-tip="Chat / Inbox" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('chatbot.admin.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
+            <a href="{{ route('chatbot.admin.inbox') }}" data-tip="Chat / Inbox" class="nav-link relative flex items-center px-3 py-2.5 {{ request()->routeIs('chatbot.admin.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="message-circle" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
-                <span x-show="!mini" class="text-sm truncate">Chat / Inbox</span>
+                <span x-show="!mini" class="text-sm truncate flex-1">Chat / Inbox</span>
+                <span x-show="adminChatUnread > 0 && !mini" x-cloak x-text="adminChatUnread > 99 ? '99+' : adminChatUnread"
+                      class="ml-auto inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm shadow-rose-500/30"></span>
+                <span x-show="adminChatUnread > 0 && mini" x-cloak
+                      class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
             </a>
             @endif
 
@@ -630,6 +669,13 @@
             @endforeach
         </nav>
 
+        <button type="button"
+                class="sidebar-resize-handle"
+                x-show="!mini && !isMobile"
+                @pointerdown.prevent="startSidebarResize($event)"
+                @dblclick.prevent="toggleCollapse()"
+                title="Seret untuk mengubah lebar menu. Klik dua kali untuk ciutkan."></button>
+
     </aside>
 
     {{-- ============ MAIN ============ --}}
@@ -671,7 +717,12 @@
                          class="absolute -right-12 sm:right-0 mt-2 w-80 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl py-2 z-50">
                         
                         <div class="px-4 py-2 flex items-center justify-between border-b border-slate-100 dark:border-slate-700">
-                            <span class="font-bold text-sm text-slate-700 dark:text-slate-100">Notifikasi</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-sm text-slate-700 dark:text-slate-100">Notifikasi</span>
+                                <button type="button" @click="toggleSound()" :title="soundOn ? 'Suara notifikasi: aktif' : 'Suara notifikasi: nonaktif'" class="grid place-items-center w-6 h-6 rounded-lg hover:bg-black/5 text-slate-400">
+                                    <i :data-lucide="soundOn ? 'volume-2' : 'volume-x'" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
                             <template x-if="unreadCount > 0">
                                 <button type="button" @click="markAllAsRead()" class="text-xs font-semibold text-primary hover:underline transition" style="color:var(--cp)">Tandai semua dibaca</button>
                             </template>
@@ -1072,16 +1123,43 @@
     function appShell() {
         return {
             collapsed: localStorage.getItem('sb_collapsed') === '1',
+            sidebarWidth: Math.min(360, Math.max(220, parseInt(localStorage.getItem('sb_width') || '258', 10) || 258)),
             mobileOpen: false,
             isMobile: window.matchMedia('(max-width: 1023px)').matches,
             // "mini" = sidebar ikon-only. Hanya berlaku di desktop; di mobile selalu full.
             get mini(){ return this.collapsed && !this.isMobile; },
+            get sidebarStyle(){ return (!this.mini && !this.isMobile) ? 'width:' + this.sidebarWidth + 'px' : ''; },
             avatarZoom: false,
             openGroup: ('{{ $activeGroup ?? '' }}' || localStorage.getItem('sb_group') || ''),
             toggleGroup(g){ this.openGroup = (this.openGroup === g ? '' : g); localStorage.setItem('sb_group', this.openGroup); this.$nextTick(()=>lucide.createIcons()); },
             darkMode: (localStorage.getItem('theme_mode') ?? '{{ $pref->theme_mode ?? 'light' }}') === 'dark',
             uiStyle: '{{ $pref->ui_style ?? 'soft' }}',
+            adminChatUnread: 0,
+            adminChatBadgeTimer: null,
+            pengumumanUnread: 0,
             toggleCollapse(){ this.collapsed=!this.collapsed; localStorage.setItem('sb_collapsed', this.collapsed?'1':'0'); this.$nextTick(()=>lucide.createIcons()); },
+            startSidebarResize(e){
+                if (this.isMobile) return;
+                this.collapsed = false;
+                localStorage.setItem('sb_collapsed', '0');
+                const startX = e.clientX;
+                const startW = this.sidebarWidth;
+                const move = (ev) => {
+                    const next = Math.min(360, Math.max(220, startW + ev.clientX - startX));
+                    this.sidebarWidth = next;
+                };
+                const up = () => {
+                    localStorage.setItem('sb_width', String(this.sidebarWidth));
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    window.removeEventListener('pointermove', move);
+                    window.removeEventListener('pointerup', up);
+                };
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                window.addEventListener('pointermove', move);
+                window.addEventListener('pointerup', up, { once:true });
+            },
             toggleDark(){ this.darkMode=!this.darkMode; localStorage.setItem('theme_mode', this.darkMode?'dark':'light'); },
             toggleStyle(){
                 this.uiStyle = this.uiStyle === 'soft' ? 'corporate' : 'soft';
@@ -1095,7 +1173,30 @@
                 const sync = () => { this.isMobile = mq.matches; if (this.isMobile) this.mobileOpen = false; };
                 mq.addEventListener ? mq.addEventListener('change', sync) : mq.addListener(sync);
                 this.initNavTips();
+                this.initAdminChatBadge();
+                // Badge menu Pengumuman disuplai dari poll dropdown notifikasi
+                // (tanpa polling tambahan) via event 'notif-updated'.
+                window.addEventListener('notif-updated', (e) => {
+                    this.pengumumanUnread = Number(e.detail?.unreadPengumuman || 0);
+                });
                 this.$nextTick(()=>lucide.createIcons());
+            },
+            initAdminChatBadge(){
+                @if($isAdmin)
+                const fetchBadge = async () => {
+                    try {
+                        const response = await fetch('{{ route('chatbot.admin.queue') }}', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        this.adminChatUnread = Math.max(Number(data.unread_count || 0), Number(data.waiting_count || 0));
+                    } catch (_) {}
+                };
+                fetchBadge();
+                if (!this.adminChatBadgeTimer) this.adminChatBadgeTimer = setInterval(fetchBadge, 20000);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') fetchBadge();
+                });
+                @endif
             },
             // Tooltip melayang utk ikon sidebar saat mode mini (anti-terpotong overflow).
             initNavTips(){
@@ -1123,7 +1224,17 @@
             nOpen: false,
             notifications: [],
             unreadCount: 0,
+            prevUnread: null,          // null = belum pernah fetch (hindari bunyi saat load awal)
+            soundOn: true,
+            audio: null,
             init() {
+                // Preferensi suara per-perangkat (localStorage), default aktif.
+                this.soundOn = localStorage.getItem('notifSound') !== 'off';
+                try {
+                    this.audio = new Audio('{{ asset('sounds/notif-sims.wav') }}');
+                    this.audio.preload = 'auto';
+                    this.audio.volume = 0.6;
+                } catch (_) { this.audio = null; }
                 this.fetchNotifications();
                 // Polling setiap 10 detik untuk notifikasi baru
                 setInterval(() => this.fetchNotifications(), 10000);
@@ -1134,7 +1245,17 @@
                     if (response.ok) {
                         let data = await response.json();
                         this.notifications = data.notifications;
+                        // Bunyikan ringtone bila jumlah belum-dibaca bertambah
+                        // (bukan pada muat pertama, dan hanya bila suara aktif).
+                        if (this.prevUnread !== null && data.unreadCount > this.prevUnread) {
+                            this.playSound();
+                        }
+                        this.prevUnread = data.unreadCount;
                         this.unreadCount = data.unreadCount;
+                        // Umpankan hitung pengumuman ke badge menu sidebar.
+                        window.dispatchEvent(new CustomEvent('notif-updated', {
+                            detail: { unreadPengumuman: Number(data.unreadPengumuman || 0) }
+                        }));
                         this.$nextTick(() => {
                             if (window.lucide) window.lucide.createIcons();
                         });
@@ -1142,6 +1263,20 @@
                 } catch (e) {
                     console.error("Error fetching notifications:", e);
                 }
+            },
+            playSound() {
+                if (!this.soundOn || !this.audio) return;
+                try {
+                    this.audio.currentTime = 0;
+                    // Autoplay bisa ditolak sebelum ada interaksi user → abaikan diam-diam.
+                    this.audio.play().catch(() => {});
+                } catch (_) { /* noop */ }
+            },
+            toggleSound() {
+                this.soundOn = !this.soundOn;
+                localStorage.setItem('notifSound', this.soundOn ? 'on' : 'off');
+                if (this.soundOn) this.playSound();   // umpan balik + "buka kunci" autoplay
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
             },
             async clickNotification(n) {
                 if (!n.read_at) {
@@ -1159,7 +1294,9 @@
                 }
                 
                 // Arahkan ke URL target sesuai tipe notifikasi
-                if (n.data.type === 'forum_reply') {
+                if (n.data.type === 'pengumuman') {
+                    window.location.href = `/pengumuman/${n.data.pengumuman_id}`;
+                } else if (n.data.type === 'forum_reply') {
                     window.location.href = `/forum/${n.data.topic_slug}#c-${n.data.comment_id}`;
                 } else if (n.data.type === 'classroom_comment') {
                     let url = `/ruang-kelas/${n.data.commentable_type}/${n.data.commentable_id}`;
@@ -1178,12 +1315,15 @@
             },
             notifIcon(n) {
                 const t = (n.data || {}).type;
+                if (t === 'pengumuman') return 'megaphone';
                 if (t === 'forum_reply') return 'messages-square';
                 if (t === 'classroom_comment') return 'graduation-cap';
                 return (n.data && (n.data.url || n.data.laporan_id)) ? 'bell' : 'bell';
             },
             notifColor(n) {
-                return (n.data || {}).type === 'forum_reply' ? 'var(--cp)' : 'var(--ca)';
+                const t = (n.data || {}).type;
+                if (t === 'pengumuman' || t === 'forum_reply') return 'var(--cp)';
+                return 'var(--ca)';
             },
             async markAllAsRead() {
                 try {

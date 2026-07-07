@@ -203,3 +203,27 @@ UJI (WAJIB sebelum submit):
 [ ] Install APK release (BUKAN debug) di device fisik → ulang semua uji Fase 1–9 di build release (obfuscation kadang memunculkan bug yang tak muncul di debug).
 [ ] AAB lolos "bundletool build-apks" simulasi lokal tanpa error sebelum upload ke Play Console.
 ```
+
+## FASE 11 — Ringtone kustom notifikasi (Pengumuman)
+
+Notifikasi Pengumuman mengirim payload data-only dengan field tambahan `sound: "notif_sims"`.
+Sisi web sudah memutar `public/sounds/notif-sims.wav` saat badge bertambah. Agar Android
+memakai ringtone yang SAMA:
+
+```
+- Salin file public/sounds/notif-sims.wav ke android res/raw/notif_sims.wav
+  (nama resource HARUS lowercase tanpa ekstensi saat dirujuk: R.raw.notif_sims).
+- Saat membangun NotificationChannel (Android 8+), set suara channel:
+    val uri = Uri.parse("android.resource://${packageName}/${R.raw.notif_sims}")
+    channel.setSound(uri, AudioAttributes.Builder()
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .setUsage(AudioAttributes.USAGE_NOTIFICATION).build())
+  CATATAN: suara channel dikunci saat channel pertama dibuat — bila ganti suara,
+  ubah juga channelId (mis. "sims_pengumuman_v2") atau uninstall/clear data.
+- Payload.data["sound"] bisa dipakai untuk memilih channel/suara per-tipe notifikasi
+  (mis. hanya "pengumuman" pakai nada ini, tipe lain pakai default).
+
+UJI:
+[ ] Terbitkan Pengumuman dari web → device Android berbunyi nada notif_sims (bukan default).
+[ ] Web: badge bertambah → nada terdengar; toggle 🔇 di dropdown notifikasi mematikannya.
+```

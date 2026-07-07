@@ -91,7 +91,7 @@ class ProfileController extends Controller
             'sidebar_bg'       => 'required|regex:/^#[0-9A-Fa-f]{6}$/',
             'sidebar_text'     => 'required|regex:/^#[0-9A-Fa-f]{6}$/',
             'theme_mode'       => 'required|in:light,dark',
-            'motif'            => 'nullable|in:botanical,ocean,forest,sunset,robot,space,minimal,nightocean',
+            'motif'            => 'nullable|in:botanical,ocean,forest,sunset,robot,space,minimal,nightocean,rainbow',
             'ui_style'         => 'nullable|in:soft,corporate',
             'font_size'        => 'required|in:sm,md,lg',
             'compact_mode'     => 'boolean',
