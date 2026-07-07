@@ -25,7 +25,7 @@ class DashboardController extends Controller
         );
 
         $stats = [];
-        if (in_array($user->access, ['superadmin', 'admin', 'kurikulum', 'kesiswaan', 'kepala'])) {
+        if (in_array($user->access, ['superadmin', 'admin', 'kepala'])) {
             $stats = [
                 'total_siswa' => Siswa::count(),
                 'total_guru'  => Guru::count(),

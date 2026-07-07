@@ -420,9 +420,9 @@
 @php
     $allBlocks = match ($access) {
         'guru', 'walikelas' => auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [],
-        'kurikulum' => ['ringkasan_siswa', 'ringkasan_guru', 'ringkasan_kelas', 'ringkasan_tahun', 'kurikulum_agenda'],
-        'kesiswaan' => ['ringkasan_siswa', 'kesiswaan_pending', 'kesiswaan_absensi'],
-        'sapras' => auth()->user()->can('sarpras.dashboard.lihat') ? ['sarpras_aset', 'sarpras_kerusakan', 'sarpras_peminjaman', 'sarpras_pengadaan'] : [],
+        'kurikulum' => array_merge(auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [], ['ringkasan_siswa', 'ringkasan_guru', 'ringkasan_kelas', 'ringkasan_tahun', 'kurikulum_agenda']),
+        'kesiswaan' => array_merge(auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [], ['ringkasan_siswa', 'kesiswaan_pending', 'kesiswaan_absensi']),
+        'sapras' => array_merge(auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [], auth()->user()->can('sarpras.dashboard.lihat') ? ['sarpras_aset', 'sarpras_kerusakan', 'sarpras_peminjaman', 'sarpras_pengadaan'] : []),
         default => [],
     };
     $savedLayout = is_array($pref->dashboard_layout) ? $pref->dashboard_layout : [];

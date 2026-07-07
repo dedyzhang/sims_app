@@ -7,7 +7,4 @@
         <p class="text-lg md:text-2xl font-extrabold">{{ $semester ? 'Semester '.$semester->semester : '—' }}</p>
         <p class="text-white/80 text-sm">{{ $semester->tahun ?? 'Belum diatur' }}</p>
     </div>
-    <a href="{{ route('setting.index') }}" class="absolute z-20 top-4 right-4 grid place-items-center w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 text-white transition duration-300 backdrop-blur-sm" title="Kelola">
-        <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
-    </a>
 </div>

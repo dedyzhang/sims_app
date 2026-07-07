@@ -381,8 +381,6 @@
                     if ($isAdmin || auth()->user()?->canAccess('manage_users')) {
                         $masterItems[] = ['guru.index',      ['guru.*'],            'users',          'Data Guru'];
                         $masterItems[] = ['siswa.index',     ['siswa.*'],           'graduation-cap', 'Data Siswa'];
-                    }
-                    if ($isAdmin) {
                         $masterItems[] = ['kelas.index',     ['kelas.*'],           'door-open',      'Data Kelas'];
                         $masterItems[] = ['pelajaran.index', ['pelajaran.*'],       'book-open-text', 'Mata Pelajaran'];
                     }
@@ -391,7 +389,7 @@
                     }
                 }
 
-                // ── Absensi & Presensi (admin penuh; kurikulum hanya Kalender) ──
+                // ── Absensi & Presensi ──
                 $presensiItems = [];
                 if ($isAdmin || auth()->user()?->canAccess('manage_absensi')) {
                     $presensiItems[] = ['kalender.index', ['kalender.*'], 'calendar-days', 'Kalender Absensi'];
@@ -404,29 +402,40 @@
                     $groups['presensi'] = ['Absensi & Presensi', 'clipboard-check', $presensiItems];
                 }
 
-                // ── Akademik (Ruang Kelas, Jadwal, Penilaian, Ekskul) ──
+                // ── Akademik ──
                 $akademik = [];
                 if ($access !== 'orangtua') {
                     $akademik[] = ['classroom.index', ['classroom.*'], 'graduation-cap', 'Ruang Kelas'];
                 }
+                
                 if ($isAdmin || auth()->user()?->canAccess('manage_jadwal')) {
                     $akademik[] = ['jadwal.index', ['jadwal.*'], 'calendar-clock', 'Jadwal Pelajaran'];
-                } elseif (in_array($access, ['kurikulum','kepala','kesiswaan','sapras','guru','walikelas'])) {
+                } elseif (auth()->user()?->guru) {
                     $akademik[] = ['jadwal.guru', ['jadwal.guru'], 'calendar-clock', 'Jadwal Mengajar'];
                 }
-                $canViewNilai = auth()->user()?->guru || auth()->user()?->canAccess('view_all_nilai');
-                if ($canViewNilai) {
-                    $akademik[] = ['nilai.index', ['nilai.*'], 'pencil-line', auth()->user()?->canAccess('view_all_nilai') ? 'Penilaian' : 'Buku Guru'];
+                
+                if ($isAdmin || auth()->user()?->canAccess('view_all_nilai')) {
+                    $akademik[] = ['nilai.index', ['nilai.*'], 'pencil-line', 'Penilaian'];
+                    $akademik[] = ['ekskul.index', ['ekskul.*'], 'volleyball', 'Ekstrakurikuler'];
+                } elseif (auth()->user()?->guru) {
+                    $akademik[] = ['nilai.index', ['nilai.*'], 'pencil-line', 'Buku Guru'];
                     $akademik[] = ['ekskul.index', ['ekskul.*'], 'volleyball', 'Ekstrakurikuler'];
                 }
+                
+                if ($isAdmin || auth()->user()?->canAccess('manage_rapor')) {
+                    $akademik[] = ['rekap.nilai', ['rekap.*'], 'table-2', 'Rekap Nilai'];
+                    $akademik[] = ['cetak.rapor.index', ['cetak.*'], 'printer', 'Cetak Rapor'];
+                }
+                
                 if (auth()->user()?->siswa || $access === 'orangtua') {
                     $akademik[] = ['nilai.self', ['nilai.self'], 'chart-column', 'Nilai Saya'];
                 }
+                
                 if (!empty($akademik)) {
                     $groups['akademik'] = ['Akademik', 'book-open-check', $akademik];
                 }
 
-                // ── Agenda (menu terpisah) ──
+                // ── Agenda ──
                 $agendaItems = [];
                 if (auth()->user()?->guru) {
                     $agendaItems[] = ['agenda.index', ['agenda.index','agenda.create','agenda.edit'], 'clipboard-pen-line', 'Agenda Guru'];
@@ -438,21 +447,10 @@
                     $groups['agenda'] = ['Agenda', 'notebook-pen', $agendaItems];
                 }
 
-                // ── Rapor (Rekap Nilai & Cetak Rapor) ──
-                $raporItems = [];
-                if ($isAdmin || auth()->user()?->canAccess('manage_rapor') || auth()->user()?->guru?->walikelas) {
-                    $raporItems[] = ['rekap.nilai', ['rekap.*'], 'table-2', 'Rekap Nilai'];
-                    $raporItems[] = ['cetak.rapor.index', ['cetak.*'], 'printer', 'Cetak Rapor'];
-                }
-                if (!empty($raporItems)) {
-                    $groups['rapor'] = ['Rapor', 'file-text', $raporItems];
-                }
-
-                // ── Kedisiplinan (Poin/Aturan lama ATAU P3, dipilih di Pengaturan) ──
+                // ── Kedisiplinan ──
                 $jenisAturan = \App\Models\Setting::get('jenis_aturan', 'p3');
                 $bolehKelolaDisiplin = $isAdmin || auth()->user()?->canAccess('manage_disiplin');
-                $bolehAjukanDisiplin = auth()->user()?->guru
-                    || (auth()->user()?->siswa && \App\Models\Sekretaris::where('id_siswa', auth()->user()->siswa->uuid)->exists());
+                $bolehAjukanDisiplin = auth()->user()?->guru || (auth()->user()?->siswa && \App\Models\Sekretaris::where('id_siswa', auth()->user()->siswa->uuid)->exists());
                 $bolehLihatDisiplin = auth()->user()?->siswa || $access === 'orangtua';
 
                 $disiplinItems = [];
@@ -486,7 +484,7 @@
                     $groups['disiplin'] = [$jenisAturan === 'poin' ? 'Poin & Aturan' : 'P3 Kedisiplinan', 'shield-alert', $disiplinItems];
                 }
 
-                // ── Wali Kelas (data siswa kelasnya, sekretaris, absensi & poin/P3 kelasnya) ──
+                // ── Wali Kelas ──
                 if (auth()->user()?->guru?->walikelas) {
                     $walikelasItems = [
                         ['walikelas.siswa.index', ['walikelas.siswa.*'], 'users-round', 'Data Siswa Kelas'],
@@ -500,13 +498,19 @@
                     if (\App\Models\Setting::get('walikelas_lihat_nilai', '0') === '1') {
                         $walikelasItems[] = ['walikelas.nilai.index', ['walikelas.nilai.*'], 'graduation-cap', 'Nilai Kelas Saya'];
                     }
+                    
+                    if (!$isAdmin && !auth()->user()?->canAccess('manage_rapor')) {
+                        $walikelasItems[] = ['rekap.nilai', ['rekap.*'], 'table-2', 'Rekap Nilai'];
+                        $walikelasItems[] = ['cetak.rapor.index', ['cetak.*'], 'printer', 'Cetak Rapor'];
+                    }
+                    
                     $groups['walikelas'] = ['Wali Kelas', 'presentation', $walikelasItems];
                 }
 
-                // Grup Sarana & Prasarana (staf sekolah; kelola penuh utk superadmin/admin/sapras)
+                // ── Sarana & Prasarana ──
                 $bolehKelolaSarpras = $isAdmin || auth()->user()?->canAccess('manage_sarpras');
-                if ($bolehKelolaSarpras || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru'])) {
-                    $sarprasFull = [
+                if ($bolehKelolaSarpras) {
+                    $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
                         ['sarpras.dashboard',        ['sarpras.dashboard'],                          'layout-dashboard', 'Dashboard Sarpras'],
                         ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Interaktif'],
                         ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
@@ -517,18 +521,16 @@
                         ['sarpras.mutasi.index',     ['sarpras.mutasi.*','sarpras.penghapusan.*'],   'trash-2',          'Mutasi & Hapus'],
                         ['sarpras.supplier.index',   ['sarpras.supplier.*'],                         'truck',            'Supplier'],
                         ['sarpras.laporan.index',    ['sarpras.laporan.*'],                          'file-bar-chart',   'Laporan'],
-                    ];
-                    // Penuh hanya utk admin & sapras. Role lain: cukup Denah Interaktif, Maintenance Lapor, dan Peminjaman Aset.
-                    if ($bolehKelolaSarpras) {
-                        $sarprasItems = $sarprasFull;
-                    } else {
-                        $bolehTerbatas = ['sarpras.denah.index', 'sarpras.kerusakan.index', 'sarpras.peminjaman.index'];
-                        $sarprasItems = array_values(array_filter($sarprasFull, fn ($it) => in_array($it[0], $bolehTerbatas)));
-                    }
-                    $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', $sarprasItems];
+                    ]];
+                } elseif (auth()->user()?->guru || auth()->user()?->siswa || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris'])) {
+                    $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
+                        ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Interaktif'],
+                        ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
+                        ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Aset'],
+                    ]];
                 }
 
-                // Grup Keuangan (Bendahara + admin/superadmin)
+                // ── Keuangan ──
                 if ($isAdmin || auth()->user()?->canAccess('manage_keuangan')) {
                     $groups['keuangan'] = ['Keuangan', 'wallet', [
                         ['keuangan.index',      ['keuangan.index','keuangan.kelas'], 'layout-dashboard', 'Pembayaran SPP'],
@@ -537,9 +539,11 @@
                     ]];
                 }
 
-                if (auth()->user()?->canAccess('manage_settings')) {
+                // ── Sistem ──
+                if ($isAdmin || auth()->user()?->canAccess('manage_settings')) {
                     $groups['sistem'] = ['Sistem', 'sliders-horizontal', [
-                        ['setting.index', ['setting.*'], 'settings-2', 'Pengaturan'],
+                        ['setting.index', ['setting.index', 'setting.kopRapor', 'setting.penjabaran', 'setting.tpRange'], 'settings-2', 'Pengaturan'],
+                        ['setting.roles', ['setting.roles'], 'shield-check', 'Hak Akses (RBAC)'],
                     ]];
                 }
                 // (Akun Saya dipindah ke dropdown profil di navbar)

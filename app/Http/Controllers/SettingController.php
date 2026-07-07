@@ -318,7 +318,7 @@ class SettingController extends Controller
         $perms = $request->input('perms', []); // array of role => [permission => 1]
         
         \Illuminate\Support\Facades\DB::transaction(function() use ($perms) {
-            \App\Models\RolePermission::truncate();
+            \App\Models\RolePermission::query()->delete();
             foreach ($perms as $role => $rolePerms) {
                 foreach ($rolePerms as $permission => $val) {
                     if ($val) {

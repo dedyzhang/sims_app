@@ -1,13 +1,10 @@
-<a href="{{ route('siswa.index') }}" class="card card-hover overflow-hidden group card-siswa h-full flex flex-col justify-between min-h-[140px] shadow-sm">
+<div class="card overflow-hidden group card-siswa h-full flex flex-col justify-between min-h-[140px] shadow-sm">
     <div class="p-4 pb-0">
         <div class="flex items-start justify-between">
             <div>
                 <p class="text-2xl font-extrabold text-title">{{ number_format($totalSiswa) }}</p>
                 <p class="text-sm font-medium text-sub">Siswa</p>
             </div>
-            <span class="grid place-items-center w-7 h-7 rounded-lg bg-white/60 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 group-hover:bg-primary group-hover:text-white transition duration-300">
-                <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
-            </span>
         </div>
     </div>
     {{-- Ilustrasi: Topi Wisuda --}}
@@ -45,4 +42,4 @@
             </g>
         </g></g>
     </svg>
-</a>
+</div>

@@ -46,14 +46,14 @@ class UserPreference extends Model
     public static function defaults(): array
     {
         return [
-            'primary_color'     => '#7ba088', // sage green
-            'secondary_color'   => '#9db89f', // soft sage
-            'accent_color'      => '#e5996c', // terracotta
+            'primary_color'     => '#2563eb',
+            'secondary_color'   => '#3b82f6',
+            'accent_color'      => '#f59e0b',
             'sidebar_style'     => 'default',
-            'sidebar_bg'        => '#fceadb', // warm cream peach
-            'sidebar_text'      => '#57534e', // warm taupe
+            'sidebar_bg'        => '#ffffff',
+            'sidebar_text'      => '#475569',
             'theme_mode'        => 'light',
-            'motif'             => 'botanical',
+            'motif'             => 'minimal',
             'ui_style'          => 'soft',
             'font_size'         => 'md',
             'compact_mode'      => false,

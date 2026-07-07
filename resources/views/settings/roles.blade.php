@@ -59,7 +59,7 @@
             </div>
 
             <div class="mt-6 flex justify-end">
-                <button type="submit" class="btn-primary">
+                <button type="submit" class="btn-primary flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition">
                     <i data-lucide="save" class="w-4 h-4 mr-2"></i> Simpan Hak Akses
                 </button>
             </div>

@@ -5,7 +5,6 @@
 <div class="card p-5 h-full">
     <div class="flex items-center justify-between mb-3">
         <p class="text-xs text-slate-400 font-semibold flex items-center gap-1.5"><i data-lucide="clipboard-check" class="w-3.5 h-3.5 text-primary"></i> Absensi Siswa Hari Ini</p>
-        <a href="{{ route('absensi.index') }}" class="text-xs font-semibold text-primary hover:underline flex items-center gap-1">Detail <i data-lucide="arrow-right" class="w-3 h-3"></i></a>
     </div>
     <div class="grid grid-cols-4 gap-2 text-center">
         <div><p class="text-lg font-extrabold text-emerald-600">{{ $kesRekapAbsensi['hadir'] ?? 0 }}</p><p class="text-[10px] text-slate-400">Hadir</p></div>

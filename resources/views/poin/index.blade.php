@@ -48,7 +48,7 @@
                             <span class="badge bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300">Kurang</span>
                             @endif
                         </td>
-                        <td class="text-slate-600 dark:text-slate-300 text-sm max-w-md">{{ $a->aturan }}</td>
+                        <td class="text-slate-600 dark:text-slate-300 text-sm max-w-md whitespace-normal">{{ $a->aturan }}</td>
                         <td class="text-right font-bold text-slate-700 dark:text-slate-200">{{ $a->poin }}</td>
                         <td class="text-right">
                             <div class="flex items-center justify-end gap-1.5">
