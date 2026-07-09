@@ -3,6 +3,13 @@
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\Admin\ChatbotAdminController;
 use App\Http\Controllers\AgendaController;
+use App\Http\Controllers\AiController;
+use App\Http\Controllers\AiChatController;
+use App\Http\Controllers\AiTeacherController;
+use App\Http\Controllers\AiAnalyzeController;
+use App\Http\Controllers\AiRagController;
+use App\Http\Controllers\AppDownloadController;
+use App\Http\Controllers\KartuPelajarController;
 use App\Http\Controllers\KalenderController;
 use App\Http\Controllers\PoinController;
 use App\Http\Controllers\P3Controller;
@@ -66,6 +73,48 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::get('/home', [LoginController::class, 'home'])->name('auth.home');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/dashboard/tata-letak', [DashboardController::class, 'saveLayout'])->name('dashboard.layout');
+
+    // ─── AsistenAI (Gateway Gemini — Fase 1) ────────────────────────────────────
+    // Gateway generik; dibatasi superadmin. Fitur per-role menyusul di fase berikut.
+    Route::middleware('role:superadmin')->prefix('ai')->name('ai.')->group(function () {
+        Route::post('/generate', [AiController::class, 'generate'])->name('generate');
+    });
+
+    // ─── AsistenAI Chatbot (Fase 2) ─────────────────────────────────────────────
+    // Widget mengambang untuk SEMUA role login. Percakapan di-scope per user.
+    Route::prefix('ai/chat')->name('ai.chat.')->controller(AiChatController::class)->group(function () {
+        Route::post('/', 'send')->name('send');
+        Route::get('/history', 'history')->name('history');
+        Route::get('/{conversation}', 'show')->name('show');
+        Route::delete('/{conversation}', 'destroy')->name('destroy');
+    });
+
+    // ─── AsistenAI Asisten Guru (Fase 3) ────────────────────────────────────────
+    // Panel tool guru (soal/rangkum/feedback). Hanya guru & wali kelas.
+    Route::middleware('role:guru,walikelas')->prefix('ai/teacher')->name('ai.teacher.')->controller(AiTeacherController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/quiz', 'quiz')->name('quiz');
+        Route::post('/summary', 'summary')->name('summary');
+        Route::post('/feedback', 'feedback')->name('feedback');
+    });
+
+    // ─── AsistenAI Narasi Data (Fase 4) ─────────────────────────────────────────
+    // Controller agregasi angka server-side → AI narasikan. Pimpinan/staf sekolah.
+    Route::middleware('role:admin,kepala,kurikulum,kesiswaan')->prefix('ai/analyze')->name('ai.analyze.')->controller(AiAnalyzeController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/nilai', 'nilai')->name('nilai');
+        Route::post('/absensi', 'absensi')->name('absensi');
+        Route::post('/keuangan', 'keuangan')->name('keuangan');
+    });
+
+    // ─── AsistenAI RAG Dokumen (Fase 5) ─────────────────────────────────────────
+    // Unggah dokumen → embed; tanya-jawab berbasis isi dokumen + sitasi.
+    Route::middleware('role:admin,kepala,kurikulum,kesiswaan')->prefix('ai/rag')->name('ai.rag.')->controller(AiRagController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->name('store');
+        Route::post('/ask', 'ask')->name('ask');
+        Route::delete('/{document}', 'destroy')->name('destroy');
+    });
 
     // Wajib daftar wajah sendiri (dipakai gate di atas)
     Route::get('/wajah-saya', [FaceController::class, 'self'])->name('face.self');
@@ -406,6 +455,12 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/siswa/import/template', [SiswaController::class, 'downloadTemplate'])->name('siswa.template');
         Route::get('/siswa/import/kredensial', [SiswaController::class, 'importKredensial'])->name('siswa.import.kredensial');
 
+        // Kartu Pelajar Digital — kelola per siswa (admin)
+        Route::get('/kartu-pelajar/kelola', [KartuPelajarController::class, 'kelola'])->name('kartu-pelajar.kelola');
+        Route::get('/kartu-pelajar/kelola/cetak', [KartuPelajarController::class, 'cetakTingkat'])->name('kartu-pelajar.cetak');
+        Route::post('/kartu-pelajar/kelola/{siswa}', [KartuPelajarController::class, 'store'])->name('kartu-pelajar.store');
+        Route::get('/kartu-pelajar/kelola/{siswa}/lihat', [KartuPelajarController::class, 'lihatAdmin'])->name('kartu-pelajar.kelola.lihat');
+        Route::delete('/kartu-pelajar/kelola/{siswa}', [KartuPelajarController::class, 'destroy'])->name('kartu-pelajar.destroy');
     });
 
     // ─── Cetak Data (admin only) — export Excel siswa/guru/kelas/absensi guru/agenda/nilai ───
@@ -498,10 +553,26 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/kop-rapor', 'kopRapor')->name('setting.kopRapor');
             Route::post('/kop-rapor', 'kopRaporSave')->name('setting.kopRapor.save');
 
+            // Unduh Aplikasi (upload APK + Installer Windows)
+            Route::post('/app-download', 'setAppDownload')->name('setting.appDownload');
+
             // Role Permissions
             Route::get('/roles', 'roles')->name('setting.roles');
             Route::post('/roles', 'rolesSave')->name('setting.roles.save');
         });
+    });
+
+    // ─── Unduh Aplikasi: halaman & unduhan untuk SEMUA pengguna login ──────
+    Route::controller(AppDownloadController::class)->group(function () {
+        Route::get('/unduh-aplikasi', 'page')->name('app.download');
+        Route::get('/unduh-aplikasi/{platform}', 'download')->name('app.download.file');
+    });
+
+    // ─── Kartu Pelajar Digital: milik siswa yang login ─────────────────────
+    Route::controller(KartuPelajarController::class)->group(function () {
+        Route::get('/kartu-pelajar', 'self')->name('kartu-pelajar.self');
+        Route::get('/kartu-pelajar/lihat', 'lihatSelf')->name('kartu-pelajar.lihat');
+        Route::get('/kartu-pelajar/unduh', 'unduhSelf')->name('kartu-pelajar.unduh');
     });
 
     // ─── Akses Jadwal per Guru (Admin + Ekstra Role) ───────────────────────

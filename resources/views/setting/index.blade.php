@@ -10,7 +10,7 @@
 
     {{-- Tabs --}}
     <div class="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 mb-6 flex-wrap">
-        @foreach(['sekolah'=>['Identitas','building-2'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock'],'disiplin'=>['Kedisiplinan','shield-alert'],'sosmed'=>['Media Sosial','share-2']] as $key => [$label,$icon])
+        @foreach(['sekolah'=>['Identitas','building-2'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock'],'disiplin'=>['Kedisiplinan','shield-alert'],'sosmed'=>['Media Sosial','share-2'],'aplikasi'=>['Aplikasi','smartphone']] as $key => [$label,$icon])
         <button @click="tab='{{ $key }}'"
                 :class="tab==='{{ $key }}' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
                 class="seg flex-1 min-w-fit flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition">
@@ -118,6 +118,98 @@
                 </div>
                 @endforeach
             </div>
+
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
+        </form>
+    </div>
+
+    {{-- Unduh Aplikasi (APK Android + Installer Windows) --}}
+    <div x-show="tab==='aplikasi'" x-transition>
+        <form method="POST" action="{{ route('setting.appDownload') }}" enctype="multipart/form-data" class="card p-6 space-y-5"
+              x-data="{ on: {{ ($settings['app_download_aktif'] ?? '0')=='1' ? 'true' : 'false' }} }">
+            @csrf
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="smartphone" class="w-4 h-4 text-primary"></i> Unduh Aplikasi</h2>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">Unggah aplikasi Android (.apk) dan/atau Installer Windows (.exe/.msi). Bila diaktifkan, menu <b>“Unduh Aplikasi”</b> muncul di sidebar untuk semua pengguna. File disimpan privat & hanya bisa diunduh pengguna yang login.</p>
+            </div>
+
+            {{-- Master toggle --}}
+            <div class="flex items-start justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-4 py-3">
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Aktifkan Menu Unduh Aplikasi</p>
+                    <p class="text-xs mt-1 font-semibold" :class="on ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" x-text="on ? '● Aktif' : '○ Nonaktif'"></p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input type="checkbox" name="app_download_aktif" value="1" class="sr-only peer" x-model="on">
+                    <div class="relative w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-[color:var(--cp)] transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition peer-checked:after:translate-x-5"></div>
+                </label>
+            </div>
+
+            @php
+                $apkPath = $settings['app_apk_path'] ?? null;
+                $apkOk   = $apkPath && \Illuminate\Support\Facades\Storage::disk('local')->exists($apkPath);
+                $winPath = $settings['app_windows_path'] ?? null;
+                $winOk   = $winPath && \Illuminate\Support\Facades\Storage::disk('local')->exists($winPath);
+                $fmt = fn ($b) => $b >= 1048576 ? round($b/1048576, 1).' MB' : round($b/1024).' KB';
+            @endphp
+
+            {{-- APK Android --}}
+            <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                <div class="flex items-center gap-2">
+                    <span class="grid place-items-center w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 flex-shrink-0"><i data-lucide="smartphone" class="w-4 h-4"></i></span>
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Aplikasi Android (.apk)</p>
+                        @if($apkOk)
+                            <p class="text-xs text-emerald-600 dark:text-emerald-400 truncate">✓ {{ $settings['app_apk_name'] ?? basename($apkPath) }} ({{ $fmt(\Illuminate\Support\Facades\Storage::disk('local')->size($apkPath)) }})</p>
+                        @else
+                            <p class="text-xs text-slate-400">Belum ada file diunggah.</p>
+                        @endif
+                    </div>
+                </div>
+                <input type="file" name="app_apk" accept=".apk" class="text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary hover:file:bg-primary-100 cursor-pointer">
+                @error('app_apk')<p class="text-xs text-rose-500">{{ $message }}</p>@enderror
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex-1 min-w-40">
+                        <label class="form-label text-xs">Label Versi (opsional)</label>
+                        <input type="text" name="app_apk_version" value="{{ old('app_apk_version', $settings['app_apk_version'] ?? '') }}" placeholder="mis. v1.2.0" class="form-input py-1.5 text-sm">
+                    </div>
+                    @if($apkOk)
+                    <label class="inline-flex items-center gap-1.5 text-xs text-rose-600 cursor-pointer mt-4">
+                        <input type="checkbox" name="hapus_app_apk" value="1" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500"> Hapus APK
+                    </label>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Installer Windows --}}
+            <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                <div class="flex items-center gap-2">
+                    <span class="grid place-items-center w-9 h-9 rounded-lg bg-sky-500/10 text-sky-600 flex-shrink-0"><i data-lucide="monitor" class="w-4 h-4"></i></span>
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Installer Windows (.exe / .msi)</p>
+                        @if($winOk)
+                            <p class="text-xs text-sky-600 dark:text-sky-400 truncate">✓ {{ $settings['app_windows_name'] ?? basename($winPath) }} ({{ $fmt(\Illuminate\Support\Facades\Storage::disk('local')->size($winPath)) }})</p>
+                        @else
+                            <p class="text-xs text-slate-400">Belum ada file diunggah.</p>
+                        @endif
+                    </div>
+                </div>
+                <input type="file" name="app_windows" accept=".exe,.msi" class="text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary hover:file:bg-primary-100 cursor-pointer">
+                @error('app_windows')<p class="text-xs text-rose-500">{{ $message }}</p>@enderror
+                <div class="flex flex-wrap items-center gap-4">
+                    <div class="flex-1 min-w-40">
+                        <label class="form-label text-xs">Label Versi (opsional)</label>
+                        <input type="text" name="app_windows_version" value="{{ old('app_windows_version', $settings['app_windows_version'] ?? '') }}" placeholder="mis. v1.2.0" class="form-input py-1.5 text-sm">
+                    </div>
+                    @if($winOk)
+                    <label class="inline-flex items-center gap-1.5 text-xs text-rose-600 cursor-pointer mt-4">
+                        <input type="checkbox" name="hapus_app_windows" value="1" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500"> Hapus Installer
+                    </label>
+                    @endif
+                </div>
+            </div>
+
+            <p class="text-xs text-amber-600 dark:text-amber-400 leading-relaxed"><i data-lucide="triangle-alert" class="w-3.5 h-3.5 inline -mt-0.5"></i> Batas unggah server saat ini <b>{{ ini_get('upload_max_filesize') }}</b>. Bila APK/installer lebih besar, minta admin server menaikkan <code>upload_max_filesize</code> &amp; <code>post_max_size</code> di php.ini.</p>
 
             <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
         </form>

@@ -307,6 +307,67 @@ class SettingController extends Controller
         return back()->with('success', 'Pengaturan kop surat rapor disimpan.');
     }
 
+    /**
+     * Unduh Aplikasi (APK Android + Installer Windows). Admin mengunggah file,
+     * mengaktifkan/menonaktifkan fitur, dan opsional label versi. File disimpan di
+     * disk privat `local` (storage/app/private) — hanya bisa diunduh lewat route
+     * ber-auth (AppDownloadController), tidak bisa diakses langsung via URL.
+     */
+    public function setAppDownload(Request $request)
+    {
+        abort_unless(auth()->user()->canAccess('manage_settings'), 403);
+
+        $request->validate([
+            'app_apk' => ['nullable', 'file', 'max:307200', function ($attr, $value, $fail) {
+                if ($value && strtolower($value->getClientOriginalExtension()) !== 'apk') {
+                    $fail('File aplikasi Android harus berekstensi .apk');
+                }
+            }],
+            'app_windows' => ['nullable', 'file', 'max:307200', function ($attr, $value, $fail) {
+                if ($value && ! in_array(strtolower($value->getClientOriginalExtension()), ['exe', 'msi'], true)) {
+                    $fail('File installer Windows harus berekstensi .exe atau .msi');
+                }
+            }],
+            'app_apk_version'     => ['nullable', 'string', 'max:40'],
+            'app_windows_version' => ['nullable', 'string', 'max:40'],
+        ], [], [
+            'app_apk'     => 'file APK',
+            'app_windows' => 'installer Windows',
+        ]);
+
+        Setting::set('app_download_aktif', $request->boolean('app_download_aktif') ? '1' : '0');
+        Setting::set('app_apk_version', trim((string) $request->input('app_apk_version', '')));
+        Setting::set('app_windows_version', trim((string) $request->input('app_windows_version', '')));
+
+        $this->handleAppFile($request, 'app_apk', 'apk', 'app_apk_path', 'app_apk_name');
+        $this->handleAppFile($request, 'app_windows', 'windows', 'app_windows_path', 'app_windows_name');
+
+        return back()->with('success', 'Pengaturan unduh aplikasi disimpan.');
+    }
+
+    /** Simpan/hapus satu file aplikasi ke disk privat + catat nama asli untuk nama unduhan. */
+    private function handleAppFile(Request $request, string $field, string $slug, string $pathKey, string $nameKey): void
+    {
+        if ($request->hasFile($field)) {
+            $old = Setting::get($pathKey);
+            if ($old && Storage::disk('local')->exists($old)) {
+                Storage::disk('local')->delete($old);
+            }
+            $file = $request->file($field);
+            $ext  = strtolower($file->getClientOriginalExtension());
+            $path = $file->storeAs('app-downloads', $slug . '_' . now()->format('YmdHis') . '.' . $ext, 'local');
+            Setting::set($pathKey, $path);
+            Setting::set($nameKey, $file->getClientOriginalName());
+        } elseif ($request->boolean('hapus_' . $field)) {
+            $old = Setting::get($pathKey);
+            if ($old && Storage::disk('local')->exists($old)) {
+                Storage::disk('local')->delete($old);
+            }
+            Setting::set($pathKey, '');
+            Setting::set($nameKey, '');
+        }
+    }
+
     public function roles()
     {
         $roles = self::VALID_ROLES;

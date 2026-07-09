@@ -41,7 +41,7 @@
 
 <div class="bg-white rounded-lg shadow p-5 mt-4">
     <h3 class="font-semibold text-gray-800 mb-3">Aset di Ruangan Ini ({{ $ruangan->aset->count() }})</h3>
-    <table class="w-full text-sm">
+    <table class="w-full text-sm no-dt">
         <thead><tr class="text-left text-gray-500 border-b">
             <th class="py-2">Kode</th><th>Nama</th><th>Kategori</th><th>Kondisi</th>
         </tr></thead>

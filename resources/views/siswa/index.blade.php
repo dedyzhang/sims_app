@@ -26,6 +26,32 @@
             <p class="text-sm text-slate-500 mt-0.5">{{ $siswas->total() }} siswa terdaftar</p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
+            {{-- Cetak kartu pelajar per tingkat (A4, 10 kartu/halaman, ukuran ATM) --}}
+            <div class="relative" x-data="{ cetakOpen:false, tk:'' }">
+                <button @click="cetakOpen=!cetakOpen" type="button"
+                        class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition">
+                    <i data-lucide="id-card" class="w-4 h-4"></i> Cetak Kartu
+                </button>
+                <div x-show="cetakOpen" @click.outside="cetakOpen=false" x-cloak
+                     class="absolute right-0 mt-2 w-72 card p-4 z-40 space-y-3 shadow-xl">
+                    <div>
+                        <p class="text-sm font-bold text-slate-700 dark:text-slate-200">Cetak Kartu per Tingkat</p>
+                        <p class="text-xs text-slate-400 mt-0.5">A4 · 10 kartu/halaman · ukuran ATM.</p>
+                    </div>
+                    <select x-model="tk" class="form-input py-2 text-sm w-full">
+                        <option value="">Pilih tingkat…</option>
+                        @foreach($kelas->pluck('tingkat')->unique()->sort() as $t)
+                        <option value="{{ $t }}">Tingkat {{ $t }}</option>
+                        @endforeach
+                    </select>
+                    <a :href="tk ? '{{ route('kartu-pelajar.cetak') }}?tingkat=' + encodeURIComponent(tk) : '#'"
+                       :class="tk ? '' : 'opacity-50 pointer-events-none'"
+                       target="_blank" rel="noopener"
+                       class="w-full px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white transition">
+                        <i data-lucide="printer" class="w-4 h-4"></i> Cetak PDF
+                    </a>
+                </div>
+            </div>
             <button @click="importModal=true"
                     class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition">
                 <i data-lucide="upload" class="w-4 h-4"></i> Import Excel

@@ -84,6 +84,37 @@
     @yield('sarpras_body')
 </div>
 
+@push('scripts')
+<script>
+// === KONFIRMASI HAPUS (jQuery-confirm wrapper) ===
+// confirmAction(form, pesan, type) — dipakai oleh onsubmit form hapus di modul Sarpras.
+// Mengembalikan false untuk mencegah submit langsung; form disubmit lewat dialog.
+window.confirmAction = function (form, pesan, type) {
+    type = type || 'red';
+    $.confirm({
+        title: 'Konfirmasi',
+        content: pesan,
+        type: type,
+        buttons: {
+            ya: {
+                text: 'Ya, Hapus',
+                btnClass: 'btn-' + (type === 'red' ? 'red' : 'warning'),
+                keys: ['enter'],
+                action: function () { form.submit(); }
+            },
+            batal: { text: 'Batal' }
+        }
+    });
+    return false; // cegah submit langsung
+};
+
+// confirmDelete(form) — versi sederhana tanpa parameter type.
+window.confirmDelete = function (form) {
+    return window.confirmAction(form, 'Hapus item ini? Tindakan tidak dapat dibatalkan.', 'red');
+};
+</script>
+@endpush
+
 <script>
 // === DRAG & DROP LAYOUT ARRANGEMENT (LocalStorage-backed) ===
 let isLayoutEditMode = false;
