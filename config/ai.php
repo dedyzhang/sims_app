@@ -16,7 +16,8 @@ return [
     'api_key' => env('GEMINI_API_KEY'),
 
     // Model default (free tier). Bisa dioverride per-request oleh controller.
-    'model' => env('AI_MODEL', 'gemini-2.0-flash'),
+    // Catatan: gemini-2.0-flash sudah SHUT DOWN oleh Google (per 2026) — jangan dipakai.
+    'model' => env('AI_MODEL', 'gemini-2.5-flash'),
 
     // Endpoint REST Gemini (v1beta). Jarang diubah.
     'base_url' => env('AI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
