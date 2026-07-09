@@ -8,6 +8,8 @@ use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AiTeacherController;
 use App\Http\Controllers\AiAnalyzeController;
 use App\Http\Controllers\AiRagController;
+use App\Http\Controllers\AppDownloadController;
+use App\Http\Controllers\KartuPelajarController;
 use App\Http\Controllers\KalenderController;
 use App\Http\Controllers\PoinController;
 use App\Http\Controllers\P3Controller;
@@ -449,6 +451,12 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/siswa/import', [SiswaController::class, 'import'])->name('siswa.import');
         Route::get('/siswa/import/template', [SiswaController::class, 'downloadTemplate'])->name('siswa.template');
 
+        // Kartu Pelajar Digital — kelola per siswa (admin)
+        Route::get('/kartu-pelajar/kelola', [KartuPelajarController::class, 'kelola'])->name('kartu-pelajar.kelola');
+        Route::get('/kartu-pelajar/kelola/cetak', [KartuPelajarController::class, 'cetakTingkat'])->name('kartu-pelajar.cetak');
+        Route::post('/kartu-pelajar/kelola/{siswa}', [KartuPelajarController::class, 'store'])->name('kartu-pelajar.store');
+        Route::get('/kartu-pelajar/kelola/{siswa}/lihat', [KartuPelajarController::class, 'lihatAdmin'])->name('kartu-pelajar.kelola.lihat');
+        Route::delete('/kartu-pelajar/kelola/{siswa}', [KartuPelajarController::class, 'destroy'])->name('kartu-pelajar.destroy');
     });
 
     Route::middleware('permission:manage_jadwal')->group(function () {
@@ -514,10 +522,26 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/kop-rapor', 'kopRapor')->name('setting.kopRapor');
             Route::post('/kop-rapor', 'kopRaporSave')->name('setting.kopRapor.save');
 
+            // Unduh Aplikasi (upload APK + Installer Windows)
+            Route::post('/app-download', 'setAppDownload')->name('setting.appDownload');
+
             // Role Permissions
             Route::get('/roles', 'roles')->name('setting.roles');
             Route::post('/roles', 'rolesSave')->name('setting.roles.save');
         });
+    });
+
+    // ─── Unduh Aplikasi: halaman & unduhan untuk SEMUA pengguna login ──────
+    Route::controller(AppDownloadController::class)->group(function () {
+        Route::get('/unduh-aplikasi', 'page')->name('app.download');
+        Route::get('/unduh-aplikasi/{platform}', 'download')->name('app.download.file');
+    });
+
+    // ─── Kartu Pelajar Digital: milik siswa yang login ─────────────────────
+    Route::controller(KartuPelajarController::class)->group(function () {
+        Route::get('/kartu-pelajar', 'self')->name('kartu-pelajar.self');
+        Route::get('/kartu-pelajar/lihat', 'lihatSelf')->name('kartu-pelajar.lihat');
+        Route::get('/kartu-pelajar/unduh', 'unduhSelf')->name('kartu-pelajar.unduh');
     });
 
     // ─── Akses Jadwal per Guru (Admin + Ekstra Role) ───────────────────────

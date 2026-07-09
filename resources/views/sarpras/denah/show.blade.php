@@ -54,11 +54,15 @@
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div class="flex items-center gap-2 text-sm">
             <span class="text-gray-500 hidden sm:inline">Perbesar</span>
-            <button type="button" id="zoom-out" class="w-7 h-7 grid place-items-center border rounded hover:bg-gray-50">−</button>
-            <input id="zoom-range" type="range" min="50" max="200" step="10" value="100" class="w-28 sm:w-44">
-            <button type="button" id="zoom-in" class="w-7 h-7 grid place-items-center border rounded hover:bg-gray-50">+</button>
+            <button type="button" id="zoom-out" class="w-8 h-8 grid place-items-center border rounded-lg hover:bg-gray-50 text-lg leading-none">−</button>
+            <input id="zoom-range" type="range" min="50" max="200" step="10" value="100" class="w-28 sm:w-44 touch-none">
+            <button type="button" id="zoom-in" class="w-8 h-8 grid place-items-center border rounded-lg hover:bg-gray-50 text-lg leading-none">+</button>
             <span id="zoom-label" class="text-gray-600 w-11 tabular-nums">100%</span>
             <button type="button" id="zoom-reset" class="text-xs text-blue-600 hover:underline">Reset</button>
+            <button type="button" id="fullscreen-toggle" class="ml-1 inline-flex items-center gap-1 text-xs text-slate-600 border rounded-lg px-2 py-1.5 hover:bg-gray-50" title="Layar penuh">
+                <i data-lucide="maximize" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Layar Penuh</span>
+            </button>
         </div>
         <div class="flex items-center gap-2">
             <span class="text-xs text-gray-500 hidden sm:inline">Kertas:</span>
@@ -355,6 +359,26 @@
     document.getElementById('zoom-in').addEventListener('click', () => setZoom(parseInt(range.value, 10) + 10));
     document.getElementById('zoom-out').addEventListener('click', () => setZoom(parseInt(range.value, 10) - 10));
     document.getElementById('zoom-reset').addEventListener('click', () => setZoom(100));
+
+    // --- Layar penuh (fullscreen) pada container denah ---
+    const fsBtn = document.getElementById('fullscreen-toggle');
+    const wrap = document.getElementById('denah-zoom-wrap');
+    if (fsBtn && wrap) {
+        fsBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                wrap.requestFullscreen?.() || wrap.webkitRequestFullscreen?.();
+            } else {
+                document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+            }
+        });
+        document.addEventListener('fullscreenchange', () => {
+            const icon = fsBtn.querySelector('[data-lucide]');
+            if (icon) {
+                icon.setAttribute('data-lucide', document.fullscreenElement ? 'minimize' : 'maximize');
+                if (window.lucide) window.lucide.createIcons();
+            }
+        });
+    }
 
     // --- Ukuran kertas ---
     const paperSelect = document.getElementById('paper-size');

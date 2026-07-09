@@ -49,6 +49,11 @@ class Siswa extends Model
         return $this->hasOne(Orangtua::class, 'id_siswa', 'uuid');
     }
 
+    public function kartuPelajar()
+    {
+        return $this->hasOne(KartuPelajar::class, 'id_siswa', 'uuid');
+    }
+
     public function rombels()
     {
         return $this->hasMany(Rombel::class, 'id_siswa', 'uuid');

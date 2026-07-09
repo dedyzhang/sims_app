@@ -409,6 +409,7 @@
                         $masterItems[] = ['siswa.index',     ['siswa.*'],           'graduation-cap', 'Data Siswa'];
                         $masterItems[] = ['kelas.index',     ['kelas.*'],           'door-open',      'Data Kelas'];
                         $masterItems[] = ['pelajaran.index', ['pelajaran.*'],       'book-open-text', 'Mata Pelajaran'];
+                        $masterItems[] = ['kartu-pelajar.kelola', ['kartu-pelajar.kelola'], 'id-card', 'Kartu Pelajar'];
                     }
                     if (!empty($masterItems)) {
                         $groups['master'] = ['Data Master', 'database', $masterItems];
@@ -608,6 +609,12 @@
                 <span x-show="!mini" class="text-sm truncate">Absen QR</span>
             </a>
             @endif
+            @if(auth()->user()?->siswa)
+            <a href="{{ route('kartu-pelajar.self') }}" data-tip="Kartu Pelajar" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('kartu-pelajar.self') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
+                <i data-lucide="id-card" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                <span x-show="!mini" class="text-sm truncate">Kartu Pelajar</span>
+            </a>
+            @endif
 
             @can('viewAny', App\Models\ForumTopic::class)
             <a href="{{ route('forum.index') }}" data-tip="Forum Diskusi" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('forum.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
@@ -624,6 +631,18 @@
                 <span x-show="pengumumanUnread > 0 && mini" x-cloak
                       class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
             </a>
+
+            {{-- Unduh Aplikasi: tampil untuk semua pengguna bila diaktifkan admin & ada file --}}
+            @php
+                $appDownloadOn = \App\Models\Setting::get('app_download_aktif') === '1'
+                    && (\App\Models\Setting::get('app_apk_path') || \App\Models\Setting::get('app_windows_path'));
+            @endphp
+            @if($appDownloadOn)
+            <a href="{{ route('app.download') }}" data-tip="Unduh Aplikasi" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('app.download') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
+                <i data-lucide="download" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                <span x-show="!mini" class="text-sm truncate">Unduh Aplikasi</span>
+            </a>
+            @endif
 
 
             {{-- Asisten Sekolah: untuk pengguna non-admin dipakai lewat floating ball
