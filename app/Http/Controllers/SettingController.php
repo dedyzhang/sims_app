@@ -31,6 +31,7 @@ class SettingController extends Controller
         'manage_sarpras' => 'Mengelola Sarana & Prasarana',
         'manage_keuangan'=> 'Mengelola Modul Keuangan',
         'manage_pengumuman'=> 'Membuat & Mengelola Pengumuman',
+        'manage_feedback'=> 'Merespon Saran & Masukan Pengguna',
         'manage_settings'=> 'Mengelola Pengaturan Sistem',
         'manage_perangkat'=> 'Memantau Perangkat Ajar Guru',
     ];

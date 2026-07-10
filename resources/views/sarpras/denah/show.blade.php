@@ -1,50 +1,59 @@
 @extends('sarpras.layouts.app')
-@section('title', 'Denah: ' . $denah->nama)
+@section('title', 'Denah Sekolah: ' . $denah->nama)
+@section('sarpras_title', 'Denah Sekolah: ' . $denah->nama)
+@section('sarpras_subtitle', 'Peta interaktif ruangan, status pemakaian, aset, booking, dan titik maintenance per lantai.')
 
 @section('sarpras_body')
-<div class="flex justify-between items-center mb-4">
-    <div>
-        <h2 class="text-lg font-semibold text-gray-800">{{ $denah->nama }}</h2>
-        <p class="text-sm text-gray-500">{{ $denah->gedung }} {{ $denah->lantai ? '· Lantai '.$denah->lantai : '' }}</p>
+<div class="flex justify-between items-start gap-3 flex-wrap mb-4">
+    <div class="min-w-0">
+        <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100 break-words">{{ $denah->nama }}</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 break-words">{{ $denah->gedung }} {{ $denah->lantai ? '- Lantai '.$denah->lantai : '' }}</p>
     </div>
-    <div class="flex items-center gap-2">
-        <a href="{{ route('sarpras.denah.index') }}" class="bg-slate-600 text-white px-3 py-1.5 rounded text-xs hover:bg-slate-700">← Daftar</a>
+    <div class="flex items-center gap-2 flex-wrap">
+        <a href="{{ route('sarpras.denah.index') }}" class="inline-flex items-center gap-1.5 bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-700">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Daftar
+        </a>
         @can('sarpras.denah.kelola')
             @include('sarpras.denah.partials.import-button', ['denah' => $denah])
             @if ($denah->gambar_path)
                 <form method="POST" action="{{ route('sarpras.denah.gambar.hapus', $denah) }}"
                       onsubmit="return confirmAction(this, 'Hapus gambar denah ini? Blok ruangan tetap tersimpan dan Anda bisa import / menggambar ulang.', 'red')">
                     @csrf @method('DELETE')
-                    <button type="submit" class="inline-flex items-center gap-1 border border-red-300 text-red-600 px-3 py-1.5 rounded text-xs hover:bg-red-50">🗑️ Hapus Gambar</button>
+                    <button type="submit" class="inline-flex items-center gap-1.5 border border-red-300 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-50">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus Gambar
+                    </button>
                 </form>
             @endif
-            <a href="{{ route('sarpras.denah.gambar', $denah) }}" class="bg-indigo-600 text-white px-3 py-1.5 rounded text-xs hover:bg-indigo-700">✏️ Gambar Denah</a>
-            <a href="{{ route('sarpras.denah.hotspot', $denah) }}" class="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs hover:bg-emerald-700">Atur Blok Ruangan</a>
+            <a href="{{ route('sarpras.denah.gambar', $denah) }}" class="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700">
+                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Gambar Denah
+            </a>
+            <a href="{{ route('sarpras.denah.hotspot', $denah) }}" class="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700">
+                <i data-lucide="grid-2x2" class="w-3.5 h-3.5"></i> Atur Blok Ruangan
+            </a>
         @endcan
     </div>
 </div>
-
 {{-- Pemilih lantai pada gedung yang sama --}}
 @if ($denah->gedung)
     <div class="flex flex-wrap items-center gap-2 mb-4">
-        <span class="text-xs text-gray-400 mr-1">{{ $denah->gedung }} —</span>
+        <span class="text-xs text-slate-400 mr-1">{{ $denah->gedung }} —</span>
         @foreach ($lantaiSegedung as $l)
             <a href="{{ route('sarpras.denah.show', $l) }}"
-               class="px-3 py-1 rounded-full text-sm {{ $l->id === $denah->id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+               class="px-3 py-1 rounded-full text-sm {{ $l->id === $denah->id ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
                 {{ $l->lantai ? 'Lantai ' . $l->lantai : $l->nama }}
             </a>
         @endforeach
         @can('sarpras.denah.kelola')
             <a href="{{ route('sarpras.denah.create', ['gedung' => $denah->gedung]) }}"
-               class="px-3 py-1 rounded-full text-sm border border-dashed border-gray-300 text-gray-500 hover:bg-gray-50">+ Lantai</a>
+               class="px-3 py-1 rounded-full text-sm border border-dashed border-slate-300 text-slate-500 hover:bg-slate-50">+ Lantai</a>
         @endcan
     </div>
 @endif
 
-<p class="text-sm text-gray-500 mb-2">Klik ruangan (mis. <b>7A</b>) untuk melihat detail.</p>
+<p class="text-sm text-slate-500 mb-2">Klik ruangan (mis. <b>7A</b>) untuk melihat detail.</p>
 
 {{--
-    DENAH INTERAKTIF.
+    DENAH SEKOLAH INTERAKTIF.
     Container position:relative & responsif (lebar mengikuti layar, TANPA pixel hardcoded).
     Hotspot position:absolute pakai KOORDINAT PERSEN (pos_x/pos_y) + translate(-50%,-50%)
     sehingga presisi & tidak bergeser di ukuran layar berbeda.
@@ -53,27 +62,27 @@
     {{-- Toolbar: zoom live + export --}}
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div class="flex items-center gap-2 text-sm">
-            <span class="text-gray-500 hidden sm:inline">Perbesar</span>
-            <button type="button" id="zoom-out" class="w-8 h-8 grid place-items-center border rounded-lg hover:bg-gray-50 text-lg leading-none">−</button>
+            <span class="text-slate-500 hidden sm:inline">Perbesar</span>
+            <button type="button" id="zoom-out" class="w-8 h-8 grid place-items-center border rounded-lg hover:bg-slate-50 text-lg leading-none">−</button>
             <input id="zoom-range" type="range" min="50" max="200" step="10" value="100" class="w-28 sm:w-44 touch-none">
-            <button type="button" id="zoom-in" class="w-8 h-8 grid place-items-center border rounded-lg hover:bg-gray-50 text-lg leading-none">+</button>
-            <span id="zoom-label" class="text-gray-600 w-11 tabular-nums">100%</span>
+            <button type="button" id="zoom-in" class="w-8 h-8 grid place-items-center border rounded-lg hover:bg-slate-50 text-lg leading-none">+</button>
+            <span id="zoom-label" class="text-slate-600 w-11 tabular-nums">100%</span>
             <button type="button" id="zoom-reset" class="text-xs text-blue-600 hover:underline">Reset</button>
-            <button type="button" id="fullscreen-toggle" class="ml-1 inline-flex items-center gap-1 text-xs text-slate-600 border rounded-lg px-2 py-1.5 hover:bg-gray-50" title="Layar penuh">
+            <button type="button" id="fullscreen-toggle" class="ml-1 inline-flex items-center gap-1 text-xs text-slate-600 border rounded-lg px-2 py-1.5 hover:bg-slate-50" title="Layar penuh">
                 <i data-lucide="maximize" class="w-3.5 h-3.5"></i>
                 <span class="hidden sm:inline">Layar Penuh</span>
             </button>
         </div>
         <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-500 hidden sm:inline">Kertas:</span>
-            <select id="paper-size" class="text-xs border rounded px-2 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-300">
+            <span class="text-xs text-slate-500 hidden sm:inline">Kertas:</span>
+            <select id="paper-size" class="text-xs border rounded px-2 py-1.5 text-slate-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-300">
                 <option value="297/210">A4 Landscape</option>
                 <option value="210/297">A4 Portrait</option>
                 <option value="330/215">F4 Landscape</option>
                 <option value="215/330">F4 Portrait</option>
                 <option value="16/10">Bebas (16:10)</option>
             </select>
-            <div class="w-px h-5 bg-gray-200 mx-1"></div>
+            <div class="w-px h-5 bg-slate-200 mx-1"></div>
             <button type="button" id="export-jpeg" class="inline-flex items-center gap-1 bg-amber-600 text-white rounded px-3 py-1.5 text-xs hover:bg-amber-700 disabled:opacity-50">
                 <i data-lucide="image" class="w-3.5 h-3.5"></i> JPEG
             </button>
@@ -85,14 +94,14 @@
 
     {{-- Mode warna + legenda (interaktif) --}}
     <div class="flex flex-wrap items-center justify-between gap-3 mb-3 border-t pt-3">
-        <div class="inline-flex rounded-lg border bg-gray-50 p-0.5 text-sm" id="mode-warna">
+        <div class="inline-flex rounded-lg border bg-slate-50 p-0.5 text-sm" id="mode-warna">
             <button type="button" data-mode="ruangan"
-                    class="px-3 py-1 rounded-md font-medium bg-white shadow text-gray-800">Warna Ruangan</button>
+                    class="px-3 py-1 rounded-md font-medium bg-white shadow text-slate-800">Warna Ruangan</button>
             <button type="button" data-mode="status"
-                    class="px-3 py-1 rounded-md font-medium text-gray-500 hover:text-gray-700">Status</button>
+                    class="px-3 py-1 rounded-md font-medium text-slate-500 hover:text-slate-700">Status</button>
         </div>
         {{-- Legenda status (muncul saat mode "Status") --}}
-        <div id="legenda-status" class="hidden flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+        <div id="legenda-status" class="hidden flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
             <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#059669"></span> Aman</span>
             <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#d97706"></span> Sedang dipinjam</span>
             <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#dc2626"></span> Ada kerusakan</span>
@@ -104,9 +113,9 @@
             <div id="denah-capture" class="relative mx-auto select-none" style="aspect-ratio: 297/210; height: min(68vh, 560px); width: auto;">
                 @if ($denah->gambar_path)
                     <img loading="lazy" src="{{ Storage::url($denah->gambar_path) }}" alt="{{ $denah->nama }}"
-                         class="absolute inset-0 w-full h-full object-contain bg-gray-50 rounded">
+                         class="absolute inset-0 w-full h-full object-contain bg-slate-50 rounded">
                 @else
-                    <div class="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400 rounded">
+                    <div class="absolute inset-0 flex items-center justify-center bg-slate-100 text-slate-400 rounded">
                         🗺️ Gambar denah belum diunggah
                     </div>
                 @endif
@@ -125,7 +134,7 @@
                     @endphp
                     {{-- Blok ruangan berlabel (kotak persen). Warna bisa ganti via toggle Mode Warna. --}}
                     <a href="{{ route('sarpras.ruangan.show', $r) }}"
-                       title="{{ $r->kode }} — {{ $r->nama }}{{ $kr > 0 ? ' · '.$kr.' kerusakan' : ($dipinjam ? ' · sedang dipinjam' : '') }}"
+                       title="{{ $r->kode }} - {{ $r->nama }}{{ $kr > 0 ? ' - '.$kr.' kerusakan' : ($dipinjam ? ' - sedang dipinjam' : '') }}"
                        data-blok
                        data-warna="{{ $r->warna_hex }}"
                        data-warna-teks="{{ $r->warna_teks }}"
@@ -153,7 +162,7 @@
 
 <div class="mt-6 bg-white rounded-lg shadow p-5" x-data="{ openEdit: false, editForm: { action: '', kode: '', nama: '', kapasitas: '', warna: '#3b82f6', pos_x: '', pos_y: '', lebar: '', tinggi: '' } }">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-        <h3 class="font-semibold text-gray-800">Daftar Ruangan</h3>
+        <h3 class="font-semibold text-slate-800">Daftar Ruangan</h3>
         @can('sarpras.denah.kelola')
             <div class="flex items-center gap-2 flex-wrap">
                 <button type="button" id="toggle-tambah-ruangan"
@@ -171,7 +180,7 @@
     @can('sarpras.denah.kelola')
         {{-- Panel tambah ruangan secara manual --}}
         <div id="panel-tambah-ruangan" class="hidden mb-4 rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-            <h4 class="font-semibold text-gray-800 text-sm mb-3">Tambah Ruangan Baru</h4>
+            <h4 class="font-semibold text-slate-800 text-sm mb-3">Tambah Ruangan Baru</h4>
             <form method="POST" action="{{ route('sarpras.ruangan.store', $denah) }}" enctype="multipart/form-data"
                   class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 @csrf
@@ -184,19 +193,19 @@
                 <input type="hidden" name="lantai" value="{{ $denah->lantai }}">
 
                 <div>
-                    <label class="block text-gray-600 text-xs font-semibold mb-1">Kode Ruangan (mis. 7A) <span class="text-red-500">*</span></label>
+                    <label class="block text-slate-600 text-xs font-semibold mb-1">Kode Ruangan (mis. 7A) <span class="text-red-500">*</span></label>
                     <input name="kode" required placeholder="mis. 7A" class="w-full border rounded px-3 py-2 bg-white">
                 </div>
                 <div>
-                    <label class="block text-gray-600 text-xs font-semibold mb-1">Nama Ruangan <span class="text-red-500">*</span></label>
+                    <label class="block text-slate-600 text-xs font-semibold mb-1">Nama Ruangan <span class="text-red-500">*</span></label>
                     <input name="nama" required placeholder="mis. Kelas 7A" class="w-full border rounded px-3 py-2 bg-white">
                 </div>
                 <div>
-                    <label class="block text-gray-600 text-xs font-semibold mb-1">Kapasitas Orang (opsional)</label>
+                    <label class="block text-slate-600 text-xs font-semibold mb-1">Kapasitas Orang (opsional)</label>
                     <input name="kapasitas" type="number" min="0" placeholder="mis. 36" class="w-full border rounded px-3 py-2 bg-white">
                 </div>
                 <div>
-                    <label class="block text-gray-600 text-xs font-semibold mb-1">Warna Blok</label>
+                    <label class="block text-slate-600 text-xs font-semibold mb-1">Warna Blok</label>
                     <div class="flex gap-1.5">
                         <input name="warna" type="color" value="#3b82f6" class="h-[38px] w-12 border rounded px-1 py-1 cursor-pointer bg-white">
                         <button type="submit" class="flex-1 bg-slate-900 hover:bg-slate-800 text-white rounded font-bold transition">Simpan</button>
@@ -209,8 +218,8 @@
         <div id="panel-import-ruangan" class="hidden mb-4 rounded-lg border border-emerald-100 bg-emerald-50/40 p-4">
             <div class="flex items-start justify-between gap-3 mb-3">
                 <div>
-                    <h4 class="font-semibold text-gray-800 text-sm">Import Ruangan ke Denah Ini</h4>
-                    <p class="text-xs text-gray-500 mt-0.5">Unggah file Excel/CSV. Ruangan dengan <b>kode</b> yang sudah ada di denah ini akan diperbarui, sisanya ditambahkan & ditata otomatis di denah.</p>
+                    <h4 class="font-semibold text-slate-800 text-sm">Import Ruangan ke Denah Ini</h4>
+                    <p class="text-xs text-slate-500 mt-0.5">Unggah file Excel/CSV. Ruangan dengan <b>kode</b> yang sudah ada di denah ini akan diperbarui, sisanya ditambahkan & ditata otomatis di denah.</p>
                 </div>
                 <a href="{{ route('sarpras.ruangan.import.template') }}"
                    class="shrink-0 inline-flex items-center gap-1.5 text-sm text-emerald-700 font-medium hover:underline">
@@ -228,7 +237,7 @@
                 </button>
             </form>
 
-            <p class="text-xs text-gray-400 mt-2">
+            <p class="text-xs text-slate-400 mt-2">
                 Kolom: <code>kode, nama, kapasitas, warna, deskripsi</code>. Warna format hex (mis. <code>#059669</code>); posisi blok bisa dirapikan via <b>Atur Blok Ruangan</b>.
             </p>
         </div>
@@ -259,14 +268,14 @@
                    class="flex-1 flex items-center gap-2 px-3.5 py-2.5 min-w-0">
                     <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background: {{ $statusWarna }}" title="Status"></span>
                     <span class="flex-1 min-w-0 truncate text-slate-700 dark:text-slate-200">
-                        <span class="font-semibold text-slate-900 dark:text-white">{{ $r->kode }}</span> — {{ $r->nama }}
+                        <span class="font-semibold text-slate-900 dark:text-white">{{ $r->kode }}</span> - {{ $r->nama }}
                     </span>
                     @if ($kr > 0)
                         <span class="shrink-0 text-[10px] font-bold text-red-700 bg-red-100 rounded px-1.5 py-0.5">{{ $kr }}⚠</span>
                     @elseif ($dipinjam)
                         <span class="shrink-0 text-[10px] font-semibold text-amber-700 bg-amber-100 rounded px-1.5 py-0.5">dipinjam</span>
                     @elseif ($ja > 0)
-                        <span class="shrink-0 text-[10px] text-gray-400 dark:text-gray-500">{{ $ja }} aset</span>
+                        <span class="shrink-0 text-[10px] text-slate-400 dark:text-slate-500">{{ $ja }} aset</span>
                     @endif
                 </a>
                 @can('sarpras.denah.kelola')
@@ -340,7 +349,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-// === Zoom live + export denah (JPEG/PDF) — semua di sisi klien ===
+// === Zoom live + export denah (JPEG/PDF) - semua di sisi klien ===
 (function () {
     const zoom = document.getElementById('denah-zoom');
     const range = document.getElementById('zoom-range');
@@ -474,8 +483,8 @@
             const aktif = b.dataset.mode === mode;
             b.classList.toggle('bg-white', aktif);
             b.classList.toggle('shadow', aktif);
-            b.classList.toggle('text-gray-800', aktif);
-            b.classList.toggle('text-gray-500', !aktif);
+            b.classList.toggle('text-slate-800', aktif);
+            b.classList.toggle('text-slate-500', !aktif);
         });
     }
 

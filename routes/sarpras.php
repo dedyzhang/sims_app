@@ -44,7 +44,7 @@ Route::middleware(['web', 'auth'])->prefix('sarpras')->name('sarpras.')->group(f
     Route::post('kerusakan/{kerusakan}/tolak', [KerusakanController::class, 'tolak'])
         ->middleware('can:sarpras.kerusakan.kelola')->name('kerusakan.tolak');
 
-    /* 2. DENAH GEDUNG INTERAKTIF */
+    /* 2. DENAH SEKOLAH */
     Route::middleware('can:sarpras.denah.lihat')->group(function () {
         Route::get('denah', [DenahController::class, 'index'])->name('denah.index');
         Route::get('denah/{denah}', [DenahController::class, 'show'])->name('denah.show');

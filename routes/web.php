@@ -17,6 +17,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EkskulController;
 use App\Http\Controllers\FaceController;
+use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\GuruController;
 use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\KelasController;
@@ -84,6 +85,15 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/dashboard/tata-letak', [DashboardController::class, 'saveLayout'])->name('dashboard.layout');
 
+    Route::controller(FeedbackController::class)->prefix('masukan')->name('feedback.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/buat', 'create')->name('create');
+        Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+        Route::get('/badge', 'badge')->middleware('permission:manage_feedback')->name('badge');
+        Route::get('/{feedback}', 'show')->name('show');
+        Route::post('/{feedback}/respon', 'respond')->middleware('permission:manage_feedback')->name('respond');
+    });
+
     // ─── AsistenAI (Gateway Gemini — Fase 1) ────────────────────────────────────
     // Gateway generik; dibatasi superadmin. Fitur per-role menyusul di fase berikut.
     Route::middleware('role:superadmin')->prefix('ai')->name('ai.')->group(function () {
@@ -104,6 +114,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::middleware('role:guru,walikelas')->prefix('ai/teacher')->name('ai.teacher.')->controller(AiTeacherController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/quiz', 'quiz')->name('quiz');
+        Route::post('/quiz/export-word', 'exportQuizWord')->name('quiz.export-word');
         Route::post('/summary', 'summary')->name('summary');
         Route::post('/feedback', 'feedback')->name('feedback');
     });

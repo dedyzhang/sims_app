@@ -27,6 +27,10 @@
         // dihitung di sini, bukan cuma di dalam <aside> yang bisa disembunyikan (mode kiosk).
         $access  = auth()->user()?->access;
         $isAdmin = in_array($access, ['superadmin','admin']);
+        $canManageFeedback = auth()->user()?->canAccess('manage_feedback') ?? false;
+        $feedbackUnreadCount = $canManageFeedback
+            ? \App\Models\UserFeedback::where('status', 'baru')->count()
+            : 0;
         $fontMap = ['sm' => ['11px','13px','15px'], 'md' => ['12px','14px','16px'], 'lg' => ['13px','15px','17px']];
         $fonts = $fontMap[$pref->font_size ?? 'md'];
 
@@ -125,7 +129,7 @@
             // Auto initialize datatables for sarpras tables
             if (window.location.pathname.includes('/sarpras')) {
                 // Initialize on generic tables (except .ttd which is for signatures, or explicit .no-dt)
-                $('table:not(.ttd, .no-dt)').addClass('display nowrap w-full').DataTable({
+                $('table:not(.ttd, .no-dt)').addClass('display w-full').DataTable({
                     scrollX: true,
                     pageLength: 15,
                     language: {
@@ -563,7 +567,7 @@
                 if ($bolehKelolaSarpras) {
                     $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
                         ['sarpras.dashboard',        ['sarpras.dashboard'],                          'layout-dashboard', 'Dashboard Sarpras'],
-                        ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Interaktif'],
+                        ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
                         ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
                         ['sarpras.aset.index',       ['sarpras.aset.*','sarpras.kategori.*'],        'package',          'Inventaris Barang'],
                         ['sarpras.pengadaan.index',  ['sarpras.pengadaan.*'],                        'shopping-cart',    'Pengadaan Aset'],
@@ -575,7 +579,7 @@
                     ]];
                 } elseif (auth()->user()?->guru || auth()->user()?->siswa || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris'])) {
                     $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
-                        ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Interaktif'],
+                        ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
                         ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
                         ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Aset'],
                     ]];
@@ -623,6 +627,9 @@
                         if (request()->routeIs(...$it[1])) { $activeGroup = $gk; break 2; }
                     }
                 }
+                if (request()->routeIs('panduan.*', 'feedback.*')) {
+                    $activeGroup = 'bantuan';
+                }
             @endphp
 
             {{-- Menu utama (selalu tampil) --}}
@@ -631,7 +638,48 @@
                 <i data-lucide="layout-dashboard" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Dashboard</span>
             </a>
-
+            {{-- Bantuan: panduan pemakaian dan kanal feedback pengguna --}}
+            <div x-show="!mini" class="pt-1">
+                <button type="button" @click="toggleGroup('bantuan')"
+                        class="nav-group w-full flex items-center gap-3 px-3 py-2.5 {{ $activeGroup==='bantuan' ? 'has-active' : '' }}">
+                    <i data-lucide="life-buoy" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                    <span class="text-sm font-semibold truncate flex-1 text-left">Bantuan</span>
+                    <span class="flex-shrink-0 transition-transform duration-200 inline-block" :class="openGroup==='bantuan' ? 'rotate-180' : ''">
+                        <i data-lucide="chevron-down" class="w-4 h-4 flex-shrink-0"></i>
+                    </span>
+                </button>
+                <div x-show="openGroup==='bantuan'" x-collapse class="nav-submenu ml-[22px] pl-2.5 mt-0.5 space-y-0.5">
+                    <a href="{{ route('panduan.index') }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
+                        <i data-lucide="book-open-check" class="nav-icon w-4 h-4 flex-shrink-0"></i>
+                        <span class="text-[13px] truncate">Panduan SIMS</span>
+                    </a>
+                    <a href="{{ route('feedback.index') }}" class="nav-link nav-sublink relative flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
+                        <i data-lucide="message-square-heart" class="nav-icon w-4 h-4 flex-shrink-0"></i>
+                        <span class="text-[13px] truncate flex-1">Saran & Masukan</span>
+                        @if($canManageFeedback)
+                        <span x-show="feedbackUnread > 0 && !mini" x-cloak x-text="feedbackUnread > 99 ? '99+' : feedbackUnread"
+                              :aria-label="feedbackUnread + ' masukan baru'"
+                              class="ml-auto inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm shadow-rose-500/30"></span>
+                        <span x-show="feedbackUnread > 0 && mini" x-cloak
+                              :aria-label="feedbackUnread + ' masukan baru'"
+                              class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
+                        @endif
+                    </a>
+                </div>
+            </div>
+            <div x-show="mini" x-cloak class="space-y-0.5 pt-1">
+                <a href="{{ route('panduan.index') }}" data-tip="Panduan SIMS" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
+                    <i data-lucide="book-open-check" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                </a>
+                <a href="{{ route('feedback.index') }}" data-tip="Saran & Masukan" class="nav-link relative flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
+                    <i data-lucide="message-square-heart" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                    @if($canManageFeedback)
+                    <span x-show="feedbackUnread > 0" x-cloak
+                          :aria-label="feedbackUnread + ' masukan baru'"
+                          class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
+                    @endif
+                </a>
+            </div>
             @if(auth()->user()?->siswa || auth()->user()?->guru)
             <a href="{{ route('absen.qr') }}" data-tip="Absen QR" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('absen.qr') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="qr-code" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
@@ -728,11 +776,6 @@
                 @endforeach
             </div>
             @endforeach
-
-            <a href="{{ route('panduan.index') }}" data-tip="Panduan SIMS" class="nav-link flex items-center px-3 py-2.5 mt-2 border-t border-slate-200/50 dark:border-slate-700/50 pt-3 {{ request()->routeIs('panduan.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
-                <i data-lucide="book-open-check" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
-                <span x-show="!mini" class="text-sm truncate">Panduan SIMS</span>
-            </a>
         </nav>
 
         <button type="button"
@@ -1215,6 +1258,8 @@
             adminChatUnread: 0,
             adminChatBadgeTimer: null,
             pengumumanUnread: 0,
+            feedbackUnread: {{ (int) $feedbackUnreadCount }},
+            feedbackBadgeTimer: null,
             toggleCollapse(){ this.collapsed=!this.collapsed; localStorage.setItem('sb_collapsed', this.collapsed?'1':'0'); this.$nextTick(()=>lucide.createIcons()); },
             startSidebarResize(e){
                 if (this.isMobile) return;
@@ -1252,6 +1297,7 @@
                 mq.addEventListener ? mq.addEventListener('change', sync) : mq.addListener(sync);
                 this.initNavTips();
                 this.initAdminChatBadge();
+                this.initFeedbackBadge();
                 // Badge menu Pengumuman disuplai dari poll dropdown notifikasi
                 // (tanpa polling tambahan) via event 'notif-updated'.
                 window.addEventListener('notif-updated', (e) => {
@@ -1271,6 +1317,23 @@
                 };
                 fetchBadge();
                 if (!this.adminChatBadgeTimer) this.adminChatBadgeTimer = setInterval(fetchBadge, 20000);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') fetchBadge();
+                });
+                @endif
+            },
+            initFeedbackBadge(){
+                @if($canManageFeedback)
+                const fetchBadge = async () => {
+                    try {
+                        const response = await fetch('{{ route('feedback.badge') }}', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        this.feedbackUnread = Number(data.new_count || 0);
+                    } catch (_) {}
+                };
+                fetchBadge();
+                if (!this.feedbackBadgeTimer) this.feedbackBadgeTimer = setInterval(fetchBadge, 20000);
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'visible') fetchBadge();
                 });

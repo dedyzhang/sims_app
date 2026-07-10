@@ -11,6 +11,11 @@ use App\Models\Semester;
 use App\Models\Setting;
 use App\Models\Siswa;
 use App\Models\UserPreference;
+use App\Sarpras\Models\Aset;
+use App\Sarpras\Models\LaporanKerusakan;
+use App\Sarpras\Models\Peminjaman;
+use App\Sarpras\Models\Pengadaan;
+use App\Sarpras\Support\Rupiah;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -35,13 +40,29 @@ class DashboardController extends Controller
 
         $sosmed = $this->sosmedLinks();
 
+        // ── Data ringkas Sarpras (admin/kepala/sapras saja, 4 query → 1 blok data) ──
+        $sarpras = null;
+        $sarprasRoles = ['superadmin', 'admin', 'kepala', 'sapras'];
+        if (in_array($user->access, $sarprasRoles) && $user->can('sarpras.dashboard.lihat')) {
+            $sarpras = [
+                'totalAset'        => Aset::count(),
+                'nilaiTotalRp'     => Rupiah::format(Aset::sum('nilai_perolehan')),
+                'kerusakanTerbuka' => LaporanKerusakan::whereIn('status', ['dilaporkan', 'diterima'])->count(),
+                'kerusakanDarurat' => LaporanKerusakan::whereIn('status', ['dilaporkan', 'diterima'])->whereIn('urgensi', ['tinggi', 'darurat'])->count(),
+                'peminjamanAktif'  => Peminjaman::whereIn('status', ['disetujui', 'dipinjam', 'terlambat'])->count(),
+                'peminjamanMenunggu' => Peminjaman::where('status', 'diajukan')->count(),
+                'pengadaanPending' => Pengadaan::where('status', 'diajukan')->count(),
+                'pengadaanDisetujui' => Pengadaan::where('status', 'disetujui')->count(),
+            ];
+        }
+
         $siswaWidget = match ($user->access) {
             'siswa'    => $this->buildSiswaWidget($user->siswa),
             'orangtua' => $this->buildSiswaWidget(Orangtua::where('id_login', $user->uuid)->first()?->siswa),
             default    => null,
         };
 
-        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget'));
+        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget', 'sarpras'));
     }
 
     /** Data widget dashboard khusus siswa: jadwal hari ini, poin/P3, absensi, podium sekolah. */

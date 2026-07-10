@@ -28,7 +28,109 @@
     .motiv-label { font-size: 10px; letter-spacing: .22em; }
     @keyframes motivIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     @media (prefers-reduced-motion: reduce) { .motiv-card { animation: none; } }
-
+    /* ===== Dashboard Google Education Theme ===== */
+    .edu-dashboard { position: relative; }
+    .card-batik.edu-hero {
+        border: 1px solid #e8eaed !important;
+        background: #fff !important;
+        box-shadow: 0 14px 32px rgba(60, 64, 67, .10) !important;
+    }
+    .dark .card-batik.edu-hero {
+        border-color: rgba(148, 163, 184, .18) !important;
+        background: #0f172a !important;
+        box-shadow: 0 18px 45px rgba(2, 6, 23, .34) !important;
+    }
+    .edu-hero-grid {
+        position: absolute; inset: 0; pointer-events: none; opacity: .08;
+        background-image:
+            linear-gradient(#4285F4 1px, transparent 1px),
+            linear-gradient(90deg, #34A853 1px, transparent 1px);
+        background-size: 32px 32px;
+        mask-image: linear-gradient(120deg, transparent 0%, #000 18%, #000 64%, transparent 100%);
+    }
+    .dark .edu-hero-grid { opacity: .12; }
+    .google-accent-bar {
+        position: absolute; inset: 0 auto auto 0; height: 5px; width: 100%;
+        background: linear-gradient(90deg, #4285F4 0 25%, #EA4335 25% 50%, #FBBC05 50% 75%, #34A853 75% 100%);
+    }
+    .google-chip {
+        display: inline-flex; align-items: center; gap: .4rem;
+        border-radius: 9999px; padding: .35rem .75rem;
+        border: 1px solid #e8eaed; background: #fff;
+        color: #3c4043; font-size: 11px; font-weight: 800;
+        box-shadow: 0 1px 2px rgba(60,64,67,.08);
+    }
+    .dark .google-chip { background: rgba(15,23,42,.72); border-color: rgba(148,163,184,.2); color: #e2e8f0; box-shadow: none; }
+    .google-dot { width: .55rem; height: .55rem; border-radius: 9999px; display: inline-block; flex-shrink: 0; }
+    .google-dot.blue { background: #4285F4; }
+    .google-dot.red { background: #EA4335; }
+    .google-dot.yellow { background: #FBBC05; }
+    .google-dot.green { background: #34A853; }
+    .google-title span:nth-child(1) { color: #4285F4; }
+    .google-title span:nth-child(2) { color: #EA4335; }
+    .google-title span:nth-child(3) { color: #FBBC05; }
+    .google-title span:nth-child(4) { color: #4285F4; }
+    .google-title span:nth-child(5) { color: #34A853; }
+    .google-title span:nth-child(6) { color: #EA4335; }
+    .edu-salam-icon {
+        width: 2.75rem; height: 2.75rem; display: grid; place-items: center;
+        border-radius: 1rem; color: #fff;
+        background: #4285F4;
+        box-shadow: 0 10px 24px rgba(66, 133, 244, .22);
+    }
+    .google-quote-card {
+        position: relative; margin-top: 1rem; overflow: hidden;
+        border-radius: 1.25rem; border: 1px solid #e8eaed;
+        background: #f8fbff; padding: .95rem 1rem .95rem 1.1rem;
+    }
+    .google-quote-card::before {
+        content: ''; position: absolute; inset: 0 auto 0 0; width: 5px;
+        background: linear-gradient(180deg, #4285F4, #34A853);
+    }
+    .dark .google-quote-card { background: rgba(30,41,59,.52); border-color: rgba(148,163,184,.18); }
+    .google-side-panel {
+        position: relative; overflow: hidden; border-radius: 1.25rem;
+        padding: 1rem; background: #f8fafd;
+        border: 1px solid #e8eaed;
+    }
+    .dark .google-side-panel { background: rgba(15,23,42,.62); border-color: rgba(148,163,184,.18); }
+    .google-info-card {
+        display: flex; align-items: center; gap: .75rem;
+        min-height: 3.9rem; padding: .75rem .85rem;
+        border-radius: 1rem; background: #fff;
+        border: 1px solid #e8eaed;
+        box-shadow: 0 1px 2px rgba(60,64,67,.08);
+    }
+    .dark .google-info-card { background: rgba(15,23,42,.72); border-color: rgba(148,163,184,.18); box-shadow: none; }
+    .google-icon-box {
+        width: 2.35rem; height: 2.35rem; display: grid; place-items: center;
+        border-radius: .85rem; color: #fff; flex-shrink: 0;
+    }
+    .google-school-art {
+        margin-top: .9rem; width: 100%; height: 82px; color: #4285F4;
+    }
+    .dark .google-school-art { color: #93c5fd; opacity: .9; }
+    .edu-dashboard #dashGrid { gap: 1rem; }
+    @media (min-width: 1024px) { .edu-dashboard #dashGrid { gap: 1.25rem; } }
+    .edu-dashboard .dash-content > .card,
+    .edu-dashboard .dash-content > div:not([class*="card-batik"]):not(.edu-hero) {
+        border: 1px solid #e8eaed;
+        box-shadow: 0 6px 18px rgba(60, 64, 67, .08);
+        transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .edu-dashboard .dash-content > .card:hover,
+    .edu-dashboard .dash-content > div:not([class*="card-batik"]):not(.edu-hero):hover {
+        transform: translateY(-1px);
+        border-color: #d2e3fc;
+        box-shadow: 0 10px 24px rgba(60, 64, 67, .12);
+    }
+    .dark .edu-dashboard .dash-content > .card,
+    .dark .edu-dashboard .dash-content > div:not([class*="card-batik"]):not(.edu-hero) {
+        border-color: rgba(148, 163, 184, .18);
+        box-shadow: 0 12px 26px rgba(2, 6, 23, .22);
+    }
+    .edu-dashboard .dash-content h2,
+    .edu-dashboard .dash-content h3 { letter-spacing: 0; }
     /* ===== Tampilan Khusus Ringkasan Baru ===== */
     .card-siswa {
         background: linear-gradient(160deg, color-mix(in srgb, var(--cp) 18%, white), color-mix(in srgb, var(--cp) 6%, white)) !important;
@@ -373,7 +475,7 @@
     ];
 @endphp
 
-<div x-data="dashLayout()" :class="{ 'dash-editing': editing }">
+<div x-data="dashLayout()" class="edu-dashboard" :class="{ 'dash-editing': editing }">
     @include('partials.dash-greeting')
 
     {{-- Grid blok yang bisa di-drag --}}
@@ -424,7 +526,7 @@
     ];
 @endphp
 
-<div x-data="dashLayout()" :class="{ 'dash-editing': editing }">
+<div x-data="dashLayout()" class="edu-dashboard" :class="{ 'dash-editing': editing }">
     @include('partials.dash-greeting')
 
     <div id="dashGrid" class="grid grid-cols-12 gap-5" x-ref="grid">
@@ -488,7 +590,7 @@
     ];
 @endphp
 
-<div x-data="dashLayout()" :class="{ 'dash-editing': editing }">
+<div x-data="dashLayout()" class="edu-dashboard" :class="{ 'dash-editing': editing }">
     @include('partials.dash-greeting')
 
     @if(empty($allBlocks))

@@ -19,11 +19,16 @@ class PengadaanController extends Controller
 {
     public function index(Request $request): View
     {
+        $statusCounts = Pengadaan::query()
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
         $pengadaan = Pengadaan::with('pengaju:uuid,username')
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->latest()->get();
 
-        return view('sarpras.pengadaan.index', compact('pengadaan'));
+        return view('sarpras.pengadaan.index', compact('pengadaan', 'statusCounts'));
     }
 
     public function create(): View

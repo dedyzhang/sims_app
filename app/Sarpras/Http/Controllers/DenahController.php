@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Sarpras\Http\Requests\DenahRequest;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\Denah;
+use App\Sarpras\Models\DenahRuangan;
 use App\Sarpras\Models\LaporanKerusakan;
 use App\Sarpras\Models\Peminjaman;
 use App\Sarpras\Services\FotoCompressor;
@@ -17,7 +18,7 @@ class DenahController extends Controller
 {
     public function index(): View
     {
-        // Dikelompokkan per GEDUNG; tiap gedung memuat beberapa LANTAI (denah).
+        // Dikelompokkan per gedung; tiap gedung memuat beberapa lantai/denah.
         $denah = Denah::withCount('ruangan')
             ->orderBy('gedung')
             ->orderBy('lantai')
@@ -25,8 +26,23 @@ class DenahController extends Controller
             ->get();
 
         $gedungGroups = $denah->groupBy(fn ($d) => $d->gedung ?: 'Tanpa Gedung');
+        $ruanganPerStatus = DenahRuangan::query()
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
 
-        return view('sarpras.denah.index', compact('gedungGroups'));
+        $denahStats = [
+            'gedung' => $gedungGroups->count(),
+            'lantai' => $denah->count(),
+            'ruangan' => DenahRuangan::count(),
+            'tanpa_gambar' => $denah->whereNull('gambar_path')->count(),
+            'tanpa_ruangan' => $denah->where('ruangan_count', 0)->count(),
+            'tersedia' => (int) ($ruanganPerStatus['tersedia'] ?? 0),
+            'digunakan' => (int) ($ruanganPerStatus['digunakan'] ?? 0),
+            'maintenance' => (int) ($ruanganPerStatus['maintenance'] ?? 0),
+        ];
+
+        return view('sarpras.denah.index', compact('gedungGroups', 'denahStats'));
     }
 
     /** Halaman denah interaktif: gambar + hotspot ruangan (koordinat persen). */
