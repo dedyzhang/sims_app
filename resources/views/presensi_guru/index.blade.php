@@ -76,7 +76,7 @@
                             @if(!$g->face_descriptor)<span class="text-amber-500">⚠ belum daftar wajah</span>@endif
                         </p>
                     </div>
-                    <div class="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto justify-end ml-8 sm:ml-0">
+                    <div class="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto justify-end pl-8 sm:pl-0">
                         @foreach(['hadir'=>['H','h'],'izin'=>['I','i'],'sakit'=>['S','s'],'alpa'=>['A','a']] as $val => [$abbr,$cls])
                         <label>
                             <input type="radio" name="status[{{ $g->uuid }}]" value="{{ $val }}" @checked($cur===$val) class="sr-only stat-radio stat-{{ $cls }}">

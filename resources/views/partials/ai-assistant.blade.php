@@ -4,7 +4,7 @@
      langsung via Gemini. Karena tak ada role yang memegang dua bola sekaligus,
      posisinya selalu di sudut standar (bottom-14). --}}
 <div x-data="aiAssistant()" x-cloak
-     class="fixed right-6 bottom-14 z-[9992] flex flex-col items-end gap-3 print:hidden">
+     class="fixed right-4 bottom-11 z-[9992] flex flex-col items-end gap-3 print:hidden">
 
     {{-- Panel --}}
     <div x-show="open" x-cloak
@@ -129,7 +129,7 @@
     {{-- Bola pemicu --}}
     <button type="button" @click="toggle()" :aria-expanded="open"
             :class="open ? 'hidden sm:grid' : 'grid'"
-            class="relative h-14 w-14 rounded-full bg-gradient-to-br from-primary to-primary-700 text-white shadow-lg shadow-primary/30 place-items-center hover:scale-105 active:scale-95 transition focus:outline-none focus:ring-4 focus:ring-primary/40"
+            class="relative h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary-700 text-white shadow-lg shadow-primary/30 place-items-center hover:scale-105 active:scale-95 transition focus:outline-none focus:ring-4 focus:ring-primary/40"
             title="AsistenAI">
         <svg x-show="!open" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3l1.6 3.9L17.5 8.5 13.6 10 12 14l-1.6-4L6.5 8.5l3.9-1.6z"/>

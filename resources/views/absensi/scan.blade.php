@@ -230,7 +230,7 @@ async function loadHuman(){
     human = new HumanLib({
         modelBasePath:'https://vladmandic.github.io/human-models/models/',
         backend: backend, cacheSensitivity: 0, warmup:'none',
-        face:{ enabled:true, detector:{ maxDetected:5, minConfidence:0.25 }, mesh:{enabled:true}, iris:{enabled:false},
+        face:{ enabled:true, detector:{ maxDetected:5, minConfidence:0.5 }, mesh:{enabled:true}, iris:{enabled:false},
                description:{enabled:true}, emotion:{enabled:false}, antispoof:{enabled:false}, liveness:{enabled:false} },
         body:{enabled:false}, hand:{enabled:false}, object:{enabled:false}, gesture:{enabled:false},
         filter:{enabled:false}, segmentation:{enabled:false},
@@ -253,7 +253,14 @@ function faceScan(data){
         loading:false, camOn:false, scanning:false, busy:false, fs:false,
         status:'Klik "Mulai Scan" untuk mengaktifkan kamera',
         attendees: data.map(s=>({ ...s, marked: s.status==='hadir', justMarked:false, pulangMarked: !!s.pulangDone })),
-        enrolled:[], stream:null, timer:null, threshold:0.5,
+        enrolled:[], stream:null, timer:null,
+        // ===== Ambang pencocokan wajah (dinaikkan agar tidak salah orang / false positive) =====
+        threshold:0.62,        // kemiripan minimum (0..1) — dulu 0.5 terlalu longgar
+        margin:0.06,           // wajah terbaik harus unggul >= sekian dari kandidat kedua (cegah rancu 2 orang mirip)
+        minFaceFrac:0.13,      // wajah minimal ~13% tinggi frame (wajah kecil/jauh = embedding tidak akurat)
+        minFaceScore:0.6,      // skor deteksi wajah minimum (buang deteksi ragu/blur)
+        confirmFrames:3,       // wajah harus dikenali konsisten sekian frame beruntun baru ditandai hadir
+        _streak:{},            // penghitung frame beruntun per uuid
         recent:[], lastMatch:null, _seq:0, audioCtx:null,
         scanMode:'masuk',
         activeTab: 'siswa',
@@ -398,19 +405,53 @@ function faceScan(data){
             const v=this.$refs.video, c=this.$refs.canvas;
             c.width=v.videoWidth; c.height=v.videoHeight;
             const ctx=c.getContext('2d'); ctx.clearRect(0,0,c.width,c.height);
+
+            const seenThisFrame = new Set();   // uuid yang lolos gate di frame ini (utk konfirmasi lintas-frame)
+
             (res.face||[]).forEach(f=>{
                 if(!f.embedding || !f.box) return;
-                let bestUuid=null, bestSim=0;
-                for(const s of this.enrolled){ for(const e of s.desc){ const sim=faceSim(f.embedding, e); if(sim>bestSim){ bestSim=sim; bestUuid=s.uuid; } } }
-                const matched = bestSim >= this.threshold;
                 const b=f.box; // [x,y,w,h]
-                let label='Tidak dikenal', color='#ef4444';
-                if(matched){ const s=this.attendees.find(z=>z.uuid===bestUuid); label=(s?s.nama.split(' ')[0]:'?'); color='#10b981'; this.onMatch(bestUuid); }
+
+                // Cari kandidat terbaik DAN kedua (per-orang = kemiripan tertinggi antar sampel wajahnya).
+                let bestUuid=null, bestSim=0, secondSim=0;
+                for(const s of this.enrolled){
+                    let simS=0;
+                    for(const e of s.desc){ const sim=faceSim(f.embedding, e); if(sim>simS) simS=sim; }
+                    if(simS>bestSim){ secondSim=bestSim; bestSim=simS; bestUuid=s.uuid; }
+                    else if(simS>secondSim){ secondSim=simS; }
+                }
+
+                // ===== Gate berlapis (harus lolos SEMUA baru dianggap cocok) =====
+                const faceScore = (f.faceScore ?? f.score ?? f.boxScore ?? 1);
+                const bigEnough = Math.min(b[2], b[3]) >= (c.height * this.minFaceFrac);
+                const clearGap  = (bestSim - secondSim) >= this.margin;
+                const strongMatch = bestSim >= this.threshold && clearGap && bigEnough && faceScore >= this.minFaceScore;
+
+                let label, color;
+                if(strongMatch){
+                    const s=this.attendees.find(z=>z.uuid===bestUuid);
+                    label=(s?s.nama.split(' ')[0]:'?'); color='#10b981';   // hijau: dikenal & yakin
+                    seenThisFrame.add(bestUuid);
+                } else if(bestSim >= this.threshold && bigEnough){
+                    // mirip tapi belum yakin (gap tipis / skor rendah) → jangan tandai, minta wajah lebih jelas
+                    label='Perjelas wajah…'; color='#f59e0b';
+                } else {
+                    label='Tidak dikenal'; color='#ef4444';
+                }
+
                 ctx.strokeStyle=color; ctx.lineWidth=3; ctx.strokeRect(b[0], b[1], b[2], b[3]);
                 ctx.font='bold 20px sans-serif'; const tw=ctx.measureText(label).width+14;
                 ctx.fillStyle=color; ctx.fillRect(b[0], b[1]-30, tw, 28);
                 ctx.fillStyle='#fff'; ctx.fillText(label, b[0]+7, b[1]-10);
             });
+
+            // ===== Konfirmasi lintas-frame: hanya tandai hadir bila wajah stabil beberapa frame beruntun =====
+            seenThisFrame.forEach(uuid=>{
+                this._streak[uuid] = (this._streak[uuid]||0) + 1;
+                if(this._streak[uuid] >= this.confirmFrames) this.onMatch(uuid);
+            });
+            // reset streak untuk yang tidak terlihat frame ini → false positive sekejap tak menumpuk
+            for(const uuid in this._streak){ if(!seenThisFrame.has(uuid)) this._streak[uuid]=0; }
         },
 
         onMatch(uuid){
