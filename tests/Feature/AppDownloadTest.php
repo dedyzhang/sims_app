@@ -41,6 +41,31 @@ class AppDownloadTest extends TestCase
         $this->assertSame('sims.apk', Setting::get('app_apk_name'));
     }
 
+    public function test_upload_apk_tetap_berekstensi_apk_walau_mime_zip(): void
+    {
+        Storage::fake('local');
+        $admin = $this->user('admin', 'appdl_admin_zip_mime');
+
+        $this->actingAs($admin)->post(route('setting.appDownload'), [
+            'app_download_aktif' => '1',
+            'app_apk'            => UploadedFile::fake()->create('sims-release.apk', 120, 'application/zip'),
+        ])->assertRedirect();
+
+        $path = Setting::get('app_apk_path');
+        $this->assertNotEmpty($path);
+        $this->assertStringEndsWith('.apk', $path);
+        $this->assertStringNotContainsString('.zip', $path);
+        Storage::disk('local')->assertExists($path);
+
+        $siswa = $this->user('siswa', 'appdl_siswa_zip_mime');
+        $response = $this->actingAs($siswa)->get(route('app.download.file', 'apk'));
+
+        $response->assertOk();
+        $response->assertDownload('sims-release.apk');
+        $this->assertSame('application/vnd.android.package-archive', $response->headers->get('content-type'));
+        $this->assertSame('nosniff', $response->headers->get('x-content-type-options'));
+    }
+
     public function test_validasi_tolak_ekstensi_salah(): void
     {
         Storage::fake('local');

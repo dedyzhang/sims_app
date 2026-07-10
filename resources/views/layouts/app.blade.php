@@ -638,48 +638,6 @@
                 <i data-lucide="layout-dashboard" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Dashboard</span>
             </a>
-            {{-- Bantuan: panduan pemakaian dan kanal feedback pengguna --}}
-            <div x-show="!mini" class="pt-1">
-                <button type="button" @click="toggleGroup('bantuan')"
-                        class="nav-group w-full flex items-center gap-3 px-3 py-2.5 {{ $activeGroup==='bantuan' ? 'has-active' : '' }}">
-                    <i data-lucide="life-buoy" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
-                    <span class="text-sm font-semibold truncate flex-1 text-left">Bantuan</span>
-                    <span class="flex-shrink-0 transition-transform duration-200 inline-block" :class="openGroup==='bantuan' ? 'rotate-180' : ''">
-                        <i data-lucide="chevron-down" class="w-4 h-4 flex-shrink-0"></i>
-                    </span>
-                </button>
-                <div x-show="openGroup==='bantuan'" x-collapse class="nav-submenu ml-[22px] pl-2.5 mt-0.5 space-y-0.5">
-                    <a href="{{ route('panduan.index') }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
-                        <i data-lucide="book-open-check" class="nav-icon w-4 h-4 flex-shrink-0"></i>
-                        <span class="text-[13px] truncate">Panduan SIMS</span>
-                    </a>
-                    <a href="{{ route('feedback.index') }}" class="nav-link nav-sublink relative flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
-                        <i data-lucide="message-square-heart" class="nav-icon w-4 h-4 flex-shrink-0"></i>
-                        <span class="text-[13px] truncate flex-1">Saran & Masukan</span>
-                        @if($canManageFeedback)
-                        <span x-show="feedbackUnread > 0 && !mini" x-cloak x-text="feedbackUnread > 99 ? '99+' : feedbackUnread"
-                              :aria-label="feedbackUnread + ' masukan baru'"
-                              class="ml-auto inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm shadow-rose-500/30"></span>
-                        <span x-show="feedbackUnread > 0 && mini" x-cloak
-                              :aria-label="feedbackUnread + ' masukan baru'"
-                              class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
-                        @endif
-                    </a>
-                </div>
-            </div>
-            <div x-show="mini" x-cloak class="space-y-0.5 pt-1">
-                <a href="{{ route('panduan.index') }}" data-tip="Panduan SIMS" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
-                    <i data-lucide="book-open-check" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
-                </a>
-                <a href="{{ route('feedback.index') }}" data-tip="Saran & Masukan" class="nav-link relative flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
-                    <i data-lucide="message-square-heart" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
-                    @if($canManageFeedback)
-                    <span x-show="feedbackUnread > 0" x-cloak
-                          :aria-label="feedbackUnread + ' masukan baru'"
-                          class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
-                    @endif
-                </a>
-            </div>
             @if(auth()->user()?->siswa || auth()->user()?->guru)
             <a href="{{ route('absen.qr') }}" data-tip="Absen QR" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('absen.qr') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="qr-code" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
@@ -776,6 +734,49 @@
                 @endforeach
             </div>
             @endforeach
+
+            {{-- Bantuan: panduan pemakaian dan kanal feedback pengguna --}}
+            <div x-show="!mini" class="mt-2 pt-2 border-t border-black/10 dark:border-white/10">
+                <button type="button" @click="toggleGroup('bantuan')"
+                        class="nav-group w-full flex items-center gap-3 px-3 py-2.5 {{ $activeGroup==='bantuan' ? 'has-active' : '' }}">
+                    <i data-lucide="life-buoy" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                    <span class="text-sm font-semibold truncate flex-1 text-left">Bantuan</span>
+                    <span class="flex-shrink-0 transition-transform duration-200 inline-block" :class="openGroup==='bantuan' ? 'rotate-180' : ''">
+                        <i data-lucide="chevron-down" class="w-4 h-4 flex-shrink-0"></i>
+                    </span>
+                </button>
+                <div x-show="openGroup==='bantuan'" x-collapse class="nav-submenu ml-[22px] pl-2.5 mt-0.5 space-y-0.5">
+                    <a href="{{ route('panduan.index') }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
+                        <i data-lucide="book-open-check" class="nav-icon w-4 h-4 flex-shrink-0"></i>
+                        <span class="text-[13px] truncate">Panduan SIMS</span>
+                    </a>
+                    <a href="{{ route('feedback.index') }}" class="nav-link nav-sublink relative flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
+                        <i data-lucide="message-square-heart" class="nav-icon w-4 h-4 flex-shrink-0"></i>
+                        <span class="text-[13px] truncate flex-1">Saran & Masukan</span>
+                        @if($canManageFeedback)
+                        <span x-show="feedbackUnread > 0 && !mini" x-cloak x-text="feedbackUnread > 99 ? '99+' : feedbackUnread"
+                              :aria-label="feedbackUnread + ' masukan baru'"
+                              class="ml-auto inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm shadow-rose-500/30"></span>
+                        <span x-show="feedbackUnread > 0 && mini" x-cloak
+                              :aria-label="feedbackUnread + ' masukan baru'"
+                              class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
+                        @endif
+                    </a>
+                </div>
+            </div>
+            <div x-show="mini" x-cloak class="mt-2 pt-2 border-t border-black/10 dark:border-white/10 space-y-0.5">
+                <a href="{{ route('panduan.index') }}" data-tip="Panduan SIMS" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
+                    <i data-lucide="book-open-check" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                </a>
+                <a href="{{ route('feedback.index') }}" data-tip="Saran & Masukan" class="nav-link relative flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
+                    <i data-lucide="message-square-heart" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                    @if($canManageFeedback)
+                    <span x-show="feedbackUnread > 0" x-cloak
+                          :aria-label="feedbackUnread + ' masukan baru'"
+                          class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
+                    @endif
+                </a>
+            </div>
         </nav>
 
         <button type="button"

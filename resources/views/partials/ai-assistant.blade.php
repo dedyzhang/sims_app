@@ -67,7 +67,7 @@
                                     ? 'bg-primary text-white rounded-2xl rounded-br-sm'
                                     : (m.error ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-800 rounded-2xl rounded-bl-sm'
                                                : 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 ring-1 ring-slate-200 dark:ring-slate-600 rounded-2xl rounded-bl-sm')"
-                                 class="max-w-[85%] px-3.5 py-2 text-sm whitespace-pre-wrap break-words shadow-sm" x-text="m.content"></div>
+                                 class="ai-answer max-w-[85%] px-3.5 py-2 text-sm break-words shadow-sm" x-html="renderAiMarkdown(m.content)"></div>
                         </div>
                     </template>
 
@@ -138,6 +138,8 @@
         <svg x-show="open" x-cloak class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
 </div>
+
+@include('partials.ai-markdown')
 
 <script>
     function aiAssistant() {

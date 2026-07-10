@@ -348,14 +348,14 @@ class SettingController extends Controller
         Setting::set('app_apk_version', trim((string) $request->input('app_apk_version', '')));
         Setting::set('app_windows_version', trim((string) $request->input('app_windows_version', '')));
 
-        $this->handleAppFile($request, 'app_apk', 'apk', 'app_apk_path', 'app_apk_name');
+        $this->handleAppFile($request, 'app_apk', 'apk', 'app_apk_path', 'app_apk_name', 'apk');
         $this->handleAppFile($request, 'app_windows', 'windows', 'app_windows_path', 'app_windows_name');
 
         return back()->with('success', 'Pengaturan unduh aplikasi disimpan.');
     }
 
     /** Simpan/hapus satu file aplikasi ke disk privat + catat nama asli untuk nama unduhan. */
-    private function handleAppFile(Request $request, string $field, string $slug, string $pathKey, string $nameKey): void
+    private function handleAppFile(Request $request, string $field, string $slug, string $pathKey, string $nameKey, ?string $forcedExtension = null): void
     {
         if ($request->hasFile($field)) {
             $old = Setting::get($pathKey);
@@ -363,7 +363,7 @@ class SettingController extends Controller
                 Storage::disk('local')->delete($old);
             }
             $file = $request->file($field);
-            $ext  = strtolower($file->getClientOriginalExtension());
+            $ext  = $forcedExtension ?: strtolower($file->getClientOriginalExtension());
             $path = $file->storeAs('app-downloads', $slug . '_' . now()->format('YmdHis') . '.' . $ext, 'local');
             Setting::set($pathKey, $path);
             Setting::set($nameKey, $file->getClientOriginalName());

@@ -33,8 +33,11 @@
                         <span class="js-salam-text">{{ $salam }}</span>, {{ $nama }}
                     </h1>
                     <div class="google-quote-card">
-                        <p class="text-[10px] font-extrabold uppercase tracking-wide text-slate-400">Kutipan Hari Ini</p>
-                        <p class="mt-1.5 text-sm font-semibold leading-relaxed text-slate-700 dark:text-slate-200">{{ $kataTeks }}</p>
+                        <p class="google-quote-heading font-bold" aria-label="Kutipan Hari Ini">
+                            <span>Kutipan</span>
+                            <span>Hari Ini</span>
+                        </p>
+                        <p class="google-quote-body font-semibold text-slate-700 dark:text-slate-200">{{ $kataTeks }}</p>
                         @if($kataPenulis)
                             <p class="mt-1 text-xs font-medium text-slate-400 dark:text-slate-500">{{ $kataPenulis }}</p>
                         @endif

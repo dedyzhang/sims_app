@@ -119,7 +119,7 @@
 
             <template x-if="answer && !loading">
                 <div class="flex-1 overflow-auto space-y-4">
-                    <div class="whitespace-pre-wrap break-words text-sm text-slate-800 dark:text-slate-100 leading-relaxed" x-text="answer"></div>
+                    <div class="ai-answer break-words text-sm text-slate-800 dark:text-slate-100" x-html="renderAiMarkdown(answer)"></div>
 
                     {{-- Angka sumber (transparansi) --}}
                     <details class="rounded-xl bg-slate-50 dark:bg-slate-800/60 ring-1 ring-slate-200 dark:ring-slate-700">
@@ -133,6 +133,8 @@
         </div>
     </div>
 </div>
+
+@include('partials.ai-markdown')
 
 <script>
     function analyzeAi() {
