@@ -86,7 +86,7 @@
 
             <template x-if="answer">
                 <div class="mt-4 space-y-3">
-                    <div class="whitespace-pre-wrap break-words text-sm text-slate-800 dark:text-slate-100 leading-relaxed" x-text="answer"></div>
+                    <div class="ai-answer break-words text-sm text-slate-800 dark:text-slate-100" x-html="renderAiMarkdown(answer)"></div>
                     <template x-if="sources.length">
                         <div class="pt-2 border-t border-slate-200 dark:border-slate-700">
                             <p class="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center gap-1"><i data-lucide="quote" class="w-3.5 h-3.5"></i> Sumber:</p>
@@ -111,6 +111,8 @@
         </div>
     </div>
 </div>
+
+@include('partials.ai-markdown')
 
 <script>
     function ragAi() {

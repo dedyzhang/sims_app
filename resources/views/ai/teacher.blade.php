@@ -152,10 +152,12 @@
 
             {{-- Result --}}
             <textarea x-show="result && !loading && editing" x-cloak x-model="result" rows="16" class="form-input flex-1 min-h-[260px] resize-y text-sm leading-relaxed"></textarea>
-            <div x-show="result && !loading && !editing" x-cloak class="flex-1 overflow-auto whitespace-pre-wrap break-words text-sm text-slate-800 dark:text-slate-100 leading-relaxed" x-text="result"></div>
+            <div x-show="result && !loading && !editing" x-cloak class="ai-answer flex-1 overflow-auto break-words text-sm text-slate-800 dark:text-slate-100" x-html="renderAiMarkdown(result)"></div>
         </div>
     </div>
 </div>
+
+@include('partials.ai-markdown')
 
 <script>
     function teacherAi() {

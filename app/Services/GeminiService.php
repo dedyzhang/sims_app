@@ -37,7 +37,7 @@ class GeminiService
         }
 
         $model  = $options['model'] ?? config('ai.model');
-        $system = trim(($options['system'] ?? '')."\n\n".config('ai.system_prompt'));
+        $system = trim(($options['system'] ?? '')."\n\n".config('ai.system_prompt')."\n\n".config('ai.answer_style'));
 
         $body = [
             'systemInstruction' => [

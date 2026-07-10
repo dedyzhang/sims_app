@@ -66,6 +66,21 @@ return [
     'temperature' => (float) env('AI_TEMPERATURE', 0.7),
 
     /*
+    | Gaya jawaban global. Instruksi ini ditempel ke semua system prompt agar
+    | jawaban AsistenAI konsisten, mudah dipindai, dan enak dibaca di UI.
+    */
+    'answer_style' => <<<'TXT'
+        Format jawaban:
+        - Gunakan Markdown ringan yang rapi: paragraf pendek, bullet list, numbered list,
+          tabel sederhana, dan heading seperlunya.
+        - Dahulukan jawaban inti. Hindari pembuka basa-basi.
+        - Gunakan cetak tebal hanya untuk label penting, bukan setiap kalimat.
+        - Jika menjelaskan langkah, pakai daftar bernomor yang jelas.
+        - Jika membuat soal, pisahkan bagian soal, opsi, dan kunci jawaban dengan rapi.
+        - Jangan menulis blok teks panjang tanpa jeda baris.
+        TXT,
+
+    /*
     | Chatbot (FASE 2)
     | - history_limit: jumlah pesan terakhir yang dikirim sebagai konteks (kontrol biaya).
     | - faq: ringkasan info sekolah (jam, kontak, prosedur). Ditambahkan ke system
