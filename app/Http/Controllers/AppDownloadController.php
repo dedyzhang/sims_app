@@ -49,6 +49,20 @@ class AppDownloadController extends Controller
         $path = Setting::get($meta['path']);
         abort_unless($path && Storage::disk('local')->exists($path), 404);
 
-        return Storage::disk('local')->download($path, Setting::get($meta['name']) ?: basename($path));
+        $downloadName = Setting::get($meta['name']) ?: basename($path);
+        $headers = [];
+
+        if ($platform === 'apk') {
+            if (! str_ends_with(strtolower($downloadName), '.apk')) {
+                $downloadName .= '.apk';
+            }
+
+            $headers = [
+                'Content-Type' => 'application/vnd.android.package-archive',
+                'X-Content-Type-Options' => 'nosniff',
+            ];
+        }
+
+        return Storage::disk('local')->download($path, $downloadName, $headers);
     }
 }

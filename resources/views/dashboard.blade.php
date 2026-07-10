@@ -81,13 +81,28 @@
     .google-quote-card {
         position: relative; margin-top: 1rem; overflow: hidden;
         border-radius: 1.25rem; border: 1px solid #e8eaed;
-        background: #f8fbff; padding: .95rem 1rem .95rem 1.1rem;
+        background: #f8fbff; padding: 1.05rem 1.15rem 1.1rem 1.25rem;
     }
     .google-quote-card::before {
         content: ''; position: absolute; inset: 0 auto 0 0; width: 5px;
         background: linear-gradient(180deg, #4285F4, #34A853);
     }
+    .google-quote-heading {
+        display: inline-flex; flex-direction: column; align-items: flex-start; gap: .08rem;
+        font-family: "Segoe Script", "Lucida Handwriting", "Brush Script MT", cursive; font-style: italic; font-size: clamp(1rem, 1.35vw, 1.2rem); line-height: 1.05; letter-spacing: 0;
+        color: #334155;
+    }
+    .google-quote-heading span:last-child {
+        padding-left: 1.1rem; color: #4285F4;
+    }
+    .google-quote-body {
+        margin-top: .75rem;
+        font-size: clamp(1rem, 1.25vw, 1.2rem);
+        line-height: 1.55;
+    }
     .dark .google-quote-card { background: rgba(30,41,59,.52); border-color: rgba(148,163,184,.18); }
+    .dark .google-quote-heading { color: #e2e8f0; }
+    .dark .google-quote-heading span:last-child { color: #93c5fd; }
     .google-side-panel {
         position: relative; overflow: hidden; border-radius: 1.25rem;
         padding: 1rem; background: #f8fafd;
@@ -279,114 +294,118 @@
     $salamIcon = $jam < 11 ? 'sunrise' : ($jam < 15 ? 'sun' : ($jam < 18 ? 'sunset' : 'moon'));
     $tanggalHari = $now->locale('id')->isoFormat('dddd, D MMMM Y');
 
-    // Kata motivasi harian — tetap sepanjang hari, berganti otomatis tiap hari.
-    $motivasiList = [
-        // ── Bahasa Indonesia ──
-        'Pendidikan adalah senjata paling ampuh untuk mengubah dunia.',
-        'Sedikit demi sedikit, lama-lama menjadi bukit. Konsistensi mengalahkan kesempurnaan.',
-        'Hari yang baik dimulai dari niat yang baik. Semangat untuk hari ini!',
-        'Guru terbaik adalah mereka yang menyalakan rasa ingin tahu, bukan sekadar mengisi.',
-        'Tidak ada usaha yang sia-sia, setiap langkah kecil mendekatkanmu pada tujuan.',
-        'Belajar hari ini, memimpin esok hari.',
-        'Kesabaran dan ketekunan adalah dua sahabat terbaik dalam mendidik.',
-        'Setiap anak adalah bintang dengan caranya sendiri untuk bersinar.',
-        'Mulailah dari yang kecil, mulailah dari sekarang, mulailah dari tempatmu berada.',
-        'Kualitas pendidikan menentukan kualitas masa depan bangsa.',
-        'Senyum dan semangatmu hari ini bisa menjadi inspirasi bagi orang lain.',
-        'Kerja keras tidak pernah mengkhianati hasil.',
-        'Disiplin adalah jembatan antara cita-cita dan pencapaian.',
-        'Ilmu yang bermanfaat adalah warisan terbaik yang tak pernah habis.',
-        'Jangan menunggu termotivasi untuk memulai; mulailah, maka motivasi akan datang.',
-        'Hari ini adalah kesempatan baru untuk menjadi lebih baik dari kemarin.',
-        'Mendidik dengan hati akan dikenang sepanjang masa.',
-        'Kegagalan hanyalah cara lain untuk belajar melakukannya dengan benar.',
-        'Bersyukur atas hal kecil membuat hal besar terasa lebih ringan.',
-        'Pikiran yang tenang menghasilkan keputusan yang bijak.',
-        'Ing ngarsa sung tuladha, ing madya mangun karsa, tut wuri handayani. — Ki Hajar Dewantara',
-        'Bermimpilah setinggi langit. Jika engkau jatuh, engkau akan jatuh di antara bintang-bintang. — Ir. Soekarno',
-        'Orang boleh pandai setinggi langit, tapi selama ia tidak menulis, ia akan hilang dari masyarakat dan sejarah. — Pramoedya Ananta Toer',
-        'Membaca adalah jendela dunia, dan ilmu adalah cahayanya.',
-        'Belajar tanpa berpikir itu sia-sia, berpikir tanpa belajar itu berbahaya.',
-        'Guru menggenggam masa depan bangsa di ujung penanya.',
-        'Tuntutlah ilmu dari buaian hingga ke liang lahat.',
-        'Tidak ada kata terlambat untuk belajar hal baru.',
-        'Sebaik-baik manusia adalah yang paling bermanfaat bagi sesamanya.',
-        'Kecerdasan bukan tujuan akhir, melainkan kebaikan hati yang menyertainya.',
-        'Rajin pangkal pandai, hemat pangkal kaya, malu bertanya sesat di jalan.',
-        'Pendidikan bukan mempersiapkan hidup; pendidikan adalah hidup itu sendiri.',
-        'Anak-anak kita bukan untuk kehidupan kita, melainkan untuk zamannya sendiri.',
-        'Berani bermimpi, berani belajar, berani mencoba, berani gagal, berani bangkit.',
-        'Jadikan kesalahan sebagai guru, bukan sebagai penjara.',
-        'Sebuah buku adalah teman yang tidak pernah mengkhianati.',
-        'Akar pendidikan memang pahit, tetapi buahnya manis.',
-        'Membimbing satu anak berarti menanam pohon yang teduh bagi banyak orang.',
-        'Setiap pertanyaan adalah benih dari sebuah penemuan.',
-        'Karakter yang baik lebih berharga daripada nilai yang sempurna.',
-        'Hari ini membaca, esok memimpin.',
-        'Jangan takut melangkah pelan, takutlah jika hanya berdiam diri.',
-        'Pengetahuan adalah harta yang tidak bisa dicuri.',
-        'Mengajar adalah menyentuh kehidupan selamanya.',
-        'Semangat belajar adalah api yang harus terus dijaga agar tetap menyala.',
-        'Kerendahan hati adalah awal dari semua pembelajaran.',
-        'Yang penting bukan seberapa cepat kau berlari, tapi seberapa jauh kau bertahan.',
-        'Doa, usaha, dan ilmu adalah tiga sahabat menuju kesuksesan.',
-        'Pendidikan terbaik adalah teladan yang nyata.',
-        'Sukses adalah hasil dari kebiasaan kecil yang diulang setiap hari.',
-
-        // ── English ──
-        'Education is the most powerful weapon which you can use to change the world. — Nelson Mandela',
-        'The beautiful thing about learning is that no one can take it away from you. — B.B. King',
-        'Live as if you were to die tomorrow. Learn as if you were to live forever. — Mahatma Gandhi',
-        'The roots of education are bitter, but the fruit is sweet. — Aristotle',
-        'Tell me and I forget. Teach me and I remember. Involve me and I learn. — Benjamin Franklin',
-        'The mind is not a vessel to be filled, but a fire to be kindled. — Plutarch',
-        'Education is not the filling of a pail, but the lighting of a fire. — W.B. Yeats',
-        'An investment in knowledge pays the best interest. — Benjamin Franklin',
-        'The expert in anything was once a beginner.',
-        'The only person who is educated is the one who has learned how to learn. — Carl Rogers',
-        'Develop a passion for learning. If you do, you will never cease to grow. — Anthony J. D’Angelo',
-        'Education is the passport to the future, for tomorrow belongs to those who prepare for it today. — Malcolm X',
-        'A teacher affects eternity; he can never tell where his influence stops. — Henry Adams',
-        'Learning never exhausts the mind. — Leonardo da Vinci',
-        'The capacity to learn is a gift; the ability to learn is a skill; the willingness to learn is a choice.',
-        'Change is the end result of all true learning. — Leo Buscaglia',
-        'It is the supreme art of the teacher to awaken joy in creative expression and knowledge. — Albert Einstein',
-        'The more that you read, the more things you will know. The more that you learn, the more places you’ll go. — Dr. Seuss',
-        'Anyone who stops learning is old, whether at twenty or eighty. — Henry Ford',
-        'They cannot stop me. I will get my education, if it is in the home, school, or anyplace. — Rosa Parks',
-        'The function of education is to teach one to think intensively and to think critically. — Martin Luther King Jr.',
-        'I am still learning. — Michelangelo',
-        'Success is the sum of small efforts repeated day in and day out. — Robert Collier',
-        'Strive for progress, not perfection.',
-        'Believe you can and you’re halfway there. — Theodore Roosevelt',
-        'The future belongs to those who believe in the beauty of their dreams. — Eleanor Roosevelt',
-        'Don’t watch the clock; do what it does. Keep going. — Sam Levenson',
-        'A little progress each day adds up to big results.',
-        'The harder you work for something, the greater you’ll feel when you achieve it.',
-        'Wisdom is not a product of schooling but of the lifelong attempt to acquire it. — Albert Einstein',
-        'Knowledge is power. — Francis Bacon',
-        'Curiosity is the wick in the candle of learning. — William Arthur Ward',
-        'The best way to predict your future is to create it. — Abraham Lincoln',
-        'Education breeds confidence. Confidence breeds hope. Hope breeds peace. — Confucius',
-        'The whole purpose of education is to turn mirrors into windows. — Sydney J. Harris',
-        'Learn from yesterday, live for today, hope for tomorrow. — Albert Einstein',
-        'You don’t have to be great to start, but you have to start to be great. — Zig Ziglar',
-        'Every accomplishment starts with the decision to try.',
-        'Education is not preparation for life; education is life itself. — John Dewey',
-        'There are no shortcuts to any place worth going.',
-        'Teaching is the one profession that creates all other professions.',
-        'A good teacher can inspire hope, ignite the imagination, and instill a love of learning. — Brad Henry',
-        'Genius is one percent inspiration and ninety-nine percent perspiration. — Thomas Edison',
-        'The journey of a thousand miles begins with a single step. — Lao Tzu',
-        'Do not go where the path may lead, go instead where there is no path and leave a trail. — Ralph Waldo Emerson',
-        'Small daily improvements over time lead to stunning results. — Robin Sharma',
-        'The more I learn, the more I realize how much I don’t know. — Albert Einstein',
-        'Push yourself, because no one else is going to do it for you.',
-        'Great things are done by a series of small things brought together. — Vincent van Gogh',
-        'Be a lifelong student; the day you stop learning is the day you stop growing.',
+    // 365 motivasi bilingual bertema semangat dan pendidikan.
+    // Dibangun dari 73 tema pendidikan x 5 pola aksi, lalu diputar setiap jam.
+    $motivasiThemes = [
+        ["id" => "membaca aktif", "en" => "active reading"],
+        ["id" => "menulis refleksi", "en" => "reflective writing"],
+        ["id" => "bertanya dengan berani", "en" => "asking bravely"],
+        ["id" => "mendengar guru", "en" => "listening to teachers"],
+        ["id" => "berdiskusi sehat", "en" => "healthy discussion"],
+        ["id" => "latihan soal", "en" => "practice questions"],
+        ["id" => "mengulang pelajaran", "en" => "reviewing lessons"],
+        ["id" => "menjaga fokus", "en" => "staying focused"],
+        ["id" => "disiplin waktu", "en" => "time discipline"],
+        ["id" => "rasa ingin tahu", "en" => "curiosity"],
+        ["id" => "berpikir kritis", "en" => "critical thinking"],
+        ["id" => "kreativitas belajar", "en" => "learning creativity"],
+        ["id" => "kerja sama kelas", "en" => "classroom teamwork"],
+        ["id" => "keberanian mencoba", "en" => "the courage to try"],
+        ["id" => "ketekunan harian", "en" => "daily perseverance"],
+        ["id" => "kerapian catatan", "en" => "organized notes"],
+        ["id" => "tanggung jawab tugas", "en" => "responsibility for assignments"],
+        ["id" => "kejujuran akademik", "en" => "academic honesty"],
+        ["id" => "teknologi yang bijak", "en" => "wise use of technology"],
+        ["id" => "literasi digital", "en" => "digital literacy"],
+        ["id" => "numerasi praktis", "en" => "practical numeracy"],
+        ["id" => "bahasa yang santun", "en" => "respectful language"],
+        ["id" => "kepemimpinan siswa", "en" => "student leadership"],
+        ["id" => "kepedulian teman", "en" => "care for classmates"],
+        ["id" => "budaya membaca", "en" => "a reading culture"],
+        ["id" => "proyek kecil", "en" => "small projects"],
+        ["id" => "eksperimen sains", "en" => "science experiments"],
+        ["id" => "seni dan ekspresi", "en" => "art and expression"],
+        ["id" => "olahraga dan karakter", "en" => "sports and character"],
+        ["id" => "pelayanan sekolah", "en" => "school service"],
+        ["id" => "impian masa depan", "en" => "future dreams"],
+        ["id" => "percaya diri", "en" => "confidence"],
+        ["id" => "rendah hati", "en" => "humility"],
+        ["id" => "evaluasi diri", "en" => "self-evaluation"],
+        ["id" => "perbaikan nilai", "en" => "improving grades"],
+        ["id" => "belajar mandiri", "en" => "independent learning"],
+        ["id" => "pembelajaran kelompok", "en" => "group learning"],
+        ["id" => "hadir tepat waktu", "en" => "being punctual"],
+        ["id" => "persiapan ujian", "en" => "exam preparation"],
+        ["id" => "manajemen stres", "en" => "stress management"],
+        ["id" => "tekad pagi", "en" => "morning determination"],
+        ["id" => "semangat siang", "en" => "afternoon motivation"],
+        ["id" => "refleksi sore", "en" => "evening reflection"],
+        ["id" => "doa dan usaha", "en" => "prayer and effort"],
+        ["id" => "adab belajar", "en" => "learning manners"],
+        ["id" => "menghargai proses", "en" => "valuing the process"],
+        ["id" => "target mingguan", "en" => "weekly goals"],
+        ["id" => "konsistensi kecil", "en" => "small consistency"],
+        ["id" => "keberanian presentasi", "en" => "presentation courage"],
+        ["id" => "ketelitian membaca", "en" => "careful reading"],
+        ["id" => "ketajaman logika", "en" => "sharp logic"],
+        ["id" => "empati di kelas", "en" => "classroom empathy"],
+        ["id" => "kolaborasi proyek", "en" => "project collaboration"],
+        ["id" => "kemampuan bahasa", "en" => "language skills"],
+        ["id" => "pembiasaan baik", "en" => "good habits"],
+        ["id" => "ketahanan belajar", "en" => "learning resilience"],
+        ["id" => "sikap positif", "en" => "a positive attitude"],
+        ["id" => "visi pendidikan", "en" => "an educational vision"],
+        ["id" => "guru sebagai teladan", "en" => "teachers as role models"],
+        ["id" => "siswa sebagai pemimpin", "en" => "students as leaders"],
+        ["id" => "sekolah sebagai rumah belajar", "en" => "school as a home for learning"],
+        ["id" => "keberanian bertanya", "en" => "the courage to ask questions"],
+        ["id" => "kebiasaan merangkum", "en" => "the habit of summarizing"],
+        ["id" => "belajar dari kesalahan", "en" => "learning from mistakes"],
+        ["id" => "membaca instruksi", "en" => "reading instructions"],
+        ["id" => "mengatur prioritas", "en" => "setting priorities"],
+        ["id" => "menjaga energi", "en" => "protecting your energy"],
+        ["id" => "rasa syukur belajar", "en" => "gratitude for learning"],
+        ["id" => "pembelajaran bermakna", "en" => "meaningful learning"],
+        ["id" => "kesungguhan hati", "en" => "wholehearted effort"],
+        ["id" => "inovasi sederhana", "en" => "simple innovation"],
+        ["id" => "mutu karya", "en" => "quality work"],
+        ["id" => "karakter unggul", "en" => "excellent character"],
     ];
-    // Pilih via hash tanggal: terasa acak antar-hari, tetap stabil sepanjang hari.
-    $kataMotivasi = $motivasiList[abs(crc32($now->toDateString())) % count($motivasiList)];
+
+    $motivasiActions = [
+        [
+            "id" => "Gunakan jam ini untuk memperkuat :theme; satu langkah rapi lebih baik daripada niat besar yang ditunda.",
+            "en" => "Use this hour to strengthen :theme; one steady step is better than a big intention postponed.",
+        ],
+        [
+            "id" => "Saat :theme terasa sulit, tarik napas, mulai dari bagian terkecil, dan biarkan kemajuan berbicara.",
+            "en" => "When :theme feels difficult, breathe, start with the smallest part, and let progress speak.",
+        ],
+        [
+            "id" => "Jadikan :theme sebagai latihan karakter; ilmu tumbuh saat semangat bertemu disiplin.",
+            "en" => "Turn :theme into character training; knowledge grows when motivation meets discipline.",
+        ],
+        [
+            "id" => "Hari ini, pilih satu kebiasaan baik dalam :theme dan lakukan dengan sungguh-sungguh.",
+            "en" => "Today, choose one good habit in :theme and do it with real commitment.",
+        ],
+        [
+            "id" => "Semangat belajar bertambah ketika :theme dikerjakan bersama tujuan yang jelas.",
+            "en" => "Learning spirit grows when :theme is done with a clear purpose.",
+        ],
+    ];
+
+    $motivasiList = [];
+    foreach ($motivasiThemes as $theme) {
+        foreach ($motivasiActions as $action) {
+            $nextIndex = count($motivasiList);
+            $motivasiList[] = $nextIndex % 2 === 0
+                ? str_replace(':theme', $theme['id'], $action['id'])
+                : str_replace(':theme', $theme['en'], $action['en']);
+        }
+    }
+    $quoteHourIndex = intdiv($now->getTimestamp(), 3600) % count($motivasiList);
+    $kataMotivasi = $motivasiList[$quoteHourIndex];
 
     // Pisahkan teks dengan penulisnya (jika ada "— Penulis" di akhir).
     if (preg_match('/^(.*?)\s+—\s+([^—]+)$/u', $kataMotivasi, $mm)) {
