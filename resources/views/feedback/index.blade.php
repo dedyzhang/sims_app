@@ -5,7 +5,15 @@
 <div class="max-w-6xl mx-auto space-y-6">
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-            <h1 class="page-title">Saran & Masukan</h1>
+            <div class="flex flex-wrap items-center gap-2">
+                <h1 class="page-title">Saran & Masukan</h1>
+                @if($canManage && ($newFeedbackCount ?? 0) > 0)
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-500 px-2.5 py-1 text-xs font-black text-white shadow-sm shadow-rose-500/30">
+                    <i data-lucide="mail-warning" class="w-3.5 h-3.5"></i>
+                    {{ $newFeedbackCount > 99 ? '99+' : $newFeedbackCount }} baru
+                </span>
+                @endif
+            </div>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 {{ $canManage ? 'Pantau masukan pengguna, beri status, dan tulis respon tindak lanjut.' : 'Kirim kendala, ide fitur, atau masukan penggunaan SIMS.' }}
             </p>

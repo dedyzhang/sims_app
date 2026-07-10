@@ -3,13 +3,30 @@
 namespace App\Http\Controllers;
 
 use App\Models\UserFeedback;
+use App\Notifications\FeedbackSubmittedNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class FeedbackController extends Controller
 {
     private function canManage(): bool
     {
         return auth()->user()?->canAccess('manage_feedback') ?? false;
+    }
+
+    private function newFeedbackCount(): int
+    {
+        return UserFeedback::where('status', 'baru')->count();
+    }
+
+    public function badge()
+    {
+        abort_unless($this->canManage(), 403);
+
+        return response()->json([
+            'new_count' => $this->newFeedbackCount(),
+        ]);
     }
 
     public function index(Request $request)
@@ -35,6 +52,7 @@ class FeedbackController extends Controller
             'canManage' => $canManage,
             'categories' => UserFeedback::CATEGORIES,
             'statuses' => UserFeedback::STATUSES,
+            'newFeedbackCount' => $canManage ? $this->newFeedbackCount() : 0,
         ]);
     }
 
@@ -62,23 +80,52 @@ class FeedbackController extends Controller
             'status' => 'baru',
         ]);
 
+        $this->notifyDevelopmentTeam($feedback);
+
         return redirect()
             ->route('feedback.show', $feedback)
             ->with('success', 'Masukan terkirim. Terima kasih, kami akan menindaklanjuti.');
     }
 
+    private function notifyDevelopmentTeam(UserFeedback $feedback): void
+    {
+        $email = trim((string) config('feedback.development_email', ''));
+
+        if ($email === '') {
+            return;
+        }
+
+        try {
+            Notification::route('mail', $email)
+                ->notify(new FeedbackSubmittedNotification($feedback));
+        } catch (\Throwable $e) {
+            Log::warning('Gagal mengirim notifikasi email feedback.', [
+                'feedback_uuid' => $feedback->uuid,
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function show(Request $request, UserFeedback $feedback)
     {
-        if (! $this->canManage() && $feedback->user_uuid !== $request->user()->uuid) {
+        $canManage = $this->canManage();
+
+        if (! $canManage && $feedback->user_uuid !== $request->user()->uuid) {
             abort(404);
+        }
+
+        if ($canManage && $feedback->status === 'baru') {
+            $feedback->forceFill(['status' => 'dibaca'])->save();
         }
 
         $feedback->load(['user', 'responder']);
 
         return view('feedback.show', [
             'feedback' => $feedback,
-            'canManage' => $this->canManage(),
+            'canManage' => $canManage,
             'statuses' => UserFeedback::STATUSES,
+            'newFeedbackCount' => $canManage ? $this->newFeedbackCount() : 0,
         ]);
     }
 

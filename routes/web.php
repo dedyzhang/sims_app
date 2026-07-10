@@ -89,6 +89,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/buat', 'create')->name('create');
         Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+        Route::get('/badge', 'badge')->middleware('permission:manage_feedback')->name('badge');
         Route::get('/{feedback}', 'show')->name('show');
         Route::post('/{feedback}/respon', 'respond')->middleware('permission:manage_feedback')->name('respond');
     });

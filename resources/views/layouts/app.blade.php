@@ -27,6 +27,10 @@
         // dihitung di sini, bukan cuma di dalam <aside> yang bisa disembunyikan (mode kiosk).
         $access  = auth()->user()?->access;
         $isAdmin = in_array($access, ['superadmin','admin']);
+        $canManageFeedback = auth()->user()?->canAccess('manage_feedback') ?? false;
+        $feedbackUnreadCount = $canManageFeedback
+            ? \App\Models\UserFeedback::where('status', 'baru')->count()
+            : 0;
         $fontMap = ['sm' => ['11px','13px','15px'], 'md' => ['12px','14px','16px'], 'lg' => ['13px','15px','17px']];
         $fonts = $fontMap[$pref->font_size ?? 'md'];
 
@@ -649,9 +653,17 @@
                         <i data-lucide="book-open-check" class="nav-icon w-4 h-4 flex-shrink-0"></i>
                         <span class="text-[13px] truncate">Panduan SIMS</span>
                     </a>
-                    <a href="{{ route('feedback.index') }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
+                    <a href="{{ route('feedback.index') }}" class="nav-link nav-sublink relative flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
                         <i data-lucide="message-square-heart" class="nav-icon w-4 h-4 flex-shrink-0"></i>
-                        <span class="text-[13px] truncate">Saran & Masukan</span>
+                        <span class="text-[13px] truncate flex-1">Saran & Masukan</span>
+                        @if($canManageFeedback)
+                        <span x-show="feedbackUnread > 0 && !mini" x-cloak x-text="feedbackUnread > 99 ? '99+' : feedbackUnread"
+                              :aria-label="feedbackUnread + ' masukan baru'"
+                              class="ml-auto inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm shadow-rose-500/30"></span>
+                        <span x-show="feedbackUnread > 0 && mini" x-cloak
+                              :aria-label="feedbackUnread + ' masukan baru'"
+                              class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
+                        @endif
                     </a>
                 </div>
             </div>
@@ -659,8 +671,13 @@
                 <a href="{{ route('panduan.index') }}" data-tip="Panduan SIMS" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
                     <i data-lucide="book-open-check" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 </a>
-                <a href="{{ route('feedback.index') }}" data-tip="Saran & Masukan" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
+                <a href="{{ route('feedback.index') }}" data-tip="Saran & Masukan" class="nav-link relative flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
                     <i data-lucide="message-square-heart" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                    @if($canManageFeedback)
+                    <span x-show="feedbackUnread > 0" x-cloak
+                          :aria-label="feedbackUnread + ' masukan baru'"
+                          class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
+                    @endif
                 </a>
             </div>
             @if(auth()->user()?->siswa || auth()->user()?->guru)
@@ -1241,6 +1258,8 @@
             adminChatUnread: 0,
             adminChatBadgeTimer: null,
             pengumumanUnread: 0,
+            feedbackUnread: {{ (int) $feedbackUnreadCount }},
+            feedbackBadgeTimer: null,
             toggleCollapse(){ this.collapsed=!this.collapsed; localStorage.setItem('sb_collapsed', this.collapsed?'1':'0'); this.$nextTick(()=>lucide.createIcons()); },
             startSidebarResize(e){
                 if (this.isMobile) return;
@@ -1278,6 +1297,7 @@
                 mq.addEventListener ? mq.addEventListener('change', sync) : mq.addListener(sync);
                 this.initNavTips();
                 this.initAdminChatBadge();
+                this.initFeedbackBadge();
                 // Badge menu Pengumuman disuplai dari poll dropdown notifikasi
                 // (tanpa polling tambahan) via event 'notif-updated'.
                 window.addEventListener('notif-updated', (e) => {
@@ -1297,6 +1317,23 @@
                 };
                 fetchBadge();
                 if (!this.adminChatBadgeTimer) this.adminChatBadgeTimer = setInterval(fetchBadge, 20000);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') fetchBadge();
+                });
+                @endif
+            },
+            initFeedbackBadge(){
+                @if($canManageFeedback)
+                const fetchBadge = async () => {
+                    try {
+                        const response = await fetch('{{ route('feedback.badge') }}', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        this.feedbackUnread = Number(data.new_count || 0);
+                    } catch (_) {}
+                };
+                fetchBadge();
+                if (!this.feedbackBadgeTimer) this.feedbackBadgeTimer = setInterval(fetchBadge, 20000);
                 document.addEventListener('visibilitychange', () => {
                     if (document.visibilityState === 'visible') fetchBadge();
                 });
