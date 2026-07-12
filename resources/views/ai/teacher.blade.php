@@ -8,50 +8,48 @@
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
             <h1 class="page-title flex items-center gap-2"><i data-lucide="sparkles" class="w-6 h-6 text-primary"></i> Asisten Guru</h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Percepat menyusun soal, RPM / LKPD / Modul Ajar, ringkasan materi, dan umpan balik siswa.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Percepat menyusun soal, RPM Learning, ringkasan materi, dan umpan balik siswa.</p>
         </div>
     </div>
     {{-- Penggunaan free tier --}}
     <div class="card p-4" x-show="quota" x-cloak>
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                    <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2"><i data-lucide="gauge" class="w-4 h-4 text-primary"></i> Estimasi free tier hari ini</h2>
-                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                          :class="quota.status === 'locked' || quota.status === 'exhausted' ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200' : (quota.status === 'warning' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-200' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200')"
-                          x-text="quota.status_label"></span>
+                <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                    <i data-lucide="gauge" class="w-4 h-4 text-primary"></i>
+                    Keterangan Kuota Tersisa
+                </h2>
+                <div class="mt-3 flex flex-wrap items-end gap-3">
+                    <div class="text-2xl font-extrabold text-slate-800 dark:text-slate-100" x-text="quota.remaining_label || 'Sisa kuota tidak diketahui'"></div>
+                    <div class="pb-1 text-xs font-medium text-slate-400" x-show="quota.remaining_percent !== null" x-text="quota.remaining_percent + '% tersisa'"></div>
                 </div>
-                <p class="mt-1 text-sm text-slate-600 dark:text-slate-300" x-text="quota.message"></p>
-                <p class="mt-1 text-xs text-slate-400" x-text="quota.notice"></p>
             </div>
-            <div class="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-                <div class="font-semibold text-slate-700 dark:text-slate-100" x-text="quota.total && quota.total.limit ? quota.total.used + ' / ' + quota.total.limit + ' request' : (quota.total ? quota.total.used + ' request hari ini' : '0 request hari ini')"></div>
-                <div>Reset: <span x-text="quota.reset_at_human"></span></div>
+            <div class="w-full lg:w-72">
+                <div class="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" x-show="quota.remaining_percent !== null">
+                    <div class="h-full rounded-full bg-primary transition-all" :style="'width: ' + quota.remaining_percent + '%'"></div>
+                </div>
+                <div class="mt-2 h-3 rounded-full bg-slate-100 dark:bg-slate-800" x-show="quota.remaining_percent === null"></div>
             </div>
         </div>
 
-        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <template x-for="item in quota.models" :key="item.model">
-                <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/40">
-                    <div class="flex items-center justify-between gap-2 text-xs">
-                        <span class="truncate font-semibold text-slate-700 dark:text-slate-100" x-text="item.model"></span>
-                        <span class="shrink-0 text-slate-400" x-text="item.limit ? item.used + '/' + item.limit : item.used + 'x'"></span>
+        @if($canViewQuotaUsage ?? false)
+            <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <template x-for="item in quota.models" :key="item.model">
+                    <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/40">
+                        <div class="flex items-center justify-between gap-2 text-xs">
+                            <span class="truncate font-semibold text-slate-700 dark:text-slate-100" x-text="item.model"></span>
+                            <span class="shrink-0 text-slate-400" x-text="item.remaining !== null ? item.remaining + ' tersisa' : 'batas AI Studio'"></span>
+                        </div>
+                        <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                            <div class="h-full rounded-full transition-all"
+                                 :class="item.status === 'exhausted' ? 'bg-rose-500' : (item.status === 'warning' ? 'bg-amber-500' : 'bg-primary')"
+                                 :style="'width: ' + (item.limit ? Math.max(0, Math.min(100, Math.floor((item.remaining / item.limit) * 100))) : 0) + '%'"></div>
+                        </div>
                     </div>
-                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                        <div class="h-full rounded-full transition-all"
-                             :class="item.status === 'exhausted' ? 'bg-rose-500' : (item.status === 'warning' ? 'bg-amber-500' : 'bg-primary')"
-                             :style="'width: ' + (item.limit ? item.percent : Math.min(100, item.used * 4)) + '%'"></div>
-                    </div>
-                    <div class="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-400">
-                        <span x-text="item.limit ? Math.max(0, item.remaining) + ' tersisa' : 'batas lihat AI Studio'"></span>
-                        <span x-text="item.prompt_tokens + item.completion_tokens + ' token'"></span>
-                    </div>
-                </div>
-            </template>
-        </div>
+                </template>
+            </div>
+        @endif
     </div>
-
-
     {{-- Tab --}}
     <div class="flex flex-wrap gap-2">
         <template x-for="t in tabs" :key="t.key">
@@ -123,16 +121,9 @@
                 </button>
             </div>
 
-            {{-- RPM / LKPD / Modul Ajar Learning --}}
+            {{-- RPM Learning --}}
             <div x-show="tab === 'learning'" class="space-y-4" x-cloak>
-                <div>
-                    <label class="form-label">Pilih Tools <span class="text-rose-500">*</span></label>
-                    <select x-model="learning.tool" class="form-input">
-                        <option value="rpp">RPM Learning</option>
-                        <option value="lkpd">LKPD Learning</option>
-                        <option value="modul_ajar">Modul Ajar Deep Learning</option>
-                    </select>
-                </div>
+                <div class="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary">RPM Learning</div>
                 <div>
                     <label class="form-label">Topik <span class="text-rose-500">*</span></label>
                     <input type="text" x-model="learning.topik" placeholder="mis. Ekosistem, Persamaan Linear, Teks Prosedur..." class="form-input">
@@ -150,10 +141,10 @@
                 <div>
                     <label class="form-label">Alokasi Waktu</label>
                     <input type="text" x-model="learning.durasi" placeholder="mis. 2 x 40 menit" class="form-input">
-                    <p class="text-[11px] text-slate-400 mt-1">Output memakai 8 komponen: Identitas Pembelajaran, DPL, Tujuan, 4 Pilar PM, Kegiatan, Asesmen, Refleksi, Lampiran/Sumber. Modul Ajar diarahkan ke Kurikulum Mendalam / Deep Learning.</p>
+                    <p class="text-[11px] text-slate-400 mt-1">Output memakai format RPM Learning: identitas, DPL, tujuan, 4 Pilar PM, kegiatan, asesmen, refleksi, lampiran, dan sumber belajar.</p>
                 </div>
                 <button type="button" @click="submit('learning')" :disabled="loading || learning.topik.trim() === ''" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="clipboard-list" class="w-4 h-4"></i> Buat RPM / LKPD / Modul Ajar
+                    <i data-lucide="clipboard-list" class="w-4 h-4"></i> Buat RPM Learning
                 </button>
             </div>
             {{-- Perangkum Materi --}}
@@ -232,7 +223,7 @@
             {{-- Result --}}
             <textarea x-show="result && !loading && editing" x-cloak x-model="result" rows="16" class="form-input flex-1 min-h-[260px] resize-y text-sm leading-relaxed"></textarea>
 
-            {{-- Pratinjau dokumen berformat (tab RPM Â· LKPD Â· Modul): sama persis dengan hasil export --}}
+            {{-- Pratinjau dokumen berformat RPM: sama persis dengan hasil export --}}
             <div x-show="result && !loading && !editing && previewHtml" x-cloak class="flex-1 overflow-auto" x-html="previewHtml"></div>
 
             {{-- Teks biasa: tab lain, atau bila pratinjau gagal/konten tak berformat RPM --}}
@@ -288,7 +279,7 @@
             quota: @js($quotaUsage ?? null),
             tabs: [
                 { key: 'quiz',     label: 'Generator Soal',  icon: 'file-question' },
-                { key: 'learning', label: 'RPM / LKPD / Modul', icon: 'clipboard-list' },
+                { key: 'learning', label: 'RPM Learning', icon: 'clipboard-list' },
                 { key: 'summary',  label: 'Perangkum Materi', icon: 'list-collapse' },
                 { key: 'feedback', label: 'Draft Feedback',   icon: 'message-square-heart' },
             ],
@@ -470,7 +461,7 @@
             },
 
             openHistory(item) {
-                const learningTypes = ['rpp', 'lkpd', 'modul_ajar'];
+                const learningTypes = ['rpp'];
                 this.tab = learningTypes.includes(item.type) ? 'learning' : item.type;
                 if (learningTypes.includes(item.type)) this.learning.tool = item.type;
                 this.result = item.answer || '';
@@ -483,13 +474,7 @@
             },
 
             learningToolLabel() {
-                const labels = {
-                    rpp: 'RPM Learning',
-                    lkpd: 'LKPD Learning',
-                    modul_ajar: 'Modul Ajar Deep Learning',
-                };
-
-                return labels[this.learning.tool] || 'RPM Learning';
+                return 'RPM Learning';
             },
             async exportLearning(format) {
                 if (!this.result) return;

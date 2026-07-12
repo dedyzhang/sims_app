@@ -7,12 +7,14 @@ use App\Models\Kelas;
 use App\Models\NilaiPenjabaran;
 use App\Models\Pelajaran;
 use App\Models\PenjabaranKomponen;
+use App\Models\RolePermission;
 use App\Models\Semester;
 use App\Models\Setting;
+use App\Support\Uploads;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Illuminate\Support\Str;
 
 class SettingController extends Controller
 {
@@ -20,31 +22,31 @@ class SettingController extends Controller
     private const VALID_ROLES = ['kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'bendahara', 'guru', 'orangtua', 'siswa'];
 
     private const PERMISSION_LABELS = [
-        'manage_users'   => 'Mengelola Data Siswa & Guru (Data Master)',
+        'manage_users' => 'Mengelola Data Siswa & Guru (Data Master)',
         'manage_absensi' => 'Mengelola Absensi & Presensi',
-        'manage_jadwal'  => 'Mengelola Jadwal Pelajaran',
+        'manage_jadwal' => 'Mengelola Jadwal Pelajaran',
         'view_all_nilai' => 'Melihat Nilai Semua Mapel & Guru',
         'edit_all_nilai' => 'Mengubah Nilai Semua Mapel & Guru',
-        'manage_agenda'  => 'Mengelola & Validasi Rekap Agenda',
-        'manage_rapor'   => 'Mengelola Rekap Nilai & Cetak Rapor',
-        'manage_disiplin'=> 'Mengelola Modul Kedisiplinan (Poin/P3)',
+        'manage_agenda' => 'Mengelola & Validasi Rekap Agenda',
+        'manage_rapor' => 'Mengelola Rekap Nilai & Cetak Rapor',
+        'manage_disiplin' => 'Mengelola Modul Kedisiplinan (Poin/P3)',
         'manage_sarpras' => 'Mengelola Sarana & Prasarana',
-        'manage_keuangan'=> 'Mengelola Modul Keuangan',
-        'manage_pengumuman'=> 'Membuat & Mengelola Pengumuman',
-        'manage_feedback'=> 'Merespon Saran & Masukan Pengguna',
-        'manage_settings'=> 'Mengelola Pengaturan Sistem',
-        'manage_perangkat'=> 'Memantau Perangkat Ajar Guru',
+        'manage_keuangan' => 'Mengelola Modul Keuangan',
+        'manage_pengumuman' => 'Membuat & Mengelola Pengumuman',
+        'manage_feedback' => 'Merespon Saran & Masukan Pengguna',
+        'manage_settings' => 'Mengelola Pengaturan Sistem',
+        'manage_perangkat' => 'Memantau Perangkat Ajar Guru',
     ];
 
     public function index()
     {
-        $semester   = Semester::orderBy('tahun')->orderBy('semester')->get();
+        $semester = Semester::orderBy('tahun')->orderBy('semester')->get();
         $semesterAktif = Semester::aktif();
-        $kelas      = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
+        $kelas = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
         $pelajarans = Pelajaran::orderBy('urutan')->orderBy('nama')->get();
 
-        $settings   = Setting::pluck('value', 'key');
-        $aturans    = Aturan::orderBy('kode')->get();
+        $settings = Setting::pluck('value', 'key');
+        $aturans = Aturan::orderBy('kode')->get();
 
         return view('setting.index', compact('semester', 'semesterAktif', 'kelas', 'pelajarans', 'settings', 'aturans'));
     }
@@ -56,6 +58,7 @@ class SettingController extends Controller
         ]);
         Semester::query()->update(['aktif' => false]);
         Semester::findOrFail($request->semester_id)->update(['aktif' => true]);
+
         return back()->with('success', 'Semester aktif diperbarui.');
     }
 
@@ -63,9 +66,10 @@ class SettingController extends Controller
     {
         $request->validate([
             'semester' => 'required|in:1,2',
-            'tahun'    => 'required|string',
+            'tahun' => 'required|string',
         ]);
         Semester::create(['semester' => $request->semester, 'tahun' => $request->tahun, 'aktif' => false]);
+
         return back()->with('success', 'Semester ditambah.');
     }
 
@@ -73,12 +77,14 @@ class SettingController extends Controller
     {
         $request->validate([
             'sekolah_logo' => 'nullable|image|mimes:png,jpg,jpeg,svg,webp|max:2048',
-            'hapus_logo'   => 'nullable|boolean',
+            'hapus_logo' => 'nullable|boolean',
         ]);
 
         $fields = ['nama_sekolah', 'npsn', 'alamat_sekolah', 'kepala_sekolah', 'nip_kepala', 'kota', 'provinsi', 'telp_sekolah'];
         foreach ($fields as $f) {
-            if ($request->has($f)) Setting::set($f, $request->$f);
+            if ($request->has($f)) {
+                Setting::set($f, $request->$f);
+            }
         }
 
         if ($request->hasFile('sekolah_logo')) {
@@ -87,8 +93,8 @@ class SettingController extends Controller
             if ($old && Storage::disk('public')->exists($old)) {
                 Storage::disk('public')->delete($old);
             }
-            $ext = $request->file('sekolah_logo')->getClientOriginalExtension() ?: 'png';
-            $path = $request->file('sekolah_logo')->storeAs('logo', 'sekolah_logo_' . now()->format('YmdHis') . '.' . $ext, 'public');
+            $ext = Uploads::safeExtension($request->file('sekolah_logo'), ['png', 'jpg', 'jpeg', 'svg', 'webp'], 'png');
+            $path = $request->file('sekolah_logo')->storeAs('logo', 'sekolah_logo_'.now()->format('YmdHis').'.'.$ext, 'public');
             Setting::set('sekolah_logo', $path);
         } elseif ($request->boolean('hapus_logo')) {
             $old = Setting::get('sekolah_logo');
@@ -117,37 +123,41 @@ class SettingController extends Controller
     {
         $request->validate(['poin_terlambat' => 'required|integer']);
         Setting::set('poin_terlambat', $request->poin_terlambat);
+
         return back()->with('success', 'Pengaturan poin terlambat disimpan.');
     }
 
     public function setWaktuTerlambat(Request $request)
     {
         $request->validate([
-            'waktu_terlambat'      => 'required|date_format:H:i',
+            'waktu_terlambat' => 'required|date_format:H:i',
             'waktu_terlambat_guru' => 'required|date_format:H:i',
         ]);
         Setting::set('waktu_terlambat', $request->waktu_terlambat);
         Setting::set('waktu_terlambat_guru', $request->waktu_terlambat_guru);
+
         return back()->with('success', 'Batas jam terlambat siswa & guru disimpan.');
     }
 
     public function setLokasiQr(Request $request)
     {
         $request->validate([
-            'sekolah_lat'  => 'nullable|numeric|between:-90,90',
-            'sekolah_lng'  => 'nullable|numeric|between:-180,180',
+            'sekolah_lat' => 'nullable|numeric|between:-90,90',
+            'sekolah_lng' => 'nullable|numeric|between:-180,180',
             'absen_radius' => 'required|integer|min:10|max:5000',
         ]);
         Setting::set('sekolah_lat', $request->sekolah_lat);
         Setting::set('sekolah_lng', $request->sekolah_lng);
         Setting::set('absen_radius', $request->absen_radius);
         Setting::set('qr_absensi_aktif', $request->boolean('qr_absensi_aktif') ? '1' : '0');
+
         return back()->with('success', 'Lokasi & QR absensi disimpan.');
     }
 
     public function setMapelRapor(Request $request)
     {
         Setting::set('mapel_rapor', json_encode($request->input('mapels', [])));
+
         return back()->with('success', 'Setting mapel rapor disimpan.');
     }
 
@@ -155,6 +165,7 @@ class SettingController extends Controller
     {
         $request->validate(['tanggal_rapor' => 'required|date']);
         Setting::set('tanggal_rapor', $request->tanggal_rapor);
+
         return back()->with('success', 'Tanggal rapor disimpan.');
     }
 
@@ -162,19 +173,22 @@ class SettingController extends Controller
     {
         $request->validate(['cara_absensi' => 'required|in:wajah,barcode']);
         Setting::set('cara_absensi_guru', $request->cara_absensi);
+
         return back()->with('success', 'Cara absensi disimpan.');
     }
 
     /** Buat/ganti token link kiosk absensi publik. Mengganti token otomatis mematikan link lama. */
     public function regenerateKioskToken()
     {
-        Setting::set('kiosk_token', \Illuminate\Support\Str::random(40));
+        Setting::set('kiosk_token', Str::random(40));
+
         return back()->with('success', 'Link kiosk absensi berhasil dibuat ulang. Link lama tidak berlaku lagi.');
     }
 
     public function setAgendaWajibPulang(Request $request)
     {
         Setting::set('agenda_wajib_pulang', $request->boolean('agenda_wajib_pulang') ? '1' : '0');
+
         return back()->with('success', 'Pengaturan agenda sebelum pulang disimpan.');
     }
 
@@ -182,6 +196,7 @@ class SettingController extends Controller
     public function setWalikelasLihatNilai(Request $request)
     {
         Setting::set('walikelas_lihat_nilai', $request->boolean('walikelas_lihat_nilai') ? '1' : '0');
+
         return back()->with('success', 'Pengaturan akses nilai wali kelas disimpan.');
     }
 
@@ -190,6 +205,7 @@ class SettingController extends Controller
     {
         $request->validate(['jenis_aturan' => 'required|in:poin,p3']);
         Setting::set('jenis_aturan', $request->jenis_aturan);
+
         return back()->with('success', 'Sistem aturan kedisiplinan disimpan.');
     }
 
@@ -198,6 +214,7 @@ class SettingController extends Controller
     {
         $request->validate(['poin_terlambat_aturan' => 'nullable|exists:aturan,uuid']);
         Setting::set('poin_terlambat_aturan', $request->poin_terlambat_aturan ?: '');
+
         return back()->with('success', 'Aturan poin keterlambatan disimpan.');
     }
 
@@ -207,6 +224,7 @@ class SettingController extends Controller
             'rumus_rapor' => 'required|in:bagi3,bagi4,jumlahDulu',
         ]);
         Setting::set('rumus_rapor', $request->rumus_rapor);
+
         return back()->with('success', 'Rumus perhitungan nilai rapor berhasil diperbarui.');
     }
 
@@ -230,6 +248,7 @@ class SettingController extends Controller
         }
         Setting::set('tp_min', $min);
         Setting::set('tp_max', $max);
+
         return back()->with('success', 'Batas jumlah Tujuan Pembelajaran disimpan.');
     }
 
@@ -237,18 +256,19 @@ class SettingController extends Controller
     public function penjabaran()
     {
         $pelajarans = Pelajaran::with('penjabaranKomponen')->orderBy('urutan')->orderBy('nama')->get();
+
         return view('setting.penjabaran', compact('pelajarans'));
     }
 
     public function penjabaranSave(Request $request)
     {
         $data = $request->validate([
-            'k_uuid'      => 'array',
-            'k_uuid.*'    => 'nullable|string',
+            'k_uuid' => 'array',
+            'k_uuid.*' => 'nullable|string',
             'k_pelajaran' => 'array',
             'k_pelajaran.*' => 'nullable|string',
-            'k_nama'      => 'array',
-            'k_nama.*'    => 'nullable|string|max:60',
+            'k_nama' => 'array',
+            'k_nama.*' => 'nullable|string|max:60',
         ]);
 
         DB::transaction(function () use ($data) {
@@ -256,8 +276,10 @@ class SettingController extends Controller
             $urutByPel = [];
             foreach ($data['k_nama'] ?? [] as $i => $nama) {
                 $nama = trim((string) $nama);
-                $pel  = $data['k_pelajaran'][$i] ?? null;
-                if ($nama === '' || !$pel) continue;
+                $pel = $data['k_pelajaran'][$i] ?? null;
+                if ($nama === '' || ! $pel) {
+                    continue;
+                }
                 $uuid = $data['k_uuid'][$i] ?? null;
                 $urut = ($urutByPel[$pel] = ($urutByPel[$pel] ?? 0) + 1);
                 if ($uuid && ($row = PenjabaranKomponen::find($uuid))) {
@@ -283,6 +305,7 @@ class SettingController extends Controller
     {
         abort_unless(auth()->user()->canAccess('manage_settings'), 403);
         $settings = Setting::pluck('value', 'key');
+
         return view('setting.kop-rapor', compact('settings'));
     }
 
@@ -290,23 +313,27 @@ class SettingController extends Controller
     {
         abort_unless(auth()->user()->canAccess('manage_settings'), 403);
         $request->validate([
-            'kop_logo_kiri'  => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
+            'kop_logo_kiri' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
             'kop_logo_kanan' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
-            'kop_backdrop'   => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
-            'kop_teks'       => 'nullable|string|max:20000',
+            'kop_backdrop' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
+            'kop_teks' => 'nullable|string|max:20000',
         ]);
 
         foreach (['kop_logo_kiri', 'kop_logo_kanan', 'kop_backdrop'] as $field) {
             if ($request->hasFile($field)) {
                 // hapus file lama bila ada
                 $old = Setting::get($field);
-                if ($old && Storage::disk('public')->exists($old)) Storage::disk('public')->delete($old);
-                $ext  = $request->file($field)->getClientOriginalExtension() ?: 'png';
-                $path = $request->file($field)->storeAs('kop', $field . '_' . now()->format('YmdHis') . '.' . $ext, 'public');
+                if ($old && Storage::disk('public')->exists($old)) {
+                    Storage::disk('public')->delete($old);
+                }
+                $ext = Uploads::safeExtension($request->file($field), ['png', 'jpg', 'jpeg', 'webp'], 'png');
+                $path = $request->file($field)->storeAs('kop', $field.'_'.now()->format('YmdHis').'.'.$ext, 'public');
                 Setting::set($field, $path);
-            } elseif ($request->boolean('hapus_' . $field)) {
+            } elseif ($request->boolean('hapus_'.$field)) {
                 $old = Setting::get($field);
-                if ($old && Storage::disk('public')->exists($old)) Storage::disk('public')->delete($old);
+                if ($old && Storage::disk('public')->exists($old)) {
+                    Storage::disk('public')->delete($old);
+                }
                 Setting::set($field, '');
             }
         }
@@ -337,10 +364,10 @@ class SettingController extends Controller
                     $fail('File installer Windows harus berekstensi .exe atau .msi');
                 }
             }],
-            'app_apk_version'     => ['nullable', 'string', 'max:40'],
+            'app_apk_version' => ['nullable', 'string', 'max:40'],
             'app_windows_version' => ['nullable', 'string', 'max:40'],
         ], [], [
-            'app_apk'     => 'file APK',
+            'app_apk' => 'file APK',
             'app_windows' => 'installer Windows',
         ]);
 
@@ -363,11 +390,11 @@ class SettingController extends Controller
                 Storage::disk('local')->delete($old);
             }
             $file = $request->file($field);
-            $ext  = $forcedExtension ?: strtolower($file->getClientOriginalExtension());
-            $path = $file->storeAs('app-downloads', $slug . '_' . now()->format('YmdHis') . '.' . $ext, 'local');
+            $ext = $forcedExtension ?: strtolower($file->getClientOriginalExtension());
+            $path = $file->storeAs('app-downloads', $slug.'_'.now()->format('YmdHis').'.'.$ext, 'local');
             Setting::set($pathKey, $path);
             Setting::set($nameKey, $file->getClientOriginalName());
-        } elseif ($request->boolean('hapus_' . $field)) {
+        } elseif ($request->boolean('hapus_'.$field)) {
             $old = Setting::get($pathKey);
             if ($old && Storage::disk('local')->exists($old)) {
                 Storage::disk('local')->delete($old);
@@ -382,14 +409,14 @@ class SettingController extends Controller
         $roles = self::VALID_ROLES;
         $permissions = self::PERMISSION_LABELS;
 
-        $granted = \App\Models\RolePermission::all()->groupBy('role')->map(function($items) {
+        $granted = RolePermission::all()->groupBy('role')->map(function ($items) {
             return $items->pluck('permission')->toArray();
         })->toArray();
 
         return view('settings.roles', compact('roles', 'permissions', 'granted'));
     }
 
-    public function rolesSave(\Illuminate\Http\Request $request)
+    public function rolesSave(Request $request)
     {
         // 'perms' opsional (boleh kosong bila semua checkbox dilepas), tapi kalau
         // ada wajib berbentuk array — cegah TypeError dari input non-array.
@@ -399,17 +426,17 @@ class SettingController extends Controller
         $validRoles = self::VALID_ROLES;
         $validPermissions = array_keys(self::PERMISSION_LABELS);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($perms, $validRoles, $validPermissions) {
-            \App\Models\RolePermission::query()->delete();
+        DB::transaction(function () use ($perms, $validRoles, $validPermissions) {
+            RolePermission::query()->delete();
             foreach ($perms as $role => $rolePerms) {
                 // Whitelist role & pastikan nilainya array — abaikan entri di luar itu
                 // (mencegah role/permission sembarang tersimpan ke tabel hak akses).
-                if (!in_array($role, $validRoles, true) || !is_array($rolePerms)) {
+                if (! in_array($role, $validRoles, true) || ! is_array($rolePerms)) {
                     continue;
                 }
                 foreach ($rolePerms as $permission => $val) {
                     if ($val && in_array($permission, $validPermissions, true)) {
-                        \App\Models\RolePermission::create([
+                        RolePermission::create([
                             'role' => $role,
                             'permission' => $permission,
                         ]);

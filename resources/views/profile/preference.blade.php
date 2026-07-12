@@ -81,6 +81,56 @@
                 </div>
             </div>
 
+
+            {{-- Tema Dashboard --}}
+            <div class="card p-5">
+                <div class="flex items-center gap-2 mb-1">
+                    <i data-lucide="monitor-cog" class="w-[18px] h-[18px] text-primary"></i>
+                    <h2 class="font-bold text-slate-800 dark:text-slate-100">Tema Dashboard</h2>
+                </div>
+                <p class="text-xs text-slate-400 mb-4">Pilih rasa tampilan khusus halaman dashboard.</p>
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <button type="button" @click="setDashboardTheme('windows11')"
+                            class="theme-card relative rounded-2xl p-3 border-2 text-left overflow-hidden transition"
+                            :class="dashboard_theme==='windows11' ? 'border-primary' : 'border-slate-100 dark:border-slate-700'">
+                        <div class="h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 mb-3 p-2">
+                            <div class="h-4 rounded-lg bg-white/90 border border-blue-100 mb-2 flex items-center justify-end px-1.5">
+                                <span class="w-3 h-3 rounded bg-blue-500"></span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1.5">
+                                <span class="h-10 rounded-lg bg-white border border-blue-100 shadow-sm"></span>
+                                <span class="h-10 rounded-lg bg-sky-50 border border-sky-100 shadow-sm"></span>
+                                <span class="h-10 rounded-lg bg-white border border-blue-100 shadow-sm"></span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <p class="text-[13px] font-bold text-slate-700 dark:text-slate-200">Windows 11</p>
+                            <i x-show="dashboard_theme==='windows11'" data-lucide="check-circle-2" class="w-4 h-4 text-primary"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Fluent, rapi, radius sedang</p>
+                    </button>
+                    <button type="button" @click="setDashboardTheme('macos')"
+                            class="theme-card relative rounded-2xl p-3 border-2 text-left overflow-hidden transition"
+                            :class="dashboard_theme==='macos' ? 'border-primary' : 'border-slate-100 dark:border-slate-700'">
+                        <div class="h-20 rounded-[22px] overflow-hidden border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-sky-50 via-white to-pink-50 mb-3 p-2">
+                            <div class="flex gap-1 mb-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-amber-300"></span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-1.5">
+                                <span class="h-11 rounded-2xl bg-white/70 border border-white shadow-sm backdrop-blur"></span>
+                                <span class="h-11 rounded-2xl bg-white/55 border border-white shadow-sm backdrop-blur"></span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <p class="text-[13px] font-bold text-slate-700 dark:text-slate-200">Mac OS</p>
+                            <i x-show="dashboard_theme==='macos'" data-lucide="check-circle-2" class="w-4 h-4 text-primary"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Glass, halus, radius besar</p>
+                    </button>
+                </div>
+            </div>
             {{-- Tema lengkap (motif + warna) --}}
             <div class="card p-5">
                 <div class="flex items-center gap-2 mb-1">
@@ -305,6 +355,7 @@ function prefStudio(data) {
         theme_mode:      data.theme_mode      || 'light',
         motif:           data.motif           || 'botanical',
         ui_style:        data.ui_style        || 'soft',
+        dashboard_theme: data.dashboard_theme || 'windows11',
         font_size:       data.font_size       || 'md',
         compact_mode:    !!data.compact_mode,
     };
@@ -332,9 +383,10 @@ function prefStudio(data) {
         _state() {
             return { primary_color:this.primary_color, secondary_color:this.secondary_color, accent_color:this.accent_color,
                      sidebar_bg:this.sidebar_bg, sidebar_text:this.sidebar_text, sidebar_style:this.sidebar_style,
-                     theme_mode:this.theme_mode, motif:this.motif, ui_style:this.ui_style, font_size:this.font_size, compact_mode:this.compact_mode };
+                     theme_mode:this.theme_mode, motif:this.motif, ui_style:this.ui_style, dashboard_theme:this.dashboard_theme, font_size:this.font_size, compact_mode:this.compact_mode };
         },
         setStyleVal(s) { this.ui_style = s; if (window.setStyle) window.setStyle(s); },
+        setDashboardTheme(t) { this.dashboard_theme = t; if (window.setDashboardTheme) window.setDashboardTheme(t); },
 
         apply() {
             const r = document.documentElement;
@@ -370,6 +422,7 @@ function prefStudio(data) {
             this.setMode(this.theme_mode);
             if (window.setMotif) window.setMotif(this.motif);
             if (window.setStyle) window.setStyle(this.ui_style);
+            if (window.setDashboardTheme) window.setDashboardTheme(this.dashboard_theme);
             this.$nextTick(()=>lucide.createIcons());
         },
 

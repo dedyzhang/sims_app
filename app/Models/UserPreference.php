@@ -12,7 +12,7 @@ class UserPreference extends Model
     protected $fillable = [
         'user_uuid', 'primary_color', 'secondary_color', 'accent_color',
         'sidebar_style', 'sidebar_bg', 'sidebar_text',
-        'theme_mode', 'motif', 'ui_style', 'font_size', 'compact_mode', 'dashboard_widgets',
+        'theme_mode', 'motif', 'ui_style', 'dashboard_theme', 'font_size', 'compact_mode', 'dashboard_widgets',
         'dashboard_layout', 'dashboard_hidden',
     ];
 
@@ -55,6 +55,7 @@ class UserPreference extends Model
             'theme_mode'        => 'light',
             'motif'             => 'minimal',
             'ui_style'          => 'soft',
+            'dashboard_theme'   => 'windows11',
             'font_size'         => 'md',
             'compact_mode'      => false,
             'dashboard_widgets' => ['stats', 'calendar', 'jadwal', 'pengumuman'],

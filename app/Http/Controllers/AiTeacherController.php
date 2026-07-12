@@ -39,9 +39,12 @@ class AiTeacherController extends Controller
             ->map(fn (AiTeacherHistory $history) => $this->historyPayload($history))
             ->values();
 
+        $user = auth()->user();
+
         return view('ai.teacher', [
             'histories' => $histories,
-            'quotaUsage' => $this->aiFreeTierUsage(),
+            'quotaUsage' => $this->aiQuotaUsageFor($user),
+            'canViewQuotaUsage' => $this->canViewAiQuotaUsage($user),
         ]);
     }
 
@@ -131,11 +134,11 @@ class AiTeacherController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
-    /** POST /ai/teacher/learning - generator RPM/LKPD/Modul Ajar learning. */
+    /** POST /ai/teacher/learning - generator RPM Learning. */
     public function learning(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'tool' => ['required', 'in:rpp,lkpd,modul_ajar'],
+            'tool' => ['required', 'in:rpp'],
             'topik' => ['required', 'string', 'max:500'],
             'mapel' => ['nullable', 'string', 'max:100'],
             'jenjang' => ['nullable', 'string', 'max:100'],
@@ -198,7 +201,7 @@ class AiTeacherController extends Controller
         ]);
     }
 
-    /** POST /ai/teacher/learning/export-word - export hasil RPM/LKPD/Modul Ajar ke Word. */
+    /** POST /ai/teacher/learning/export-word - export hasil RPM Learning ke Word. */
     public function exportLearningWord(Request $request)
     {
         $data = $this->validatedLearningExport($request);
@@ -225,7 +228,7 @@ class AiTeacherController extends Controller
         ])->deleteFileAfterSend(true);
     }
 
-    /** POST /ai/teacher/learning/export-pdf - export hasil RPM/LKPD/Modul Ajar ke PDF. */
+    /** POST /ai/teacher/learning/export-pdf - export hasil RPM Learning ke PDF. */
     public function exportLearningPdf(Request $request)
     {
         $data = $this->validatedLearningExport($request);
@@ -303,7 +306,7 @@ class AiTeacherController extends Controller
             return response()->json([
                 'ok' => false,
                 'message' => $e->getMessage(),
-                'quota' => $this->aiFreeTierUsage(),
+                'quota' => $this->aiQuotaUsageFor($request->user()),
             ], 502);
         }
 
@@ -324,10 +327,56 @@ class AiTeacherController extends Controller
             'ok' => true,
             'answer' => $result['text'],
             'history' => $history,
-            'quota' => $this->aiFreeTierUsage(),
+            'quota' => $this->aiQuotaUsageFor($request->user()),
         ]);
     }
 
+    /**
+     * Admin/superadmin boleh melihat angka penggunaan Gemini; guru hanya melihat keterangan kuota.
+     */
+    private function canViewAiQuotaUsage(?object $user): bool
+    {
+        return in_array($user?->access, ['superadmin', 'admin'], true);
+    }
+
+    /** @return array<string,mixed> */
+    private function aiQuotaUsageFor(?object $user): array
+    {
+        $quota = $this->aiFreeTierUsage();
+        $remaining = $quota['total']['remaining'] ?? null;
+        $limit = $quota['total']['limit'] ?? null;
+        $remainingPercent = $remaining !== null && $limit
+            ? max(0, min(100, (int) floor(($remaining / $limit) * 100)))
+            : null;
+        $remainingLabel = $remaining !== null
+            ? number_format((int) $remaining, 0, ',', '.').' request tersisa'
+            : 'Sisa kuota tidak diketahui';
+
+        $quota['remaining'] = $remaining;
+        $quota['remaining_percent'] = $remainingPercent;
+        $quota['remaining_label'] = $remainingLabel;
+
+        if ($this->canViewAiQuotaUsage($user)) {
+            $quota['can_view_usage'] = true;
+
+            return $quota;
+        }
+
+        return [
+            'enabled' => $quota['enabled'] ?? true,
+            'status' => $quota['status'] ?? 'ok',
+            'reset_at' => $quota['reset_at'] ?? null,
+            'reset_at_human' => $quota['reset_at_human'] ?? '-',
+            'day_start' => $quota['day_start'] ?? null,
+            'day_start_human' => $quota['day_start_human'] ?? null,
+            'remaining' => $remaining,
+            'remaining_percent' => $remainingPercent,
+            'remaining_label' => $remainingLabel,
+            'total' => null,
+            'models' => [],
+            'can_view_usage' => false,
+        ];
+    }
     private function storeHistory(string $userId, array $data, string $answer): array
     {
         $history = AiTeacherHistory::create([
@@ -369,7 +418,7 @@ class AiTeacherController extends Controller
     private function validatedLearningExport(Request $request): array
     {
         return $request->validate([
-            'tool' => ['required', 'in:rpp,lkpd,modul_ajar'],
+            'tool' => ['required', 'in:rpp'],
             'title' => ['nullable', 'string', 'max:120'],
             'content' => ['required', 'string', 'max:80000'],
         ]);
@@ -384,11 +433,7 @@ class AiTeacherController extends Controller
 
     private function learningFormatInstruction(string $tool): string
     {
-        $toolInstruction = match ($tool) {
-            'lkpd' => 'Khusus LKPD: setelah format RPM utama, isi LAMPIRAN dengan lembar kerja peserta didik, instruksi kerja, ruang jawaban, rubrik, dan refleksi siswa.',
-            'modul_ajar' => 'Khusus Modul Ajar Deep Learning berbasis Kurikulum Mendalam: kuatkan pembelajaran berkesadaran, bermakna, menggembirakan, eksplorasi-konsep-aplikasi-refleksi, diferensiasi, asesmen autentik, dan tindak lanjut.',
-            default => 'Khusus RPM: kuatkan alur kegiatan awal, inti, penutup, asesmen awal/proses/akhir, refleksi guru-siswa, dan tindak lanjut.',
-        };
+        $toolInstruction = 'Khusus RPM: kuatkan alur kegiatan awal, inti, penutup, asesmen awal/proses/akhir, refleksi guru-siswa, dan tindak lanjut.';
 
         return <<<'TXT'
 Ikuti format dokumen RPM contoh yang diberikan pengguna. Tulis sebagai dokumen polos siap export, tanpa Markdown heading "#", tanpa pembuka basa-basi, dan tanpa catatan tambahan di luar dokumen.
@@ -440,11 +485,7 @@ TXT
 
     private function learningToolLabel(string $tool): string
     {
-        return match ($tool) {
-            'lkpd' => 'LKPD Learning',
-            'modul_ajar' => 'Modul Ajar Deep Learning',
-            default => 'RPM Learning',
-        };
+        return 'RPM Learning';
     }
 
     private function safeFileBase(string $title): string

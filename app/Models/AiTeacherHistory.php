@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /*
 | History hasil generate Asisten Guru per user. Dipakai sebagai pengingat
-| cepat untuk Soal, RPM/LKPD/Modul, Perangkum Materi, dan Draft Feedback.
+| cepat untuk Soal, RPM Learning, Perangkum Materi, dan Draft Feedback.
 */
 class AiTeacherHistory extends Model
 {

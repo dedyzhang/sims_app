@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\InteractsWithAi;
 use App\Models\Absensi;
 use App\Models\Guru;
 use App\Models\Jadwal;
@@ -20,6 +21,7 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
+    use InteractsWithAi;
     public function index()
     {
         $user      = auth()->user();
@@ -39,6 +41,7 @@ class DashboardController extends Controller
         }
 
         $sosmed = $this->sosmedLinks();
+        $aiQuotaUsage = in_array($user->access, ['superadmin', 'admin'], true) ? $this->aiFreeTierUsage() : null;
 
         // ── Data ringkas Sarpras (admin/kepala/sapras saja, 4 query → 1 blok data) ──
         $sarpras = null;
@@ -62,7 +65,7 @@ class DashboardController extends Controller
             default    => null,
         };
 
-        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget', 'sarpras'));
+        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget', 'sarpras', 'aiQuotaUsage'));
     }
 
     /** Data widget dashboard khusus siswa: jadwal hari ini, poin/P3, absensi, podium sekolah. */

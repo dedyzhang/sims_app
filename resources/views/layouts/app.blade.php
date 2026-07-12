@@ -33,6 +33,9 @@
             : 0;
         $fontMap = ['sm' => ['11px','13px','15px'], 'md' => ['12px','14px','16px'], 'lg' => ['13px','15px','17px']];
         $fonts = $fontMap[$pref->font_size ?? 'md'];
+        $dashboardTheme = in_array($pref->dashboard_theme ?? 'windows11', ['windows11', 'macos'], true)
+            ? $pref->dashboard_theme
+            : 'windows11';
 
         // Cek apakah background sidebar gelap
         $sbgHex = str_replace('#', '', $pref->sidebar_bg ?? '#fceadb');
@@ -376,7 +379,7 @@
     </style>
     @stack('styles')
 </head>
-<body class="app-bg antialiased text-slate-800 dark:text-slate-100 relative overflow-hidden" data-motif="{{ $pref->motif ?? 'botanical' }}" data-style="{{ $pref->ui_style ?? 'soft' }}">
+<body class="app-bg antialiased text-slate-800 dark:text-slate-100 relative overflow-hidden" data-motif="{{ $pref->motif ?? 'botanical' }}" data-style="{{ $pref->ui_style ?? 'soft' }}" data-dashboard-theme="{{ $dashboardTheme }}">
 
 {{-- ===== Dekorasi motif (ikut tema pilihan) ===== --}}
 @include('partials.decorations')
@@ -1525,6 +1528,8 @@
     };
     // ===== UI style switcher (soft <-> corporate) =====
     window.setStyle = function(name){ document.body.dataset.style = name; };
+    // ===== Dashboard theme switcher (Windows 11 <-> macOS) =====
+    window.setDashboardTheme = function(name){ document.body.dataset.dashboardTheme = name; };
     document.addEventListener('DOMContentLoaded', ()=>{
         setMotif(document.body.dataset.motif || 'botanical');
         lucide.createIcons();

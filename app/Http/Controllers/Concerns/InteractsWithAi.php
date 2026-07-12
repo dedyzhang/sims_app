@@ -70,13 +70,16 @@ trait InteractsWithAi
         $todayPacific = CarbonImmutable::now('America/Los_Angeles')->startOfDay();
         $resetPacific = $todayPacific->addDay();
 
+        $dayStartForDatabase = $todayPacific->setTimezone($timezone);
+        $dayEndForDatabase = $resetPacific->setTimezone($timezone);
+
         $usage = AiUsageLog::query()
             ->selectRaw('model, COUNT(*) as request_count, COALESCE(SUM(prompt_tokens), 0) as prompt_tokens, COALESCE(SUM(completion_tokens), 0) as completion_tokens')
             ->where('status', 'success')
             ->whereNotNull('model')
             ->whereIn('model', $models)
-            ->where('created_at', '>=', $todayPacific->utc())
-            ->where('created_at', '<', $resetPacific->utc())
+            ->where('created_at', '>=', $dayStartForDatabase)
+            ->where('created_at', '<', $dayEndForDatabase)
             ->groupBy('model')
             ->get()
             ->keyBy('model');

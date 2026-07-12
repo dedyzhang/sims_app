@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /*
-| Gateway terpusat ke Google Gemini. SEMUA fitur AI SIMS memanggil kelas ini —
+| Gateway terpusat ke provider AI. SEMUA fitur AI SIMS memanggil kelas ini —
 | key ditambahkan di server, tak pernah sampai ke browser. Meniru pola
 | FcmService: ada enabled() guard supaya bila key belum diisi, fitur AI mati
 | diam-diam alih-alih melempar error keras.
@@ -20,10 +20,25 @@ use RuntimeException;
 */
 class GeminiService
 {
-    /** AI aktif hanya bila GEMINI_API_KEY terisi. */
+    /** AI aktif bila key provider teks utama terisi. */
     public function enabled(): bool
     {
-        return ! empty(config('ai.api_key'));
+        return match ($this->provider()) {
+            'openrouter' => ! empty(config('ai.openrouter.api_key')),
+            default => ! empty(config('ai.api_key')),
+        };
+    }
+
+    private function provider(): string
+    {
+        return strtolower(trim((string) config('ai.provider', 'gemini')));
+    }
+
+    private function missingConfigurationMessage(): string
+    {
+        return $this->provider() === 'openrouter'
+            ? 'Fitur AI belum dikonfigurasi (OPENROUTER_API_KEY kosong).'
+            : 'Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).';
     }
 
     /**
@@ -36,7 +51,15 @@ class GeminiService
     public function generate(string $prompt, array $options = []): array
     {
         if (! $this->enabled()) {
-            throw new RuntimeException('Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).');
+            throw new RuntimeException($this->missingConfigurationMessage());
+        }
+
+        if ($this->provider() === 'openrouter') {
+            return $this->generateOpenRouter($prompt, $options);
+        }
+
+        if ($this->provider() !== 'gemini') {
+            throw new RuntimeException('Provider AI tidak dikenali. Gunakan gemini atau openrouter.');
         }
 
         // answer_style bisa dikosongkan per-request: keluaran dokumen (RPM/LKPD) harus
@@ -116,6 +139,234 @@ class GeminiService
         throw new RuntimeException($lastQuotaError ?? 'Terjadi kesalahan saat memproses permintaan AI.');
     }
 
+    /**
+     * Hasilkan teks via OpenRouter Chat Completions. Saat free-only aktif,
+     * model berbayar ditolak sebelum HTTP request terkirim.
+     *
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,sources?:array}
+     */
+    private function generateOpenRouter(string $prompt, array $options = []): array
+    {
+        $answerStyle = $options['answer_style'] ?? config('ai.answer_style');
+        $system = trim(($options['system'] ?? '')."\n\n".config('ai.system_prompt')."\n\n".$answerStyle);
+        $messages = $this->buildOpenRouterMessages($system, $prompt, $options['history'] ?? []);
+        $modelChain = $this->openRouterModelChain($options);
+
+        $this->ensureOpenRouterModelsAreFree($modelChain);
+        $this->ensureOpenRouterFreeQuotaIsOpen($modelChain);
+
+        $lastQuotaError = null;
+
+        foreach ($modelChain as $model) {
+            $body = [
+                'model' => $model,
+                'messages' => $messages,
+                'temperature' => $options['temperature'] ?? config('ai.temperature'),
+                'max_tokens' => $options['max_output_tokens'] ?? config('ai.max_output_tokens'),
+            ];
+
+            try {
+                $response = Http::timeout($options['timeout'] ?? config('ai.timeout'))
+                    ->retry(
+                        $options['retries'] ?? config('ai.retries'),
+                        config('ai.retry_delay'),
+                        fn (\Throwable $e) => $this->isTransient($e),
+                        throw: false,
+                    )
+                    ->withToken((string) config('ai.openrouter.api_key'))
+                    ->withHeaders($this->openRouterHeaders())
+                    ->acceptJson()
+                    ->post(rtrim((string) config('ai.openrouter.base_url'), '/').'/chat/completions', $body);
+            } catch (\Throwable $e) {
+                throw new RuntimeException('Gagal menghubungi layanan OpenRouter. Coba lagi beberapa saat.');
+            }
+
+            if ($response->successful()) {
+                return $this->parseOpenRouter($response->json(), $model);
+            }
+
+            if ($response->status() === 429) {
+                $lastQuotaError = $this->normalizeOpenRouterError(429, $response->json());
+                continue;
+            }
+
+            throw new RuntimeException($this->normalizeOpenRouterError($response->status(), $response->json()));
+        }
+
+        if ($this->openRouterFreeOnly() && $lastQuotaError !== null) {
+            $this->rememberOpenRouterQuotaExhausted($modelChain);
+
+            throw new RuntimeException($this->openRouterFreeQuotaMessage());
+        }
+
+        throw new RuntimeException($lastQuotaError ?? 'Terjadi kesalahan saat memproses permintaan OpenRouter.');
+    }
+
+    /** @return string[] */
+    private function openRouterModelChain(array $options): array
+    {
+        $chain = [$options['model'] ?? config('ai.openrouter.model')];
+
+        if (! isset($options['model'])) {
+            $chain = array_merge($chain, (array) config('ai.openrouter.fallback_models', []));
+        }
+
+        return array_values(array_unique(array_filter(array_map('trim', $chain))));
+    }
+
+    /** @param string[] $modelChain */
+    private function ensureOpenRouterModelsAreFree(array $modelChain): void
+    {
+        if (! $this->openRouterFreeOnly()) {
+            return;
+        }
+
+        foreach ($modelChain as $model) {
+            if ($this->isOpenRouterFreeModel($model)) {
+                continue;
+            }
+
+            throw new RuntimeException("Mode OpenRouter free-only aktif. Model {$model} ditolak karena bukan openrouter/free atau slug :free.");
+        }
+    }
+
+    private function isOpenRouterFreeModel(string $model): bool
+    {
+        return $model === 'openrouter/free' || str_ends_with($model, ':free');
+    }
+
+    private function openRouterFreeOnly(): bool
+    {
+        return (bool) config('ai.openrouter.free_only', true);
+    }
+
+    /** @param string[] $modelChain */
+    private function ensureOpenRouterFreeQuotaIsOpen(array $modelChain): void
+    {
+        if (! $this->openRouterFreeOnly()) {
+            return;
+        }
+
+        $resetAt = Cache::get($this->openRouterQuotaCacheKey($modelChain));
+        if (! $resetAt) {
+            return;
+        }
+
+        throw new RuntimeException($this->openRouterFreeQuotaMessage((string) $resetAt));
+    }
+
+    /** @param string[] $modelChain */
+    private function rememberOpenRouterQuotaExhausted(array $modelChain): void
+    {
+        $resetAt = now(config('app.timezone', 'Asia/Jakarta'))->addDay()->startOfDay();
+
+        Cache::put(
+            $this->openRouterQuotaCacheKey($modelChain),
+            $resetAt->toIso8601String(),
+            $resetAt,
+        );
+    }
+
+    /** @param string[] $modelChain */
+    private function openRouterQuotaCacheKey(array $modelChain): string
+    {
+        return 'ai:openrouter:free-tier-quota-exhausted:'.sha1((string) config('ai.openrouter.api_key').'|'.implode('|', $modelChain));
+    }
+
+    private function openRouterFreeQuotaMessage(?string $resetAt = null): string
+    {
+        $displayReset = '';
+        if ($resetAt) {
+            $displayReset = ' Perkiraan reset: '.\Illuminate\Support\Carbon::parse($resetAt)
+                ->setTimezone(config('app.timezone', 'Asia/Jakarta'))
+                ->format('d/m/Y H:i T').'.';
+        }
+
+        return 'Kuota gratis OpenRouter sedang habis atau terkena rate limit. '
+            .'Sistem tidak akan mencoba OpenRouter lagi sampai kuota free tier reset dan tidak akan memakai model berbayar.'
+            .$displayReset;
+    }
+
+    private function openRouterHeaders(): array
+    {
+        return array_filter([
+            'HTTP-Referer' => config('ai.openrouter.site_url'),
+            'X-OpenRouter-Title' => config('ai.openrouter.site_name'),
+        ]);
+    }
+
+    private function buildOpenRouterMessages(string $system, string $prompt, array $history): array
+    {
+        $messages = [];
+
+        if ($system !== '') {
+            $messages[] = ['role' => 'system', 'content' => $system];
+        }
+
+        foreach ($history as $turn) {
+            $role = ($turn['role'] ?? 'user') === 'assistant' ? 'assistant' : 'user';
+            $text = (string) ($turn['text'] ?? $turn['content'] ?? '');
+            if ($text !== '') {
+                $messages[] = ['role' => $role, 'content' => $text];
+            }
+        }
+
+        $messages[] = ['role' => 'user', 'content' => $prompt];
+
+        return $messages;
+    }
+
+    private function parseOpenRouter(array $json, string $model): array
+    {
+        $choice = $json['choices'][0] ?? null;
+        $finishReason = $choice['finish_reason'] ?? null;
+        $content = $choice['message']['content'] ?? '';
+        $text = is_array($content) ? $this->openRouterContentToText($content) : trim((string) $content);
+
+        if ($text === '') {
+            throw new RuntimeException('OpenRouter tidak mengembalikan jawaban. Coba lagi.');
+        }
+
+        if ($finishReason === 'length') {
+            throw new RuntimeException('Jawaban OpenRouter terpotong karena terlalu panjang. Persempit topik atau coba lagi.');
+        }
+
+        $usage = $json['usage'] ?? [];
+
+        return [
+            'text' => $text,
+            'model' => (string) ($json['model'] ?? $model),
+            'prompt_tokens' => (int) ($usage['prompt_tokens'] ?? 0),
+            'completion_tokens' => (int) ($usage['completion_tokens'] ?? 0),
+            'sources' => [],
+        ];
+    }
+
+    private function openRouterContentToText(array $content): string
+    {
+        $text = '';
+
+        foreach ($content as $part) {
+            $text .= is_array($part) ? (string) ($part['text'] ?? '') : (string) $part;
+        }
+
+        return trim($text);
+    }
+
+    private function normalizeOpenRouterError(int $status, ?array $json): string
+    {
+        $detail = (string) ($json['error']['message'] ?? $json['message'] ?? '');
+
+        return match (true) {
+            $status === 429 => 'Kuota atau rate limit free model OpenRouter sedang habis. Coba lagi besok atau setelah kuota free tier kembali.',
+            $status === 402 => 'OpenRouter membutuhkan saldo/kredit untuk model ini. SIMS berada di mode free-only dan tidak akan mencoba model berbayar.',
+            $status === 400 => 'Permintaan ke OpenRouter tidak valid.'.($detail ? " ({$detail})" : ''),
+            $status === 401,
+            $status === 403 => 'Konfigurasi OpenRouter bermasalah (kredensial ditolak).',
+            $status >= 500 => 'Layanan OpenRouter sedang gangguan. Coba lagi nanti.',
+            default => 'Terjadi kesalahan saat memproses permintaan OpenRouter.',
+        };
+    }
     /**
      * Urutan model yang dicoba: model utama lalu cadangan. Cadangan punya kuota harian
      * sendiri, jadi rantai ini yang membuat fitur tetap hidup setelah kuota model utama habis.
@@ -222,7 +473,7 @@ class GeminiService
      */
     public function embed(string $text): array
     {
-        if (! $this->enabled()) {
+        if (empty(config('ai.api_key'))) {
             throw new RuntimeException('Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).');
         }
 

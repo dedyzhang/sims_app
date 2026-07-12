@@ -2,14 +2,17 @@
 
 /*
 |--------------------------------------------------------------------------
-| Konfigurasi Asisten Guru SIMS (Gateway Gemini)
+| Konfigurasi Asisten Guru SIMS (Gateway AI)
 |--------------------------------------------------------------------------
-| Semua fitur AI SIMS memanggil Google Gemini LEWAT backend (GeminiService),
-| tidak pernah dari browser. GEMINI_API_KEY hanya hidup di .env server.
-| Model bisa di-switch tanpa ubah kode — cukup ganti AI_MODEL di .env.
+| Semua fitur AI SIMS memanggil provider AI LEWAT backend (GeminiService),
+| tidak pernah dari browser. API key hanya hidup di .env server.
+| Provider/model bisa di-switch tanpa ubah kode lewat .env.
 */
 
 return [
+
+    // Provider teks utama: gemini atau openrouter.
+    'provider' => env('AI_PROVIDER', 'gemini'),
 
     // Kredensial — HANYA di server. Bila kosong, GeminiService->enabled() = false
     // dan seluruh fitur AI dilewati diam-diam (tak error keras).
@@ -60,13 +63,32 @@ return [
     // Endpoint REST Gemini (v1beta). Jarang diubah.
     'base_url' => env('AI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
 
+    /*
+    | OpenRouter (opsional)
+    | Mode aman biaya: saat OPENROUTER_FREE_ONLY=true, SIMS hanya mengizinkan
+    | model openrouter/free atau slug yang berakhiran :free. Slug lain
+    | ditolak SEBELUM request HTTP dikirim, supaya tidak memakai saldo prabayar.
+    */
+    'openrouter' => [
+        'api_key' => env('OPENROUTER_API_KEY'),
+        'base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+        'model' => env('OPENROUTER_MODEL', 'openrouter/free'),
+        'fallback_models' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('OPENROUTER_FALLBACK_MODELS', '')),
+        ))),
+        'free_only' => (bool) env('OPENROUTER_FREE_ONLY', env('AI_FREE_TIER_ONLY', true)),
+        'site_url' => env('OPENROUTER_SITE_URL', env('APP_URL', 'http://localhost')),
+        'site_name' => env('OPENROUTER_SITE_NAME', env('APP_NAME', 'SIMS')),
+    ],
+
     // Ketahanan panggilan HTTP.
     'timeout' => (int) env('AI_TIMEOUT', 30),   // detik per attempt
     'retries' => (int) env('AI_RETRIES', 2),    // percobaan ulang bila gagal transien
     'retry_delay' => (int) env('AI_RETRY_DELAY', 500), // ms antar retry
 
-    // Timeout khusus keluaran panjang berformat (generator perangkat ajar RPM/LKPD/
-    // Modul Ajar): satu dokumen penuh bisa memakan ~45 detik, jauh di atas `timeout`.
+    // Timeout khusus keluaran panjang berformat (generator perangkat ajar RPM
+    // Learning): satu dokumen penuh bisa memakan ~45 detik, jauh di atas `timeout`.
     'long_timeout' => (int) env('AI_LONG_TIMEOUT', 120),
 
     /*
@@ -154,12 +176,12 @@ return [
             mengarang nilai/angka yang tidak diberikan.
             TXT,
         'learning' => <<<'TXT'
-            Kamu asisten guru penyusun perangkat ajar RPM, LKPD, dan Modul Ajar Deep Learning.
+            Kamu asisten guru penyusun perangkat ajar RPM Learning.
             Hasil harus siap direview, diedit, dan diunduh guru. Gunakan Bahasa Indonesia
             baku, praktis, dan sesuai konteks kelas. Ikuti format dokumen RPM formal:
             kop sekolah, PERENCANAAN PEMBELAJARAN MENDALAM, identitas, IDENTIFIKASI,
             DESAIN PEMBELAJARAN, PENGALAMAN BELAJAR, ASESMEN PEMBELAJARAN, tanda tangan,
-            dan LAMPIRAN 1-3. Untuk Modul Ajar Deep Learning, tekankan pembelajaran
+            dan LAMPIRAN 1-3. Tekankan pembelajaran
             berkesadaran, bermakna, menggembirakan, eksplorasi-konsep-aplikasi-refleksi,
             diferensiasi, asesmen autentik, dan tindak lanjut. Jangan mengarang identitas
             sekolah/guru yang tidak diberikan; gunakan placeholder yang jelas bila data belum tersedia.

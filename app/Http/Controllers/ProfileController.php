@@ -93,12 +93,14 @@ class ProfileController extends Controller
             'theme_mode'       => 'required|in:light,dark',
             'motif'            => 'nullable|in:botanical,ocean,forest,sunset,robot,space,minimal,nightocean,rainbow',
             'ui_style'         => 'nullable|in:soft,corporate',
+            'dashboard_theme'  => 'nullable|in:windows11,macos',
             'font_size'        => 'required|in:sm,md,lg',
             'compact_mode'     => 'boolean',
         ]);
 
         $data['motif'] = $data['motif'] ?? 'botanical';
         $data['ui_style'] = $data['ui_style'] ?? 'soft';
+        $data['dashboard_theme'] = $data['dashboard_theme'] ?? 'windows11';
 
         $data['compact_mode'] = $request->boolean('compact_mode');
 

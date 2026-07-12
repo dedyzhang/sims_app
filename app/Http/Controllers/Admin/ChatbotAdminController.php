@@ -6,19 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\ChatbotAdminSetting;
 use App\Models\ChatbotConversation;
 use App\Models\ChatbotMessage;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\Chatbot\ChatbotService;
+use App\Support\Uploads;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ChatbotAdminController extends Controller
 {
-    public function __construct(private ChatbotService $chatbot)
-    {
-    }
+    public function __construct(private ChatbotService $chatbot) {}
 
     /** Halaman inbox admin. */
     public function inbox(Request $request): View
@@ -29,7 +31,7 @@ class ChatbotAdminController extends Controller
             'pollInterval' => config('chatbot.poll_interval_seconds') * 1000,
             'settings' => $this->settingsFor($admin),
             'admin' => $admin,
-            'avatarType' => \App\Models\Setting::get('chatbot_avatar', 'default'),
+            'avatarType' => Setting::get('chatbot_avatar', 'default'),
             'quickQuestions' => $this->chatbot->faqItems(), // [['q'=>,'a'=>], ...] untuk modal
         ]);
     }
@@ -159,16 +161,16 @@ class ChatbotAdminController extends Controller
         ]);
 
         $file = $data['image'];
-        $name = (string) \Illuminate\Support\Str::uuid() . '.' . strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $name = (string) Str::uuid().'.'.Uploads::safeExtension($file, ['jpeg', 'jpg', 'png', 'webp'], 'jpg');
         $dir = public_path('uploads/chat');
-        \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
+        File::ensureDirectoryExists($dir);
         $file->move($dir, $name);
 
         $message = $this->chatbot->replyAsAdmin(
             $conversation,
             $request->user(),
             $data['caption'] ?? '',
-            'uploads/chat/' . $name,
+            'uploads/chat/'.$name,
         );
 
         return response()->json([
@@ -186,19 +188,19 @@ class ChatbotAdminController extends Controller
         ]);
 
         $file = $data['file'];
-        $ext = strtolower($file->getClientOriginalExtension() ?: 'bin');
-        $base = \Illuminate\Support\Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'file';
-        $folder = (string) \Illuminate\Support\Str::uuid();
+        $ext = Uploads::safeExtension($file, ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'], 'bin');
+        $base = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'file';
+        $folder = (string) Str::uuid();
 
-        $dir = public_path('uploads/chat/' . $folder);
-        \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
-        $file->move($dir, $base . '.' . $ext);
+        $dir = public_path('uploads/chat/'.$folder);
+        File::ensureDirectoryExists($dir);
+        $file->move($dir, $base.'.'.$ext);
 
         $message = $this->chatbot->replyAsAdmin(
             $conversation,
             $request->user(),
             $data['caption'] ?? '',
-            'uploads/chat/' . $folder . '/' . $base . '.' . $ext,
+            'uploads/chat/'.$folder.'/'.$base.'.'.$ext,
         );
 
         return response()->json([
@@ -297,7 +299,7 @@ class ChatbotAdminController extends Controller
             'avatar_type' => ['required', 'string', 'in:default,robot,owl,cs,cat,fox,panda,bear'],
         ]);
 
-        \App\Models\Setting::set('chatbot_avatar', $data['avatar_type']);
+        Setting::set('chatbot_avatar', $data['avatar_type']);
 
         return response()->json([
             'success' => true,
@@ -325,7 +327,7 @@ class ChatbotAdminController extends Controller
             $questions[] = ['q' => $q, 'a' => trim($item['a'] ?? '')];
         }
 
-        \App\Models\Setting::set('chatbot_quick_questions', json_encode($questions, JSON_UNESCAPED_UNICODE));
+        Setting::set('chatbot_quick_questions', json_encode($questions, JSON_UNESCAPED_UNICODE));
 
         return response()->json([
             'success' => true,

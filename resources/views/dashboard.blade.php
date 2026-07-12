@@ -30,6 +30,117 @@
     @media (prefers-reduced-motion: reduce) { .motiv-card { animation: none; } }
     /* ===== Dashboard Google Education Theme ===== */
     .edu-dashboard { position: relative; }
+    .dashboard-theme-windows11 {
+        --dash-card-radius: 14px;
+        --dash-card-bg: color-mix(in srgb, white 88%, var(--cp) 12%);
+        --dash-card-border: color-mix(in srgb, #dbeafe 72%, var(--cp) 28%);
+        --dash-card-shadow: 0 10px 28px rgba(37, 99, 235, .10);
+    }
+    .dashboard-theme-windows11 .card-batik.edu-hero {
+        border-radius: 18px !important;
+        border-color: color-mix(in srgb, var(--cp) 24%, #dbeafe) !important;
+        background:
+            linear-gradient(135deg, rgba(255,255,255,.94), rgba(239,246,255,.82)),
+            radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--cp) 18%, transparent), transparent 34%),
+            radial-gradient(circle at 90% 18%, rgba(20, 184, 166, .16), transparent 30%) !important;
+        box-shadow: 0 18px 40px rgba(37, 99, 235, .13) !important;
+    }
+    .dashboard-theme-windows11 .google-accent-bar {
+        height: 4px;
+        background: linear-gradient(90deg, #2563eb, #38bdf8, #22c55e);
+    }
+    .dashboard-theme-windows11 .google-chip,
+    .dashboard-theme-windows11 .google-info-card,
+    .dashboard-theme-windows11 .google-side-panel,
+    .dashboard-theme-windows11 .google-quote-card {
+        border-radius: 14px;
+        border-color: var(--dash-card-border);
+        background: rgba(255,255,255,.82);
+        box-shadow: var(--dash-card-shadow);
+        backdrop-filter: blur(12px);
+    }
+    .dashboard-theme-windows11 .dash-content > .card,
+    .dashboard-theme-windows11 .dash-content > div:not([class*="card-batik"]):not(.edu-hero) {
+        border-radius: var(--dash-card-radius);
+        border-color: var(--dash-card-border);
+        background: var(--dash-card-bg);
+        box-shadow: var(--dash-card-shadow);
+    }
+    .dashboard-theme-macos {
+        --dash-card-radius: 22px;
+        --dash-card-bg: rgba(255,255,255,.72);
+        --dash-card-border: rgba(255,255,255,.72);
+        --dash-card-shadow: 0 20px 48px rgba(15, 23, 42, .12);
+    }
+    .dashboard-theme-macos .card-batik.edu-hero {
+        padding-top: 2.75rem !important;
+        border-radius: 26px !important;
+        border-color: rgba(255,255,255,.72) !important;
+        background:
+            linear-gradient(135deg, rgba(255,255,255,.84), rgba(248,250,252,.58)),
+            radial-gradient(circle at 18% 18%, rgba(96, 165, 250, .22), transparent 34%),
+            radial-gradient(circle at 78% 0%, rgba(244, 114, 182, .18), transparent 28%),
+            radial-gradient(circle at 88% 72%, rgba(52, 211, 153, .16), transparent 32%) !important;
+        box-shadow: 0 26px 64px rgba(15, 23, 42, .16) !important;
+        backdrop-filter: blur(18px);
+    }
+    .dashboard-theme-macos .card-batik.edu-hero::before {
+        content: '';
+        position: absolute;
+        top: 1rem;
+        left: 1.1rem;
+        width: 3.25rem;
+        height: .8rem;
+        background:
+            radial-gradient(circle at .4rem .4rem, #ff5f57 0 .31rem, transparent .33rem),
+            radial-gradient(circle at 1.55rem .4rem, #ffbd2e 0 .31rem, transparent .33rem),
+            radial-gradient(circle at 2.7rem .4rem, #28c840 0 .31rem, transparent .33rem);
+        z-index: 2;
+        pointer-events: none;
+    }
+    .dashboard-theme-macos .google-accent-bar { display: none; }
+    .dashboard-theme-macos .google-chip,
+    .dashboard-theme-macos .google-info-card,
+    .dashboard-theme-macos .google-side-panel,
+    .dashboard-theme-macos .google-quote-card {
+        border-radius: 20px;
+        border-color: var(--dash-card-border);
+        background: rgba(255,255,255,.64);
+        box-shadow: 0 14px 34px rgba(15,23,42,.10);
+        backdrop-filter: blur(18px);
+    }
+    .dashboard-theme-macos .dash-content > .card,
+    .dashboard-theme-macos .dash-content > div:not([class*="card-batik"]):not(.edu-hero) {
+        border-radius: var(--dash-card-radius);
+        border-color: var(--dash-card-border);
+        background: var(--dash-card-bg);
+        box-shadow: var(--dash-card-shadow);
+        backdrop-filter: blur(18px);
+    }
+    .dark .dashboard-theme-windows11 .card-batik.edu-hero,
+    .dark .dashboard-theme-macos .card-batik.edu-hero {
+        border-color: rgba(148, 163, 184, .18) !important;
+        background:
+            radial-gradient(circle at 20% 0%, color-mix(in srgb, var(--cp) 26%, transparent), transparent 34%),
+            linear-gradient(135deg, rgba(15,23,42,.92), rgba(30,41,59,.72)) !important;
+        box-shadow: 0 24px 58px rgba(2, 6, 23, .42) !important;
+    }
+    .dark .dashboard-theme-windows11 .google-chip,
+    .dark .dashboard-theme-windows11 .google-info-card,
+    .dark .dashboard-theme-windows11 .google-side-panel,
+    .dark .dashboard-theme-windows11 .google-quote-card,
+    .dark .dashboard-theme-macos .google-chip,
+    .dark .dashboard-theme-macos .google-info-card,
+    .dark .dashboard-theme-macos .google-side-panel,
+    .dark .dashboard-theme-macos .google-quote-card,
+    .dark .dashboard-theme-windows11 .dash-content > .card,
+    .dark .dashboard-theme-windows11 .dash-content > div:not([class*="card-batik"]):not(.edu-hero),
+    .dark .dashboard-theme-macos .dash-content > .card,
+    .dark .dashboard-theme-macos .dash-content > div:not([class*="card-batik"]):not(.edu-hero) {
+        border-color: rgba(148, 163, 184, .18);
+        background: rgba(15, 23, 42, .72);
+        box-shadow: 0 18px 42px rgba(2, 6, 23, .32);
+    }
     .card-batik.edu-hero {
         border: 1px solid #e8eaed !important;
         background: #fff !important;
@@ -285,6 +396,9 @@
         \App\Models\UserPreference::defaults()
     );
     $motif = $pref->motif ?? 'botanical';
+    $dashboardTheme = in_array($pref->dashboard_theme ?? 'windows11', ['windows11', 'macos'], true)
+        ? $pref->dashboard_theme
+        : 'windows11';
     $motifIcon = ['botanical'=>'flower-2','ocean'=>'waves','forest'=>'trees','sunset'=>'sunset','robot'=>'bot','space'=>'rocket','minimal'=>'circle','nightocean'=>'anchor','rainbow'=>'sparkles'][$motif] ?? 'flower-2';
 
     // Salam berdasarkan waktu + tanggal hari ini (Bahasa Indonesia)
@@ -494,9 +608,52 @@
     ];
 @endphp
 
-<div x-data="dashLayout()" class="edu-dashboard" :class="{ 'dash-editing': editing }">
+<div x-data="dashLayout()" class="edu-dashboard dashboard-theme-{{ $dashboardTheme }}" :class="{ 'dash-editing': editing }">
     @include('partials.dash-greeting')
-
+    @if(in_array($access, ['superadmin','admin'], true) && ! empty($aiQuotaUsage))
+        @php
+            $aiRemaining = $aiQuotaUsage['total']['remaining'] ?? null;
+            $aiLimit = $aiQuotaUsage['total']['limit'] ?? null;
+            $aiPercent = $aiRemaining !== null && $aiLimit ? max(0, min(100, (int) floor(($aiRemaining / $aiLimit) * 100))) : null;
+            $aiLabel = $aiRemaining !== null ? number_format((int) $aiRemaining, 0, ',', '.').' request tersisa' : 'Sisa kuota tidak diketahui';
+        @endphp
+        <div class="card p-4 mb-5">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0">
+                    <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2"><i data-lucide="gauge" class="w-4 h-4 text-primary"></i> Keterangan Kuota Tersisa</h2>
+                    <div class="mt-3 flex flex-wrap items-end gap-3">
+                        <div class="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{{ $aiLabel }}</div>
+                        @if($aiPercent !== null)
+                            <div class="pb-1 text-xs font-medium text-slate-400">{{ $aiPercent }}% tersisa</div>
+                        @endif
+                    </div>
+                </div>
+                <div class="w-full lg:w-72">
+                    <div class="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div class="h-full rounded-full bg-primary" style="width: {{ $aiPercent ?? 0 }}%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                @foreach(($aiQuotaUsage['models'] ?? []) as $modelQuota)
+                    @php
+                        $modelRemaining = $modelQuota['remaining'] ?? null;
+                        $modelLimit = $modelQuota['limit'] ?? null;
+                        $modelPercent = $modelRemaining !== null && $modelLimit ? max(0, min(100, (int) floor(($modelRemaining / $modelLimit) * 100))) : 0;
+                    @endphp
+                    <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/40">
+                        <div class="flex items-center justify-between gap-2 text-xs">
+                            <span class="truncate font-semibold text-slate-700 dark:text-slate-100">{{ $modelQuota['model'] ?? '-' }}</span>
+                            <span class="shrink-0 text-slate-400">{{ $modelRemaining !== null ? number_format((int) $modelRemaining, 0, ',', '.').' tersisa' : 'batas AI Studio' }}</span>
+                        </div>
+                        <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                            <div class="h-full rounded-full bg-primary" style="width: {{ $modelPercent }}%"></div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
     {{-- Grid blok yang bisa di-drag --}}
     <div id="dashGrid" class="grid grid-cols-12 gap-5" x-ref="grid">
         @foreach($blockOrder as $block)
@@ -545,7 +702,7 @@
     ];
 @endphp
 
-<div x-data="dashLayout()" class="edu-dashboard" :class="{ 'dash-editing': editing }">
+<div x-data="dashLayout()" class="edu-dashboard dashboard-theme-{{ $dashboardTheme }}" :class="{ 'dash-editing': editing }">
     @include('partials.dash-greeting')
 
     <div id="dashGrid" class="grid grid-cols-12 gap-5" x-ref="grid">
@@ -609,7 +766,7 @@
     ];
 @endphp
 
-<div x-data="dashLayout()" class="edu-dashboard" :class="{ 'dash-editing': editing }">
+<div x-data="dashLayout()" class="edu-dashboard dashboard-theme-{{ $dashboardTheme }}" :class="{ 'dash-editing': editing }">
     @include('partials.dash-greeting')
 
     @if(empty($allBlocks))

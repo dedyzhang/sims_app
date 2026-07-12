@@ -75,7 +75,7 @@ class AiTeacherControllerTest extends TestCase
         ]);
     }
 
-    public function test_halaman_asisten_guru_menampilkan_penggunaan_free_tier_harian(): void
+    public function test_halaman_asisten_guru_hanya_menampilkan_keterangan_kuota_untuk_guru(): void
     {
         config()->set('ai.model', 'gemini-3.5-flash');
         config()->set('ai.fallback_models', ['gemini-2.5-flash']);
@@ -110,9 +110,62 @@ class AiTeacherControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('ai.teacher.index'));
 
         $response->assertOk()
-            ->assertSee('Estimasi free tier hari ini')
+            ->assertSee('Keterangan Kuota Tersisa')
+            ->assertDontSee('Angka resmi dihitung Google')
+            ->assertDontSee('quota.status_label', false)
+            ->assertDontSee('gemini-3.5-flash', false)
+            ->assertViewHas('canViewQuotaUsage', false)
             ->assertViewHas('quotaUsage', function (array $quota) {
-                return $quota['total']['used'] === 2
+                return $quota['can_view_usage'] === false
+                    && $quota['total'] === null
+                    && $quota['models'] === []
+                    && $quota['remaining'] === 268
+                    && $quota['remaining_percent'] === 99
+                    && $quota['remaining_label'] === '268 request tersisa';
+            });
+    }
+
+    public function test_admin_melihat_detail_penggunaan_free_tier_harian(): void
+    {
+        config()->set('ai.model', 'gemini-3.5-flash');
+        config()->set('ai.fallback_models', ['gemini-2.5-flash']);
+        config()->set('ai.free_tier_daily_limits', [
+            'gemini-3.5-flash' => 20,
+            'gemini-2.5-flash' => 250,
+        ]);
+
+        $user = User::create([
+            'username' => 'admin-quota-page',
+            'password' => 'password',
+            'access' => 'superadmin',
+        ]);
+
+        AiUsageLog::create([
+            'user_uuid' => $user->uuid,
+            'feature' => 'teacher_quiz',
+            'model' => 'gemini-3.5-flash',
+            'prompt_tokens' => 10,
+            'completion_tokens' => 5,
+            'status' => 'success',
+        ]);
+        AiUsageLog::create([
+            'user_uuid' => $user->uuid,
+            'feature' => 'teacher_summary',
+            'model' => 'gemini-2.5-flash',
+            'prompt_tokens' => 7,
+            'completion_tokens' => 3,
+            'status' => 'success',
+        ]);
+
+        $response = $this->actingAs($user)->get(route('ai.teacher.index'));
+
+        $response->assertOk()
+            ->assertSee('Keterangan Kuota Tersisa')
+            ->assertSee('gemini-3.5-flash', false)
+            ->assertViewHas('canViewQuotaUsage', true)
+            ->assertViewHas('quotaUsage', function (array $quota) {
+                return $quota['can_view_usage'] === true
+                    && $quota['total']['used'] === 2
                     && $quota['total']['limit'] === 270
                     && $quota['models'][0]['model'] === 'gemini-3.5-flash'
                     && $quota['models'][0]['used'] === 1
@@ -120,7 +173,7 @@ class AiTeacherControllerTest extends TestCase
             });
     }
 
-    public function test_respons_generate_membawa_penggunaan_free_tier_terbaru(): void
+    public function test_respons_generate_guru_hanya_membawa_keterangan_kuota(): void
     {
         config()->set('ai.model', 'gemini-test');
         config()->set('ai.fallback_models', []);
@@ -148,12 +201,51 @@ class AiTeacherControllerTest extends TestCase
         ]);
 
         $response->assertOk()
+            ->assertJsonPath('quota.can_view_usage', false)
+            ->assertJsonPath('quota.total', null)
+            ->assertJsonPath('quota.models', [])
+            ->assertJsonPath('quota.status', 'ok')
+            ->assertJsonPath('quota.remaining', 4)
+            ->assertJsonPath('quota.remaining_percent', 80)
+            ->assertJsonPath('quota.remaining_label', '4 request tersisa');
+    }
+
+    public function test_respons_generate_admin_membawa_penggunaan_free_tier_terbaru(): void
+    {
+        config()->set('ai.model', 'gemini-test');
+        config()->set('ai.fallback_models', []);
+        config()->set('ai.free_tier_daily_limits', ['gemini-test' => 5]);
+
+        $user = User::create([
+            'username' => 'admin-quota-json',
+            'password' => 'password',
+            'access' => 'superadmin',
+        ]);
+
+        $this->mock(GeminiService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->andReturn([
+                    'text' => 'Ringkasan materi',
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 12,
+                    'completion_tokens' => 8,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.summary'), [
+            'materi' => 'Materi ekosistem',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('quota.can_view_usage', true)
             ->assertJsonPath('quota.total.used', 1)
             ->assertJsonPath('quota.total.limit', 5)
             ->assertJsonPath('quota.models.0.remaining', 4)
             ->assertJsonPath('quota.models.0.prompt_tokens', 12)
             ->assertJsonPath('quota.models.0.completion_tokens', 8);
     }
+
     public function test_hasil_generator_soal_bisa_dieksport_ke_word(): void
     {
         $user = User::create([
@@ -250,7 +342,7 @@ class AiTeacherControllerTest extends TestCase
         ]);
     }
 
-    public function test_generator_rpp_lkpd_learning_memakai_8_komponen_wajib(): void
+    public function test_generator_rpm_learning_memakai_8_komponen_wajib(): void
     {
         $user = User::create([
             'username' => 'guru-learning',
@@ -308,63 +400,24 @@ class AiTeacherControllerTest extends TestCase
         ]);
     }
 
-    public function test_generator_modul_ajar_learning_memakai_standar_kurikulum_mendalam(): void
+    public function test_lkpd_dan_modul_ajar_learning_ditolak(): void
     {
         $user = User::create([
-            'username' => 'guru-modul-ajar',
+            'username' => 'guru-learning-disabled',
             'password' => 'password',
             'access' => 'guru',
         ]);
 
-        $capturedPrompt = '';
-        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt) {
-            $mock->shouldReceive('generate')
-                ->once()
-                ->withArgs(function (string $prompt, array $options) use (&$capturedPrompt) {
-                    $capturedPrompt = $prompt;
-
-                    return str_contains($prompt, 'Buat Modul Ajar Deep Learning')
-                        && str_contains($prompt, 'Kurikulum Mendalam')
-                        && str_contains($prompt, 'pembelajaran berkesadaran')
-                        && str_contains($prompt, 'bermakna')
-                        && str_contains($prompt, 'menggembirakan')
-                        && str_contains($prompt, 'asesmen autentik')
-                        && str_contains($prompt, 'PERENCANAAN PEMBELAJARAN MENDALAM')
-                        && str_contains($prompt, 'DESAIN PEMBELAJARAN')
-                        && str_contains($prompt, 'LAMPIRAN 3')
-                        && ($options['max_output_tokens'] ?? null) === 8192
-                        && ($options['thinking_level'] ?? null) === 'low';
-                })
-                ->andReturn([
-                    'text' => "# Modul Ajar Deep Learning\n\n1. Identitas Pembelajaran\n2. DPL\n3. Tujuan Pembelajaran\n4. 4 Pilar PM\n5. Kegiatan Pembelajaran\n6. Asesmen\n7. Refleksi\n8. Lampiran dan Sumber Belajar",
-                    'model' => 'gemini-test',
-                    'prompt_tokens' => 22,
-                    'completion_tokens' => 28,
-                ]);
-        });
-
-        $response = $this->actingAs($user)->postJson(route('ai.teacher.learning'), [
-            'tool' => 'modul_ajar',
-            'topik' => 'Ekosistem',
-            'mapel' => 'IPAS',
-            'jenjang' => 'Kelas 5 SD',
-            'durasi' => '3 x 35 menit',
-        ]);
-
-        $response->assertOk()
-            ->assertJson([
-                'ok' => true,
-            ]);
-
-        $this->assertStringContainsString('Alokasi waktu: 3 x 35 menit', $capturedPrompt);
-        $this->assertDatabaseHas('ai_usage_logs', [
-            'user_uuid' => $user->uuid,
-            'feature' => 'teacher_learning_modul_ajar',
-            'status' => 'success',
-        ]);
+        foreach (['lkpd', 'modul_ajar'] as $tool) {
+            $this->actingAs($user)->postJson(route('ai.teacher.learning'), [
+                'tool' => $tool,
+                'topik' => 'Ekosistem',
+                'mapel' => 'IPAS',
+            ])->assertUnprocessable();
+        }
     }
 
-    public function test_hasil_rpp_lkpd_learning_bisa_dieksport_ke_word(): void
+    public function test_hasil_rpm_learning_bisa_dieksport_ke_word(): void
     {
         $user = User::create([
             'username' => 'guru-learning-word',
@@ -373,8 +426,8 @@ class AiTeacherControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)->postJson(route('ai.teacher.learning.export-word'), [
-            'tool' => 'lkpd',
-            'title' => 'LKPD Ekosistem',
+            'tool' => 'rpp',
+            'title' => 'RPM Ekosistem',
             'content' => "YAYASAN BUMI MAITRI\nSMP MAITREYAWIRA TANJUNGPINANG\nPERENCANAAN PEMBELAJARAN MENDALAM\n\"EKOSISTEM\"\nSEKOLAH : [NAMA SEKOLAH]\nIDENTIFIKASI\nDESAIN PEMBELAJARAN\nPENGALAMAN BELAJAR\nASESMEN PEMBELAJARAN\nLAMPIRAN 1: ASESMEN AWAL PEMBELAJARAN",
         ]);
 
@@ -396,7 +449,7 @@ class AiTeacherControllerTest extends TestCase
         $this->assertStringContainsString('LAMPIRAN 1', $xml);
     }
 
-    public function test_hasil_rpp_lkpd_learning_bisa_dieksport_ke_pdf(): void
+    public function test_hasil_rpm_learning_bisa_dieksport_ke_pdf(): void
     {
         $user = User::create([
             'username' => 'guru-learning-pdf',
@@ -484,7 +537,7 @@ class AiTeacherControllerTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)->postJson(route('ai.teacher.learning.preview'), [
-            'tool' => 'lkpd',
+            'tool' => 'rpp',
             'content' => "Catatan bebas guru.\nBukan format RPM.",
         ]);
 
@@ -503,8 +556,6 @@ class AiTeacherControllerTest extends TestCase
         $responses = collect([
             'Soal ekosistem dan kunci jawaban.',
             'Dokumen RPM ekosistem.',
-            'Dokumen LKPD ekosistem.',
-            'Dokumen Modul Ajar ekosistem.',
             'Ringkasan materi ekosistem.',
             'Draf feedback untuk Budi.',
         ])->map(fn (string $text, int $index) => [
@@ -516,7 +567,7 @@ class AiTeacherControllerTest extends TestCase
 
         $this->mock(GeminiService::class, function (MockInterface $mock) use ($responses) {
             $mock->shouldReceive('generate')
-                ->times(6)
+                ->times(4)
                 ->andReturn(...$responses);
         });
 
@@ -530,16 +581,14 @@ class AiTeacherControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('history.type_label', 'Generator Soal');
 
-        foreach (['rpp', 'lkpd', 'modul_ajar'] as $tool) {
-            $this->actingAs($user)
-                ->postJson(route('ai.teacher.learning'), [
-                    'tool' => $tool,
-                    'topik' => 'Ekosistem',
-                    'mapel' => 'IPAS',
-                ])
-                ->assertOk()
-                ->assertJsonPath('history.type', $tool);
-        }
+        $this->actingAs($user)
+            ->postJson(route('ai.teacher.learning'), [
+                'tool' => 'rpp',
+                'topik' => 'Ekosistem',
+                'mapel' => 'IPAS',
+            ])
+            ->assertOk()
+            ->assertJsonPath('history.type', 'rpp');
 
         $this->actingAs($user)
             ->postJson(route('ai.teacher.summary'), [
@@ -556,8 +605,8 @@ class AiTeacherControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('history.type_label', 'Draft Feedback');
 
-        $this->assertSame(6, AiTeacherHistory::where('user_uuid', $user->uuid)->count());
-        foreach (['quiz', 'rpp', 'lkpd', 'modul_ajar', 'summary', 'feedback'] as $type) {
+        $this->assertSame(4, AiTeacherHistory::where('user_uuid', $user->uuid)->count());
+        foreach (['quiz', 'rpp', 'summary', 'feedback'] as $type) {
             $this->assertDatabaseHas('ai_teacher_histories', [
                 'user_uuid' => $user->uuid,
                 'type' => $type,

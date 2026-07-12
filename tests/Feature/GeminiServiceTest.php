@@ -15,10 +15,18 @@ class GeminiServiceTest extends TestCase
         parent::setUp();
         config()->set('cache.default', 'array');
         Cache::flush();
+        config()->set('ai.provider', 'gemini');
         config()->set('ai.api_key', 'test-key');
         config()->set('ai.model', 'gemini-test');
         config()->set('ai.fallback_models', []);
         config()->set('ai.free_tier_only', true);
+        config()->set('ai.openrouter.api_key', 'openrouter-test-key');
+        config()->set('ai.openrouter.base_url', 'https://openrouter.ai/api/v1');
+        config()->set('ai.openrouter.model', 'openrouter/free');
+        config()->set('ai.openrouter.fallback_models', []);
+        config()->set('ai.openrouter.free_only', true);
+        config()->set('ai.openrouter.site_url', 'http://localhost');
+        config()->set('ai.openrouter.site_name', 'SIMS Test');
     }
 
     /**
@@ -124,6 +132,92 @@ class GeminiServiceTest extends TestCase
                 && $cfg['thinkingBudget'] === 0
                 && ! array_key_exists('thinkingLevel', $cfg);
         });
+    }
+
+
+    public function test_openrouter_free_model_menggunakan_endpoint_chat_completion(): void
+    {
+        config()->set('ai.provider', 'openrouter');
+        config()->set('ai.openrouter.model', 'openrouter/free');
+
+        Http::fake([
+            'https://openrouter.ai/api/v1/chat/completions' => Http::response($this->jawabanOpenRouterSukses('Soal berhasil dibuat')),
+        ]);
+
+        $result = app(GeminiService::class)->generate('Buat soal', [
+            'system' => 'Instruksi khusus guru.',
+            'max_output_tokens' => 512,
+        ]);
+
+        $this->assertSame('Soal berhasil dibuat', $result['text']);
+        $this->assertSame('openrouter/free', $result['model']);
+        $this->assertSame(12, $result['prompt_tokens']);
+        $this->assertSame(8, $result['completion_tokens']);
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+
+            return $request->url() === 'https://openrouter.ai/api/v1/chat/completions'
+                && $request->hasHeader('Authorization', 'Bearer openrouter-test-key')
+                && ($data['model'] ?? null) === 'openrouter/free'
+                && ($data['max_tokens'] ?? null) === 512
+                && ($data['messages'][0]['role'] ?? null) === 'system'
+                && ($data['messages'][1]['content'] ?? null) === 'Buat soal';
+        });
+    }
+
+    public function test_openrouter_free_only_menolak_model_berbayar_sebelum_request_terkirim(): void
+    {
+        config()->set('ai.provider', 'openrouter');
+        config()->set('ai.openrouter.model', 'google/gemini-3.1-flash');
+        Http::fake();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('free-only aktif');
+
+        try {
+            app(GeminiService::class)->generate('Buat soal');
+        } finally {
+            Http::assertNothingSent();
+        }
+    }
+
+    public function test_openrouter_429_pindah_ke_model_free_cadangan(): void
+    {
+        config()->set('ai.provider', 'openrouter');
+        config()->set('ai.openrouter.model', 'qwen/qwen3-coder:free');
+        config()->set('ai.openrouter.fallback_models', ['openrouter/free']);
+
+        Http::fake([
+            'https://openrouter.ai/api/v1/chat/completions' => Http::sequence()
+                ->push(['error' => ['message' => 'Rate limit exceeded']], 429)
+                ->push($this->jawabanOpenRouterSukses('Jawaban cadangan'), 200),
+        ]);
+
+        $result = app(GeminiService::class)->generate('Buat soal');
+
+        $this->assertSame('Jawaban cadangan', $result['text']);
+        $this->assertSame('openrouter/free', $result['model']);
+
+        $models = [];
+        Http::assertSent(function ($request) use (&$models) {
+            $models[] = $request->data()['model'] ?? null;
+
+            return true;
+        });
+
+        $this->assertSame(['qwen/qwen3-coder:free', 'openrouter/free'], $models);
+    }
+
+    private function jawabanOpenRouterSukses(string $teks): array
+    {
+        return [
+            'choices' => [[
+                'finish_reason' => 'stop',
+                'message' => ['content' => $teks],
+            ]],
+            'usage' => ['prompt_tokens' => 12, 'completion_tokens' => 8],
+        ];
     }
 
     private function jawabanSukses(string $teks): array

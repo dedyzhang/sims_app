@@ -4,17 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\ChatbotConversation;
 use App\Models\ChatbotMessage;
+use App\Models\Setting;
 use App\Services\Chatbot\ChatbotService;
+use App\Support\Uploads;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ChatbotController extends Controller
 {
-    public function __construct(private ChatbotService $chatbot)
-    {
-    }
+    public function __construct(private ChatbotService $chatbot) {}
 
     /** Render halaman widget chat. */
     public function show(Request $request): View
@@ -35,7 +37,7 @@ class ChatbotController extends Controller
             'messages' => $messages,
             'pollInterval' => config('chatbot.poll_interval_seconds') * 1000,
             'readWatermark' => $this->chatbot->ownReadWatermark($conversation, 'user'),
-            'avatarType' => \App\Models\Setting::get('chatbot_avatar', 'default'),
+            'avatarType' => Setting::get('chatbot_avatar', 'default'),
             'quickQuestions' => $this->chatbot->quickQuestionLabels(),
         ]);
     }
@@ -69,14 +71,14 @@ class ChatbotController extends Controller
         ]);
 
         $file = $data['image'];
-        $name = (string) \Illuminate\Support\Str::uuid() . '.' . strtolower($file->getClientOriginalExtension() ?: 'jpg');
+        $name = (string) Str::uuid().'.'.Uploads::safeExtension($file, ['jpeg', 'jpg', 'png', 'webp'], 'jpg');
         $dir = public_path('uploads/chat');
-        \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
+        File::ensureDirectoryExists($dir);
         $file->move($dir, $name);
 
         $result = $this->chatbot->handleImage(
             $request->user(),
-            'uploads/chat/' . $name,
+            'uploads/chat/'.$name,
             $data['caption'] ?? '',
         );
 
@@ -96,17 +98,17 @@ class ChatbotController extends Controller
         ]);
 
         $file = $data['file'];
-        $ext = strtolower($file->getClientOriginalExtension() ?: 'bin');
-        $base = \Illuminate\Support\Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'file';
-        $folder = (string) \Illuminate\Support\Str::uuid();
+        $ext = Uploads::safeExtension($file, ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'], 'bin');
+        $base = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'file';
+        $folder = (string) Str::uuid();
 
-        $dir = public_path('uploads/chat/' . $folder);
-        \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
-        $file->move($dir, $base . '.' . $ext);
+        $dir = public_path('uploads/chat/'.$folder);
+        File::ensureDirectoryExists($dir);
+        $file->move($dir, $base.'.'.$ext);
 
         $result = $this->chatbot->handleFile(
             $request->user(),
-            'uploads/chat/' . $folder . '/' . $base . '.' . $ext,
+            'uploads/chat/'.$folder.'/'.$base.'.'.$ext,
             $data['caption'] ?? '',
         );
 
