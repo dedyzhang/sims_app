@@ -52,7 +52,7 @@
                         <kbd class="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-primary-50 border border-primary/30">Spasi</kbd>
                     </button>
                 </div>
-                <button x-show="streaming" @click="save()" :disabled="samples.length<1 || saving" class="btn-primary w-full px-5 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40">
+                <button x-show="streaming" @click="save()" :disabled="samples.length<3 || saving" class="btn-primary w-full px-5 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40">
                     <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="saving"></i>
                     <i data-lucide="check" class="w-4 h-4" x-show="!saving"></i>
                     <span x-text="saving ? 'Menyimpan...' : 'Simpan & Lanjutkan'"></span>
@@ -63,11 +63,9 @@
             <div class="p-5 sm:p-6 bg-slate-50/60 dark:bg-slate-900/30">
                 <p class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3 text-center">Panduan Posisi Wajah</p>
                 @include('partials.face-tutorial')
-                <ul class="mt-5 space-y-2 text-sm text-slate-500 dark:text-slate-400">
-                    <li class="flex items-start gap-2"><i data-lucide="sun" class="w-4 h-4 mt-0.5 text-amber-500 flex-shrink-0"></i> Pastikan pencahayaan cukup terang.</li>
-                    <li class="flex items-start gap-2"><i data-lucide="glasses" class="w-4 h-4 mt-0.5 text-primary flex-shrink-0"></i> Lepas masker; kacamata boleh dipakai.</li>
-                    <li class="flex items-start gap-2"><i data-lucide="aperture" class="w-4 h-4 mt-0.5 text-emerald-500 flex-shrink-0"></i> Ambil 3 sampel mengikuti animasi di atas.</li>
-                </ul>
+                <div class="mt-5">
+                    @include('partials.face-registration-rules')
+                </div>
             </div>
         </div>
 
@@ -95,7 +93,7 @@ async function loadHuman(){
     human = new HumanLib({
         modelBasePath:'https://vladmandic.github.io/human-models/models/',
         backend: backend, cacheSensitivity: 0, warmup:'none',
-        face:{ enabled:true, detector:{ maxDetected:1, minConfidence:0.3 }, mesh:{enabled:true}, iris:{enabled:false},
+        face:{ enabled:true, detector:{ maxDetected:1, minConfidence:0.45 }, mesh:{enabled:true}, iris:{enabled:false},
                description:{enabled:true}, emotion:{enabled:false}, antispoof:{enabled:false}, liveness:{enabled:false} },
         body:{enabled:false}, hand:{enabled:false}, object:{enabled:false}, gesture:{enabled:false},
         filter:{enabled:false}, segmentation:{enabled:false},
@@ -109,6 +107,16 @@ function selfEnroll(){
     return {
         loading:false, streaming:false, capturing:false, saving:false,
         samples:[], photo:null, _bestYaw:Infinity, stream:null, status:'Klik "Nyalakan Kamera" untuk memulai', msg:'', msgErr:false,
+        faceQuality(face){
+            if(!face || !face.embedding || !face.box) return { ok:false, msg:'Wajah tidak terdeteksi. Pastikan wajah masuk bingkai.' };
+            const v=this.$refs.video;
+            const b=face.box;
+            const score = face.faceScore ?? face.score ?? face.boxScore ?? 1;
+            const minSide = Math.min(b[2] || 0, b[3] || 0);
+            if(score < 0.5) return { ok:false, msg:'Wajah kurang jelas. Tambah cahaya dan tahan posisi sebentar.' };
+            if(v.videoHeight && minSide < v.videoHeight * 0.18) return { ok:false, msg:'Wajah terlalu jauh dari kamera. Dekatkan sedikit lalu ambil ulang.' };
+            return { ok:true };
+        },
 
         // potong area wajah jadi kotak yang SELALU di dalam frame (anti bar hitam) + tajam
         cropFace(box){
@@ -156,19 +164,21 @@ function selfEnroll(){
             try {
                 const res = await human.detect(this.$refs.video);
                 const face = (res.face||[])[0];
-                if(face && face.embedding){
+                const quality = this.faceQuality(face);
+                if(quality.ok){
                     this.samples.push(Array.from(face.embedding));
                     // simpan snapshot HANYA dari pose paling menghadap depan (yaw terkecil)
                     const yaw = Math.abs(face.rotation?.angle?.yaw ?? 0);
                     if(face.box && yaw < this._bestYaw){ this.photo = this.cropFace(face.box); this._bestYaw = yaw; }
                     this.msg = 'Sampel ' + this.samples.length + ' tersimpan. ' + (this.samples.length<3 ? 'Ubah posisi sesuai animasi & ambil lagi.' : 'Lengkap! Klik Simpan & Lanjutkan.');
                 } else {
-                    this.msg='Wajah tidak terdeteksi. Perbaiki posisi & pencahayaan.'; this.msgErr=true;
+                    this.msg=quality.msg || 'Wajah tidak terdeteksi. Perbaiki posisi & pencahayaan.'; this.msgErr=true;
                 }
             } catch(e){ this.msg='Error: '+e.message; this.msgErr=true; }
             this.capturing=false;
         },
         async save(force=false){
+            if(this.samples.length < 3){ this.msg='Ambil minimal 3 sampel wajah dulu.'; this.msgErr=true; return; }
             this.saving=true;
             try {
                 const res = await fetch('{{ route('face.self.store') }}', {

@@ -23,7 +23,6 @@ class PanduanController extends Controller
             'docTitle' => $parsed['title'],
             'introHtml' => $parsed['introHtml'],
             'sections' => $parsed['sections'],
-            'sourcePath' => self::SOURCE,
             'lastUpdated' => date('d M Y H:i', File::lastModified($path)),
         ]);
     }

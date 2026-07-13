@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Siswa;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -44,6 +45,8 @@ class SmokeTest extends TestCase
             'mata pelajaran'       => ['/pelajaran'],
             'jadwal'               => ['/jadwal'],
             'absensi'              => ['/absensi'],
+            'absensi wajah'        => ['/absensi/wajah'],
+            'absensi scan wajah'   => ['/absensi/scan'],
             'presensi guru'        => ['/presensi-guru'],
             'nilai'                => ['/nilai'],
             'rekap nilai'          => ['/rekap-nilai'],
@@ -74,5 +77,26 @@ class SmokeTest extends TestCase
             $res->getStatusCode(),
             "Halaman {$url} mengembalikan {$res->getStatusCode()} (server error)."
         );
+    }
+
+    public function test_siswa_tanpa_wajah_bisa_merender_halaman_wajah_saya(): void
+    {
+        $user = User::create([
+            'username' => 'face_student',
+            'password' => Hash::make('password'),
+            'access'   => 'siswa',
+        ]);
+
+        Siswa::create([
+            'id_login' => $user->getKey(),
+            'nama'     => 'Siswa Face',
+            'nis'      => 'FACE001',
+            'jk'       => 'L',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/wajah-saya')
+            ->assertOk()
+            ->assertSee('Daftarkan Wajah Anda');
     }
 }

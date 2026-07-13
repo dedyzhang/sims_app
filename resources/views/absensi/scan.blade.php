@@ -230,7 +230,7 @@ async function loadHuman(){
     human = new HumanLib({
         modelBasePath:'https://vladmandic.github.io/human-models/models/',
         backend: backend, cacheSensitivity: 0, warmup:'none',
-        face:{ enabled:true, detector:{ maxDetected:5, minConfidence:0.5 }, mesh:{enabled:true}, iris:{enabled:false},
+        face:{ enabled:true, detector:{ maxDetected:5, minConfidence:0.45 }, mesh:{enabled:true}, iris:{enabled:false},
                description:{enabled:true}, emotion:{enabled:false}, antispoof:{enabled:false}, liveness:{enabled:false} },
         body:{enabled:false}, hand:{enabled:false}, object:{enabled:false}, gesture:{enabled:false},
         filter:{enabled:false}, segmentation:{enabled:false},
@@ -247,6 +247,11 @@ function faceSim(a, b){
     for(let i=0;i<n;i++){ dot+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; }
     return dot / (Math.sqrt(na*nb) + 1e-8);
 }
+function normalizeFaceDescriptors(desc){
+    if(!Array.isArray(desc)) return [];
+    if(desc.length && typeof desc[0] === 'number') return [desc.map(Number)];
+    return desc.filter(v => Array.isArray(v) && v.length >= 64).map(v => v.map(Number));
+}
 
 function faceScan(data){
     return {
@@ -255,10 +260,11 @@ function faceScan(data){
         attendees: data.map(s=>({ ...s, marked: s.status==='hadir', justMarked:false, pulangMarked: !!s.pulangDone })),
         enrolled:[], stream:null, timer:null,
         // ===== Ambang pencocokan wajah (dinaikkan agar tidak salah orang / false positive) =====
-        threshold:0.62,        // kemiripan minimum (0..1) — dulu 0.5 terlalu longgar
-        margin:0.06,           // wajah terbaik harus unggul >= sekian dari kandidat kedua (cegah rancu 2 orang mirip)
-        minFaceFrac:0.13,      // wajah minimal ~13% tinggi frame (wajah kecil/jauh = embedding tidak akurat)
-        minFaceScore:0.6,      // skor deteksi wajah minimum (buang deteksi ragu/blur)
+        threshold:0.58,        // kemiripan minimum (0..1); lebih toleran, tetap dikunci margin + konfirmasi frame
+        confidentThreshold:0.68,
+        margin:0.045,          // wajah terbaik harus unggul dari kandidat kedua (cegah rancu 2 orang mirip)
+        minFaceFrac:0.10,      // wajah minimal ~10% tinggi frame agar kiosk tidak terlalu rewel saat kamera agak jauh
+        minFaceScore:0.45,     // skor deteksi wajah minimum (buang deteksi ragu/blur)
         confirmFrames:3,       // wajah harus dikenali konsisten sekian frame beruntun baru ditandai hadir
         _streak:{},            // penghitung frame beruntun per uuid
         recent:[], lastMatch:null, _seq:0, audioCtx:null,
@@ -282,6 +288,7 @@ function faceScan(data){
         },
 
         init(){
+            this.attendees = this.attendees.map(s => ({ ...s, desc: normalizeFaceDescriptors(s.desc) }));
             document.addEventListener('fullscreenchange', ()=>{
                 this.fs = !!document.fullscreenElement;
                 setTimeout(()=> window.lucide && lucide.createIcons(), 60);
@@ -424,7 +431,7 @@ function faceScan(data){
                 // ===== Gate berlapis (harus lolos SEMUA baru dianggap cocok) =====
                 const faceScore = (f.faceScore ?? f.score ?? f.boxScore ?? 1);
                 const bigEnough = Math.min(b[2], b[3]) >= (c.height * this.minFaceFrac);
-                const clearGap  = (bestSim - secondSim) >= this.margin;
+                const clearGap  = (bestSim - secondSim) >= this.margin || bestSim >= this.confidentThreshold;
                 const strongMatch = bestSim >= this.threshold && clearGap && bigEnough && faceScore >= this.minFaceScore;
 
                 let label, color;

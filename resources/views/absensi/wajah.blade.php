@@ -88,8 +88,9 @@
             </div>
             <div class="p-5 space-y-4">
                 {{-- Tutorial 3 posisi --}}
-                <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/40 p-3">
+                <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/40 p-3 space-y-4">
                     @include('partials.face-tutorial')
+                    @include('partials.face-registration-rules')
                 </div>
                 <div class="relative rounded-2xl overflow-hidden bg-slate-900 aspect-[4/3]">
                     <video x-ref="video" autoplay muted playsinline class="w-full h-full object-cover" :class="streaming ? '' : 'opacity-0'"></video>
@@ -116,7 +117,7 @@
                     <i data-lucide="aperture" class="w-4 h-4"></i> Ambil Sampel (<span x-text="samples.length"></span>/3)
                     <kbd class="text-[10px] px-1.5 py-0.5 rounded bg-primary-50 border border-primary/30">Spasi</kbd>
                 </button>
-                <button @click="save()" :disabled="samples.length<1 || saving" class="btn-primary px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-40">
+                <button @click="save()" :disabled="samples.length<3 || saving" class="btn-primary px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-40">
                     <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin" x-show="saving"></i><span x-text="saving?'Menyimpan...':'Simpan'"></span>
                 </button>
             </div>
@@ -144,7 +145,7 @@ async function loadHuman(){
     human = new HumanLib({
         modelBasePath:'https://vladmandic.github.io/human-models/models/',
         backend: backend, cacheSensitivity: 0, warmup:'none',
-        face:{ enabled:true, detector:{ maxDetected:1, minConfidence:0.3 }, mesh:{enabled:true}, iris:{enabled:false},
+        face:{ enabled:true, detector:{ maxDetected:1, minConfidence:0.45 }, mesh:{enabled:true}, iris:{enabled:false},
                description:{enabled:true}, emotion:{enabled:false}, antispoof:{enabled:false}, liveness:{enabled:false} },
         body:{enabled:false}, hand:{enabled:false}, object:{enabled:false}, gesture:{enabled:false},
         filter:{enabled:false}, segmentation:{enabled:false},
@@ -161,6 +162,16 @@ function faceEnroll(){
         zoomSrc:null, zoomNama:'',
         zoom(src, nama){ this.zoomSrc=src; this.zoomNama=nama; },
         closeZoom(){ this.zoomSrc=null; },
+        faceQuality(face){
+            if(!face || !face.embedding || !face.box) return { ok:false, msg:'Wajah tidak terdeteksi. Pastikan wajah masuk bingkai.' };
+            const v=this.$refs.video;
+            const b=face.box;
+            const score = face.faceScore ?? face.score ?? face.boxScore ?? 1;
+            const minSide = Math.min(b[2] || 0, b[3] || 0);
+            if(score < 0.5) return { ok:false, msg:'Wajah kurang jelas. Tambah cahaya dan tahan posisi sebentar.' };
+            if(v.videoHeight && minSide < v.videoHeight * 0.18) return { ok:false, msg:'Wajah terlalu jauh dari kamera. Dekatkan sedikit lalu ambil ulang.' };
+            return { ok:true };
+        },
 
         cropFace(box){
             try {
@@ -208,7 +219,8 @@ function faceEnroll(){
             try {
                 const res = await human.detect(this.$refs.video);
                 const face = (res.face||[])[0];
-                if(face && face.embedding){
+                const quality = this.faceQuality(face);
+                if(quality.ok){
                     this.samples.push(Array.from(face.embedding));
                     // foto profil = pose paling menghadap depan (yaw terkecil)
                     const yaw = Math.abs(face.rotation?.angle?.yaw ?? 0);
@@ -216,13 +228,14 @@ function faceEnroll(){
                     this.msg = 'Sampel ' + this.samples.length + ' tersimpan. ' + (this.samples.length<3 ? 'Ambil lagi dari sudut sedikit berbeda.' : 'Cukup, klik Simpan.');
                     this.msgErr=false;
                 } else {
-                    this.msg='Wajah tidak terdeteksi. Pastikan pencahayaan cukup & wajah menghadap kamera.';
+                    this.msg=quality.msg || 'Wajah tidak terdeteksi. Pastikan pencahayaan cukup & wajah menghadap kamera.';
                     this.msgErr=true;
                 }
             } catch(e){ this.msg='Error: '+e.message; this.msgErr=true; }
             this.capturing=false;
         },
         async save(force=false){
+            if(this.samples.length < 3){ this.msg='Ambil minimal 3 sampel wajah dulu.'; this.msgErr=true; return; }
             this.saving=true;
             try {
                 const res = await fetch(`/siswa/${this.uuid}/wajah`, {

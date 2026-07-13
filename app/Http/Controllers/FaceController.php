@@ -63,7 +63,7 @@ class FaceController extends Controller
     public function selfStore(Request $request)
     {
         $request->validate([
-            'descriptors'   => 'required|array|min:1|max:5',
+            'descriptors'   => 'required|array|min:3|max:5',
             'descriptors.*' => 'array|min:64',
             'photo'         => 'nullable|string',
         ]);

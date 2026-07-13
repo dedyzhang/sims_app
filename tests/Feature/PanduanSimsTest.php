@@ -33,7 +33,8 @@ class PanduanSimsTest extends TestCase
             ->get('/panduan-sims')
             ->assertOk()
             ->assertSee('Panduan SIMS')
-            ->assertSee('Alur Awal Penggunaan');
+            ->assertSee('Alur Awal Penggunaan')
+            ->assertDontSee('docs/PANDUAN_PENGGUNAAN_SIMS_APP.md');
     }
 
     public function test_panduan_menampilkan_konten_dari_file_markdown(): void
@@ -44,6 +45,10 @@ class PanduanSimsTest extends TestCase
             ->get('/panduan-sims')
             ->assertOk()
             ->assertSee('Data Master')
+            ->assertSee('Fitur Asisten Guru')
+            ->assertSee('Generator Soal')
+            ->assertSee('RPM Learning')
+            ->assertSee('Draft Feedback')
             ->assertSee('Keuangan SPP')
             ->assertSee('Sarana dan Prasarana');
     }

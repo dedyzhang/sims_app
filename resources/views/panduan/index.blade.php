@@ -13,10 +13,6 @@
             <h1 class="page-title">Panduan SIMS</h1>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Tutorial penggunaan aplikasi sekolah dari dokumen panduan resmi.</p>
         </div>
-        <div class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
-            <i data-lucide="file-text" class="w-4 h-4"></i>
-            <span class="font-semibold">{{ $sourcePath }}</span>
-        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-5 items-start">

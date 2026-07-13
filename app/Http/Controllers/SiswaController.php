@@ -188,7 +188,7 @@ class SiswaController extends Controller
     public function storeFace(Request $request, string $uuid)
     {
         $request->validate([
-            'descriptors'   => 'required|array|min:1|max:5',
+            'descriptors'   => 'required|array|min:3|max:5',
             'descriptors.*' => 'array|min:64',   // embedding (face-api 128 / Human ~1024)
             'photo'         => 'nullable|string',
         ]);

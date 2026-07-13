@@ -169,7 +169,6 @@
                 <div>
                     <label class="form-label">Alokasi Waktu</label>
                     <input type="text" x-model="learning.durasi" placeholder="mis. 2 x 40 menit" class="form-input">
-                    <p class="text-[11px] text-slate-400 mt-1">Output memakai format RPM Learning: identitas, DPL, tujuan, 4 Pilar PM, kegiatan, asesmen, refleksi, lampiran, dan sumber belajar.</p>
                 </div>
                 <button type="button" @click="submit('learning')" :disabled="loading || (learning.source === 'file' ? !learning.file : learning.topik.trim() === '')" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
                     <i data-lucide="clipboard-list" class="w-4 h-4"></i> Buat RPM Learning

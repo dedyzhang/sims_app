@@ -210,17 +210,67 @@ Berikut adalah panduan langkah demi langkah untuk menggunakannya:
 3. Buka riwayat jika ingin melanjutkan percakapan lama.
 4. Anda juga dapat menghapus percakapan yang tidak diperlukan. jika data tersebut tidak lagi diperlukan.
 
-### Asisten Guru
+### Fitur Asisten Guru
 
-Untuk mengakses fitur ini, silakan buka menu **`Akademik > Asisten Guru`.** pada bilah navigasi (sidebar).
+Untuk mengakses fitur ini, silakan buka menu **`Akademik > Asisten Guru`.** pada bilah navigasi (sidebar). Menu ini tampil untuk guru dan wali kelas.
 
-Berikut adalah panduan langkah demi langkah untuk menggunakannya:
+Fitur ini membantu guru menyusun dokumen pembelajaran lebih cepat, tetapi hasilnya tetap perlu ditinjau sebelum dibagikan ke siswa.
 
-1. Silakan navigasikan ke menu `Asisten Guru`.
-2. Pilih fitur: buat soal, rangkum materi, atau buat umpan balik.
-3. Isi konteks materi/kelas/kebutuhan.
-4. Klik buat.
-5. Tinjauan hasil sebelum digunakan ke siswa.
+Fitur utama:
+
+- Generator Soal untuk membuat soal dari topik atau file materi.
+- RPM Learning untuk menyusun rancangan pembelajaran dari topik atau file materi.
+- Rangkuman Materi untuk merangkum bahan ajar menjadi poin penting.
+- Draft Feedback untuk membuat komentar/umpan balik siswa.
+- Pratinjau hasil sebelum diunduh.
+- Ekspor hasil soal atau RPM ke Word/PDF jika tersedia.
+- Riwayat generate agar guru bisa membuka kembali hasil sebelumnya.
+
+Cara membuat soal:
+
+1. Silakan navigasikan ke menu `Akademik > Asisten Guru`.
+2. Pilih tab `Generator Soal`.
+3. Pilih sumber: generate dari topik atau unggah file materi.
+4. Isi topik, tingkat kesulitan, jumlah soal, dan jenis soal yang dibutuhkan.
+5. Klik `Buat Soal`.
+6. Tinjau hasil soal dan kunci jawaban.
+7. Jika sudah sesuai, gunakan tombol pratinjau atau ekspor Word/PDF.
+
+Cara membuat RPM Learning:
+
+1. Pilih tab `RPM Learning`.
+2. Isi topik/judul RPM atau unggah file materi.
+3. Lengkapi jenjang, kelas, mata pelajaran, dan fokus pembelajaran jika tersedia.
+4. Klik `Buat RPM Learning`.
+5. Tinjau struktur dokumen: identitas, DPL, tujuan, kegiatan, asesmen, refleksi, lampiran, dan sumber belajar.
+6. Ekspor ke Word/PDF jika dokumen sudah siap digunakan.
+
+Cara merangkum materi:
+
+1. Pilih tab `Rangkuman Materi`.
+2. Masukkan teks materi atau unggah bahan yang didukung.
+3. Klik buat rangkuman.
+4. Periksa hasil ringkasan sebelum dipakai sebagai bahan ajar.
+
+Cara membuat draft feedback siswa:
+
+1. Pilih tab `Draft Feedback`.
+2. Isi nama siswa jika diperlukan.
+3. Isi konteks nilai, perilaku, tugas, atau catatan guru.
+4. Klik buat feedback.
+5. Sunting kalimat agar sesuai dengan kondisi siswa sebenarnya.
+
+Cara memakai riwayat hasil:
+
+1. Lihat panel `History Generate` di halaman Asisten Guru.
+2. Pilih hasil lama untuk dibaca ulang.
+3. Hapus riwayat yang tidak diperlukan.
+
+Catatan penggunaan:
+
+- Jangan memasukkan data pribadi sensitif yang tidak diperlukan.
+- Hasil AI bisa keliru, jadi guru wajib meninjau ulang isi, angka, kunci jawaban, dan kesesuaian kurikulum.
+- Untuk soal atau RPM resmi, lakukan koreksi manual sebelum dicetak atau dibagikan.
 
 ### Analisis AI
 
@@ -1571,6 +1621,7 @@ Gunakan checklist ini saat demo ke sekolah:
 - Sistem Poin atau P3 sesuai pengaturan aktif.
 - Wali Kelas: siswa kelas, sekretaris, absensi kelas, disiplin kelas, nilai kelas.
 - Forum Diskusi dan pengaturan akses forum.
+- Asisten Guru: Generator Soal, RPM Learning, Rangkuman Materi, Draft Feedback, ekspor, dan riwayat generate.
 - Analisis AI dan Dokumen AI.
 - Sarpras lengkap: dasbor, denah, ruangan, kerusakan, aset, kategori, pengadaan, supplier, peminjaman, booking, perbaikan, teknisi, jadwal, mutasi, penghapusan, laporan.
 - Keuangan: pembayaran SPP, verifikasi, bank/metode, tagihan siswa/orang tua.
