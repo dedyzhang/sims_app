@@ -1,12 +1,13 @@
-{{-- Komponen upload multi-file (gambar/PDF) dgn preview ukuran. Var opsional: $label --}}
+{{-- Komponen upload multi-file (gambar/PDF) dgn preview ukuran.
+     Var opsional: $label, $maxMb, $maxFiles, $acceptLabel, $acceptAttr --}}
 <div x-data="cgUpload()" class="space-y-2">
     <label class="block">
         <div class="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-5 text-center cursor-pointer hover:border-primary transition"
              @dragover.prevent="hover=true" @dragleave.prevent="hover=false" @drop.prevent="onDrop($event)" :class="hover ? 'border-primary bg-primary/5' : ''">
             <i data-lucide="upload-cloud" class="w-7 h-7 mx-auto text-slate-400 mb-1"></i>
             <p class="text-sm text-slate-500 dark:text-slate-400">{{ $label ?? 'Seret & lepas file, atau klik untuk pilih' }}</p>
-            <p class="text-[11px] text-slate-400 mt-0.5">Gambar (JPG/PNG/WEBP/HEIC) atau PDF · maks {{ config('classroom.max_file_mb', 20) }}MB · maks {{ config('classroom.max_files', 10) }} file</p>
-            <input type="file" name="files[]" multiple accept="image/*,application/pdf" class="hidden" x-ref="input" @change="onPick($event)">
+            <p class="text-[11px] text-slate-400 mt-0.5">{{ $acceptLabel ?? 'Gambar (JPG/PNG/WEBP/HEIC) atau PDF' }} · maks {{ $maxMb ?? config('classroom.max_file_mb', 20) }}MB · maks {{ $maxFiles ?? config('classroom.max_files', 10) }} file</p>
+            <input type="file" name="files[]" multiple accept="{{ $acceptAttr ?? 'image/*,application/pdf' }}" class="hidden" x-ref="input" @change="onPick($event)">
         </div>
     </label>
     <template x-if="items.length">

@@ -45,6 +45,7 @@ use App\Http\Controllers\PoinController;
 use App\Http\Controllers\PresensiGuruController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QrAbsensiController;
+use App\Http\Controllers\RapatController;
 use App\Http\Controllers\RekapController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SiswaController;
@@ -373,6 +374,25 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::put('/{agenda}', 'update')->name('update');
         Route::delete('/{agenda}', 'destroy')->name('destroy');
         Route::post('/{agenda}/validasi', 'validasi')->name('validasi');
+    });
+
+    // ─── Agenda Rapat / Notulen Rapat — admin/kurikulum/kepala atau guru sekretaris ───
+    Route::prefix('rapat')->name('rapat.')->controller(RapatController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/buat', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/sekretaris', 'sekretaris')->name('sekretaris');
+        Route::post('/sekretaris/{guru}/toggle', 'sekretarisToggle')->name('sekretaris.toggle');
+        Route::get('/{rapat}', 'show')->name('show');
+        Route::get('/{rapat}/edit', 'edit')->name('edit');
+        Route::put('/{rapat}', 'update')->name('update');
+        Route::delete('/{rapat}', 'destroy')->name('destroy');
+        Route::get('/{rapat}/hadir', 'hadir')->name('hadir');
+        Route::post('/{rapat}/hadir', 'hadirStore')->name('hadir.store');
+        Route::get('/{rapat}/dokumentasi', 'dokumentasi')->name('dokumentasi');
+        Route::post('/{rapat}/dokumentasi', 'dokumentasiStore')->name('dokumentasi.store');
+        Route::delete('/{rapat}/dokumentasi/{dokumentasi}', 'dokumentasiDestroy')->name('dokumentasi.destroy');
+        Route::get('/{rapat}/cetak', 'cetak')->name('cetak');
     });
 
     // ─── Poin/Aturan (lama, ledger basis 100) — dua sistem, dipilih di Pengaturan ───

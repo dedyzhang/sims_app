@@ -15,12 +15,13 @@ class Guru extends Model
         'id_login', 'nama', 'nik', 'nip', 'jk', 'tempat_lahir',
         'tanggal_lahir', 'agama', 'alamat', 'tingkat_studi', 'program_studi',
         'universitas', 'tahun_tamat', 'tmt_ngajar', 'tmt_smp', 'no_telp', 'foto',
-        'face_descriptor', 'face_registered_at', 'face_photo',
+        'face_descriptor', 'face_registered_at', 'face_photo', 'sekretaris_rapat',
     ];
 
     protected $casts = [
         'face_descriptor'    => 'array',
         'face_registered_at' => 'datetime',
+        'sekretaris_rapat'   => 'boolean',
     ];
 
     public function getFacePhotoUrlAttribute(): ?string
@@ -46,6 +47,11 @@ class Guru extends Model
     public function perangkatUploads()
     {
         return $this->hasMany(PerangkatAjarGuru::class, 'id_guru', 'uuid');
+    }
+
+    public function rapatHadir()
+    {
+        return $this->belongsToMany(Rapat::class, 'rapat_hadir', 'id_guru', 'id_rapat', 'uuid', 'uuid')->withTimestamps();
     }
 
     public function getNamaLoginAttribute(): string

@@ -509,6 +509,10 @@
                     $agendaItems[] = ['agenda.rekap', ['agenda.rekap','agenda.validasi'], 'calendar-check-2', 'Rekap Agenda'];
                     $agendaItems[] = ['agenda.batas', ['agenda.batas'], 'book-open-text', 'Buku Batas'];
                 }
+                // Agenda Rapat: semua guru/staff boleh lihat; kelola penuh utk admin/manage_rapat/sekretaris rapat.
+                if (auth()->user()?->guru || $isAdmin || auth()->user()?->canAccess('manage_rapat') || in_array($access, ['kesiswaan','sarpras','kurikulum','kepala'])) {
+                    $agendaItems[] = ['rapat.index', ['rapat.*'], 'users-round', 'Agenda Rapat'];
+                }
                 if (!empty($agendaItems)) {
                     $groups['agenda'] = ['Agenda', 'notebook-pen', $agendaItems];
                 }

@@ -36,6 +36,7 @@ class SettingController extends Controller
         'manage_feedback' => 'Merespon Saran & Masukan Pengguna',
         'manage_settings' => 'Mengelola Pengaturan Sistem',
         'manage_perangkat' => 'Memantau Perangkat Ajar Guru',
+        'manage_rapat' => 'Mengelola Agenda Rapat (Notulen)',
     ];
 
     public function index()
