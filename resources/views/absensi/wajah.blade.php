@@ -237,29 +237,21 @@ function faceEnroll(){
             } catch(e){ this.msg='Error: '+e.message; this.msgErr=true; }
             this.capturing=false;
         },
-        async save(force=false){
+        async save(){
             if(this.samples.length < 3){ this.msg='Ambil minimal 3 sampel wajah dulu.'; this.msgErr=true; return; }
             this.saving=true;
             try {
                 const res = await fetch(`/siswa/${this.uuid}/wajah`, {
                     method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                    body: JSON.stringify({ descriptors: this.samples, photo: this.photo, force })
+                    body: JSON.stringify({ descriptors: this.samples, photo: this.photo })
                 });
                 if(res.ok){ const data = await res.json(); showToast(data.message||'Wajah terdaftar.'); this.close(); setTimeout(()=>location.reload(),700); return; }
                 if(res.status===422){
                     const d = await res.json();
                     if(d.duplicate){
+                        this.msg = d.message + ' Hapus data wajah lama terlebih dahulu jika perlu.';
+                        this.msgErr = true;
                         this.saving=false;
-                        const self=this;
-                        $.confirm({
-                            title:'Wajah mirip terdeteksi',
-                            content:'<div class="text-slate-600 dark:text-slate-300">'+d.message+' Kemiripan <b class="text-rose-600">'+d.similarity+'%</b>.<br><br>Tetap daftarkan untuk <b>'+self.nama+'</b>?</div>',
-                            type:'orange', icon:'',
-                            buttons:{
-                                ya:{ text:'Ya, tetap daftarkan', btnClass:'btn-warning', keys:['enter'], action:()=>{ self.save(true); } },
-                                batal:{ text:'Batal', btnClass:'btn-default' }
-                            }
-                        });
                         return;
                     }
                 }

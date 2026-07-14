@@ -26,7 +26,7 @@ class Guru extends Model
 
     public function getFacePhotoUrlAttribute(): ?string
     {
-        return \App\Support\FaceMatch::photoUrl($this->face_photo);
+        return \App\Support\FaceMatch::photoUrl($this->face_photo, $this->uuid);
     }
 
     public function user()

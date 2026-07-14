@@ -77,9 +77,10 @@ class AiRagController extends Controller
     }
 
     /** DELETE /ai/rag/{document} — hapus dokumen, chunk, dan file. */
-    public function destroy(string $document): JsonResponse
+    public function destroy(Request $request, string $document): JsonResponse
     {
         $doc = AiDocument::findOrFail($document);
+        abort_unless($doc->user_uuid === $request->user()->uuid || $request->user()->isSuperAdmin(), 403);
 
         if ($doc->file_path) {
             Storage::disk('local')->delete($doc->file_path);

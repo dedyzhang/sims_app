@@ -269,6 +269,18 @@ class GuruController extends Controller
         }
 
         $guru = Guru::findOrFail($uuid);
+
+        $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $guru->uuid);
+        if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::THRESHOLD) {
+            return response()->json([
+                'duplicate'  => true,
+                'nama'       => $dup['nama'],
+                'tipe'       => $dup['tipe'],
+                'similarity' => round($dup['similarity'] * 100),
+                'message'    => 'Wajah ini mirip ' . $dup['nama'] . ' (' . $dup['tipe'] . ').',
+            ], 422);
+        }
+
         $guru->update([
             'face_descriptor'    => $request->descriptors,
             'face_registered_at' => now(),

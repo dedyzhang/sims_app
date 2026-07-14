@@ -264,13 +264,15 @@ function faceScan(data){
         status:'Klik "Mulai Scan" untuk mengaktifkan kamera',
         attendees: data.map(s=>({ ...s, marked: s.status==='hadir', justMarked:false, pulangMarked: !!s.pulangDone })),
         enrolled:[], stream:null, timer:null,
-        // ===== Ambang pencocokan wajah (dinaikkan agar tidak salah orang / false positive) =====
-        threshold:0.58,        // kemiripan minimum (0..1); lebih toleran, tetap dikunci margin + konfirmasi frame
-        confidentThreshold:0.68,
-        margin:0.045,          // wajah terbaik harus unggul dari kandidat kedua (cegah rancu 2 orang mirip)
-        minFaceFrac:0.10,      // wajah minimal ~10% tinggi frame agar kiosk tidak terlalu rewel saat kamera agak jauh
-        minFaceScore:0.45,     // skor deteksi wajah minimum (buang deteksi ragu/blur)
-        confirmFrames:3,       // wajah harus dikenali konsisten sekian frame beruntun baru ditandai hadir
+        // ===== Ambang pencocokan wajah: ketat untuk absensi produksi (hindari false positive) =====
+        threshold:0.66,        // skor robust minimum; jangan turunkan tanpa uji lapangan
+        confidentThreshold:0.80,
+        supportThreshold:0.62, // minimal 2 sampel orang yang sama harus cukup mirip
+        minSampleSupport:2,
+        margin:0.08,           // kandidat terbaik harus unggul jelas dari kandidat kedua
+        minFaceFrac:0.14,      // wajah harus cukup besar di frame agar embedding stabil
+        minFaceScore:0.55,     // buang deteksi ragu/blur/pencahayaan buruk
+        confirmFrames:4,       // wajib stabil beberapa frame beruntun sebelum absen ditandai
         _streak:{},            // penghitung frame beruntun per uuid
         recent:[], lastMatch:null, _seq:0, audioCtx:null,
         scanMode:'masuk',
@@ -309,6 +311,24 @@ function faceScan(data){
             else { this.enterFs(); }
         },
         nowHM(){ const d=new Date(); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); },
+
+        robustPersonSimilarity(faceEmbedding, descriptors){
+            const sims = [];
+            for(const e of descriptors || []) sims.push(faceSim(faceEmbedding, e));
+            sims.sort((a,b)=>b-a);
+            if(!sims.length) return { score:0, top1:0, top2:0, support:0 };
+            const top1 = sims[0] || 0;
+            const top2 = sims[1] || 0;
+            const support = sims.filter(v => v >= this.supportThreshold).length;
+            const score = sims.length >= 2 ? (top1 * 0.58 + top2 * 0.42) : top1;
+            return { score, top1, top2, support };
+        },
+
+        hasEnoughSampleAgreement(match){
+            if(!match) return false;
+            if((match.sampleCount || 0) <= 1) return match.top1 >= this.threshold;
+            return match.support >= this.minSampleSupport || match.top1 >= this.confidentThreshold;
+        },
 
         // bunyi "ting" sukses absen (Web Audio, tanpa file)
         playDing(){
@@ -475,29 +495,31 @@ function faceScan(data){
                 if(!f.embedding || !f.box) return;
                 const b=f.box; // [x,y,w,h]
 
-                // Cari kandidat terbaik DAN kedua (per-orang = kemiripan tertinggi antar sampel wajahnya).
-                let bestUuid=null, bestSim=0, secondSim=0;
+                // Cari kandidat terbaik DAN kedua dengan skor robust per-orang.
+                // Satu sampel buruk tidak boleh membuat satu nama terus menang sebagai false positive.
+                let bestUuid=null, bestSim=0, secondSim=0, bestMatch=null;
                 for(const s of this.enrolled){
-                    let simS=0;
-                    for(const e of s.desc){ const sim=faceSim(f.embedding, e); if(sim>simS) simS=sim; }
-                    if(simS>bestSim){ secondSim=bestSim; bestSim=simS; bestUuid=s.uuid; }
-                    else if(simS>secondSim){ secondSim=simS; }
+                    const match = this.robustPersonSimilarity(f.embedding, s.desc);
+                    match.sampleCount = (s.desc || []).length;
+                    if(match.score>bestSim){ secondSim=bestSim; bestSim=match.score; bestUuid=s.uuid; bestMatch=match; }
+                    else if(match.score>secondSim){ secondSim=match.score; }
                 }
 
                 // ===== Gate berlapis (harus lolos SEMUA baru dianggap cocok) =====
                 const faceScore = (f.faceScore ?? f.score ?? f.boxScore ?? 1);
                 const bigEnough = Math.min(b[2], b[3]) >= (c.height * this.minFaceFrac);
                 const clearGap  = (bestSim - secondSim) >= this.margin || bestSim >= this.confidentThreshold;
-                const strongMatch = bestSim >= this.threshold && clearGap && bigEnough && faceScore >= this.minFaceScore;
+                const sampleAgreement = this.hasEnoughSampleAgreement(bestMatch);
+                const strongMatch = bestSim >= this.threshold && clearGap && sampleAgreement && bigEnough && faceScore >= this.minFaceScore;
 
                 let label, color;
                 if(strongMatch){
                     const s=this.attendees.find(z=>z.uuid===bestUuid);
                     label=(s?s.nama.split(' ')[0]:'?'); color='#10b981';   // hijau: dikenal & yakin
                     seenThisFrame.add(bestUuid);
-                } else if(bestSim >= this.threshold && bigEnough){
-                    // mirip tapi belum yakin (gap tipis / skor rendah) → jangan tandai, minta wajah lebih jelas
-                    label='Perjelas wajah…'; color='#f59e0b';
+                } else if((bestMatch?.top1 || bestSim) >= this.supportThreshold && bigEnough){
+                    // Mirip tapi belum yakin (gap tipis / hanya 1 sampel cocok / skor rendah) -> jangan tandai.
+                    label='Perjelas wajah'; color='#f59e0b';
                 } else {
                     label='Tidak dikenal'; color='#ef4444';
                 }

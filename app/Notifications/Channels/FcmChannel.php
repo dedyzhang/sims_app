@@ -29,6 +29,7 @@ class FcmChannel
             return;
         }
 
-        SendFcmNotificationJob::dispatch((string) $userUuid, $payload);
+        SendFcmNotificationJob::dispatch((string) $userUuid, $payload)
+            ->onConnection(config('services.firebase.queue_connection', 'sync'));
     }
 }

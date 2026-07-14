@@ -9,6 +9,7 @@ use App\Models\Guru;
 use App\Models\PresensiGuru;
 use App\Models\Setting;
 use App\Support\AbsensiGuru;
+use App\Support\AttendanceParentNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -79,6 +80,7 @@ class AbsensiController extends Controller
             if (!in_array($status, array_keys(Absensi::STATUS))) continue;
 
             $row = Absensi::firstOrNew(['id_siswa' => $siswaUuid, 'tanggal' => $tanggal]);
+            $previousStatus = $row->exists ? $row->status : null;
             $row->id_kelas     = $request->id_kelas;
             $row->status       = $status;
             $row->dicatat_oleh = auth()->id();
@@ -89,6 +91,9 @@ class AbsensiController extends Controller
             }
             // jam_masuk SENGAJA tidak disentuh → waktu absen hasil scan tetap tersimpan
             $row->save();
+            if ($status === 'hadir' && $previousStatus !== 'hadir') {
+                AttendanceParentNotifier::notify($row);
+            }
             $count++;
         }
 
@@ -273,6 +278,7 @@ class AbsensiController extends Controller
             'id_siswa' => $data['id_siswa'],
             'tanggal'  => $data['tanggal'],
         ]);
+        $previousStatus = $row->exists ? $row->status : null;
         $row->id_kelas     = $data['id_kelas'] ?? $row->id_kelas;
         $row->status       = $data['status'] ?? 'hadir';
         $row->keterangan   = 'Scan wajah';
@@ -288,6 +294,9 @@ class AbsensiController extends Controller
         $terlambat = $row->terlambat($batas);
         if ($scanPertama && $terlambat) {
             \App\Http\Controllers\PoinController::autoTerlambat($data['id_siswa'], $data['tanggal']);
+        }
+        if ($row->status === 'hadir' && $previousStatus !== 'hadir') {
+            AttendanceParentNotifier::notify($row);
         }
 
         return response()->json([

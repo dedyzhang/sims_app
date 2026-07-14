@@ -8,11 +8,6 @@ use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
 
-/**
- * Deteksi kemiripan / wajah ganda berbasis embedding wajah.
- * Tiap orang diringkas menjadi 1 vektor centroid (rata-rata sampel, dinormalisasi),
- * lalu kemiripan = cosine similarity (dot product karena sudah ternormalisasi).
- */
 class FaceMatch
 {
     /** Ambang default "kemungkinan wajah sama" (cosine). Bisa disetel via ?min=. */
@@ -25,39 +20,73 @@ class FaceMatch
     /** Rata-rata sampel → 1 vektor ternormalisasi. */
     public static function centroid(?array $samples): ?array
     {
-        $samples = array_values(array_filter((array) $samples, fn($s) => is_array($s) && count($s) >= 64));
-        if (empty($samples)) return null;
+        $samples = array_values(array_filter((array) $samples, fn ($s) => is_array($s) && count($s) >= 64));
+        if (empty($samples)) {
+            return null;
+        }
 
         $dim = count($samples[0]);
         $sum = array_fill(0, $dim, 0.0);
         foreach ($samples as $s) {
-            for ($i = 0; $i < $dim; $i++) $sum[$i] += (float) ($s[$i] ?? 0);
+            for ($i = 0; $i < $dim; $i++) {
+                $sum[$i] += (float) ($s[$i] ?? 0);
+            }
         }
         $n = count($samples);
         $norm = 0.0;
-        for ($i = 0; $i < $dim; $i++) { $sum[$i] /= $n; $norm += $sum[$i] * $sum[$i]; }
+        for ($i = 0; $i < $dim; $i++) {
+            $sum[$i] /= $n;
+            $norm += $sum[$i] * $sum[$i];
+        }
         $norm = sqrt($norm);
-        if ($norm > 0) for ($i = 0; $i < $dim; $i++) $sum[$i] /= $norm;
+        if ($norm > 0) {
+            for ($i = 0; $i < $dim; $i++) {
+                $sum[$i] /= $norm;
+            }
+        }
+
         return $sum;
     }
 
-    /** URL foto wajah — dukung path storage (baru) & data-URL base64 (lama). URL relatif agar portabel. */
-    public static function photoUrl(?string $v): ?string
+    /** URL foto wajah — hanya path storage faces/{uuid}_*.jpg milik pemilik. */
+    public static function photoUrl(?string $v, ?string $ownerUuid = null): ?string
     {
-        if (empty($v)) return null;
-        if (str_starts_with($v, 'data:') || str_starts_with($v, 'http')) return $v; // legacy / absolut
-        return '/storage/' . ltrim($v, '/');
+        if (empty($v)) {
+            return null;
+        }
+        if (str_starts_with($v, 'data:')) {
+            return $v;
+        }
+        if (str_starts_with($v, 'http')) {
+            return null;
+        }
+        if (! preg_match('/^faces\/([a-f0-9\-]+)_\d{14}\.jpg$/', $v, $m)) {
+            return null;
+        }
+        if ($ownerUuid !== null && $m[1] !== $ownerUuid) {
+            return null;
+        }
+
+        return '/storage/'.$v;
     }
 
-    /** Simpan foto (data-URL) ke storage Laravel, kembalikan PATH. Pertahankan lama jika tak ada foto baru. */
+    /** Simpan foto (data-URL) ke storage Laravel, kembalikan PATH. */
     public static function saveFromDataUrl(?string $dataUrl, string $ownerUuid, ?string $oldPath = null): ?string
     {
-        if (empty($dataUrl)) return $oldPath;                 // tak kirim foto → pertahankan
-        if (!str_starts_with($dataUrl, 'data:')) return $dataUrl; // sudah berupa path
+        if (empty($dataUrl)) {
+            return self::isValidStoredPath($oldPath, $ownerUuid) ? $oldPath : null;
+        }
+        if (! str_starts_with($dataUrl, 'data:image/')) {
+            return self::isValidStoredPath($oldPath, $ownerUuid) ? $oldPath : null;
+        }
         $comma = strpos($dataUrl, ',');
-        if ($comma === false) return $oldPath;
+        if ($comma === false) {
+            return self::isValidStoredPath($oldPath, $ownerUuid) ? $oldPath : null;
+        }
         $bin = base64_decode(substr($dataUrl, $comma + 1));
-        if ($bin === false) return $oldPath;
+        if ($bin === false || @getimagesizefromstring($bin) === false) {
+            return self::isValidStoredPath($oldPath, $ownerUuid) ? $oldPath : null;
+        }
 
         // Kompres ulang di server (bukan simpan mentah dari kanvas browser): resize bila perlu
         // + re-encode WebP kualitas tinggi. Beda dari FileCompressionService (materi/dokumen) —
@@ -78,11 +107,20 @@ class FaceMatch
         $path = 'faces/' . $ownerUuid . '_' . now()->format('YmdHis') . '.' . $ext;
         Storage::disk('public')->put($path, $bin);
 
-        // hapus file lama (kalau path file, bukan base64 lama)
-        if ($oldPath && !str_starts_with($oldPath, 'data:')) {
+        if ($oldPath && self::isValidStoredPath($oldPath, $ownerUuid)) {
             Storage::disk('public')->delete($oldPath);
         }
+
         return $path;
+    }
+
+    private static function isValidStoredPath(?string $path, string $ownerUuid): bool
+    {
+        if (empty($path) || str_starts_with($path, 'data:')) {
+            return false;
+        }
+
+        return (bool) preg_match('/^faces\/'.preg_quote($ownerUuid, '/').'_\d{14}\.jpg$/', $path);
     }
 
     /** Cosine similarity dua vektor ternormalisasi (= dot product). */
@@ -90,7 +128,10 @@ class FaceMatch
     {
         $dot = 0.0;
         $n = min(count($a), count($b));
-        for ($i = 0; $i < $n; $i++) $dot += $a[$i] * $b[$i];
+        for ($i = 0; $i < $n; $i++) {
+            $dot += $a[$i] * $b[$i];
+        }
+
         return $dot;
     }
 
@@ -98,19 +139,30 @@ class FaceMatch
     public static function allRegistered(?string $excludeUuid = null, bool $withPhoto = false): array
     {
         $cols = ['uuid', 'nama', 'face_descriptor'];
-        if ($withPhoto) $cols[] = 'face_photo';
+        if ($withPhoto) {
+            $cols[] = 'face_photo';
+        }
 
         $out = [];
         foreach (Siswa::whereNotNull('face_descriptor')->get($cols) as $s) {
-            if ($s->uuid === $excludeUuid) continue;
+            if ($s->uuid === $excludeUuid) {
+                continue;
+            }
             $c = self::centroid($s->face_descriptor);
-            if ($c) $out[] = ['uuid' => $s->uuid, 'nama' => $s->nama, 'tipe' => 'siswa', 'centroid' => $c, 'foto' => $withPhoto ? self::photoUrl($s->face_photo) : null];
+            if ($c) {
+                $out[] = ['uuid' => $s->uuid, 'nama' => $s->nama, 'tipe' => 'siswa', 'centroid' => $c, 'foto' => $withPhoto ? self::photoUrl($s->face_photo, $s->uuid) : null];
+            }
         }
         foreach (Guru::whereNotNull('face_descriptor')->get($cols) as $g) {
-            if ($g->uuid === $excludeUuid) continue;
+            if ($g->uuid === $excludeUuid) {
+                continue;
+            }
             $c = self::centroid($g->face_descriptor);
-            if ($c) $out[] = ['uuid' => $g->uuid, 'nama' => $g->nama, 'tipe' => 'guru', 'centroid' => $c, 'foto' => $withPhoto ? self::photoUrl($g->face_photo) : null];
+            if ($c) {
+                $out[] = ['uuid' => $g->uuid, 'nama' => $g->nama, 'tipe' => 'guru', 'centroid' => $c, 'foto' => $withPhoto ? self::photoUrl($g->face_photo, $g->uuid) : null];
+            }
         }
+
         return $out;
     }
 
@@ -118,15 +170,18 @@ class FaceMatch
     public static function bestMatch(?array $newDescriptors, ?string $excludeUuid): ?array
     {
         $c = self::centroid($newDescriptors);
-        if (!$c) return null;
+        if (! $c) {
+            return null;
+        }
 
         $best = null;
         foreach (self::allRegistered($excludeUuid) as $p) {
             $sim = self::cosine($c, $p['centroid']);
-            if (!$best || $sim > $best['similarity']) {
+            if (! $best || $sim > $best['similarity']) {
                 $best = ['uuid' => $p['uuid'], 'nama' => $p['nama'], 'tipe' => $p['tipe'], 'similarity' => $sim];
             }
         }
+
         return $best;
     }
 
@@ -144,7 +199,8 @@ class FaceMatch
                 }
             }
         }
-        usort($pairs, fn($x, $y) => $y['similarity'] <=> $x['similarity']);
+        usort($pairs, fn ($x, $y) => $y['similarity'] <=> $x['similarity']);
+
         return array_slice($pairs, 0, $limit);
     }
 }

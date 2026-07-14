@@ -11,28 +11,28 @@
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Percepat menyusun soal, RPM Learning, ringkasan materi, dan umpan balik siswa.</p>
         </div>
     </div>
-    {{-- Penggunaan free tier --}}
+    {{-- Generate quota --}}
     <div class="card p-4" x-show="quota" x-cloak>
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div class="min-w-0">
                 <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                     <i data-lucide="gauge" class="w-4 h-4 text-primary"></i>
-                    Keterangan Kuota Tersisa
+                    Generate Kuota
                 </h2>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400" x-show="quota.status && quota.status !== 'ok'" x-text="quota.message"></p>
                 <div class="mt-3 flex flex-wrap items-end gap-3">
                     <div class="text-2xl font-extrabold text-slate-800 dark:text-slate-100" x-text="quota.remaining_label || 'Sisa kuota tidak diketahui'"></div>
-                    <div class="pb-1 text-xs font-medium text-slate-400" x-show="quota.remaining_percent !== null" x-text="quota.remaining_percent + '% tersisa'"></div>
+                    <div class="pb-1 text-xs font-medium text-slate-400" x-show="quota.remaining_percent !== null && quota.status === 'ok'" x-text="quota.remaining_percent + '% tersisa'"></div>
                 </div>
             </div>
             <div class="w-full lg:w-72">
-                <div class="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" x-show="quota.remaining_percent !== null">
+                <div class="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" x-show="quota.remaining_percent !== null && quota.status === 'ok'">
                     <div class="h-full rounded-full bg-primary transition-all" :style="'width: ' + quota.remaining_percent + '%'"></div>
                 </div>
-                <div class="mt-2 h-3 rounded-full bg-slate-100 dark:bg-slate-800" x-show="quota.remaining_percent === null"></div>
+                <div class="mt-2 h-3 rounded-full bg-slate-100 dark:bg-slate-800" x-show="quota.remaining_percent === null || quota.status !== 'ok'"></div>
             </div>
         </div>
-        {{-- Rincian per-model sengaja tidak ditampilkan agar nama/penyedia model
-             (mis. Gemini) tidak terekspos ke pengguna; cukup total kuota tersisa. --}}
+
     </div>
     {{-- Tab --}}
     <div class="flex flex-wrap gap-2">

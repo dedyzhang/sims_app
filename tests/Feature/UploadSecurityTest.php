@@ -71,6 +71,8 @@ class UploadSecurityTest extends TestCase
 
         $this->assertContains('throttle:30,1', $routes->getByName('chatbot.upload')->gatherMiddleware());
         $this->assertContains('throttle:30,1', $routes->getByName('chatbot.upload-file')->gatherMiddleware());
+        $this->assertContains('throttle:30,1', $routes->getByName('chatbot.send')->gatherMiddleware());
+        $this->assertContains('throttle:60,1', $routes->getByName('chatbot.poll')->gatherMiddleware());
         $this->assertContains('throttle:60,1', $routes->getByName('chatbot.admin.reply-image')->gatherMiddleware());
         $this->assertContains('throttle:60,1', $routes->getByName('chatbot.admin.reply-file')->gatherMiddleware());
     }

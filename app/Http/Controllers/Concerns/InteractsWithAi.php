@@ -166,6 +166,50 @@ trait InteractsWithAi
         ];
     }
 
+    /** @return array<string,mixed> */
+    protected function aiPublicQuotaUsage(): array
+    {
+        $quota = $this->aiFreeTierUsage();
+        $status = $quota['status'] ?? 'ok';
+        $remaining = $quota['total']['remaining'] ?? null;
+        $limit = $quota['total']['limit'] ?? null;
+
+        if (in_array($status, ['locked', 'exhausted'], true)) {
+            $remaining = 0;
+        }
+
+        $remainingPercent = $remaining !== null && $limit
+            ? max(0, min(100, (int) floor(($remaining / $limit) * 100)))
+            : null;
+        $remainingLabel = match ($status) {
+            'locked' => 'Kuota gratis habis — tunggu reset',
+            'exhausted' => 'Batas harian tercapai',
+            default => $remaining !== null
+                ? number_format((int) $remaining, 0, ',', '.').' request tersisa'
+                : 'Sisa kuota tidak diketahui',
+        };
+
+        return [
+            'enabled' => $quota['enabled'] ?? true,
+            'status' => $status,
+            'status_label' => $quota['status_label'] ?? null,
+            'message' => $quota['message'] ?? null,
+            'reset_at' => $quota['reset_at'] ?? null,
+            'reset_at_human' => $quota['reset_at_human'] ?? '-',
+            'day_start' => $quota['day_start'] ?? null,
+            'day_start_human' => $quota['day_start_human'] ?? null,
+            'remaining' => $remaining,
+            'remaining_percent' => $remainingPercent,
+            'remaining_label' => $remainingLabel,
+            'total' => [
+                'remaining' => $remaining,
+                'limit' => $limit,
+            ],
+            'models' => [],
+            'can_view_usage' => false,
+        ];
+    }
+
     /** @return string[] */
     private function aiModelChain(): array
     {

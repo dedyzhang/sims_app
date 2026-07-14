@@ -5,8 +5,12 @@ namespace App\Services\Chatbot;
 use App\Models\ChatbotConversation;
 use App\Models\ChatbotMessage;
 use App\Models\User;
+use App\Notifications\ChatbotAdminReplyReceived;
+use App\Notifications\ChatbotInboxMessageReceived;
+use App\Support\ChatAttachments;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Orkestrasi inti chatbot SIMS — mode "handoff + chat".
@@ -67,6 +71,8 @@ class ChatbotService
 
             // Saat mode human, bot DIAM. Pesan hanya disimpan menunggu admin.
             if ($conversation->isHumanMode()) {
+                $this->notifyChatAdmins($conversation, $userMessage);
+
                 return [
                     'conversation_id' => $conversation->id,
                     'mode' => $conversation->mode,
@@ -128,6 +134,8 @@ class ChatbotService
                 'sistem_handoff'
             );
 
+            $this->notifyChatAdmins($conversation, null, 'handoff');
+
             return $conversation->refresh();
         });
     }
@@ -161,6 +169,8 @@ class ChatbotService
             $this->activity->log('admin_reply_sent', $admin, [
                 'conversation_id' => $conversation->id,
             ]);
+
+            $this->notifyChatUser($conversation, $message);
 
             return $message;
         });
@@ -232,16 +242,7 @@ class ChatbotService
 
             // 2. Hapus file fisik lampiran
             foreach ($messagesWithAttachments as $message) {
-                $path = public_path($message->attachment_path);
-                if (\Illuminate\Support\Facades\File::exists($path)) {
-                    \Illuminate\Support\Facades\File::delete($path);
-                    
-                    // Jika file berada di subfolder unik (uploads/chat/{uuid}/file.ext), hapus folder tersebut
-                    $dir = dirname($path);
-                    if (basename($dir) !== 'chat') {
-                        \Illuminate\Support\Facades\File::deleteDirectory($dir);
-                    }
-                }
+                ChatAttachments::delete($message->attachment_path);
             }
 
             // 3. Hapus percakapan dari database (cascade delete akan menghapus pesan di DB)
@@ -294,6 +295,32 @@ class ChatbotService
             'status' => 'active',
             'started_at' => Carbon::now(),
         ]);
+    }
+
+    private function notifyChatAdmins(ChatbotConversation $conversation, ?ChatbotMessage $message = null, string $event = 'message'): void
+    {
+        $query = User::query()->whereIn('access', ['admin', 'superadmin']);
+
+        if ($conversation->assigned_admin_id) {
+            $query->whereKey($conversation->assigned_admin_id);
+        }
+
+        $admins = $query->get();
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        Notification::send($admins, new ChatbotInboxMessageReceived($conversation->loadMissing('user'), $message, $event));
+    }
+
+    private function notifyChatUser(ChatbotConversation $conversation, ChatbotMessage $message): void
+    {
+        $user = $conversation->user()->first();
+        if (! $user) {
+            return;
+        }
+
+        $user->notify(new ChatbotAdminReplyReceived($conversation, $message->loadMissing('senderUser')));
     }
 
     private function storeMessage(
@@ -361,6 +388,8 @@ class ChatbotService
             ]);
 
             if ($conversation->isHumanMode()) {
+                $this->notifyChatAdmins($conversation, $userMessage);
+
                 return [
                     'conversation_id' => $conversation->id,
                     'mode' => $conversation->mode,
@@ -394,7 +423,7 @@ class ChatbotService
             'sender' => $m->sender,
             'sender_user_id' => $m->sender_user_id,
             'body' => $m->body,
-            'attachment_url' => $m->attachment_path ? asset($m->attachment_path) : null,
+            'attachment_url' => ChatAttachments::attachmentUrl($m),
             'attachment_name' => $m->attachment_path ? basename($m->attachment_path) : null,
             'attachment_ext' => $ext,
             'attachment_is_image' => $m->attachment_path ? $isImage : null,

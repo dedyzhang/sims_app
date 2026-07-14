@@ -6,12 +6,11 @@ use App\Models\ChatbotConversation;
 use App\Models\ChatbotMessage;
 use App\Models\Setting;
 use App\Services\Chatbot\ChatbotService;
+use App\Support\ChatAttachments;
 use App\Support\Uploads;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ChatbotController extends Controller
@@ -71,14 +70,11 @@ class ChatbotController extends Controller
         ]);
 
         $file = $data['image'];
-        $name = (string) Str::uuid().'.'.Uploads::safeExtension($file, ['jpeg', 'jpg', 'png', 'webp'], 'jpg');
-        $dir = public_path('uploads/chat');
-        File::ensureDirectoryExists($dir);
-        $file->move($dir, $name);
+        $path = ChatAttachments::storeImage($file);
 
         $result = $this->chatbot->handleImage(
             $request->user(),
-            'uploads/chat/'.$name,
+            $path,
             $data['caption'] ?? '',
         );
 
@@ -98,17 +94,11 @@ class ChatbotController extends Controller
         ]);
 
         $file = $data['file'];
-        $ext = Uploads::safeExtension($file, ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'], 'bin');
-        $base = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'file';
-        $folder = (string) Str::uuid();
-
-        $dir = public_path('uploads/chat/'.$folder);
-        File::ensureDirectoryExists($dir);
-        $file->move($dir, $base.'.'.$ext);
+        $path = ChatAttachments::storeFile($file);
 
         $result = $this->chatbot->handleFile(
             $request->user(),
-            'uploads/chat/'.$folder.'/'.$base.'.'.$ext,
+            $path,
             $data['caption'] ?? '',
         );
 
@@ -137,6 +127,14 @@ class ChatbotController extends Controller
             'mode' => $conversation->mode,
             'status' => $conversation->status,
         ]);
+    }
+
+    /** Unduh lampiran chat — hanya pemilik percakapan atau admin. */
+    public function attachment(Request $request, ChatbotMessage $message): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        abort_unless(ChatAttachments::userCanAccess($request->user(), $message), 403);
+
+        return ChatAttachments::downloadResponse($message);
     }
 
     /** Percakapan harus milik user yang login. */

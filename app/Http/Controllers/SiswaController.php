@@ -194,17 +194,15 @@ class SiswaController extends Controller
         ]);
 
         // Deteksi wajah ganda: cocok dengan orang lain yang sudah terdaftar?
-        if (!$request->boolean('force')) {
-            $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $uuid);
-            if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::THRESHOLD) {
-                return response()->json([
-                    'duplicate'  => true,
-                    'nama'       => $dup['nama'],
-                    'tipe'       => $dup['tipe'],
-                    'similarity' => round($dup['similarity'] * 100),
-                    'message'    => 'Wajah ini mirip ' . $dup['nama'] . ' (' . $dup['tipe'] . ').',
-                ], 422);
-            }
+        $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $uuid);
+        if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::THRESHOLD) {
+            return response()->json([
+                'duplicate'  => true,
+                'nama'       => $dup['nama'],
+                'tipe'       => $dup['tipe'],
+                'similarity' => round($dup['similarity'] * 100),
+                'message'    => 'Wajah ini mirip ' . $dup['nama'] . ' (' . $dup['tipe'] . ').',
+            ], 422);
         }
 
         $siswa = Siswa::findOrFail($uuid);
