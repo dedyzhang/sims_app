@@ -643,8 +643,9 @@
                     @endphp
                     <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/40">
                         <div class="flex items-center justify-between gap-2 text-xs">
-                            <span class="truncate font-semibold text-slate-700 dark:text-slate-100">{{ $modelQuota['model'] ?? '-' }}</span>
-                            <span class="shrink-0 text-slate-400">{{ $modelRemaining !== null ? number_format((int) $modelRemaining, 0, ',', '.').' tersisa' : 'batas AI Studio' }}</span>
+                            {{-- Nama/penyedia model sengaja disembunyikan; cukup label netral bernomor. --}}
+                            <span class="truncate font-semibold text-slate-700 dark:text-slate-100">Kuota {{ $loop->iteration }}</span>
+                            <span class="shrink-0 text-slate-400">{{ $modelRemaining !== null ? number_format((int) $modelRemaining, 0, ',', '.').' tersisa' : 'batas tercapai' }}</span>
                         </div>
                         <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                             <div class="h-full rounded-full bg-primary" style="width: {{ $modelPercent }}%"></div>

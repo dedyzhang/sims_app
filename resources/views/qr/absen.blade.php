@@ -97,9 +97,12 @@ function qrAbsen(cfg){
         map:null, uMarker:null, scanner:null,
 
         init(){
-            this.$nextTick(()=> lucide.createIcons());
+            // Peta dasar (lokasi sekolah + area) langsung ditampilkan tanpa perlu izin lokasi.
+            // Lokasi PENGGUNA baru diminta saat menekan "Perbarui"/Scan (dipicu klik langsung
+            // supaya prompt izin muncul & tidak keburu ditolak sebelum pengguna siap).
+            this.$nextTick(()=>{ lucide.createIcons(); this.ensureMap(); });
             try { if('speechSynthesis' in window) speechSynthesis.getVoices(); } catch(e){}  // picu load voice
-            if(this.aktif && this.schoolLat) this.locate();
+            if(this.aktif && this.schoolLat) this.status = 'Tekan "Perbarui" untuk menampilkan posisi Anda di peta.';
         },
 
         // suara sambutan: masuk → "Selamat datang, nama", pulang → "Terima kasih, nama"
@@ -125,25 +128,56 @@ function qrAbsen(cfg){
             const a=Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLn/2)**2;
             return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
         },
+        // Ubah kode error lokasi jadi kalimat jelas + langkah yang bisa langsung dilakukan pengguna.
+        pesanLokasiGagal(err){
+            // Penyebab paling umum "izin ditolak" padahal izin sudah aktif: halaman dibuka lewat
+            // http:// (bukan https). Browser hanya mengizinkan lokasi di alamat aman (https) / localhost.
+            if(typeof window.isSecureContext !== 'undefined' && !window.isSecureContext)
+                return 'Lokasi hanya bisa dibaca lewat alamat aman (diawali https://). Buka aplikasi memakai alamat https, bukan http.';
+            if(err && err.code===1) return 'Izin lokasi ditolak. Buka pengaturan izin — ikon gembok di address bar (di HP: izin Lokasi untuk aplikasi/browser ini) — aktifkan Lokasi, lalu tekan Perbarui.';
+            if(err && err.code===2) return 'Lokasi belum ditemukan. Pastikan GPS/Layanan Lokasi menyala, lalu tekan Perbarui.';
+            if(err && err.code===3) return 'Membaca lokasi terlalu lama. Pindah ke tempat lebih terbuka, lalu tekan Perbarui.';
+            return 'Lokasi gagal dibaca. Tekan Perbarui untuk mencoba lagi.';
+        },
         locate(){
-            this.status='Membaca lokasi Anda...';
-            if(!navigator.geolocation){ this.status='Perangkat tak mendukung lokasi.'; return; }
-            navigator.geolocation.getCurrentPosition(p=>{
+            this.status='Sedang membaca lokasi Anda...';
+            if(!navigator.geolocation){ this.status='Perangkat ini tidak mendukung deteksi lokasi. Coba buka lewat HP atau browser lain.'; return; }
+            // Cegat lebih dulu bila konteks tidak aman → beri alasan sebenarnya, bukan "izin ditolak".
+            if(typeof window.isSecureContext !== 'undefined' && !window.isSecureContext){ this.status = this.pesanLokasiGagal(null); return; }
+            const onOk = p=>{
                 this.lat=p.coords.latitude; this.lng=p.coords.longitude;
                 this.dist=Math.round(this.haversine(this.schoolLat,this.schoolLng,this.lat,this.lng));
-                this.status = this.dist<=this.radius ? 'Anda di area sekolah — siap absen.' : 'Anda di luar area sekolah.';
+                this.status = this.dist<=this.radius ? 'Anda berada di area sekolah — siap absen.' : 'Anda berada di luar area sekolah.';
                 this.$nextTick(()=> this.renderMap());
-            }, err=>{ this.status='Gagal baca lokasi: '+(err.code===1?'izin ditolak':err.message); },
-            { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
+            };
+            navigator.geolocation.getCurrentPosition(onOk, err=>{
+                // Kalau gagal karena timeout (akurasi tinggi butuh sinyal GPS kuat), coba sekali lagi
+                // dengan akurasi biasa — lebih cepat & sering berhasil di dalam ruangan / pakai WiFi.
+                if(err && err.code===3){
+                    navigator.geolocation.getCurrentPosition(onOk, e2=>{ this.status = this.pesanLokasiGagal(e2); },
+                        { enableHighAccuracy:false, timeout:15000, maximumAge:60000 });
+                    return;
+                }
+                this.status = this.pesanLokasiGagal(err);
+            }, { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
         },
+        // Bangun peta dasar: penanda sekolah + lingkaran area radius. TIDAK butuh izin lokasi,
+        // jadi peta tetap tampil walau lokasi pengguna belum/ tidak bisa dibaca.
+        ensureMap(){
+            if(this.map || !this.schoolLat) return;
+            const elMap = document.getElementById('absenMap');
+            if(!elMap) return;
+            this.map = L.map('absenMap').setView([this.schoolLat, this.schoolLng], 16);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(this.map);
+            L.marker([this.schoolLat,this.schoolLng]).addTo(this.map).bindPopup('Sekolah');
+            L.circle([this.schoolLat,this.schoolLng],{ radius:this.radius, color:'#10b981', weight:2, fillColor:'#10b981', fillOpacity:0.12 }).addTo(this.map);
+            try { new ResizeObserver(()=> this.map && this.map.invalidateSize()).observe(elMap); } catch(e){}
+            [100,400,900].forEach(t=> setTimeout(()=> this.map && this.map.invalidateSize(), t));
+        },
+        // Tandai posisi pengguna di peta (dipanggil setelah lokasi berhasil dibaca).
         renderMap(){
-            if(!this.map){
-                this.map = L.map('absenMap').setView([this.lat,this.lng], 17);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(this.map);
-                L.marker([this.schoolLat,this.schoolLng]).addTo(this.map).bindPopup('Sekolah');
-                L.circle([this.schoolLat,this.schoolLng],{ radius:this.radius, color:'#10b981', weight:2, fillColor:'#10b981', fillOpacity:0.12 }).addTo(this.map);
-                try { new ResizeObserver(()=> this.map && this.map.invalidateSize()).observe(document.getElementById('absenMap')); } catch(e){}
-            }
+            this.ensureMap();
+            if(!this.map || this.lat===null) return;
             if(this.uMarker) this.map.removeLayer(this.uMarker);
             this.uMarker = L.circleMarker([this.lat,this.lng],{ radius:7, color:'#fff', weight:2, fillColor:'#3b82f6', fillOpacity:1 }).addTo(this.map).bindPopup('Lokasi Anda');
             this.map.setView([this.lat,this.lng], 17);
@@ -179,7 +213,7 @@ function qrAbsen(cfg){
                 } catch { showToast('Gagal menghubungi server','error'); }
                 this.loading=false;
                 this.$nextTick(()=> lucide.createIcons());
-            }, ()=>{ this.loading=false; showToast('Gagal baca lokasi','error'); }, { enableHighAccuracy:true, timeout:12000 });
+            }, (err)=>{ this.loading=false; showToast(this.pesanLokasiGagal(err),'error'); }, { enableHighAccuracy:true, timeout:12000 });
         }
     }
 }

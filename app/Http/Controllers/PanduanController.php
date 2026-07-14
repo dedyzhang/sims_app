@@ -87,7 +87,7 @@ class PanduanController extends Controller
 
             if (str_contains($title, 'data master')) return $user->canAccess('manage_users');
             if (str_contains($title, 'sistem dan pengaturan')) return $user->canAccess('manage_settings');
-            if (str_contains($title, 'operasional harian')) return $isAdmin;
+            if (str_contains($title, 'kegiatan harian')) return $isAdmin;
             if (str_contains($title, 'checklist agar tidak terlewat')) return $isAdmin;
             if (str_contains($title, 'catatan tinjauan teknis')) return $isAdmin;
 
@@ -95,7 +95,12 @@ class PanduanController extends Controller
             // sendiri; siswa/ortu boleh lihat riwayat absensi diri sendiri — ketiganya perlu tetap
             // melihat panduan ini walau bukan pemegang izin manage_absensi.
             if (str_contains($title, 'absensi dan presensi')) return $user->canAccess('manage_absensi') || $isWali || $isSiswa || $isOrtu;
+            // 7 KAIH: siswa mengisi, wali kelas/admin melihat rekap, admin/pengelola KAIH mengatur soal.
+            // Orang tua tidak punya menu KAIH → tidak perlu melihat panduannya.
+            if (str_contains($title, '7 kaih')) return $isSiswa || $isWali || $isAdmin || $user->canAccess('manage_kaih');
             if (str_contains($title, 'agenda guru')) return $user->canAccess('manage_agenda') || $isGuru;
+            // Agenda Rapat: semua guru/staf terkait boleh lihat; kelola penuh utk admin/pengelola rapat/sekretaris.
+            if (str_contains($title, 'agenda rapat')) return $isGuru || $isAdmin || $user->canAccess('manage_rapat') || in_array($user->access, ['kesiswaan', 'sarpras', 'kurikulum', 'kepala'], true);
             if (str_contains($title, 'wali kelas')) return $isAdmin || $isWali;
             if (str_contains($title, 'sarana dan prasarana')) return $user->canAccess('manage_sarpras');
             if (str_contains($title, 'keuangan spp')) return $user->canAccess('manage_keuangan') || $isSiswa || $isOrtu;
