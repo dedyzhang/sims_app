@@ -4,7 +4,9 @@ use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\Admin\ChatbotAdminController;
 use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\AiController;
+use App\Http\Controllers\AiAnalyzeController;
 use App\Http\Controllers\AiChatController;
+use App\Http\Controllers\AiRagController;
 use App\Http\Controllers\AiTeacherController;
 use App\Http\Controllers\AlumniController;
 use App\Http\Controllers\AppDownloadController;
@@ -20,8 +22,6 @@ use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\GuruController;
 use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\KaihController;
-use App\Http\Controllers\KalenderController;
-use App\Http\Controllers\KartuPelajarController;
 use App\Http\Controllers\KelasController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\NilaiController;
@@ -38,6 +38,21 @@ use App\Http\Controllers\SiswaController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WalikelasController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\CetakController;
+use App\Http\Controllers\CetakRaporController;
+use App\Http\Controllers\ClassroomAssignmentController;
+use App\Http\Controllers\ClassroomCommentController;
+use App\Http\Controllers\ClassroomController;
+use App\Http\Controllers\ClassroomMaterialController;
+use App\Http\Controllers\ClassroomSubmissionController;
+use App\Http\Controllers\ForumAccessController;
+use App\Http\Controllers\ForumCommentController;
+use App\Http\Controllers\ForumController;
+use App\Http\Controllers\ForumReactionController;
+use App\Http\Controllers\GameAttemptController;
+use App\Http\Controllers\GameLiveController;
+use App\Http\Controllers\GameQuizController;
+use App\Http\Controllers\GameTemplateController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\Keuangan\KeuanganController;
 use App\Http\Controllers\Keuangan\TagihanController;
@@ -87,7 +102,10 @@ Route::middleware(EnsureKioskOrPermission::class)->group(function () {
 Route::get('/langganan-berakhir', fn () => response()->view('langganan.berakhir'))->name('langganan.berakhir');
 
 // Panduan SIMS: sengaja hanya auth, tidak melewati gate wajah, agar user baru tetap bisa membaca tutorial awal.
-Route::middleware('auth')->get('/panduan-sims', [PanduanController::class, 'index'])->name('panduan.index');
+Route::middleware('auth')->prefix('panduan-sims')->name('panduan.')->group(function () {
+    Route::get('/', [PanduanController::class, 'visual'])->name('visual');
+    Route::get('/content', [PanduanController::class, 'content'])->name('content');
+});
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
 // Gate EnsureFaceRegistered: siswa & guru wajib daftar wajah dulu sebelum lanjut
