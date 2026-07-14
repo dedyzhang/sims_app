@@ -1,0 +1,6 @@
+FITUR 13
+Absen QR (Mandiri)
+
+/absen-qr
+
+Untuk: Siswa & Guru (mandiri)

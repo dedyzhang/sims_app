@@ -1,0 +1,6 @@
+FITUR 14
+Presensi Guru
+
+/presensi-guru
+
+Untuk: Admin, Kepala Sekolah

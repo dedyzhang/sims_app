@@ -1,0 +1,2 @@
+NARASI:  "Data Guru menyimpan seluruh identitas dan akun guru. Tambahkan satu per satu, atau impor
+banyak sekaligus lewat Excel."

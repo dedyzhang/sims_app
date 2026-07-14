@@ -1,0 +1,6 @@
+FITUR 32
+Pengaturan Sistem
+
+/settings
+
+Untuk: Admin

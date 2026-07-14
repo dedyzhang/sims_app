@@ -1,0 +1,2 @@
+NARASI:  "Cetak Rapor menghasilkan rapor per siswa atau satu kelas sekaligus. Pilih kelas, lalu klik
+cetak."

@@ -1,0 +1,6 @@
+FITUR 12
+Absensi Siswa
+
+/absensi
+
+Untuk: Guru, Wali Kelas, Admin

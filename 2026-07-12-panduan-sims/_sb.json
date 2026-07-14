@@ -1,0 +1,1016 @@
+[
+ {
+  "n": 1,
+  "id": "login",
+  "title": "Masuk (Login)",
+  "img": "login.png",
+  "path": "/login",
+  "users": "Semua pengguna",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Layar login penuh",
+    "Sorot kolom username & password"
+   ],
+   [
+    "2",
+    "Ketik username",
+    "Isi contoh akun, jangan tampilkan password asli"
+   ],
+   [
+    "3",
+    "Klik Masuk",
+    "Transisi ke Dashboard"
+   ],
+   [
+    "4",
+    "Tampilkan opsi PIN",
+    "Perlihatkan keypad PIN sekilas"
+   ]
+  ],
+  "narr": "“Untuk masuk, ketik nama pengguna dan kata sandi Anda, lalu klik Masuk. Bila sudah diaktifkan, Anda juga bisa masuk cepat dengan PIN.”"
+ },
+ {
+  "n": 2,
+  "id": "profil",
+  "title": "Profil Saya & Keamanan Akun",
+  "img": "profil.png",
+  "path": "/profile",
+  "users": "Semua pengguna",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Buka dropdown profil kanan atas",
+    "Klik nama pengguna"
+   ],
+   [
+    "2",
+    "Halaman Profil",
+    "Sorot kartu Informasi"
+   ],
+   [
+    "3",
+    "Panel Keamanan",
+    "Tunjuk 4 kartu: Password, PIN, Tampilan, Wajah"
+   ],
+   [
+    "4",
+    "Buka Ubah Password",
+    "Perlihatkan form tanpa isi asli"
+   ]
+  ],
+  "narr": "“Di halaman Profil, Anda bisa memperbarui data diri dan mengelola keamanan: ganti kata sandi, atur PIN, ubah tema, atau daftarkan wajah.”"
+ },
+ {
+  "n": 3,
+  "id": "dashboard",
+  "title": "Dashboard",
+  "img": "dashboard.png",
+  "path": "/dashboard",
+  "users": "Semua peran (isi menyesuaikan peran)",
+  "dur": 45,
+  "shots": [
+   [
+    "1",
+    "Dashboard penuh",
+    "Panning dari atas ke bawah"
+   ],
+   [
+    "2",
+    "Kartu Data Inti",
+    "Sorot jumlah siswa & guru"
+   ],
+   [
+    "3",
+    "Tautan Cepat",
+    "Hover tiap ikon pintas"
+   ],
+   [
+    "4",
+    "Tombol Tata Letak",
+    "Perlihatkan mode atur widget"
+   ]
+  ],
+  "narr": "“Dashboard adalah pusat kendali. Di sini Anda melihat ringkasan sekolah dan mengakses aksi cepat. Susunan widget bisa diatur sesuai kebutuhan Anda.”"
+ },
+ {
+  "n": 4,
+  "id": "pengumuman",
+  "title": "Pengumuman Sekolah",
+  "img": "pengumuman.png",
+  "path": "/pengumuman",
+  "users": "Baca: semua • Buat: Admin/Kepala/Kurikulum/Kesiswaan",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Daftar pengumuman",
+    "Sorot satu kartu"
+   ],
+   [
+    "2",
+    "Label audiens",
+    "Tunjuk chip Guru/Orang Tua/Siswa"
+   ],
+   [
+    "3",
+    "Klik Buat Pengumuman",
+    "Perlihatkan form"
+   ],
+   [
+    "4",
+    "Pilih target & simpan",
+    "Kartu baru muncul"
+   ]
+  ],
+  "narr": "“Pengumuman resmi sekolah tampil di sini. Anda bisa menargetkan pengumuman ke peran tertentu, misalnya hanya untuk wali kelas dan orang tua.”"
+ },
+ {
+  "n": 5,
+  "id": "forum",
+  "title": "Forum Diskusi Kelas",
+  "img": "forum-diskusi.png",
+  "path": "/forum",
+  "users": "Guru, Siswa, Orang Tua, Admin",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Halaman Forum",
+    "Sorot daftar topik"
+   ],
+   [
+    "2",
+    "Filter Kategori/Kelas",
+    "Ganti pilihan filter"
+   ],
+   [
+    "3",
+    "Buka satu topik",
+    "Perlihatkan balasan"
+   ],
+   [
+    "4",
+    "Buat Topik",
+    "Form judul + kategori + kelas"
+   ]
+  ],
+  "narr": "“Forum Diskusi menghubungkan guru, siswa, dan orang tua. Pilih kategori atau kelas, buka topik untuk berdiskusi, atau buat topik baru.”"
+ },
+ {
+  "n": 6,
+  "id": "inbox",
+  "title": "Chat / Inbox (Asisten Sekolah)",
+  "img": "chat-inbox.png",
+  "path": "/chatbot/admin/inbox",
+  "users": "Admin/Operator (menangani) • Siswa/Ortu (bertanya)",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Inbox penuh",
+    "Sorot daftar percakapan"
+   ],
+   [
+    "2",
+    "Filter status",
+    "Klik Menunggu → Sedang ditangani"
+   ],
+   [
+    "3",
+    "Buka percakapan",
+    "Area balasan tengah"
+   ],
+   [
+    "4",
+    "Kirim balasan",
+    "Tandai Selesai"
+   ]
+  ],
+  "narr": "“Semua pertanyaan siswa dan orang tua masuk ke Inbox ini. Pilih percakapan, balas, lalu tandai selesai agar antrian rapi.”"
+ },
+ {
+  "n": 7,
+  "id": "guru",
+  "title": "Data Guru",
+  "img": "data-guru.png",
+  "path": "/guru",
+  "users": "Admin/Operator",
+  "dur": 45,
+  "shots": [
+   [
+    "1",
+    "Tabel Data Guru",
+    "Sorot header kolom"
+   ],
+   [
+    "2",
+    "Kotak pencarian",
+    "Ketik nama guru"
+   ],
+   [
+    "3",
+    "Tombol Tambah Guru",
+    "Perlihatkan form"
+   ],
+   [
+    "4",
+    "Import Excel",
+    "Tunjuk alur unduh template → unggah"
+   ]
+  ],
+  "narr": "“Data Guru menyimpan seluruh identitas dan akun guru. Tambahkan satu per satu, atau impor banyak sekaligus lewat Excel.”"
+ },
+ {
+  "n": 8,
+  "id": "siswa",
+  "title": "Data Siswa",
+  "img": "data-siswa.png",
+  "path": "/siswa",
+  "users": "Admin/Operator",
+  "dur": 45,
+  "shots": [
+   [
+    "1",
+    "Tabel Data Siswa",
+    "Sorot jumlah 321 siswa"
+   ],
+   [
+    "2",
+    "Filter kelas",
+    "Pilih satu kelas"
+   ],
+   [
+    "3",
+    "Tambah Siswa",
+    "Form identitas"
+   ],
+   [
+    "4",
+    "Cetak Kartu / Import",
+    "Perlihatkan dua tombol"
+   ]
+  ],
+  "narr": "“Data Siswa adalah induk semua data peserta didik. Saring per kelas, impor lewat Excel, dan cetak kartu pelajar langsung dari sini.”"
+ },
+ {
+  "n": 9,
+  "id": "kelas",
+  "title": "Data Kelas",
+  "img": "data-kelas.png",
+  "path": "/kelas",
+  "users": "Admin/Operator",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Kartu-kartu kelas",
+    "Panning per tingkat"
+   ],
+   [
+    "2",
+    "Satu kartu kelas",
+    "Sorot wali kelas & jumlah siswa"
+   ],
+   [
+    "3",
+    "Tombol Wali",
+    "Pilih guru wali"
+   ],
+   [
+    "4",
+    "Set Siswa",
+    "Perlihatkan pemetaan siswa"
+   ]
+  ],
+  "narr": "“Data Kelas mengelola seluruh rombel. Tetapkan wali kelas dan petakan siswa ke kelasnya lewat tombol Set Siswa.”"
+ },
+ {
+  "n": 10,
+  "id": "pelajaran",
+  "title": "Mata Pelajaran",
+  "img": "mata-pelajaran.png",
+  "path": "/pelajaran",
+  "users": "Admin/Operator/Kurikulum",
+  "dur": 30,
+  "shots": [
+   [
+    "1",
+    "Daftar mapel",
+    "Sorot kolom Kode"
+   ],
+   [
+    "2",
+    "Tambah Pelajaran",
+    "Isi nama + kode"
+   ],
+   [
+    "3",
+    "Seret baris",
+    "Perlihatkan urutan berubah"
+   ]
+  ],
+  "narr": "“Semua mata pelajaran dikelola di sini beserta kodenya. Anda bisa menyeret baris untuk mengatur urutannya.”"
+ },
+ {
+  "n": 11,
+  "id": "kartu",
+  "title": "Kartu Pelajar Digital",
+  "img": "kartu-pelajar.png",
+  "path": "/kartu-pelajar/kelola",
+  "users": "Admin • Siswa (mengunduh)",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Tabel kartu pelajar",
+    "Sorot status Otomatis"
+   ],
+   [
+    "2",
+    "Klik Lihat",
+    "Pratinjau kartu + QR"
+   ],
+   [
+    "3",
+    "Unggah Kustom",
+    "Alur pilih file → unggah"
+   ]
+  ],
+  "narr": "“Kartu pelajar dibuat otomatis lengkap dengan QR. Siswa bisa mengunduh sendiri, atau admin mengunggah desain kustom.”"
+ },
+ {
+  "n": 12,
+  "id": "absensi",
+  "title": "Absensi Siswa",
+  "img": "absensi-siswa.png",
+  "path": "/absensi",
+  "users": "Guru, Wali Kelas, Admin",
+  "dur": 45,
+  "shots": [
+   [
+    "1",
+    "Pilih kelas & tanggal",
+    "Klik Tampilkan"
+   ],
+   [
+    "2",
+    "Daftar siswa + H/I/S/A",
+    "Tandai beberapa siswa"
+   ],
+   [
+    "3",
+    "Tandai semua Hadir",
+    "Perlihatkan cepat"
+   ],
+   [
+    "4",
+    "Scan Wajah / Rekap",
+    "Tunjuk dua tombol"
+   ]
+  ],
+  "narr": "“Catat kehadiran harian dengan memilih kelas dan tanggal, lalu tandai status tiap siswa. Bisa juga pakai scan wajah atau tandai semua hadir sekaligus.”"
+ },
+ {
+  "n": 13,
+  "id": "absenqr",
+  "title": "Absen QR (Mandiri)",
+  "img": "absen-qr.png",
+  "path": "/absen-qr",
+  "users": "Siswa & Guru (mandiri)",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Halaman Absen QR",
+    "Sorot tab Masuk/Pulang"
+   ],
+   [
+    "2",
+    "Status lokasi",
+    "Tunjuk indikator lokasi"
+   ],
+   [
+    "3",
+    "Klik Scan QR",
+    "Kamera aktif memindai"
+   ],
+   [
+    "4",
+    "Berhasil absen",
+    "Notifikasi sukses"
+   ]
+  ],
+  "narr": "“Dengan Absen QR, siswa dan guru mengabsen sendiri dengan memindai QR sekolah. Pastikan lokasi Anda berada di area sekolah.”"
+ },
+ {
+  "n": 14,
+  "id": "presensiguru",
+  "title": "Presensi Guru",
+  "img": "presensi-guru.png",
+  "path": "/presensi-guru",
+  "users": "Admin, Kepala Sekolah",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Daftar presensi guru",
+    "Sorot 27 guru"
+   ],
+   [
+    "2",
+    "Penanda belum daftar wajah",
+    "Tunjuk label kuning"
+   ],
+   [
+    "3",
+    "Tandai kehadiran",
+    "H/I/S/A per guru"
+   ],
+   [
+    "4",
+    "Rekap",
+    "Laporan presensi"
+   ]
+  ],
+  "narr": "“Presensi Guru mencatat kehadiran harian pengajar. Guru yang belum mendaftarkan wajah ditandai agar bisa segera didaftarkan.”"
+ },
+ {
+  "n": 15,
+  "id": "kalender",
+  "title": "Kalender Absensi & Agenda",
+  "img": "kalender-absensi.png",
+  "path": "/kalender-absensi",
+  "users": "Admin, Kurikulum",
+  "dur": 45,
+  "shots": [
+   [
+    "1",
+    "Kalender bulanan",
+    "Sorot chip per tanggal"
+   ],
+   [
+    "2",
+    "Sakelar pembatasan",
+    "Aktifkan Batasi Absen"
+   ],
+   [
+    "3",
+    "Klik chip tanggal",
+    "Warna berubah aktif/nonaktif"
+   ],
+   [
+    "4",
+    "Simpan Penegakan",
+    "Konfirmasi tersimpan"
+   ]
+  ],
+  "narr": "“Kalender ini menentukan kapan siswa boleh absen dan guru wajib mengisi agenda. Cukup klik tanggal untuk mengaktifkan atau menonaktifkannya.”"
+ },
+ {
+  "n": 16,
+  "id": "ruangkelas",
+  "title": "Ruang Kelas Digital",
+  "img": "ruang-kelas.png",
+  "path": "/ruang-kelas",
+  "users": "Guru, Siswa",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Grid kartu kelas",
+    "Panning kartu berwarna"
+   ],
+   [
+    "2",
+    "Klik satu kelas",
+    "Masuk ruang digital"
+   ],
+   [
+    "3",
+    "Tab Materi/Tugas",
+    "Perlihatkan konten"
+   ],
+   [
+    "4",
+    "Diskusi mapel",
+    "Balasan siswa"
+   ]
+  ],
+  "narr": "“Ruang Kelas adalah kelas digital tiap rombel. Pilih kelas untuk mengakses materi, tugas, dan diskusi tiap mata pelajaran.”"
+ },
+ {
+  "n": 17,
+  "id": "jadwal",
+  "title": "Editor Jadwal Pelajaran",
+  "img": "editor-jadwal.png",
+  "path": "/jadwal",
+  "users": "Admin, Kurikulum",
+  "dur": 50,
+  "shots": [
+   [
+    "1",
+    "Grid jadwal Senin",
+    "Panning kolom kelas"
+   ],
+   [
+    "2",
+    "Isi satu sel",
+    "Pilih mapel + guru"
+   ],
+   [
+    "3",
+    "Bentrok ditandai",
+    "Sorot sel merah"
+   ],
+   [
+    "4",
+    "Auto-Generate",
+    "Jadwal terisi otomatis"
+   ]
+  ],
+  "narr": "“Editor Jadwal menyusun jadwal semua kelas sekaligus. Bentrok guru otomatis ditandai, dan Anda bisa memakai Auto-Generate untuk mempercepat.”"
+ },
+ {
+  "n": 18,
+  "id": "penilaian",
+  "title": "Penilaian (Buku Guru)",
+  "img": "penilaian.png",
+  "path": "/nilai",
+  "users": "Guru",
+  "dur": 50,
+  "shots": [
+   [
+    "1",
+    "Kartu penilaian",
+    "Sorot filter kelas/mapel"
+   ],
+   [
+    "2",
+    "Klik Formatif",
+    "Grid input nilai"
+   ],
+   [
+    "3",
+    "Input & simpan",
+    "Nilai tersimpan"
+   ],
+   [
+    "4",
+    "Atur KKTP",
+    "Set kriteria ketuntasan"
+   ]
+  ],
+  "narr": "“Di Penilaian, tiap guru mengisi nilai formatif, sumatif, PTS, dan PAS per kelas dan mapel. Kriteria ketuntasan diatur lewat Atur KKTP.”"
+ },
+ {
+  "n": 19,
+  "id": "rekapnilai",
+  "title": "Rekap Nilai",
+  "img": "rekap-nilai.png",
+  "path": "/rekap-nilai",
+  "users": "Guru, Wali Kelas, Kurikulum",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Tabel rekap nilai",
+    "Panning kolom mapel"
+   ],
+   [
+    "2",
+    "Nilai merah",
+    "Sorot di bawah KKM"
+   ],
+   [
+    "3",
+    "Kolom RATA2",
+    "Tunjuk rata-rata"
+   ],
+   [
+    "4",
+    "Cetak",
+    "Pratinjau cetak"
+   ]
+  ],
+  "narr": "“Rekap Nilai merangkum semua nilai satu kelas. Nilai di bawah KKM otomatis disorot merah agar mudah dievaluasi.”"
+ },
+ {
+  "n": 20,
+  "id": "ekskul",
+  "title": "Ekstrakurikuler",
+  "img": "ekstrakurikuler.png",
+  "path": "/ekskul",
+  "users": "Admin, Guru Pembina",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Halaman Ekskul",
+    "Sorot form tambah"
+   ],
+   [
+    "2",
+    "Tambah ekskul",
+    "Isi nama + pembina"
+   ],
+   [
+    "3",
+    "Input Nilai",
+    "Deskripsi capaian"
+   ],
+   [
+    "4",
+    "Kartu ekskul",
+    "Perlihatkan hasil"
+   ]
+  ],
+  "narr": "“Ekstrakurikuler dikelola beserta pembinanya. Nilai berupa deskripsi, bisa diisi manual atau diambil dari nilai rapor mapel.”"
+ },
+ {
+  "n": 21,
+  "id": "perangkat",
+  "title": "Perangkat Ajar",
+  "img": "perangkat-ajar.png",
+  "path": "/perangkat-ajar",
+  "users": "Admin, Kurikulum, Kepala Sekolah",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Halaman Perangkat Ajar",
+    "Sorot Jenis Dokumen"
+   ],
+   [
+    "2",
+    "Tambah jenis dokumen",
+    "Ketik 'RPP'"
+   ],
+   [
+    "3",
+    "Kartu per guru",
+    "Tunjuk '0 file terupload'"
+   ],
+   [
+    "4",
+    "Buka detail guru",
+    "Daftar file"
+   ]
+  ],
+  "narr": "“Perangkat Ajar memantau kelengkapan dokumen mengajar tiap guru. Tentukan jenis dokumen, lalu pantau siapa yang sudah mengunggah.”"
+ },
+ {
+  "n": 22,
+  "id": "cetakrapor",
+  "title": "Cetak Rapor",
+  "img": "cetak-rapor.png",
+  "path": "/cetak-rapor",
+  "users": "Admin, Wali Kelas",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Pilih kelas",
+    "Klik Tampilkan"
+   ],
+   [
+    "2",
+    "Daftar peserta didik",
+    "Sorot tombol Cetak"
+   ],
+   [
+    "3",
+    "Cetak satu siswa",
+    "Pratinjau rapor"
+   ],
+   [
+    "4",
+    "Cetak Satu Kelas",
+    "Proses massal"
+   ]
+  ],
+  "narr": "“Cetak Rapor menghasilkan rapor per siswa atau satu kelas sekaligus. Pilih kelas, lalu klik cetak.”"
+ },
+ {
+  "n": 23,
+  "id": "agenda",
+  "title": "Agenda Guru",
+  "img": "agenda-guru.png",
+  "path": "/agenda",
+  "users": "Guru",
+  "dur": 35,
+  "shots": [
+   [
+    "1",
+    "Halaman Agenda Guru",
+    "Sorot area agenda"
+   ],
+   [
+    "2",
+    "Tambah Agenda",
+    "Isi kegiatan per jam"
+   ],
+   [
+    "3",
+    "Rekap Agenda",
+    "Laporan agenda"
+   ],
+   [
+    "4",
+    "Buku Batas",
+    "Catat batas materi"
+   ]
+  ],
+  "narr": "“Agenda Guru mengikuti jadwal mengajar Anda. Isi kegiatan tiap jam pelajaran, dan catat batas materi lewat Buku Batas.”"
+ },
+ {
+  "n": 24,
+  "id": "poin",
+  "title": "Master Aturan Poin",
+  "img": "poin-kedisiplinan.png",
+  "path": "/poin",
+  "users": "Admin, Kesiswaan, Wali Kelas",
+  "dur": 45,
+  "shots": [
+   [
+    "1",
+    "Master Aturan Poin",
+    "Sorot basis 100"
+   ],
+   [
+    "2",
+    "Tambah Aturan",
+    "Isi nama + nilai poin"
+   ],
+   [
+    "3",
+    "Poin Siswa",
+    "Terapkan ke siswa"
+   ],
+   [
+    "4",
+    "Dashboard Kedisiplinan",
+    "Ringkasan poin"
+   ]
+  ],
+  "narr": "“Sistem poin kedisiplinan dimulai dari 100. Tentukan aturan penambahan dan pengurangan, lalu terapkan ke siswa dan pantau di dashboard.”"
+ },
+ {
+  "n": 25,
+  "id": "walikelas",
+  "title": "Menu Wali Kelas",
+  "img": "walikelas.png",
+  "path": "/walikelas/siswa",
+  "users": "Hanya akun Wali Kelas",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Login sebagai wali kelas",
+    "Dashboard wali"
+   ],
+   [
+    "2",
+    "Siswa perwalian",
+    "Daftar siswa kelas"
+   ],
+   [
+    "3",
+    "Rekap nilai kelas",
+    "Evaluasi kelas"
+   ],
+   [
+    "4",
+    "Catatan wali",
+    "Isi catatan rapor"
+   ]
+  ],
+  "narr": "“Menu Wali Kelas hanya tampil untuk wali kelas. Di sini Anda mengelola siswa perwalian, rekap nilai, dan catatan untuk rapor.”"
+ },
+ {
+  "n": 26,
+  "id": "ai",
+  "title": "Asisten AI (Guru & Analisis)",
+  "img": "asisten-ai.png",
+  "path": "/ai/chat • /ai/teacher • /ai/analyze",
+  "users": "Guru, Wali Kelas, Kepala, Kurikulum, Kesiswaan",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Menu Analisis AI",
+    "Buka submenu"
+   ],
+   [
+    "2",
+    "Asisten Guru",
+    "Ketik permintaan materi/soal"
+   ],
+   [
+    "3",
+    "Jawaban AI",
+    "Perlihatkan hasil"
+   ],
+   [
+    "4",
+    "Kuota di Dashboard",
+    "Sorot sisa kuota"
+   ]
+  ],
+  "narr": "“Analisis AI membantu guru menyiapkan materi dan membantu pimpinan membaca data sekolah. Pemakaian dibatasi kuota yang tampil di dashboard.”"
+ },
+ {
+  "n": 27,
+  "id": "sarpras",
+  "title": "Dashboard Sarpras",
+  "img": "sarpras-dashboard.png",
+  "path": "/sarpras",
+  "users": "Sarpras, Admin, Kepala Sekolah",
+  "dur": 45,
+  "shots": [
+   [
+    "1",
+    "Dashboard Sarpras",
+    "Panning kartu KPI"
+   ],
+   [
+    "2",
+    "Tab modul",
+    "Klik Inventaris/Kerusakan"
+   ],
+   [
+    "3",
+    "Ringkasan denah",
+    "Sorot peta gedung"
+   ],
+   [
+    "4",
+    "Lapor Kerusakan",
+    "Perlihatkan tombol aksi"
+   ]
+  ],
+  "narr": "“Dashboard Sarpras merangkum seluruh aset sekolah: nilai, kerusakan, peminjaman, dan perawatan — semua dalam satu layar.”"
+ },
+ {
+  "n": 28,
+  "id": "inventaris",
+  "title": "Inventaris Barang (Aset)",
+  "img": "sarpras-inventaris.png",
+  "path": "/sarpras/aset",
+  "users": "Sarpras, Admin",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Inventaris Barang",
+    "Sorot nilai perolehan & buku"
+   ],
+   [
+    "2",
+    "Donat Kondisi Aset",
+    "Baik vs Rusak Ringan"
+   ],
+   [
+    "3",
+    "Tambah Aset",
+    "Form aset baru"
+   ],
+   [
+    "4",
+    "Neraca per Kategori",
+    "Tabel kategori"
+   ]
+  ],
+  "narr": "“Inventaris mencatat semua aset lengkap dengan nilai perolehan dan nilai buku setelah penyusutan, dikelompokkan per kategori.”"
+ },
+ {
+  "n": 29,
+  "id": "kerusakan",
+  "title": "Laporan Kerusakan",
+  "img": "sarpras-kerusakan.png",
+  "path": "/sarpras/kerusakan",
+  "users": "Semua (lapor) • Sarpras (kelola)",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Tabel Laporan Kerusakan",
+    "Sorot kolom Urgensi & Status"
+   ],
+   [
+    "2",
+    "Lapor Kerusakan",
+    "Isi form + urgensi"
+   ],
+   [
+    "3",
+    "Status berubah",
+    "Dilaporkan → Diterima"
+   ],
+   [
+    "4",
+    "Detail",
+    "Tindak lanjut"
+   ]
+  ],
+  "narr": "“Setiap kerusakan dilaporkan di sini dengan tingkat urgensi dan status penanganan yang bisa dipantau sampai selesai.”"
+ },
+ {
+  "n": 30,
+  "id": "denah",
+  "title": "Denah Sekolah",
+  "img": "sarpras-denah.png",
+  "path": "/sarpras/denah",
+  "users": "Sarpras, Admin",
+  "dur": 40,
+  "shots": [
+   [
+    "1",
+    "Denah Sekolah",
+    "Sorot KPI gedung/lantai"
+   ],
+   [
+    "2",
+    "Kartu gedung",
+    "Tunjuk aksi Gambar/Blok"
+   ],
+   [
+    "3",
+    "Blok ruangan",
+    "Tandai ruang + zona"
+   ],
+   [
+    "4",
+    "Buka denah",
+    "Peta interaktif"
+   ]
+  ],
+  "narr": "“Denah Sekolah memetakan gedung, lantai, dan ruangan lengkap dengan zona warna serta titik kerusakan dan aset.”"
+ },
+ {
+  "n": 31,
+  "id": "spp",
+  "title": "Keuangan SPP",
+  "img": "keuangan-spp.png",
+  "path": "/keuangan",
+  "users": "Bendahara/Keuangan, Admin",
+  "dur": 45,
+  "shots": [
+   [
+    "1",
+    "Keuangan SPP",
+    "Panning kartu kelas"
+   ],
+   [
+    "2",
+    "Pilih Tahun Ajaran",
+    "Ganti T.A."
+   ],
+   [
+    "3",
+    "Buka satu kelas",
+    "Pembayaran per siswa"
+   ],
+   [
+    "4",
+    "Verifikasi",
+    "Konfirmasi pembayaran"
+   ]
+  ],
+  "narr": "“Keuangan SPP memantau pembayaran per kelas dan tahun ajaran. Nilai selalu dalam rupiah, dengan progres bulan lunas tiap kelas.”"
+ },
+ {
+  "n": 32,
+  "id": "settings",
+  "title": "Pengaturan Sistem",
+  "img": "pengaturan-sistem.png",
+  "path": "/settings",
+  "users": "Admin",
+  "dur": 50,
+  "shots": [
+   [
+    "1",
+    "Pengaturan Sistem",
+    "Sorot deretan tab"
+   ],
+   [
+    "2",
+    "Tab Identitas",
+    "Isi identitas + logo"
+   ],
+   [
+    "3",
+    "Tab Semester",
+    "Set T.A. aktif"
+   ],
+   [
+    "4",
+    "Hak Akses (RBAC)",
+    "Atur peran & izin"
+   ]
+  ],
+  "narr": "“Pengaturan Sistem mengatur identitas sekolah, semester aktif, aturan penilaian dan absensi, hingga hak akses tiap peran.”"
+ }
+]

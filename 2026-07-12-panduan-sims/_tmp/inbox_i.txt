@@ -1,0 +1,6 @@
+FITUR 6
+Chat / Inbox (Asisten Sekolah)
+
+/chatbot/admin/inbox
+
+Untuk: Admin/Operator (menangani) • Siswa/Ortu (bertanya)

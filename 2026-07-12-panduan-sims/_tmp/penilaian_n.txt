@@ -1,0 +1,2 @@
+NARASI:  "Di Penilaian, tiap guru mengisi nilai formatif, sumatif, PTS, dan PAS per kelas dan mapel.
+Kriteria ketuntasan diatur lewat Atur KKTP."

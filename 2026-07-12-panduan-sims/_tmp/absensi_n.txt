@@ -1,0 +1,2 @@
+NARASI:  "Catat kehadiran harian dengan memilih kelas dan tanggal, lalu tandai status tiap siswa.
+Bisa juga pakai scan wajah atau tandai semua hadir sekaligus."

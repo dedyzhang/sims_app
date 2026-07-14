@@ -1,0 +1,2 @@
+NARASI:  "Data Kelas mengelola seluruh rombel. Tetapkan wali kelas dan petakan siswa ke kelasnya
+lewat tombol Set Siswa."
