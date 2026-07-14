@@ -129,8 +129,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Asisten Guru Chatbot (Fase 2) ─────────────────────────────────────────────
-    // Widget mengambang untuk SEMUA role login. Percakapan di-scope per user.
-    Route::prefix('ai/chat')->name('ai.chat.')->controller(AiChatController::class)->group(function () {
+    // Widget AI generatif hanya untuk staf/admin — siswa & orang tua memakai chatbot handoff.
+    Route::middleware('role:admin,superadmin,guru,walikelas,kepala,kurikulum,kesiswaan,sapras,bendahara,sekretaris')
+        ->prefix('ai/chat')->name('ai.chat.')->controller(AiChatController::class)->group(function () {
         Route::post('/', 'send')->name('send');
         Route::get('/history', 'history')->name('history');
         Route::get('/{conversation}', 'show')->name('show');
@@ -204,6 +205,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
     Route::post('/notifications/fcm-token', [NotificationController::class, 'storeFcmToken'])->name('notifications.fcmToken.store');
     Route::delete('/notifications/fcm-token', [NotificationController::class, 'destroyFcmToken'])->name('notifications.fcmToken.destroy');
+    Route::post('/fcm/token', [NotificationController::class, 'storeFcmToken'])->name('fcm.token.store.legacy');
+    Route::delete('/fcm/token', [NotificationController::class, 'destroyFcmToken'])->name('fcm.token.destroy.legacy');
 
     // Pengumuman: riwayat untuk semua user; buat/ubah/hapus butuh izin manage_pengumuman.
     Route::controller(PengumumanController::class)->prefix('pengumuman')->name('pengumuman.')->group(function () {
@@ -724,10 +727,11 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 // Widget penanya (siswa & orang tua).
 Route::middleware(['auth', 'chatbot.user'])->group(function () {
     Route::get('/chatbot', [ChatbotController::class, 'show'])->name('chatbot.show');
-    Route::post('/chatbot/send', [ChatbotController::class, 'send'])->name('chatbot.send');
+    Route::post('/chatbot/send', [ChatbotController::class, 'send'])->middleware('throttle:30,1')->name('chatbot.send');
     Route::post('/chatbot/upload', [ChatbotController::class, 'upload'])->middleware('throttle:30,1')->name('chatbot.upload');
     Route::post('/chatbot/upload-file', [ChatbotController::class, 'uploadFile'])->middleware('throttle:30,1')->name('chatbot.upload-file');
-    Route::get('/chatbot/poll', [ChatbotController::class, 'poll'])->name('chatbot.poll');
+    Route::get('/chatbot/poll', [ChatbotController::class, 'poll'])->middleware('throttle:60,1')->name('chatbot.poll');
+    Route::get('/chatbot/attachment/{message}', [ChatbotController::class, 'attachment'])->name('chatbot.attachment');
     Route::get('/chatbot/unread', [ChatbotController::class, 'unread'])->name('chatbot.unread');
 
     // Handoff sisi user.

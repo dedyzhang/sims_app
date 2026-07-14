@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SendFcmNotificationJob;
 use App\Models\Pengumuman;
 use App\Models\RolePermission;
 use App\Models\User;
@@ -9,6 +10,7 @@ use App\Notifications\PengumumanBaru;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 /**
@@ -105,6 +107,32 @@ class PengumumanTest extends TestCase
         Notification::assertSentTo($guru, PengumumanBaru::class);
         Notification::assertSentTo($siswa, PengumumanBaru::class);
         Notification::assertSentTo($admin, PengumumanBaru::class);
+    }
+
+    public function test_pengumuman_orangtua_mendorong_push_fcm_ke_akun_orangtua(): void
+    {
+        Queue::fake();
+
+        $admin = $this->makeUser('superadmin', 'peng_admin_parent_push');
+        $orangtua = $this->makeUser('orangtua', 'peng_parent_push');
+        $siswa = $this->makeUser('siswa', 'peng_student_not_parent_push');
+
+        $this->actingAs($admin)->post('/pengumuman', [
+            'judul'        => 'Info Orang Tua',
+            'isi'          => 'Mohon orang tua memantau informasi sekolah hari ini.',
+            'target_roles' => ['orangtua'],
+        ])->assertRedirect();
+
+        Queue::assertPushed(SendFcmNotificationJob::class, function (SendFcmNotificationJob $job) use ($orangtua) {
+            return $job->userUuid === $orangtua->uuid
+                && $job->connection === 'sync'
+                && $job->payload['type'] === 'pengumuman'
+                && $job->payload['title'] === 'Info Orang Tua';
+        });
+
+        Queue::assertNotPushed(SendFcmNotificationJob::class, function (SendFcmNotificationJob $job) use ($siswa) {
+            return $job->userUuid === $siswa->uuid;
+        });
     }
 
     public function test_payload_notifikasi_pengumuman_benar(): void

@@ -212,13 +212,13 @@ function selfEnroll(){
             } catch(e){ this.msg='Error: '+e.message; this.msgErr=true; }
             this.capturing=false;
         },
-        async save(force=false){
+        async save(){
             if(this.samples.length < 3){ this.msg='Ambil minimal 3 sampel wajah dulu.'; this.msgErr=true; return; }
             this.saving=true;
             try {
                 const res = await fetch('{{ route('face.self.store') }}', {
                     method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                    body: JSON.stringify({ descriptors: this.samples, photo: this.photo, force })
+                    body: JSON.stringify({ descriptors: this.samples, photo: this.photo })
                 });
                 if(res.ok){
                     showToast('Wajah berhasil disimpan!');
@@ -229,17 +229,9 @@ function selfEnroll(){
                 if(res.status===422){
                     const d = await res.json();
                     if(d.duplicate){
+                        this.msg = d.message + ' Hubungi admin jika perlu bantuan.';
+                        this.msgErr = true;
                         this.saving=false;
-                        const self=this;
-                        $.confirm({
-                            title:'Wajah mirip terdeteksi',
-                            content:'<div class="text-slate-600 dark:text-slate-300">'+d.message+' Kemiripan <b class="text-rose-600">'+d.similarity+'%</b>.<br><br>Tetap daftarkan wajah ini?</div>',
-                            type:'orange', icon:'',
-                            buttons:{
-                                ya:{ text:'Ya, tetap daftarkan', btnClass:'btn-warning', keys:['enter'], action:()=>{ self.save(true); } },
-                                batal:{ text:'Batal', btnClass:'btn-default' }
-                            }
-                        });
                         return;
                     }
                 }

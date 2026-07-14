@@ -620,7 +620,7 @@
         <div class="card p-4 mb-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div class="min-w-0">
-                    <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2"><i data-lucide="gauge" class="w-4 h-4 text-primary"></i> Keterangan Kuota Tersisa</h2>
+                    <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2"><i data-lucide="gauge" class="w-4 h-4 text-primary"></i> Generate Kuota</h2>
                     <div class="mt-3 flex flex-wrap items-end gap-3">
                         <div class="text-2xl font-extrabold text-slate-800 dark:text-slate-100">{{ $aiLabel }}</div>
                         @if($aiPercent !== null)

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Absensi;
 use App\Models\PresensiGuru;
 use App\Models\Setting;
+use App\Support\AttendanceParentNotifier;
 use Illuminate\Http\Request;
 
 class QrAbsensiController extends Controller
@@ -132,6 +133,7 @@ class QrAbsensiController extends Controller
             $row->dicatat_oleh = $user->uuid;
             $row->jam_masuk = $jam;
             $row->save();
+            AttendanceParentNotifier::notify($row);
             $jamDipakai = $row->jam_masuk;
 
             // Auto-deduksi poin bila terlambat (khusus sistem Poin/Aturan lama).

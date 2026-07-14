@@ -39,6 +39,9 @@ return [
         // Path ke service account JSON Firebase (TIDAK di-commit). Bila file tidak
         // ada, FcmService->enabled() = false dan push FCM dilewati diam-diam.
         'credentials' => env('FIREBASE_CREDENTIALS', storage_path('app/firebase/service-account.json')),
+        // Default sync agar push real-time tetap jalan walau queue worker database
+        // belum aktif. Bisa diubah ke database/redis jika worker produksi sudah siap.
+        'queue_connection' => env('FCM_QUEUE_CONNECTION', 'sync'),
     ],
 
 ];

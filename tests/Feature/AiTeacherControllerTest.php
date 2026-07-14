@@ -143,7 +143,7 @@ class AiTeacherControllerTest extends TestCase
             ->assertJsonValidationErrors('jenis_soal');
     }
 
-    public function test_halaman_asisten_guru_hanya_menampilkan_keterangan_kuota_untuk_guru(): void
+    public function test_halaman_asisten_guru_hanya_menampilkan_generate_kuota_untuk_guru(): void
     {
         config()->set('ai.model', 'gemini-3.5-flash');
         config()->set('ai.fallback_models', ['gemini-2.5-flash']);
@@ -178,22 +178,24 @@ class AiTeacherControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('ai.teacher.index'));
 
         $response->assertOk()
-            ->assertSee('Keterangan Kuota Tersisa')
+            ->assertSee('Generate Kuota')
+            ->assertDontSee('Keterangan Kuota Tersisa')
             ->assertDontSee('Angka resmi dihitung Google')
             ->assertDontSee('quota.status_label', false)
             ->assertDontSee('gemini-3.5-flash', false)
             ->assertViewHas('canViewQuotaUsage', false)
             ->assertViewHas('quotaUsage', function (array $quota) {
                 return $quota['can_view_usage'] === false
-                    && $quota['total'] === null
                     && $quota['models'] === []
                     && $quota['remaining'] === 268
                     && $quota['remaining_percent'] === 99
-                    && $quota['remaining_label'] === '268 request tersisa';
+                    && $quota['remaining_label'] === '268 request tersisa'
+                    && $quota['total']['remaining'] === 268
+                    && $quota['total']['limit'] === 270;
             });
     }
 
-    public function test_admin_melihat_detail_penggunaan_free_tier_harian(): void
+    public function test_admin_tidak_melihat_detail_model_pada_generate_kuota(): void
     {
         config()->set('ai.model', 'gemini-3.5-flash');
         config()->set('ai.fallback_models', ['gemini-2.5-flash']);
@@ -228,16 +230,18 @@ class AiTeacherControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('ai.teacher.index'));
 
         $response->assertOk()
-            ->assertSee('Keterangan Kuota Tersisa')
-            ->assertSee('gemini-3.5-flash', false)
-            ->assertViewHas('canViewQuotaUsage', true)
+            ->assertSee('Generate Kuota')
+            ->assertDontSee('Keterangan Kuota Tersisa')
+            ->assertDontSee('gemini-3.5-flash', false)
+            ->assertDontSee('gemini-2.5-flash', false)
+            ->assertViewHas('canViewQuotaUsage', false)
             ->assertViewHas('quotaUsage', function (array $quota) {
-                return $quota['can_view_usage'] === true
-                    && $quota['total']['used'] === 2
+                return $quota['can_view_usage'] === false
+                    && $quota['models'] === []
+                    && $quota['remaining'] === 268
+                    && $quota['remaining_percent'] === 99
                     && $quota['total']['limit'] === 270
-                    && $quota['models'][0]['model'] === 'gemini-3.5-flash'
-                    && $quota['models'][0]['used'] === 1
-                    && $quota['models'][0]['remaining'] === 19;
+                    && $quota['total']['remaining'] === 268;
             });
     }
 
@@ -270,15 +274,16 @@ class AiTeacherControllerTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('quota.can_view_usage', false)
-            ->assertJsonPath('quota.total', null)
             ->assertJsonPath('quota.models', [])
             ->assertJsonPath('quota.status', 'ok')
             ->assertJsonPath('quota.remaining', 4)
             ->assertJsonPath('quota.remaining_percent', 80)
-            ->assertJsonPath('quota.remaining_label', '4 request tersisa');
+            ->assertJsonPath('quota.remaining_label', '4 request tersisa')
+            ->assertJsonPath('quota.total.remaining', 4)
+            ->assertJsonPath('quota.total.limit', 5);
     }
 
-    public function test_respons_generate_admin_membawa_penggunaan_free_tier_terbaru(): void
+    public function test_respons_generate_admin_tidak_membawa_detail_model(): void
     {
         config()->set('ai.model', 'gemini-test');
         config()->set('ai.fallback_models', []);
@@ -306,12 +311,15 @@ class AiTeacherControllerTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('quota.can_view_usage', true)
-            ->assertJsonPath('quota.total.used', 1)
+            ->assertJsonPath('quota.can_view_usage', false)
+            ->assertJsonPath('quota.models', [])
+            ->assertJsonPath('quota.remaining', 4)
+            ->assertJsonPath('quota.remaining_percent', 80)
             ->assertJsonPath('quota.total.limit', 5)
-            ->assertJsonPath('quota.models.0.remaining', 4)
-            ->assertJsonPath('quota.models.0.prompt_tokens', 12)
-            ->assertJsonPath('quota.models.0.completion_tokens', 8);
+            ->assertJsonPath('quota.total.remaining', 4)
+            ->assertJsonMissingPath('quota.models.0.model')
+            ->assertJsonMissingPath('quota.models.0.prompt_tokens')
+            ->assertJsonMissingPath('quota.models.0.completion_tokens');
     }
 
     public function test_hasil_generator_soal_bisa_dieksport_ke_word(): void

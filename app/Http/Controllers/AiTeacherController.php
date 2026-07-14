@@ -59,8 +59,8 @@ class AiTeacherController extends Controller
 
         return view('ai.teacher', [
             'histories' => $histories,
-            'quotaUsage' => $this->aiQuotaUsageFor($user),
-            'canViewQuotaUsage' => $this->canViewAiQuotaUsage($user),
+            'quotaUsage' => $this->aiPublicQuotaUsage(),
+            'canViewQuotaUsage' => false,
         ]);
     }
 
@@ -420,7 +420,7 @@ class AiTeacherController extends Controller
             return response()->json([
                 'ok' => false,
                 'message' => $e->getMessage(),
-                'quota' => $this->aiQuotaUsageFor($request->user()),
+                'quota' => $this->aiPublicQuotaUsage(),
             ], 502);
         }
 
@@ -441,56 +441,10 @@ class AiTeacherController extends Controller
             'ok' => true,
             'answer' => $result['text'],
             'history' => $history,
-            'quota' => $this->aiQuotaUsageFor($request->user()),
+            'quota' => $this->aiPublicQuotaUsage(),
         ]);
     }
 
-    /**
-     * Admin/superadmin boleh melihat angka penggunaan Gemini; guru hanya melihat keterangan kuota.
-     */
-    private function canViewAiQuotaUsage(?object $user): bool
-    {
-        return in_array($user?->access, ['superadmin', 'admin'], true);
-    }
-
-    /** @return array<string,mixed> */
-    private function aiQuotaUsageFor(?object $user): array
-    {
-        $quota = $this->aiFreeTierUsage();
-        $remaining = $quota['total']['remaining'] ?? null;
-        $limit = $quota['total']['limit'] ?? null;
-        $remainingPercent = $remaining !== null && $limit
-            ? max(0, min(100, (int) floor(($remaining / $limit) * 100)))
-            : null;
-        $remainingLabel = $remaining !== null
-            ? number_format((int) $remaining, 0, ',', '.').' request tersisa'
-            : 'Sisa kuota tidak diketahui';
-
-        $quota['remaining'] = $remaining;
-        $quota['remaining_percent'] = $remainingPercent;
-        $quota['remaining_label'] = $remainingLabel;
-
-        if ($this->canViewAiQuotaUsage($user)) {
-            $quota['can_view_usage'] = true;
-
-            return $quota;
-        }
-
-        return [
-            'enabled' => $quota['enabled'] ?? true,
-            'status' => $quota['status'] ?? 'ok',
-            'reset_at' => $quota['reset_at'] ?? null,
-            'reset_at_human' => $quota['reset_at_human'] ?? '-',
-            'day_start' => $quota['day_start'] ?? null,
-            'day_start_human' => $quota['day_start_human'] ?? null,
-            'remaining' => $remaining,
-            'remaining_percent' => $remainingPercent,
-            'remaining_label' => $remainingLabel,
-            'total' => null,
-            'models' => [],
-            'can_view_usage' => false,
-        ];
-    }
 
     private function storeHistory(string $userId, array $data, string $answer): array
     {

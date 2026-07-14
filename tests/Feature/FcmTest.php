@@ -61,6 +61,22 @@ class FcmTest extends TestCase
         ]);
     }
 
+    public function test_endpoint_legacy_android_bisa_registrasi_token_fcm(): void
+    {
+        $user = $this->makeUser('orangtua', 'fcm_legacy_store');
+
+        $this->actingAs($user)->postJson('/fcm/token', [
+            'token'       => 'legacy-android-token',
+            'device_type' => 'android',
+        ])->assertOk()->assertJsonPath('ok', true);
+
+        $this->assertDatabaseHas('user_fcm_tokens', [
+            'user_uuid'   => $user->uuid,
+            'token'       => 'legacy-android-token',
+            'device_type' => 'android',
+        ]);
+    }
+
     public function test_registrasi_tanpa_token_gagal_validasi(): void
     {
         $user = $this->makeUser('guru', 'fcm_store_novalid');
@@ -95,6 +111,17 @@ class FcmTest extends TestCase
             ->assertOk()->assertJsonPath('ok', true);
 
         $this->assertDatabaseMissing('user_fcm_tokens', ['token' => 'to-be-removed']);
+    }
+
+    public function test_endpoint_legacy_android_bisa_hapus_token_fcm(): void
+    {
+        $user = $this->makeUser('orangtua', 'fcm_legacy_destroy');
+        UserFcmToken::create(['user_uuid' => $user->uuid, 'token' => 'legacy-remove-token']);
+
+        $this->actingAs($user)->deleteJson('/fcm/token', ['token' => 'legacy-remove-token'])
+            ->assertOk()->assertJsonPath('ok', true);
+
+        $this->assertDatabaseMissing('user_fcm_tokens', ['token' => 'legacy-remove-token']);
     }
 
     public function test_hapus_token_tidak_menghapus_token_user_lain(): void
@@ -137,6 +164,7 @@ class FcmTest extends TestCase
 
         Queue::assertPushed(SendFcmNotificationJob::class, function (SendFcmNotificationJob $job) use ($user) {
             return $job->userUuid === $user->uuid
+                && $job->connection === 'sync'
                 && $job->payload['title'] === 'Judul Uji'
                 && $job->payload['type'] === 'uji';
         });

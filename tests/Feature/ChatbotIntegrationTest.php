@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SendFcmNotificationJob;
 use App\Models\ChatbotConversation;
 use App\Models\ChatbotMessage;
 use App\Models\Jadwal;
@@ -14,6 +15,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -123,6 +126,58 @@ class ChatbotIntegrationTest extends TestCase
             ->assertJsonPath('mode', 'bot');
 
         $this->assertSame('active', $conversation->refresh()->status);
+    }
+
+    public function test_handoff_chat_mendorong_badge_bell_dan_fcm_ke_admin(): void
+    {
+        Queue::fake();
+
+        $siswa = $this->makeUser('siswa', 'siswa_push_admin');
+        $admin = $this->makeUser('admin', 'admin_push_inbox');
+
+        $this->actingAs($siswa)->postJson('/chatbot/send', ['message' => 'butuh bantuan admin'])->assertOk();
+        $conversation = ChatbotConversation::where('user_id', $siswa->getKey())->firstOrFail();
+
+        $this->actingAs($siswa)
+            ->postJson("/chatbot/{$conversation->id}/request-human")
+            ->assertOk()
+            ->assertJsonPath('status', 'waiting');
+
+        $this->assertSame(1, $admin->notifications()->where('data->type', 'chatbot_inbox')->count());
+
+        Queue::assertPushed(SendFcmNotificationJob::class, function (SendFcmNotificationJob $job) use ($admin, $conversation) {
+            return $job->userUuid === $admin->uuid
+                && $job->connection === 'sync'
+                && $job->payload['type'] === 'chatbot_inbox'
+                && $job->payload['url'] === '/chatbot/admin/inbox'
+                && $job->payload['conversation_id'] === $conversation->id;
+        });
+    }
+
+    public function test_balasan_admin_mendorong_badge_bell_dan_fcm_ke_user(): void
+    {
+        Queue::fake();
+
+        $siswa = $this->makeUser('siswa', 'siswa_push_reply');
+        $admin = $this->makeUser('admin', 'admin_push_reply');
+
+        $this->actingAs($siswa)->postJson('/chatbot/send', ['message' => 'halo admin'])->assertOk();
+        $conversation = ChatbotConversation::where('user_id', $siswa->getKey())->firstOrFail();
+        $this->actingAs($siswa)->postJson("/chatbot/{$conversation->id}/request-human")->assertOk();
+
+        $this->actingAs($admin)->postJson("/chatbot/admin/{$conversation->id}/reply", [
+            'body' => 'Halo, silakan cek informasi terbaru.',
+        ])->assertOk()->assertJsonPath('status', 'assigned');
+
+        $this->assertSame(1, $siswa->notifications()->where('data->type', 'chatbot_admin_reply')->count());
+
+        Queue::assertPushed(SendFcmNotificationJob::class, function (SendFcmNotificationJob $job) use ($siswa, $conversation) {
+            return $job->userUuid === $siswa->uuid
+                && $job->connection === 'sync'
+                && $job->payload['type'] === 'chatbot_admin_reply'
+                && $job->payload['url'] === '/chatbot'
+                && $job->payload['conversation_id'] === $conversation->id;
+        });
     }
 
     public function test_unread_count_untuk_badge_floating_ball(): void
@@ -423,25 +478,16 @@ class ChatbotIntegrationTest extends TestCase
 
     public function test_admin_menghapus_percakapan_juga_menghapus_file_fisik(): void
     {
+        Storage::fake('local');
         $siswa = $this->makeUser('siswa', 'siswa_delete_file');
         $admin = $this->makeUser('admin', 'admin_delete_file');
 
         $this->actingAs($siswa)->postJson('/chatbot/send', ['message' => 'halo admin'])->assertOk();
         $conv = ChatbotConversation::where('user_id', $siswa->getKey())->firstOrFail();
 
-        // Create a fake folder and file
-        $folder = 'test-delete-folder-' . \Illuminate\Support\Str::uuid();
-        $filePath = 'uploads/chat/' . $folder . '/document.pdf';
-        
-        $fullDirPath = public_path('uploads/chat/' . $folder);
-        \Illuminate\Support\Facades\File::ensureDirectoryExists($fullDirPath);
-        
-        $fullFilePath = public_path($filePath);
-        file_put_contents($fullFilePath, 'test content');
+        $filePath = 'chat/'.(string) \Illuminate\Support\Str::uuid().'/document.pdf';
+        Storage::disk('local')->put($filePath, 'test content');
 
-        $this->assertTrue(\Illuminate\Support\Facades\File::exists($fullFilePath));
-
-        // Create a message in DB with attachment
         ChatbotMessage::create([
             'conversation_id' => $conv->id,
             'sender' => 'user',
@@ -449,11 +495,10 @@ class ChatbotIntegrationTest extends TestCase
             'attachment_path' => $filePath,
         ]);
 
-        // Admin menghapus percakapan
+        Storage::disk('local')->assertExists($filePath);
+
         $this->actingAs($admin)->deleteJson("/chatbot/admin/{$conv->id}")->assertOk();
 
-        // Cek file dan foldernya sudah terhapus secara fisik
-        $this->assertFalse(\Illuminate\Support\Facades\File::exists($fullFilePath));
-        $this->assertFalse(\Illuminate\Support\Facades\File::exists($fullDirPath));
+        Storage::disk('local')->assertMissing($filePath);
     }
 }

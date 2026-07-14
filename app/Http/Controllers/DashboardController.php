@@ -41,7 +41,7 @@ class DashboardController extends Controller
         }
 
         $sosmed = $this->sosmedLinks();
-        $aiQuotaUsage = in_array($user->access, ['superadmin', 'admin'], true) ? $this->aiFreeTierUsage() : null;
+        $aiQuotaUsage = in_array($user->access, ['superadmin', 'admin'], true) ? $this->aiPublicQuotaUsage() : null;
 
         // ── Data ringkas Sarpras (admin/kepala/sapras saja, 4 query → 1 blok data) ──
         $sarpras = null;

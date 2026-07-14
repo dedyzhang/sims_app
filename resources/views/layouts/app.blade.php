@@ -854,7 +854,7 @@
                     <button type="button" @click="nOpen=!nOpen" class="relative grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 dark:text-slate-400 transition" title="Notifikasi">
                         <i data-lucide="bell" class="w-[18px] h-[18px]"></i>
                         <template x-if="unreadCount > 0">
-                            <span class="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-bold grid place-items-center leading-none" x-text="unreadCount"></span>
+                            <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white rounded-full text-[9px] font-bold grid place-items-center leading-none ring-2 ring-white dark:ring-slate-900" x-text="unreadCount > 99 ? '99+' : unreadCount"></span>
                         </template>
                     </button>
 
@@ -1473,6 +1473,8 @@
                 // Arahkan ke URL target sesuai tipe notifikasi
                 if (n.data.type === 'pengumuman') {
                     window.location.href = `/pengumuman/${n.data.pengumuman_id}`;
+                } else if (n.data.type === 'chatbot_inbox' || n.data.type === 'chatbot_admin_reply') {
+                    window.location.href = n.data.url || '/chatbot';
                 } else if (n.data.type === 'forum_reply') {
                     window.location.href = `/forum/${n.data.topic_slug}#c-${n.data.comment_id}`;
                 } else if (n.data.type === 'classroom_comment') {
@@ -1493,6 +1495,7 @@
             notifIcon(n) {
                 const t = (n.data || {}).type;
                 if (t === 'pengumuman') return 'megaphone';
+                if (t === 'chatbot_inbox' || t === 'chatbot_admin_reply') return 'message-circle';
                 if (t === 'forum_reply') return 'messages-square';
                 if (t === 'classroom_comment') return 'graduation-cap';
                 return (n.data && (n.data.url || n.data.laporan_id)) ? 'bell' : 'bell';
@@ -1500,6 +1503,7 @@
             notifColor(n) {
                 const t = (n.data || {}).type;
                 if (t === 'pengumuman' || t === 'forum_reply') return 'var(--cp)';
+                if (t === 'chatbot_inbox' || t === 'chatbot_admin_reply') return '#ef4444';
                 return 'var(--ca)';
             },
             async markAllAsRead() {
