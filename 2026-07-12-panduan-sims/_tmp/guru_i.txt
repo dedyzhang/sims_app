@@ -1,0 +1,6 @@
+FITUR 7
+Data Guru
+
+/guru
+
+Untuk: Admin/Operator

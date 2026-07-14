@@ -1,0 +1,2 @@
+NARASI:  "Inventaris mencatat semua aset lengkap dengan nilai perolehan dan nilai buku setelah
+penyusutan, dikelompokkan per kategori."

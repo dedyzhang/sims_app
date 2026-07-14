@@ -1,0 +1,2 @@
+NARASI:  "Dengan Absen QR, siswa dan guru mengabsen sendiri dengan memindai QR sekolah. Pastikan
+lokasi Anda berada di area sekolah."

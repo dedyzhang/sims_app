@@ -217,4 +217,54 @@ class AbsensiParentNotificationTest extends TestCase
         ]);
         Queue::assertPushed(SendFcmNotificationJob::class, 1);
     }
+
+    public function test_orangtua_melihat_notifikasi_kehadiran_di_api_bell(): void
+    {
+        Queue::fake();
+        Carbon::setTestNow(Carbon::parse('2026-07-13 07:12:00'));
+        [$siswa, $kelas, $parentUser] = $this->siswaDenganOrangtua();
+
+        $this->actingAs($this->admin())->postJson('/absensi/mark', [
+            'id_siswa' => $siswa->uuid,
+            'id_kelas' => $kelas->uuid,
+            'tanggal' => '2026-07-13',
+            'status' => 'hadir',
+        ])->assertOk();
+
+        $this->actingAs($parentUser)
+            ->getJson(route('notifications.json'))
+            ->assertOk()
+            ->assertJsonPath('unreadCount', 1)
+            ->assertJsonPath('notifications.0.data.type', 'absensi_siswa')
+            ->assertJsonPath('notifications.0.data.judul', 'Anak sudah masuk sekolah')
+            ->assertJsonPath('notifications.0.data.url', '/dashboard');
+    }
+
+    public function test_orang_tua_lain_tidak_menerima_notifikasi_kehadiran_anak(): void
+    {
+        Queue::fake();
+        Carbon::setTestNow(Carbon::parse('2026-07-13 07:12:00'));
+        [$siswa, $kelas, $parentUser] = $this->siswaDenganOrangtua();
+
+        $otherParent = User::create([
+            'username' => 'ortu_lain_absensi',
+            'password' => Hash::make('password'),
+            'access' => 'orangtua',
+        ]);
+
+        // Paksa kirim ke ortu yang salah — via() harus menolak.
+        $absensi = \App\Models\Absensi::create([
+            'id_siswa' => $siswa->uuid,
+            'id_kelas' => $kelas->uuid,
+            'tanggal' => '2026-07-13',
+            'status' => 'hadir',
+            'jam_masuk' => '07:12:00',
+        ]);
+
+        $otherParent->notify(new \App\Notifications\StudentAttendanceRecorded($siswa->load('kelas'), $absensi));
+
+        $this->assertSame(0, $otherParent->notifications()->count());
+        $this->assertSame(0, $parentUser->notifications()->count()); // belum lewat notifier resmi
+        Queue::assertNothingPushed();
+    }
 }

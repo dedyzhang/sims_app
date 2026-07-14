@@ -206,7 +206,12 @@ final class LearningDocument
                 if ($doc['signature']['date'] === '' && self::isPlaceDate($trimmed)) {
                     $doc['signature']['date'] = $trimmed;
                 } else {
-                    $cells = array_map('trim', explode('|', $trimmed));
+                    $cells = array_map('trim', preg_split('/\s*\|\s*|\t+/u', $trimmed) ?: []);
+                    // Baris "Mengetahui," + "Guru Mata Pelajaran" tanpa pemisah tetap 2 kolom
+                    // bila dipisah 2+ spasi panjang (pola DOCX/PDF acuan).
+                    if (count($cells) === 1 && preg_match('/^(.+?)\s{2,}(.+)$/u', $trimmed, $m)) {
+                        $cells = [trim($m[1]), trim($m[2])];
+                    }
                     $doc['signature']['rows'][] = [$cells[0] ?? '', $cells[1] ?? ''];
                 }
 

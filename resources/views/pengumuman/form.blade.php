@@ -36,7 +36,8 @@
         <div>
             @php $selected = old('target_roles', $pengumuman->target_roles ?? []); @endphp
             <label class="form-label">Peran Sasaran</label>
-            <p class="text-[11px] text-slate-400 mb-2">Kosongkan semua = kirim ke <strong>semua peran</strong>.</p>
+            <p class="text-[11px] text-slate-400 mb-2">Kosongkan semua = kirim ke <strong>semua peran</strong>. Centang <strong>Orang Tua</strong> agar push FCM &amp; bell notifikasi sampai ke akun orang tua.</p>
+            <p class="text-[11px] text-emerald-600 dark:text-emerald-400 mb-2">Notifikasi kehadiran anak (scan wajah/QR) otomatis terkirim ke orang tua — terpisah dari pengumuman ini.</p>
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 @foreach($targetRoles as $key => $label)
                 <label class="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 text-sm">

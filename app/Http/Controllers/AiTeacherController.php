@@ -59,8 +59,19 @@ class AiTeacherController extends Controller
 
         return view('ai.teacher', [
             'histories' => $histories,
-            'quotaUsage' => $this->aiPublicQuotaUsage(),
+            'quotaUsage' => $this->aiPublicQuotaUsage(true),
             'canViewQuotaUsage' => false,
+        ]);
+    }
+
+    /** GET /ai/teacher/quota — snapshot kuota live (dipoll UI). */
+    public function quota(Request $request): JsonResponse
+    {
+        $fresh = $request->boolean('fresh');
+
+        return response()->json([
+            'ok' => true,
+            'quota' => $this->aiPublicQuotaUsage($fresh),
         ]);
     }
 
@@ -173,7 +184,7 @@ class AiTeacherController extends Controller
     {
         $data = $this->validatedQuizExport($request);
 
-        $title = trim((string) ($data['title'] ?? '')) ?: 'Soal dari Asisten Guru';
+        $title = trim((string) ($data['title'] ?? '')) ?: 'Soal dari AI Asisten SIMS';
         $safeName = Str::slug($title) ?: 'soal-asisten-ai';
         $fileName = $safeName.'-'.now()->format('Ymd-His').'.docx';
         $path = tempnam(sys_get_temp_dir(), 'ai-quiz-word-');
@@ -202,7 +213,7 @@ class AiTeacherController extends Controller
     {
         $data = $this->validatedQuizExport($request);
 
-        $title = trim((string) ($data['title'] ?? '')) ?: 'Soal dari Asisten Guru';
+        $title = trim((string) ($data['title'] ?? '')) ?: 'Soal dari AI Asisten SIMS';
         $fileName = (Str::slug($title) ?: 'soal-asisten-ai').'-'.now()->format('Ymd-His').'.pdf';
 
         // Konten berformat dirender lewat partial yang sama dengan pratinjau & Word;
@@ -233,7 +244,7 @@ class AiTeacherController extends Controller
         $documentText = '';
         if ($request->hasFile('file')) {
             $file = $request->file('file');
-            $documentText = $this->extractQuizDocumentText($file->getRealPath(), $file->getClientOriginalExtension());
+            $documentText = $this->extractQuizDocumentText($file->getRealPath(), $file->getClientOriginalExtension(), true);
 
             if ($documentText === '') {
                 return response()->json([
@@ -610,54 +621,159 @@ TXT;
 
     private function learningFormatInstruction(string $tool): string
     {
-        $toolInstruction = 'Khusus RPM: kuatkan alur kegiatan awal, inti, penutup, asesmen awal/proses/akhir, refleksi guru-siswa, dan tindak lanjut.';
-
         return <<<'TXT'
-Ikuti format dokumen RPM contoh yang diberikan pengguna. Tulis sebagai dokumen polos siap export, tanpa Markdown heading "#", tanpa pembuka basa-basi, dan tanpa catatan tambahan di luar dokumen.
+Ikuti format RPM resmi SMP Maitreyawira PERSIS (hasil export Word/PDF harus sama bentuknya). Tulis teks polos tanpa Markdown (#, **, ```), tanpa pembuka/penutup di luar dokumen.
 
-URUTAN FORMAT WAJIB:
-1. Kop sekolah di bagian atas:
-   YAYASAN / NAMA SEKOLAH / AKREDITASI / ALAMAT / KONTAK / WEBSITE.
-   Jika data sekolah tidak diberikan, pakai placeholder yang jelas seperti [NAMA SEKOLAH], bukan mengarang.
-2. Judul utama tengah:
-   PERENCANAAN PEMBELAJARAN MENDALAM
-   "[JUDUL TOPIK DALAM HURUF KAPITAL]"
-3. Blok identitas:
-   SEKOLAH, NAMA GURU, MATA PELAJARAN, KELAS / SEMESTER, ALOKASI WAKTU.
-4. IDENTIFIKASI:
-   Murid, Materi, Dimensi Profil Lulusan (DPL) dengan daftar DPL 1 sampai DPL 8 memakai tanda centang/kosong.
-5. DESAIN PEMBELAJARAN:
-   Capaian Pembelajaran, Lintas Disiplin Ilmu, Tujuan Pembelajaran, Topik Pembelajaran, Praktik Pedagogis, Kemitraan Pembelajaran, Lingkungan Pembelajaran, Pemanfaatan Digital.
-6. PENGALAMAN BELAJAR:
-   AWAL, INTI, MEMAHAMI, MENGAPLIKASI, MEREFLEKSI, PENUTUP.
-   Setiap tahap harus menunjukkan 4 Pilar PM: Berkesadaran, Bermakna, Menggembirakan, dan Bernalar/Kritis-Kolaboratif sesuai konteks.
-7. ASESMEN PEMBELAJARAN:
-   Asesmen pada Awal Pembelajaran, Asesmen pada Proses Pembelajaran, Asesmen pada Akhir Pembelajaran.
-8. Tanda tangan:
-   Tempat/tanggal, Mengetahui Kepala Sekolah, Guru Mata Pelajaran, nama dan NIK/NIP placeholder bila belum ada.
-9. LAMPIRAN:
-   LAMPIRAN 1: ASESMEN AWAL PEMBELAJARAN.
-   LAMPIRAN 2: ASESMEN PADA PROSES PEMBELAJARAN.
-   LAMPIRAN 3: ASESMEN PADA AKHIR PEMBELAJARAN.
-   Sertakan soal, rubrik/observasi, kisi-kisi, dan keterangan level Baru Mulai/Berkembang/Cakap/Mahir bila relevan.
+KOP WAJIB (6 baris, salin persis bila sekolah Maitreyawira; jika sekolah lain ganti baris 1–6 sesuai data, jangan mengarang):
+YAYASAN BUMI MAITRI
+SMP MAITREYAWIRA TANJUNGPINANG
+TERAKREDITASI A
+Komp. Gedung Pendidikan dan Pelatihan Buddhis Bumi Maitreya
+Jl. Prof. Ir. Sutami No. 38  Telp (0771) 4505723  Email smpmai.tpi@gmail.com
+Website http://www.maitreyawira-tpi.sch.id/
 
-ATURAN PENULISAN WAJIB (dokumen dikonversi otomatis ke tabel Word/PDF, ikuti persis):
-- Nama sub-bagian ditulis di awal baris tersendiri diakhiri titik dua, contoh: "Murid:", "Capaian Pembelajaran:", "Asesmen pada Awal Pembelajaran:".
-- Blok identitas ditulis "LABEL : nilai" per baris, contoh: "SEKOLAH : SMP Contoh".
-- Daftar DPL ditulis 8 baris, masing-masing diawali "â˜‘ " (dicapai) atau "â˜ " (tidak), contoh: "â˜‘ DPL 1 Keimanan dan ketakwaan terhadap Tuhan Yang Maha Esa".
-- Judul tahap PENGALAMAN BELAJAR ditulis kapital diikuti pilar dalam kurung pada baris yang sama, contoh: "AWAL (Berkesadaran, Bermakna, dan Menggembirakan)".
-- Setiap butir kegiatan diawali "âœ“ ". Pertanyaan pemantik/refleksi ditulis dalam tanda kutip pada baris tersendiri.
-- Blok tanda tangan: baris "[Tempat], [tanggal]" lalu baris-baris dua kolom dipisah " | ", contoh:
-  Mengetahui, | Guru Mata Pelajaran
-  Kepala Sekolah |
-  [Nama Kepala Sekolah] | [Nama Guru]
-  NIK. .......... | NIK. ..........
-- Rubrik pada LAMPIRAN 2 ditulis sebagai tabel dengan pemisah " | ", baris pertama header:
-  Kompetensi | Baru Mulai | Berkembang | Cakap | Mahir
+JUDUL:
+PERENCANAAN PEMBELAJARAN MENDALAM
+"[JUDUL TOPIK HURUF KAPITAL DALAM TANDA KUTIP]"
 
-Pastikan komponen wajib tetap terlihat di dalam format: Identitas Pembelajaran, DPL, Tujuan Pembelajaran, 4 Pilar PM, Kegiatan Pembelajaran, Asesmen, Refleksi, Lampiran dan Sumber Belajar.
-TXT
-            ."\n\n".$toolInstruction;
+IDENTITAS (satu label per baris, spasi sebelum titik dua):
+SEKOLAH : [nama]
+NAMA GURU : [nama]
+MATA PELAJARAN : [mapel]
+KELAS / SEMESTER : [kelas] / [semester]
+ALOKASI WAKTU : [contoh: 2 JP (2 x 40 Menit)]
+
+IDENTIFIKASI
+Murid:
+[paragraf kondisi murid]
+Materi:
+[nama materi]
+Dimensi Profil Lulusan (DPL):
+Dimensi profil lulusan yang akan dicapai dalam pembelajaran:
+☑ DPL 1 Keimanan dan ketakwaan terhadap Tuhan Yang Maha Esa
+☑ DPL 2 Kewargaan
+☑ DPL 3 Penalaran Kritis
+☐ DPL 4 Kreativitas
+☑ DPL 5 Kolaborasi
+☑ DPL 6 Kemandirian
+☑ DPL 7 Kesehatan
+☑ DPL 8 Komunikasi
+(centang ☑ hanya yang relevan; sisanya ☐ — selalu 8 baris)
+
+DESAIN PEMBELAJARAN
+Capaian Pembelajaran:
+[paragraf]
+Lintas Disiplin Ilmu:
+[disiplin]: [isi]
+Tujuan Pembelajaran:
+1. ...
+2. ...
+Topik Pembelajaran:
+1. ...
+2. ...
+Praktik Pedagogis:
+[pendekatan/model]
+Kemitraan Pembelajaran:
+1. ...
+2. ...
+Lingkungan Pembelajaran:
+Lingkungan Pembelajaran Terintegrasi:
+Ruang Fisik (Lingkungan Nyata):
+• ...
+Ruang Virtual (Pembelajaran Kolaboratif):
+• ...
+Budaya Belajar:
+• ...
+Pemanfaatan Digital:
+1. Perencanaan: ...
+2. Pelaksanaan: ...
+3. Asesmen: ...
+4. Media Sosial & Kampanye Digital: ...
+
+PENGALAMAN BELAJAR
+AWAL
+(Berkesadaran, Bermakna, dan Menggembirakan)
+✓ [kegiatan] (Berkesadaran)
+✓ [kegiatan]
+✓ [pertanyaan pemantik]:
+"[pertanyaan 1]"
+"[pertanyaan 2]"
+INTI (Berkesadaran, Bermakna, dan Menggembirakan)
+MEMAHAMI
+(Berkesadaran dan Bermakna)
+✓ ...
+MENGAPLIKASI
+(Berkesadaran, Bermakna, dan Menggembirakan)
+✓ ...
+MEREFLEKSI
+(Berkesadaran, Bermakna, dan Menggembirakan)
+✓ ...
+PENUTUP (Berkesadaran, Bermakna, dan Menggembirakan)
+✓ ...
+✓ [refleksi]:
+"[pertanyaan]"
+"[pertanyaan]"
+"[pertanyaan]"
+
+ASESMEN PEMBELAJARAN
+Asesmen pada Awal Pembelajaran:
+[deskripsi]
+• Jenis Soal: ...
+• Jumlah Soal: ...
+• Tujuan: ...
+Asesmen pada Proses Pembelajaran:
+[deskripsi observasi]
+Asesmen pada Akhir Pembelajaran:
+[deskripsi]
+a. ...
+b. ...
+
+TANDA TANGAN:
+[Tempat], [tanggal]
+Mengetahui, | Guru Mata Pelajaran
+Kepala Sekolah |
+[Nama Kepala Sekolah] | [Nama Guru]
+NIK. [nomor] | NIK. [nomor/titik-titik]
+
+LAMPIRAN 1 : ASESMEN AWAL PEMBELAJARAN
+• Materi : ...
+• Kelas : ...
+• Jenis Soal : ...
+• Tujuan : ...
+A. Soal Pilihan Ganda (3 soal)
+1. ...
+a. ...
+b. ...
+c. ...
+d. ...
+(minimal 3 soal)
+
+LAMPIRAN 2 : ASESMEN PADA PROSES PEMBELAJARAN
+Tujuan Pembelajaran:
+1. ...
+2. ...
+Kompetensi | Baru Mulai | Berkembang | Cakap | Mahir
+[kompetensi] | [baru mulai] | [berkembang] | [cakap] | [mahir]
+(minimal 4 baris kompetensi)
+Keterangan:
+• Baru Mulai: ...
+• Berkembang: ...
+• Cakap: ...
+• Mahir: ...
+
+LAMPIRAN 3 : ASESMEN PADA AKHIR PEMBELAJARAN
+• Kisi-Kisi : ...
+• Materi : ...
+Soal Pilihan Ganda
+1. ...
+a. ...
+b. ...
+c. ...
+d. ...
+(minimal 10 soal)
+
+Isi harus sesuai topik/mapel/kelas yang diminta. Jangan mengarang identitas yang tidak diberikan — pakai placeholder [Nama Guru], [Nama Kepala Sekolah], NIK. ...................... bila belum ada.
+TXT;
     }
 
     private function learningToolLabel(string $tool): string
@@ -692,7 +808,7 @@ TXT
             $paragraphs .= $this->wordParagraph($title, true);
         }
         if ($includeGeneratedNote) {
-            $paragraphs .= $this->wordParagraph('Dibuat dari Asisten Guru SIMSku pada '.now()->format('d/m/Y H:i'));
+            $paragraphs .= $this->wordParagraph('Dibuat dari AI Asisten SIMS pada '.now()->format('d/m/Y H:i'));
         }
         if ($paragraphs !== '') {
             $paragraphs .= '<w:p/>';
@@ -718,7 +834,7 @@ TXT
         return '<w:p><w:r>'.$runProperties.'<w:t xml:space="preserve">'.$escaped.'</w:t></w:r></w:p>';
     }
 
-    private function extractQuizDocumentText(string $path, string $extension): string
+    private function extractQuizDocumentText(string $path, string $extension, bool $preserveNewlines = false): string
     {
         $extension = strtolower($extension);
 
@@ -734,6 +850,13 @@ TXT
         }
 
         $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u', ' ', (string) $text);
+
+        if ($preserveNewlines) {
+            $text = preg_replace("/[ \t]+/u", ' ', (string) $text);
+            $text = preg_replace("/\n{3,}/u", "\n\n", (string) $text);
+
+            return trim((string) $text);
+        }
 
         return trim((string) preg_replace('/\s+/u', ' ', $text));
     }

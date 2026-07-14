@@ -135,6 +135,26 @@ class PengumumanTest extends TestCase
         });
     }
 
+    public function test_orangtua_melihat_pengumuman_sasaran_di_api_bell(): void
+    {
+        $admin = $this->makeUser('superadmin', 'peng_parent_bell_admin');
+        $orangtua = $this->makeUser('orangtua', 'peng_parent_bell_ortu');
+
+        $this->actingAs($admin)->post('/pengumuman', [
+            'judul'        => 'Info Kehadiran Anak',
+            'isi'          => 'Mohon orang tua memantau kehadiran anak melalui aplikasi.',
+            'target_roles' => ['orangtua'],
+        ])->assertRedirect();
+
+        $this->actingAs($orangtua)
+            ->getJson(route('notifications.json'))
+            ->assertOk()
+            ->assertJsonPath('unreadCount', 1)
+            ->assertJsonPath('unreadPengumuman', 1)
+            ->assertJsonPath('notifications.0.data.type', 'pengumuman')
+            ->assertJsonPath('notifications.0.data.judul', 'Info Kehadiran Anak');
+    }
+
     public function test_payload_notifikasi_pengumuman_benar(): void
     {
         $pengumuman = Pengumuman::create([

@@ -50,7 +50,9 @@
     <table class="tbl">
         @foreach($doc['identifikasi'] as $i => $row)
             <tr>
-                <td class="sec">{{ $i === 0 ? 'IDENTIFIKASI' : '' }}</td>
+                @if($i === 0)
+                    <td class="sec" rowspan="{{ count($doc['identifikasi']) }}">IDENTIFIKASI</td>
+                @endif
                 <td class="sub">{{ $row['label'] }}</td>
                 <td>
                     @if(str_starts_with($row['label'], 'Dimensi Profil Lulusan') && $row['dpl'])
@@ -82,7 +84,9 @@
     <table class="tbl">
         @foreach($doc['desain'] as $i => $row)
             <tr>
-                <td class="sec">{{ $i === 0 ? 'DESAIN PEMBELAJARAN' : '' }}</td>
+                @if($i === 0)
+                    <td class="sec" rowspan="{{ count($doc['desain']) }}">DESAIN PEMBELAJARAN</td>
+                @endif
                 <td class="sub">{{ $row['label'] }}</td>
                 <td>{!! $renderCellLines($row['lines']) !!}</td>
             </tr>
@@ -92,10 +96,18 @@
 
 {{-- PENGALAMAN BELAJAR --}}
 @if($doc['pengalaman'])
+    @php
+        $pengalamanRows = 0;
+        foreach ($doc['pengalaman'] as $stage) {
+            $pengalamanRows += 1 + (($stage['items'] ?? []) ? 1 : 0);
+        }
+    @endphp
     <table class="tbl">
         @foreach($doc['pengalaman'] as $i => $stage)
             <tr>
-                <td class="sec">{{ $i === 0 ? 'PENGALAMAN BELAJAR' : '' }}</td>
+                @if($i === 0)
+                    <td class="sec" rowspan="{{ $pengalamanRows }}">PENGALAMAN BELAJAR</td>
+                @endif
                 <td class="stagehead" colspan="2">
                     {{ $stage['heading'] }}
                     @if($stage['subtitle'] !== '')
@@ -105,7 +117,6 @@
             </tr>
             @if($stage['items'])
                 <tr>
-                    <td class="sec"></td>
                     <td class="sub"></td>
                     <td>
                         @foreach($stage['items'] as $item)
@@ -129,7 +140,9 @@
     <table class="tbl">
         @foreach($doc['asesmen'] as $i => $row)
             <tr>
-                <td class="sec">{{ $i === 0 ? 'ASESMEN PEMBELAJARAN' : '' }}</td>
+                @if($i === 0)
+                    <td class="sec" rowspan="{{ count($doc['asesmen']) }}">ASESMEN PEMBELAJARAN</td>
+                @endif
                 <td class="sub">{{ $row['label'] }}</td>
                 <td>{!! $renderCellLines($row['lines']) !!}</td>
             </tr>
@@ -176,14 +189,41 @@
         <div class="lampiran-heading">{{ $lampiran['heading'] }}</div>
         @foreach($lampiran['blocks'] as $block)
             @if($block['type'] === 'table')
+                @php
+                    $rows = $block['rows'];
+                    $first = array_map('trim', $rows[0] ?? []);
+                    $isRubrik5 = count($first) === 5
+                        && preg_match('/^kompetensi$/iu', $first[0] ?? '')
+                        && preg_match('/^baru\s*mulai$/iu', $first[1] ?? '');
+                @endphp
                 <table class="rubrik">
-                    @foreach($block['rows'] as $ri => $cells)
-                        <tr class="{{ $ri === 0 ? 'head' : '' }}">
-                            @foreach($cells as $cell)
-                                <td>{{ $cell }}</td>
-                            @endforeach
+                    @if($isRubrik5)
+                        <tr class="head">
+                            <td rowspan="2">Kompetensi</td>
+                            <td colspan="4" style="text-align:center">Kriteria</td>
                         </tr>
-                    @endforeach
+                        <tr class="subhead">
+                            <td>Baru Mulai</td>
+                            <td>Berkembang</td>
+                            <td>Cakap</td>
+                            <td>Mahir</td>
+                        </tr>
+                        @foreach(array_slice($rows, 1) as $cells)
+                            <tr>
+                                @foreach(array_pad($cells, 5, '') as $cell)
+                                    <td>{{ $cell }}</td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    @else
+                        @foreach($rows as $ri => $cells)
+                            <tr class="{{ $ri === 0 ? 'head' : '' }}">
+                                @foreach($cells as $cell)
+                                    <td>{{ $cell }}</td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    @endif
                 </table>
             @else
                 @foreach($block['lines'] as $line)

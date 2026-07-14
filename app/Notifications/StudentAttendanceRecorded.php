@@ -3,7 +3,9 @@
 namespace App\Notifications;
 
 use App\Models\Absensi;
+use App\Models\Orangtua;
 use App\Models\Siswa;
+use App\Models\User;
 use App\Notifications\Channels\FcmChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
@@ -19,6 +21,20 @@ class StudentAttendanceRecorded extends Notification
 
     public function via(object $notifiable): array
     {
+        if (! $notifiable instanceof User || $notifiable->access !== 'orangtua') {
+            return [];
+        }
+
+        // Hanya orang tua yang terhubung ke siswa ini.
+        $isParent = Orangtua::query()
+            ->where('id_login', $notifiable->getKey())
+            ->where('id_siswa', $this->siswa->uuid)
+            ->exists();
+
+        if (! $isParent) {
+            return [];
+        }
+
         return ['database', FcmChannel::class];
     }
 
@@ -44,8 +60,10 @@ class StudentAttendanceRecorded extends Notification
 
         return [
             'type' => 'absensi_siswa',
+            'judul' => 'Anak sudah masuk sekolah',
             'title' => 'Anak sudah masuk sekolah',
             'message' => 'Ananda '.$this->siswa->nama.' sudah tercatat hadir pukul '.$jam.'.',
+            'url' => '/dashboard',
             'siswa_id' => $this->siswa->uuid,
             'siswa_nama' => $this->siswa->nama,
             'kelas' => $kelas,

@@ -299,18 +299,31 @@ class ChatbotService
 
     private function notifyChatAdmins(ChatbotConversation $conversation, ?ChatbotMessage $message = null, string $event = 'message'): void
     {
-        $query = User::query()->whereIn('access', ['admin', 'superadmin']);
-
-        if ($conversation->assigned_admin_id) {
-            $query->whereKey($conversation->assigned_admin_id);
-        }
-
-        $admins = $query->get();
+        $admins = $this->chatInboxAdmins($conversation);
         if ($admins->isEmpty()) {
             return;
         }
 
         Notification::send($admins, new ChatbotInboxMessageReceived($conversation->loadMissing('user'), $message, $event));
+    }
+
+    /** Admin penerima notifikasi inbox — hanya peran admin/superadmin. */
+    private function chatInboxAdmins(ChatbotConversation $conversation)
+    {
+        if ($conversation->assigned_admin_id) {
+            return User::query()
+                ->whereKey($conversation->assigned_admin_id)
+                ->whereIn('access', ['admin', 'superadmin'])
+                ->get();
+        }
+
+        return User::query()
+            ->whereIn('access', ['admin', 'superadmin'])
+            ->where(function ($query) {
+                $query->whereHas('chatbotAdminSetting', fn ($q) => $q->where('notif_enabled', true))
+                    ->orWhereDoesntHave('chatbotAdminSetting');
+            })
+            ->get();
     }
 
     private function notifyChatUser(ChatbotConversation $conversation, ChatbotMessage $message): void

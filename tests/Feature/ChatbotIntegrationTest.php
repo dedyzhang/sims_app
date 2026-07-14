@@ -154,6 +154,90 @@ class ChatbotIntegrationTest extends TestCase
         });
     }
 
+    public function test_guru_tidak_menerima_notifikasi_chat_siswa_ke_admin(): void
+    {
+        Queue::fake();
+
+        $siswa = $this->makeUser('siswa', 'siswa_privasi_chat');
+        $guru = $this->makeUser('guru', 'guru_privasi_chat');
+        $admin = $this->makeUser('admin', 'admin_privasi_chat');
+
+        $this->actingAs($siswa)->postJson('/chatbot/send', ['message' => 'pesan rahasia siswa'])->assertOk();
+        $conversation = ChatbotConversation::where('user_id', $siswa->getKey())->firstOrFail();
+
+        $this->actingAs($siswa)
+            ->postJson("/chatbot/{$conversation->id}/request-human")
+            ->assertOk()
+            ->assertJsonPath('status', 'waiting');
+
+        $this->assertSame(1, $admin->notifications()->where('data->type', 'chatbot_inbox')->count());
+        $this->assertSame(0, $guru->notifications()->where('data->type', 'chatbot_inbox')->count());
+
+        Queue::assertNotPushed(SendFcmNotificationJob::class, fn (SendFcmNotificationJob $job) => $job->userUuid === $guru->uuid);
+    }
+
+    public function test_api_notifikasi_menyaring_chat_inbox_yang_bocor_ke_guru(): void
+    {
+        $siswa = $this->makeUser('siswa', 'siswa_filter_notif');
+        $guru = $this->makeUser('guru', 'guru_filter_notif');
+        $admin = $this->makeUser('admin', 'admin_filter_notif');
+
+        $this->actingAs($siswa)->postJson('/chatbot/send', ['message' => 'halo admin'])->assertOk();
+        $conversation = ChatbotConversation::where('user_id', $siswa->getKey())->firstOrFail();
+        $this->actingAs($siswa)->postJson("/chatbot/{$conversation->id}/request-human")->assertOk();
+
+        // Simulasikan kebocoran historis: insert langsung ke DB (via() sekarang
+        // menolak non-admin, jadi tidak bisa lewat $guru->notify()).
+        $guru->notifications()->create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'type' => \App\Notifications\ChatbotInboxMessageReceived::class,
+            'data' => [
+                'type' => 'chatbot_inbox',
+                'conversation_id' => $conversation->id,
+                'judul' => 'Chat masuk',
+                'message' => 'Pesan rahasia bocor',
+                'url' => '/chatbot/admin/inbox',
+            ],
+            'read_at' => null,
+        ]);
+
+        // Guru juga punya notifikasi sah agar kita pastikan feed tidak kelaparan.
+        $pengumuman = \App\Models\Pengumuman::create([
+            'judul' => 'Pengumuman Guru',
+            'isi' => 'Isi singkat untuk guru.',
+            'target_roles' => ['guru'],
+        ]);
+        $guru->notifications()->create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'type' => \App\Notifications\PengumumanBaru::class,
+            'data' => [
+                'type' => 'pengumuman',
+                'pengumuman_id' => $pengumuman->uuid,
+                'judul' => 'Pengumuman Guru',
+                'message' => 'Isi singkat untuk guru.',
+            ],
+            'read_at' => null,
+        ]);
+
+        $res = $this->actingAs($guru)
+            ->getJson(route('notifications.json'))
+            ->assertOk()
+            ->assertJsonPath('unreadCount', 1)
+            ->assertJsonPath('notifications.0.data.type', 'pengumuman');
+
+        $types = collect($res->json('notifications'))->pluck('data.type')->all();
+        $this->assertNotContains('chatbot_inbox', $types);
+
+        // Sampah historis ditandai dibaca oleh purge.
+        $this->assertSame(0, $guru->fresh()->unreadNotifications()
+            ->where('data->type', 'chatbot_inbox')->count());
+
+        $this->actingAs($admin)
+            ->getJson(route('notifications.json'))
+            ->assertOk()
+            ->assertJsonPath('notifications.0.data.type', 'chatbot_inbox');
+    }
+
     public function test_balasan_admin_mendorong_badge_bell_dan_fcm_ke_user(): void
     {
         Queue::fake();

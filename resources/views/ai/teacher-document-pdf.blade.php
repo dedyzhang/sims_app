@@ -25,14 +25,14 @@
         table.identitas td.lbl { width: 150px; }
         table.identitas td.sep { width: 12px; }
         /* Tabel bagian utama */
-        table.tbl { width: 100%; border-collapse: collapse; margin-top: 12px; border: 1.5px solid #000; }
+        table.tbl { width: 100%; border-collapse: collapse; margin-top: 12px; border: 1px solid #000; }
         table.tbl td { border: 1px solid #000; padding: 5px 7px; vertical-align: top; }
         table.tbl td.sec {
             width: 15%; font-weight: 700; text-transform: uppercase;
-            border-top: none; border-bottom: none;
+            background: #f2f2f2; vertical-align: middle; text-align: center;
         }
-        table.tbl td.sub { width: 20%; }
-        table.tbl td.stagehead { background: #ececec; font-weight: 700; }
+        table.tbl td.sub { width: 20%; font-weight: 700; }
+        table.tbl td.stagehead { background: #f2f2f2; font-weight: 700; }
         table.tbl td.stagehead .pilar { font-weight: 400; font-style: italic; font-size: 9px; }
         .cell-line { margin: 0 0 2px; }
         .b { font-weight: 700; }
@@ -56,7 +56,8 @@
         .nomor { padding-left: 8px; }
         table.rubrik { width: 100%; border-collapse: collapse; margin: 6px 0 8px; }
         table.rubrik td, table.rubrik th { border: 1px solid #000; padding: 4px 5px; vertical-align: top; font-size: 9px; text-align: left; }
-        table.rubrik tr.head td { background: #fbe5c9; font-weight: 700; }
+        table.rubrik tr.head td { background: #fce4b6; font-weight: 700; }
+        table.rubrik tr.subhead td { background: #fce4b6; font-weight: 700; }
         /* Fallback teks polos */
         .document { white-space: pre-wrap; word-wrap: break-word; }
         .line { margin: 0 0 3px; }

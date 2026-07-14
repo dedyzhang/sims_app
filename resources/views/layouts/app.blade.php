@@ -42,9 +42,6 @@
         }
         $fontMap = ['sm' => ['11px','13px','15px'], 'md' => ['12px','14px','16px'], 'lg' => ['13px','15px','17px']];
         $fonts = $fontMap[$pref->font_size ?? 'md'];
-        $dashboardTheme = in_array($pref->dashboard_theme ?? 'windows11', ['windows11', 'macos'], true)
-            ? $pref->dashboard_theme
-            : 'windows11';
 
         // Cek apakah background sidebar gelap
         $sbgHex = str_replace('#', '', $pref->sidebar_bg ?? '#fceadb');
@@ -388,7 +385,7 @@
     </style>
     @stack('styles')
 </head>
-<body class="app-bg antialiased text-slate-800 dark:text-slate-100 relative overflow-hidden" data-motif="{{ $pref->motif ?? 'botanical' }}" data-style="{{ $pref->ui_style ?? 'soft' }}" data-dashboard-theme="{{ $dashboardTheme }}">
+<body class="app-bg antialiased text-slate-800 dark:text-slate-100 relative overflow-hidden" data-motif="{{ $pref->motif ?? 'botanical' }}" data-style="{{ $pref->ui_style ?? 'soft' }}">
 
 {{-- ===== Dekorasi motif (ikut tema pilihan) ===== --}}
 @include('partials.decorations')
@@ -493,12 +490,12 @@
                 if ($isAdmin || auth()->user()?->canAccess('manage_perangkat')) {
                     $akademik[] = ['perangkat.index', ['perangkat.index', 'perangkat.show'], 'folder-check', 'Perangkat Ajar'];
                 } elseif (auth()->user()?->guru) {
-                    $akademik[] = ['perangkat.self', ['perangkat.self', 'perangkat.show'], 'folder-check', 'Perangkat Ajar'];
+                    $akademik[] = ['perangkat.self', ['perangkat.self', 'perangkat.show'], 'folder-check', 'Perangkat Ajar Saya'];
                 }
 
-                // Asisten Guru untuk guru & wali kelas (Fase 3)
-                if (in_array($access, ['guru', 'walikelas'])) {
-                    $akademik[] = ['ai.teacher.index', ['ai.teacher.*'], 'sparkles', 'Asisten Guru'];
+                // AI Asisten: guru, Kepala Sekolah, semua Waka — bukan siswa/orang tua
+                if (in_array($access, ['guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sapras'], true)) {
+                    $akademik[] = ['ai.teacher.index', ['ai.teacher.*'], 'sparkles', 'AI Asisten SIMS'];
                 }
                 if (auth()->user()?->siswa || $access === 'orangtua') {
                     $akademik[] = ['nilai.self', ['nilai.self'], 'chart-column', 'Nilai Saya'];
@@ -575,7 +572,7 @@
                     $walikelasItems = [
                         ['walikelas.siswa.index', ['walikelas.siswa.*'], 'users-round', 'Data Siswa Kelas'],
                         ['walikelas.sekretaris.form', ['walikelas.sekretaris.*'], 'user-cog', 'Set Sekretaris'],
-                        ['absensi.index', ['absensi.index', 'absensi.store'], 'clipboard-check', 'Absensi Kelas'],
+                        ['absensi.index', ['absensi.index', 'absensi.store'], 'clipboard-check', 'Absensi Kelas Saya'],
                         ['absensi.rekap', ['absensi.rekap'], 'calendar-check-2', 'Rekap Absensi Kelas'],
                         ['kaih.rekap', ['kaih.rekap', 'kaih.override.*'], 'list-checks', 'Rekap 7 KAIH Kelas'],
                     ];
@@ -650,10 +647,6 @@
                         ['setting.index', ['setting.index', 'setting.kopRapor', 'setting.penjabaran', 'setting.tpRange'], 'settings-2', 'Pengaturan'],
                         ['setting.roles', ['setting.roles'], 'shield-check', 'Hak Akses (RBAC)'],
                     ]];
-                    // Langganan (lisensi) — hanya superadmin (titik integrasi 1, PRD langganan).
-                    if ($access === 'superadmin') {
-                        $groups['sistem'][2][] = ['langganan.index', ['langganan.*'], 'badge-check', 'Langganan'];
-                    }
                 }
                 // (Akun Saya dipindah ke dropdown profil di navbar)
 
@@ -783,9 +776,9 @@
                     </span>
                 </button>
                 <div x-show="openGroup==='bantuan'" x-collapse class="nav-submenu ml-[22px] pl-2.5 mt-0.5 space-y-0.5">
-                    <a href="{{ route('panduan.index') }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
+                    <a href="{{ route('panduan.visual') }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
                         <i data-lucide="book-open-check" class="nav-icon w-4 h-4 flex-shrink-0"></i>
-                        <span class="text-[13px] truncate">Panduan SIMS</span>
+                        <span class="text-[13px] truncate">Panduan Visual</span>
                     </a>
                     <a href="{{ route('feedback.index') }}" class="nav-link nav-sublink relative flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
                         <i data-lucide="message-square-heart" class="nav-icon w-4 h-4 flex-shrink-0"></i>
@@ -802,7 +795,7 @@
                 </div>
             </div>
             <div x-show="mini" x-cloak class="mt-2 pt-2 border-t border-black/10 dark:border-white/10 space-y-0.5">
-                <a href="{{ route('panduan.index') }}" data-tip="Panduan SIMS" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
+                <a href="{{ route('panduan.visual') }}" data-tip="Panduan Visual" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
                     <i data-lucide="book-open-check" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 </a>
                 <a href="{{ route('feedback.index') }}" data-tip="Saran & Masukan" class="nav-link relative flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('feedback.*') ? 'active' : '' }}">
@@ -857,7 +850,7 @@
                     <button type="button" @click="nOpen=!nOpen" class="relative grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 dark:text-slate-400 transition" title="Notifikasi">
                         <i data-lucide="bell" class="w-[18px] h-[18px]"></i>
                         <template x-if="unreadCount > 0">
-                            <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white rounded-full text-[9px] font-bold grid place-items-center leading-none ring-2 ring-white dark:ring-slate-900" x-text="unreadCount > 99 ? '99+' : unreadCount"></span>
+                            <span class="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-bold grid place-items-center leading-none" x-text="unreadCount"></span>
                         </template>
                     </button>
 
@@ -887,8 +880,8 @@
                                         <i :data-lucide="notifIcon(n)" class="w-4 h-4"></i>
                                     </div>
                                     <div class="min-w-0 flex-1">
-                                        <template x-if="n.data.judul">
-                                            <p class="text-xs font-bold text-slate-800 dark:text-slate-100 leading-normal" x-text="n.data.judul"></p>
+                                        <template x-if="n.data.judul || n.data.title">
+                                            <p class="text-xs font-bold text-slate-800 dark:text-slate-100 leading-normal" x-text="n.data.judul || n.data.title"></p>
                                         </template>
                                         <p class="text-xs text-slate-700 dark:text-slate-200 leading-normal" x-text="notifText(n)"></p>
                                         <p class="text-[10px] text-slate-400 mt-1" x-text="n.time_ago"></p>
@@ -966,12 +959,13 @@
         @endunless
 
         <main class="flex-1 overflow-y-auto px-5 md:px-7 py-4 flex flex-col">
-            @include('partials.langganan-banner')
             <div class="anim-fade flex-1">@yield('content')</div>
             {{-- Footer — selalu menempel di bawah berkat mt-auto (konten flex-1 mendorongnya turun) --}}
+            @unless(View::hasSection('hide_page_footer'))
             <footer class="mt-auto pt-4 border-t border-slate-200/70 dark:border-slate-700/60 text-center text-xs text-slate-400">
                 &copy; {{ date('Y') }} <span class="font-semibold text-slate-500 dark:text-slate-400">{{ $namaSekolah ?? 'Edutive' }}</span>. Seluruh hak cipta dilindungi.
             </footer>
+            @endunless
         </main>
     </div>
 </div>
@@ -1198,7 +1192,7 @@
 @if(in_array($access, ['siswa', 'orangtua']) && !$kioskChrome)
 {{-- ─── Floating Asisten Sekolah ─────────────────────────────────────────────
      Bola mengambang khusus SISWA & ORANG TUA untuk menghubungi admin manusia
-     (handoff). Staf & admin memakai widget Asisten Guru, bukan ini — agar tiap
+     (handoff). Staf & admin memakai widget AsistenAI, bukan ini — agar tiap
      pengguna hanya melihat SATU bola sesuai kebutuhannya. Klik membuka panel
      chat yang meng-embed /chatbot via iframe; panel mengirim 'chatfab:close'
      lewat postMessage saat tombol tutup di dalam widget ditekan. --}}
@@ -1273,7 +1267,7 @@
 </script>
 @endif
 
-{{-- Widget Asisten Guru (Fase 2) — STAF & ADMIN saja. Siswa & orang tua tidak
+{{-- Widget AsistenAI (Fase 2) — STAF & ADMIN saja. Siswa & orang tua tidak
      mendapat AI generatif; mereka memakai chatbot handoff ke admin di atas. --}}
 @unless(in_array($access, ['siswa', 'orangtua']))
 @include('partials.ai-assistant')
@@ -1476,8 +1470,6 @@
                 // Arahkan ke URL target sesuai tipe notifikasi
                 if (n.data.type === 'pengumuman') {
                     window.location.href = `/pengumuman/${n.data.pengumuman_id}`;
-                } else if (n.data.type === 'chatbot_inbox' || n.data.type === 'chatbot_admin_reply') {
-                    window.location.href = n.data.url || '/chatbot';
                 } else if (n.data.type === 'forum_reply') {
                     window.location.href = `/forum/${n.data.topic_slug}#c-${n.data.comment_id}`;
                 } else if (n.data.type === 'classroom_comment') {
@@ -1486,6 +1478,13 @@
                         url += `?class=${n.data.classroom_id}`;
                     }
                     window.location.href = `${url}#c-${n.data.comment_id}`;
+                } else if (n.data.type === 'absensi_siswa') {
+                    window.location.href = n.data.url || '/dashboard';
+                } else if (n.data.type === 'chatbot_inbox') {
+                    if (!{{ $isAdmin ? 'true' : 'false' }}) return;
+                    window.location.href = n.data.url || '/chatbot/admin/inbox';
+                } else if (n.data.type === 'chatbot_admin_reply') {
+                    window.location.href = n.data.url || '/chatbot';
                 } else if (n.data.url) {
                     window.location.href = n.data.url;   // notifikasi umum (mis. Sarpras)
                 }
@@ -1498,15 +1497,15 @@
             notifIcon(n) {
                 const t = (n.data || {}).type;
                 if (t === 'pengumuman') return 'megaphone';
-                if (t === 'chatbot_inbox' || t === 'chatbot_admin_reply') return 'message-circle';
+                if (t === 'absensi_siswa') return 'clipboard-check';
                 if (t === 'forum_reply') return 'messages-square';
                 if (t === 'classroom_comment') return 'graduation-cap';
+                if (t === 'chatbot_inbox' || t === 'chatbot_admin_reply') return 'message-circle';
                 return (n.data && (n.data.url || n.data.laporan_id)) ? 'bell' : 'bell';
             },
             notifColor(n) {
                 const t = (n.data || {}).type;
                 if (t === 'pengumuman' || t === 'forum_reply') return 'var(--cp)';
-                if (t === 'chatbot_inbox' || t === 'chatbot_admin_reply') return '#ef4444';
                 return 'var(--ca)';
             },
             async markAllAsRead() {
@@ -1562,8 +1561,6 @@
     };
     // ===== UI style switcher (soft <-> corporate) =====
     window.setStyle = function(name){ document.body.dataset.style = name; };
-    // ===== Dashboard theme switcher (Windows 11 <-> macOS) =====
-    window.setDashboardTheme = function(name){ document.body.dataset.dashboardTheme = name; };
     document.addEventListener('DOMContentLoaded', ()=>{
         setMotif(document.body.dataset.motif || 'botanical');
         lucide.createIcons();

@@ -1,0 +1,2 @@
+NARASI:  "Untuk masuk, ketik nama pengguna dan kata sandi Anda, lalu klik Masuk. Bila sudah
+diaktifkan, Anda juga bisa masuk cepat dengan PIN."

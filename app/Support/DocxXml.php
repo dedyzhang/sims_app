@@ -39,7 +39,7 @@ trait DocxXml
         return '<w:p><w:pPr>'.$pPr.'</w:pPr>'.implode('', $runs).'</w:p>';
     }
 
-    /** @param array{w:int,span?:int,vmerge?:string,fill?:string|null} $opts */
+    /** @param array{w:int,span?:int,vmerge?:string,fill?:string|null,borders?:bool,border_sz?:int} $opts */
     protected static function tc(array $content, array $opts): string
     {
         $tcPr = '<w:tcW w:w="'.$opts['w'].'" w:type="dxa"/>';
@@ -48,6 +48,16 @@ trait DocxXml
         }
         if (isset($opts['vmerge'])) {
             $tcPr .= $opts['vmerge'] === 'restart' ? '<w:vMerge w:val="restart"/>' : '<w:vMerge/>';
+        }
+        // Border per-sel wajib agar garis tidak putus (terutama di sel vMerge).
+        if ($opts['borders'] ?? true) {
+            $sz = (int) ($opts['border_sz'] ?? 4);
+            $tcPr .= '<w:tcBorders>'
+                .'<w:top w:val="single" w:color="000000" w:sz="'.$sz.'"/>'
+                .'<w:left w:val="single" w:color="000000" w:sz="'.$sz.'"/>'
+                .'<w:bottom w:val="single" w:color="000000" w:sz="'.$sz.'"/>'
+                .'<w:right w:val="single" w:color="000000" w:sz="'.$sz.'"/>'
+                .'</w:tcBorders>';
         }
         if (! empty($opts['fill'])) {
             $tcPr .= '<w:shd w:val="clear" w:color="auto" w:fill="'.$opts['fill'].'"/>';
@@ -66,12 +76,12 @@ trait DocxXml
     {
         $borders = $bordered
             ? '<w:tblBorders>'
-                .'<w:top w:val="single" w:sz="8" w:color="000000"/>'
-                .'<w:left w:val="single" w:sz="8" w:color="000000"/>'
-                .'<w:bottom w:val="single" w:sz="8" w:color="000000"/>'
-                .'<w:right w:val="single" w:sz="8" w:color="000000"/>'
-                .'<w:insideH w:val="single" w:sz="6" w:color="000000"/>'
-                .'<w:insideV w:val="single" w:sz="6" w:color="000000"/>'
+                .'<w:top w:val="single" w:sz="4" w:color="000000"/>'
+                .'<w:left w:val="single" w:sz="4" w:color="000000"/>'
+                .'<w:bottom w:val="single" w:sz="4" w:color="000000"/>'
+                .'<w:right w:val="single" w:sz="4" w:color="000000"/>'
+                .'<w:insideH w:val="single" w:sz="4" w:color="000000"/>'
+                .'<w:insideV w:val="single" w:sz="4" w:color="000000"/>'
                 .'</w:tblBorders>'
             : '';
 

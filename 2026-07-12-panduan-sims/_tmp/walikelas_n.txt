@@ -1,0 +1,2 @@
+NARASI:  "Menu Wali Kelas hanya tampil untuk wali kelas. Di sini Anda mengelola siswa perwalian,
+rekap nilai, dan catatan untuk rapor."

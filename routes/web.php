@@ -3,47 +3,31 @@
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\Admin\ChatbotAdminController;
 use App\Http\Controllers\AgendaController;
-use App\Http\Controllers\AiAnalyzeController;
-use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AiController;
-use App\Http\Controllers\AiRagController;
+use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AiTeacherController;
 use App\Http\Controllers\AlumniController;
 use App\Http\Controllers\AppDownloadController;
-use App\Http\Controllers\CetakController;
-use App\Http\Controllers\CetakRaporController;
+use App\Http\Controllers\KartuPelajarController;
+use App\Http\Controllers\KalenderController;
+use App\Http\Controllers\PoinController;
+use App\Http\Controllers\P3Controller;
 use App\Http\Controllers\ChatbotController;
-use App\Http\Controllers\ClassroomAssignmentController;
-use App\Http\Controllers\ClassroomCommentController;
-use App\Http\Controllers\ClassroomController;
-use App\Http\Controllers\ClassroomMaterialController;
-use App\Http\Controllers\ClassroomSubmissionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EkskulController;
 use App\Http\Controllers\FaceController;
 use App\Http\Controllers\FeedbackController;
-use App\Http\Controllers\ForumAccessController;
-use App\Http\Controllers\ForumCommentController;
-use App\Http\Controllers\ForumController;
-use App\Http\Controllers\ForumReactionController;
 use App\Http\Controllers\GuruController;
 use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\KaihController;
 use App\Http\Controllers\KalenderController;
 use App\Http\Controllers\KartuPelajarController;
 use App\Http\Controllers\KelasController;
-use App\Http\Controllers\Keuangan\KeuanganController;
-use App\Http\Controllers\Keuangan\TagihanController;
-use App\Http\Controllers\LanggananController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\NilaiController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\P3Controller;
-use App\Http\Controllers\PanduanController;
 use App\Http\Controllers\PelajaranController;
-use App\Http\Controllers\PengumumanController;
+use App\Http\Controllers\PanduanController;
 use App\Http\Controllers\PerangkatAjarController;
-use App\Http\Controllers\PoinController;
 use App\Http\Controllers\PresensiGuruController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QrAbsensiController;
@@ -53,6 +37,10 @@ use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SiswaController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WalikelasController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PengumumanController;
+use App\Http\Controllers\Keuangan\KeuanganController;
+use App\Http\Controllers\Keuangan\TagihanController;
 use App\Http\Middleware\EnsureFaceRegistered;
 use App\Http\Middleware\EnsureKioskOrPermission;
 use App\Support\TickerStats;
@@ -60,7 +48,7 @@ use Illuminate\Support\Facades\Route;
 use Laragear\WebAuthn\Http\Routes as WebAuthnRoutes;
 
 // ─── Publik ───────────────────────────────────────────────────────────────────
-Route::get('/', fn () => redirect()->route('login'));
+Route::get('/', fn() => redirect()->route('login'));
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 Route::middleware('guest')->group(function () {
@@ -118,34 +106,26 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{feedback}/respon', 'respond')->middleware('permission:manage_feedback')->name('respond');
     });
 
-    // ─── Langganan (lisensi) — khusus superadmin ────────────────────────────────
-    Route::middleware('role:superadmin')->prefix('langganan')->name('langganan.')
-        ->controller(LanggananController::class)->group(function () {
-            Route::get('/', 'index')->name('index');
-            Route::post('/', 'store')->name('store');
-            Route::post('/perpanjang', 'perpanjang')->name('perpanjang');
-        });
-
-    // ─── Asisten Guru (Gateway Gemini — Fase 1) ────────────────────────────────────
+    // ─── AsistenAI (Gateway Gemini — Fase 1) ────────────────────────────────────
     // Gateway generik; dibatasi superadmin. Fitur per-role menyusul di fase berikut.
     Route::middleware('role:superadmin')->prefix('ai')->name('ai.')->group(function () {
         Route::post('/generate', [AiController::class, 'generate'])->name('generate');
     });
 
-    // ─── Asisten Guru Chatbot (Fase 2) ─────────────────────────────────────────────
-    // Widget AI generatif hanya untuk staf/admin — siswa & orang tua memakai chatbot handoff.
-    Route::middleware('role:admin,superadmin,guru,walikelas,kepala,kurikulum,kesiswaan,sapras,bendahara,sekretaris')
-        ->prefix('ai/chat')->name('ai.chat.')->controller(AiChatController::class)->group(function () {
+    // ─── AsistenAI Chatbot (Fase 2) ─────────────────────────────────────────────
+    // Widget mengambang untuk SEMUA role login. Percakapan di-scope per user.
+    Route::prefix('ai/chat')->name('ai.chat.')->controller(AiChatController::class)->group(function () {
         Route::post('/', 'send')->name('send');
         Route::get('/history', 'history')->name('history');
         Route::get('/{conversation}', 'show')->name('show');
         Route::delete('/{conversation}', 'destroy')->name('destroy');
     });
 
-    // ─── Asisten Guru (Fase 3) ────────────────────────────────────────
-    // Panel tool guru (soal/rangkum/feedback). Hanya guru & wali kelas.
-    Route::middleware('role:guru,walikelas')->prefix('ai/teacher')->name('ai.teacher.')->controller(AiTeacherController::class)->group(function () {
+    // ─── AsistenAI Asisten Guru (Fase 3) ────────────────────────────────────────
+    // Panel tool guru (soal/rangkum/feedback). Guru, Kepala, semua Waka — bukan siswa/orang tua.
+    Route::middleware('role:guru,walikelas,kepala,kurikulum,kesiswaan,sapras')->prefix('ai/teacher')->name('ai.teacher.')->controller(AiTeacherController::class)->group(function () {
         Route::get('/', 'index')->name('index');
+        Route::get('/quota', 'quota')->name('quota');
         Route::post('/quiz', 'quiz')->name('quiz');
         Route::post('/quiz/preview', 'previewQuiz')->name('quiz.preview');
         Route::post('/quiz/export-word', 'exportQuizWord')->name('quiz.export-word');
@@ -159,7 +139,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::delete('/history/{history}', 'destroyHistory')->name('history.destroy');
     });
 
-    // ─── Asisten Guru Narasi Data (Fase 4) ─────────────────────────────────────────
+    // ─── AsistenAI Narasi Data (Fase 4) ─────────────────────────────────────────
     // Controller agregasi angka server-side → AI narasikan. Pimpinan/staf sekolah.
     Route::middleware('role:admin,kepala,kurikulum,kesiswaan')->prefix('ai/analyze')->name('ai.analyze.')->controller(AiAnalyzeController::class)->group(function () {
         Route::get('/', 'index')->name('index');
@@ -168,7 +148,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/keuangan', 'keuangan')->name('keuangan');
     });
 
-    // ─── Asisten Guru RAG Dokumen (Fase 5) ─────────────────────────────────────────
+    // ─── AsistenAI RAG Dokumen (Fase 5) ─────────────────────────────────────────
     // Unggah dokumen → embed; tanya-jawab berbasis isi dokumen + sitasi.
     Route::middleware('role:admin,kepala,kurikulum,kesiswaan')->prefix('ai/rag')->name('ai.rag.')->controller(AiRagController::class)->group(function () {
         Route::get('/', 'index')->name('index');
@@ -198,7 +178,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/profile/edit', 'edit')->name('profile.edit');
         Route::put('/profile/update', 'update')->name('profile.update');
         Route::get('/profile/tampilan', 'preferenceEdit')->name('profile.preference');
-        Route::match(['put', 'post'], '/profile/tampilan', 'preferenceUpdate')->name('profile.preference.update');
+        Route::match(['put','post'], '/profile/tampilan', 'preferenceUpdate')->name('profile.preference.update');
         Route::get('/profile/tampilan/reset', 'preferenceReset')->name('profile.preference.reset');
         Route::post('/profile/gaya', 'setStyle')->name('profile.style');
     });
@@ -209,8 +189,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
     Route::post('/notifications/fcm-token', [NotificationController::class, 'storeFcmToken'])->name('notifications.fcmToken.store');
     Route::delete('/notifications/fcm-token', [NotificationController::class, 'destroyFcmToken'])->name('notifications.fcmToken.destroy');
-    Route::post('/fcm/token', [NotificationController::class, 'storeFcmToken'])->name('fcm.token.store.legacy');
-    Route::delete('/fcm/token', [NotificationController::class, 'destroyFcmToken'])->name('fcm.token.destroy.legacy');
+    // Alias legacy APK Android yang masih POST/DELETE ke /fcm/token.
+    Route::post('/fcm/token', [NotificationController::class, 'storeFcmToken'])->name('fcm.token.store');
+    Route::delete('/fcm/token', [NotificationController::class, 'destroyFcmToken'])->name('fcm.token.destroy');
 
     // Pengumuman: riwayat untuk semua user; buat/ubah/hapus butuh izin manage_pengumuman.
     Route::controller(PengumumanController::class)->prefix('pengumuman')->name('pengumuman.')->group(function () {
@@ -228,7 +209,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     // Statistik real-time untuk ticker SIMS-NET (angka dari cache TickerStats).
     Route::get('/dashboard/ticker-stats', function () {
         return response()->json(
-            TickerStats::forRole(auth()->user()->access ?? '')
+            \App\Support\TickerStats::forRole(auth()->user()->access ?? '')
         );
     })->name('dashboard.ticker-stats');
 
@@ -341,6 +322,40 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/submission/{submission}/nilai', [ClassroomSubmissionController::class, 'grade'])->name('submission.grade');
         Route::post('/submission/{submission}/kembalikan', [ClassroomSubmissionController::class, 'returnSubmission'])->name('submission.return');
         Route::get('/submission/file/{file}', [ClassroomSubmissionController::class, 'download'])->name('submission.file');
+
+        // Arena Belajar (kuis interaktif async)
+        Route::get('/{classroom}/arena-belajar', [GameQuizController::class, 'index'])->name('arena.index');
+        Route::get('/{classroom}/arena-belajar/buat', [GameQuizController::class, 'create'])->name('arena.create');
+        Route::post('/{classroom}/arena-belajar', [GameQuizController::class, 'store'])->middleware('throttle:30,1')->name('arena.store');
+        Route::post('/{classroom}/arena-belajar/impor-preview', [GameQuizController::class, 'importPreview'])->middleware('throttle:20,1')->name('arena.import');
+        Route::get('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'show'])->name('arena.show');
+        Route::get('/{classroom}/arena-belajar/{quiz}/edit', [GameQuizController::class, 'edit'])->name('arena.edit');
+        Route::post('/{classroom}/arena-belajar/{quiz}/update', [GameQuizController::class, 'update'])->middleware('throttle:30,1')->name('arena.update');
+        Route::post('/{classroom}/arena-belajar/{quiz}/terbit', [GameQuizController::class, 'publish'])->name('arena.publish');
+        Route::delete('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'destroy'])->name('arena.destroy');
+        Route::get('/{classroom}/arena-belajar/{quiz}/hasil', [GameQuizController::class, 'results'])->name('arena.results');
+        Route::post('/{classroom}/arena-belajar/{quiz}/transfer-nilai', [GameQuizController::class, 'transferGrades'])->name('arena.transfer');
+        Route::post('/{classroom}/arena-belajar/{quiz}/mulai', [GameAttemptController::class, 'start'])->middleware('throttle:30,1')->name('arena.start');
+        Route::get('/{classroom}/arena-belajar/{quiz}/main/{attempt}', [GameAttemptController::class, 'play'])->name('arena.play');
+        Route::post('/{classroom}/arena-belajar/{quiz}/main/{attempt}/jawab', [GameAttemptController::class, 'saveAnswer'])->middleware('throttle:60,1')->name('arena.answer');
+        Route::post('/{classroom}/arena-belajar/{quiz}/main/{attempt}/kumpul', [GameAttemptController::class, 'submit'])->middleware('throttle:20,1')->name('arena.submit');
+        Route::get('/{classroom}/arena-belajar/{quiz}/hasil-saya/{attempt}', [GameAttemptController::class, 'result'])->name('arena.result');
+        // Live session (polling)
+        Route::get('/{classroom}/arena-belajar/{quiz}/live', [GameLiveController::class, 'show'])->name('arena.live');
+        Route::post('/{classroom}/arena-belajar/{quiz}/live/mulai', [GameLiveController::class, 'start'])->middleware('throttle:20,1')->name('arena.live.start');
+        Route::post('/{classroom}/arena-belajar/{quiz}/live/maju', [GameLiveController::class, 'advance'])->middleware('throttle:60,1')->name('arena.live.advance');
+        Route::post('/{classroom}/arena-belajar/{quiz}/live/akhiri', [GameLiveController::class, 'end'])->name('arena.live.end');
+        Route::get('/{classroom}/arena-belajar/{quiz}/live/state', [GameLiveController::class, 'state'])->middleware('throttle:120,1')->name('arena.live.state');
+        Route::get('/{classroom}/arena-belajar/{quiz}/live/podium', [GameLiveController::class, 'leaderboard'])->middleware('throttle:120,1')->name('arena.live.leaderboard');
+        Route::post('/{classroom}/arena-belajar/{quiz}/live/jawab', [GameLiveController::class, 'answer'])->middleware('throttle:60,1')->name('arena.live.answer');
+        // Template / tim / PDF / offline (Fase 3)
+        Route::post('/{classroom}/arena-belajar/{quiz}/template', [GameTemplateController::class, 'setTemplate'])->name('arena.template');
+        Route::get('/{classroom}/arena-belajar/{quiz}/template/main', [GameTemplateController::class, 'playTemplate'])->name('arena.template.play');
+        Route::get('/{classroom}/arena-belajar/{quiz}/tim', [GameTemplateController::class, 'teams'])->name('arena.teams');
+        Route::post('/{classroom}/arena-belajar/{quiz}/tim', [GameTemplateController::class, 'saveTeams'])->name('arena.teams.save');
+        Route::get('/{classroom}/arena-belajar/{quiz}/tim/podium', [GameTemplateController::class, 'teamLeaderboard'])->name('arena.teams.board');
+        Route::get('/{classroom}/arena-belajar/{quiz}/pdf', [GameTemplateController::class, 'pdf'])->name('arena.pdf');
+        Route::post('/{classroom}/arena-belajar/{quiz}/sync-offline', [GameTemplateController::class, 'syncOffline'])->middleware('throttle:30,1')->name('arena.sync');
 
         // Ruang mapel (auto-provisioned) + halaman tambah konten terpisah
         Route::get('/{classroom}/materi/buat', [ClassroomMaterialController::class, 'create'])->name('material.create');
@@ -744,11 +759,10 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 // Widget penanya (siswa & orang tua).
 Route::middleware(['auth', 'chatbot.user'])->group(function () {
     Route::get('/chatbot', [ChatbotController::class, 'show'])->name('chatbot.show');
-    Route::post('/chatbot/send', [ChatbotController::class, 'send'])->middleware('throttle:30,1')->name('chatbot.send');
-    Route::post('/chatbot/upload', [ChatbotController::class, 'upload'])->middleware('throttle:30,1')->name('chatbot.upload');
-    Route::post('/chatbot/upload-file', [ChatbotController::class, 'uploadFile'])->middleware('throttle:30,1')->name('chatbot.upload-file');
-    Route::get('/chatbot/poll', [ChatbotController::class, 'poll'])->middleware('throttle:60,1')->name('chatbot.poll');
-    Route::get('/chatbot/attachment/{message}', [ChatbotController::class, 'attachment'])->name('chatbot.attachment');
+    Route::post('/chatbot/send', [ChatbotController::class, 'send'])->name('chatbot.send');
+    Route::post('/chatbot/upload', [ChatbotController::class, 'upload'])->name('chatbot.upload');
+    Route::post('/chatbot/upload-file', [ChatbotController::class, 'uploadFile'])->name('chatbot.upload-file');
+    Route::get('/chatbot/poll', [ChatbotController::class, 'poll'])->name('chatbot.poll');
     Route::get('/chatbot/unread', [ChatbotController::class, 'unread'])->name('chatbot.unread');
 
     // Handoff sisi user.
@@ -764,8 +778,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('chatbot/admin')->name('chatbo
     Route::get('/{conversation}/messages', [ChatbotAdminController::class, 'messages'])->name('messages');
     Route::post('/{conversation}/assign', [ChatbotAdminController::class, 'assign'])->name('assign');
     Route::post('/{conversation}/reply', [ChatbotAdminController::class, 'reply'])->name('reply');
-    Route::post('/{conversation}/reply-image', [ChatbotAdminController::class, 'replyImage'])->middleware('throttle:60,1')->name('reply-image');
-    Route::post('/{conversation}/reply-file', [ChatbotAdminController::class, 'replyFile'])->middleware('throttle:60,1')->name('reply-file');
+    Route::post('/{conversation}/reply-image', [ChatbotAdminController::class, 'replyImage'])->name('reply-image');
+    Route::post('/{conversation}/reply-file', [ChatbotAdminController::class, 'replyFile'])->name('reply-file');
     Route::post('/{conversation}/back-to-bot', [ChatbotAdminController::class, 'backToBot'])->name('back-to-bot');
     Route::post('/{conversation}/close', [ChatbotAdminController::class, 'close'])->name('close');
     Route::delete('/{conversation}', [ChatbotAdminController::class, 'destroy'])->name('destroy');

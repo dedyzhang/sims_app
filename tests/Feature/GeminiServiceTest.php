@@ -30,6 +30,10 @@ class GeminiServiceTest extends TestCase
         config()->set('ai.openrouter.free_only', true);
         config()->set('ai.openrouter.site_url', 'http://localhost');
         config()->set('ai.openrouter.site_name', 'SIMS Test');
+        config()->set('ai.ninerouter.api_key', 'ninerouter-test-key');
+        config()->set('ai.ninerouter.base_url', 'http://127.0.0.1:20128/v1');
+        config()->set('ai.ninerouter.model', 'FL-OpenCode');
+        config()->set('ai.ninerouter.fallback_models', []);
     }
 
     /**
@@ -105,7 +109,7 @@ class GeminiServiceTest extends TestCase
             app(GeminiService::class)->generate('Buat RPM lagi');
             $this->fail('Permintaan kedua seharusnya ditahan sampai reset kuota free tier.');
         } catch (RuntimeException $e) {
-            $this->assertStringContainsString('tidak akan mencoba Gemini lagi', $e->getMessage());
+            $this->assertStringContainsString('tidak akan mencoba lagi sampai kuota free tier reset', $e->getMessage());
             $this->assertStringContainsString('Perkiraan reset', $e->getMessage());
         }
 
@@ -163,9 +167,49 @@ class GeminiServiceTest extends TestCase
                 && $request->hasHeader('Authorization', 'Bearer openrouter-test-key')
                 && ($data['model'] ?? null) === 'openrouter/free'
                 && ($data['max_tokens'] ?? null) === 512
+                && ($data['stream'] ?? null) === false
                 && ($data['messages'][0]['role'] ?? null) === 'system'
                 && ($data['messages'][1]['content'] ?? null) === 'Buat soal';
         });
+    }
+
+    public function test_ninerouter_menggunakan_endpoint_chat_completion(): void
+    {
+        config()->set('ai.provider', 'ninerouter');
+
+        Http::fake([
+            'http://127.0.0.1:20128/v1/chat/completions' => Http::response($this->jawabanOpenRouterSukses('Jawaban 9Router', 'FL-OpenCode')),
+        ]);
+
+        $result = app(GeminiService::class)->generate('Halo');
+
+        $this->assertSame('Jawaban 9Router', $result['text']);
+        $this->assertSame('FL-OpenCode', $result['model']);
+
+        Http::assertSent(function ($request) {
+            $data = $request->data();
+
+            return $request->url() === 'http://127.0.0.1:20128/v1/chat/completions'
+                && $request->hasHeader('Authorization', 'Bearer ninerouter-test-key')
+                && ($data['model'] ?? null) === 'FL-OpenCode'
+                && ($data['stream'] ?? null) === false;
+        });
+    }
+
+    public function test_ninerouter_kuota_habis_dialihkan_ke_openrouter(): void
+    {
+        config()->set('ai.provider', 'ninerouter');
+        config()->set('ai.fallback_providers', ['openrouter']);
+
+        Http::fake([
+            'http://127.0.0.1:20128/v1/chat/completions' => Http::response(['error' => ['message' => 'rate limit']], 429),
+            'https://openrouter.ai/api/v1/chat/completions' => Http::response($this->jawabanOpenRouterSukses('Cadangan OpenRouter')),
+        ]);
+
+        $result = app(GeminiService::class)->generate('Halo');
+
+        $this->assertSame('Cadangan OpenRouter', $result['text']);
+        $this->assertSame('openrouter/free', $result['model']);
     }
 
     public function test_openrouter_free_only_menolak_model_berbayar_sebelum_request_terkirim(): void
@@ -230,6 +274,26 @@ class GeminiServiceTest extends TestCase
         $this->assertSame('openrouter/free', $result['model']);
     }
 
+    /** OpenRouter utama: bila kuota free habis (429), langsung dialihkan ke Gemini. */
+    public function test_kuota_openrouter_habis_dialihkan_ke_gemini(): void
+    {
+        config()->set('ai.provider', 'openrouter');
+        config()->set('ai.fallback_providers', ['gemini']);
+        config()->set('ai.openrouter.free_daily_limit', 50);
+
+        Http::fake([
+            'https://openrouter.ai/api/v1/chat/completions' => Http::response([
+                'error' => ['message' => 'Rate limit exceeded'],
+            ], 429),
+            'https://generativelanguage.googleapis.com/*' => Http::response($this->jawabanSukses('Jawaban dari Gemini')),
+        ]);
+
+        $result = app(GeminiService::class)->generate('Buat soal');
+
+        $this->assertSame('Jawaban dari Gemini', $result['text']);
+        $this->assertSame('gemini-test', $result['model']);
+    }
+
     /** Provider utama down (5xx) juga layak dialihkan, bukan dilempar ke guru. */
     public function test_provider_utama_error_server_dialihkan_ke_provider_cadangan(): void
     {
@@ -292,19 +356,25 @@ class GeminiServiceTest extends TestCase
             app(GeminiService::class)->generate('Buat soal');
             $this->fail('Semua provider gagal seharusnya melempar exception.');
         } catch (RuntimeException $e) {
-            $this->assertStringContainsString('Provider cadangan openrouter juga gagal', $e->getMessage());
+            $this->assertStringContainsString('Layanan cadangan AI Asisten SIMS juga gagal', $e->getMessage());
         }
     }
 
-    private function jawabanOpenRouterSukses(string $teks): array
+    private function jawabanOpenRouterSukses(string $teks, ?string $model = null): array
     {
-        return [
+        $payload = [
             'choices' => [[
                 'finish_reason' => 'stop',
                 'message' => ['content' => $teks],
             ]],
             'usage' => ['prompt_tokens' => 12, 'completion_tokens' => 8],
         ];
+
+        if ($model !== null) {
+            $payload['model'] = $model;
+        }
+
+        return $payload;
     }
 
     private function jawabanSukses(string $teks): array

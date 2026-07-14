@@ -1,0 +1,6 @@
+FITUR 22
+Cetak Rapor
+
+/cetak-rapor
+
+Untuk: Admin, Wali Kelas

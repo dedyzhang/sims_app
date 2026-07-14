@@ -216,6 +216,12 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         return $this->hasMany(UserFcmToken::class, 'user_uuid', 'uuid');
     }
 
+    /** Preferensi notifikasi inbox chat admin. */
+    public function chatbotAdminSetting()
+    {
+        return $this->hasOne(ChatbotAdminSetting::class, 'admin_user_id', 'uuid');
+    }
+
     /**
      * Nama tampilan user. Diambil dari profil guru/siswa bila ada, jika tidak
      * memakai username. Dipakai antara lain oleh modul Sarpras (pelapor,

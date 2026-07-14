@@ -24,7 +24,7 @@ use RuntimeException;
 */
 class GeminiService
 {
-    private const SUPPORTED_PROVIDERS = ['gemini', 'openrouter'];
+    private const SUPPORTED_PROVIDERS = ['gemini', 'openrouter', 'ninerouter'];
 
     /** AI aktif bila ada minimal satu provider (utama atau cadangan) yang punya key. */
     public function enabled(): bool
@@ -58,15 +58,18 @@ class GeminiService
         return match ($provider) {
             'gemini' => ! empty(config('ai.api_key')),
             'openrouter' => ! empty(config('ai.openrouter.api_key')),
+            'ninerouter' => ! empty(config('ai.ninerouter.api_key')),
             default => false,
         };
     }
 
     private function missingConfigurationMessage(): string
     {
-        return $this->provider() === 'openrouter'
-            ? 'Fitur AI belum dikonfigurasi (OPENROUTER_API_KEY kosong).'
-            : 'Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).';
+        return match ($this->provider()) {
+            'openrouter' => 'Fitur AI belum dikonfigurasi (OPENROUTER_API_KEY kosong).',
+            'ninerouter' => 'Fitur AI belum dikonfigurasi (NINEROUTER_API_KEY kosong).',
+            default => 'Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).',
+        };
     }
 
     /**
@@ -79,7 +82,7 @@ class GeminiService
     public function generate(string $prompt, array $options = []): array
     {
         if (! in_array($this->provider(), self::SUPPORTED_PROVIDERS, true)) {
-            throw new RuntimeException('Provider AI tidak dikenali. Gunakan gemini atau openrouter.');
+            throw new RuntimeException('Provider AI tidak dikenali. Gunakan gemini, openrouter, atau ninerouter.');
         }
 
         $chain = $this->providerChain();
@@ -101,6 +104,7 @@ class GeminiService
             try {
                 return match ($provider) {
                     'openrouter' => $this->generateOpenRouter($prompt, $providerOptions),
+                    'ninerouter' => $this->generateNinerouter($prompt, $providerOptions),
                     default => $this->generateGemini($prompt, $providerOptions),
                 };
             } catch (AiProviderUnavailableException $e) {
@@ -124,8 +128,8 @@ class GeminiService
         $message = (string) $failures[$primary];
         unset($failures[$primary]);
 
-        foreach ($failures as $provider => $failure) {
-            $message .= " Provider cadangan {$provider} juga gagal: {$failure}";
+        if ($failures !== []) {
+            $message .= ' Layanan cadangan AI Asisten SIMS juga gagal.';
         }
 
         return $message;
@@ -237,6 +241,7 @@ class GeminiService
 
         $this->ensureOpenRouterModelsAreFree($modelChain);
         $this->ensureOpenRouterFreeQuotaIsOpen($modelChain);
+        $this->ensureOpenRouterLocalDailyQuotaIsOpen();
 
         $lastQuotaError = null;
 
@@ -246,6 +251,7 @@ class GeminiService
                 'messages' => $messages,
                 'temperature' => $options['temperature'] ?? config('ai.temperature'),
                 'max_tokens' => $options['max_output_tokens'] ?? config('ai.max_output_tokens'),
+                'stream' => false,
             ];
 
             $this->extendExecutionTime($options);
@@ -263,15 +269,16 @@ class GeminiService
                     ->acceptJson()
                     ->post(rtrim((string) config('ai.openrouter.base_url'), '/').'/chat/completions', $body);
             } catch (\Throwable $e) {
-                throw new AiProviderUnavailableException('Gagal menghubungi layanan OpenRouter. Coba lagi beberapa saat.');
+                throw new AiProviderUnavailableException('Gagal menghubungi layanan AI Asisten SIMS. Coba lagi beberapa saat.');
             }
 
             if ($response->successful()) {
-                return $this->parseOpenRouter($response->json(), $model);
+                return $this->parseOpenAiCompatible($response->json(), $model, 'AI Asisten SIMS');
             }
 
-            if ($response->status() === 429) {
-                $lastQuotaError = $this->normalizeOpenRouterError(429, $response->json());
+            // 429 = rate/kuota; 402 = kredit habis — keduanya layak dialihkan ke Gemini.
+            if (in_array($response->status(), [402, 429], true)) {
+                $lastQuotaError = $this->normalizeOpenRouterError($response->status(), $response->json());
 
                 continue;
             }
@@ -289,7 +296,78 @@ class GeminiService
             throw new AiProviderUnavailableException($this->openRouterFreeQuotaMessage());
         }
 
-        throw new AiProviderUnavailableException($lastQuotaError ?? 'Terjadi kesalahan saat memproses permintaan OpenRouter.');
+        throw new AiProviderUnavailableException($lastQuotaError ?? 'Terjadi kesalahan saat memproses permintaan AI Asisten SIMS.');
+    }
+
+    /**
+     * Hasilkan teks via 9Router (OpenAI-compatible Chat Completions).
+     *
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,sources?:array}
+     */
+    private function generateNinerouter(string $prompt, array $options = []): array
+    {
+        $answerStyle = $options['answer_style'] ?? config('ai.answer_style');
+        $system = trim(($options['system'] ?? '')."\n\n".config('ai.system_prompt')."\n\n".$answerStyle);
+        $messages = $this->buildOpenRouterMessages($system, $prompt, $options['history'] ?? []);
+        $modelChain = $this->ninerouterModelChain($options);
+        $lastQuotaError = null;
+
+        foreach ($modelChain as $model) {
+            $body = [
+                'model' => $model,
+                'messages' => $messages,
+                'temperature' => $options['temperature'] ?? config('ai.temperature'),
+                'max_tokens' => $options['max_output_tokens'] ?? config('ai.max_output_tokens'),
+                'stream' => false,
+            ];
+
+            $this->extendExecutionTime($options);
+
+            try {
+                $response = Http::timeout($options['timeout'] ?? config('ai.timeout'))
+                    ->retry(
+                        $options['retries'] ?? config('ai.retries'),
+                        config('ai.retry_delay'),
+                        fn (\Throwable $e) => $this->isTransient($e),
+                        throw: false,
+                    )
+                    ->withToken((string) config('ai.ninerouter.api_key'))
+                    ->acceptJson()
+                    ->post(rtrim((string) config('ai.ninerouter.base_url'), '/').'/chat/completions', $body);
+            } catch (\Throwable $e) {
+                throw new AiProviderUnavailableException('Gagal menghubungi layanan AI Asisten SIMS. Pastikan gateway aktif.');
+            }
+
+            if ($response->successful()) {
+                return $this->parseOpenAiCompatible($response->json(), $model, 'AI Asisten SIMS');
+            }
+
+            if (in_array($response->status(), [402, 429], true)) {
+                $lastQuotaError = $this->normalizeNinerouterError($response->status(), $response->json());
+
+                continue;
+            }
+
+            if ($response->status() >= 500) {
+                throw new AiProviderUnavailableException($this->normalizeNinerouterError($response->status(), $response->json()));
+            }
+
+            throw new RuntimeException($this->normalizeNinerouterError($response->status(), $response->json()));
+        }
+
+        throw new AiProviderUnavailableException($lastQuotaError ?? 'Terjadi kesalahan saat memproses permintaan AI Asisten SIMS.');
+    }
+
+    /** @return string[] */
+    private function ninerouterModelChain(array $options): array
+    {
+        $chain = [$options['model'] ?? config('ai.ninerouter.model')];
+
+        if (! isset($options['model'])) {
+            $chain = array_merge($chain, (array) config('ai.ninerouter.fallback_models', []));
+        }
+
+        return array_values(array_unique(array_filter(array_map('trim', $chain))));
     }
 
     /**
@@ -331,7 +409,7 @@ class GeminiService
                 continue;
             }
 
-            throw new RuntimeException("Mode OpenRouter free-only aktif. Model {$model} ditolak karena bukan openrouter/free atau slug :free.");
+            throw new RuntimeException("Mode free-only aktif. Model {$model} ditolak karena bukan model gratis yang diizinkan.");
         }
     }
 
@@ -358,6 +436,52 @@ class GeminiService
         }
 
         throw new AiProviderUnavailableException($this->openRouterFreeQuotaMessage((string) $resetAt));
+    }
+
+    /**
+     * Bila batas request harian free (SIMS) sudah penuh, langsung lempar unavailable
+     * supaya router provider beralih ke Gemini tanpa menunggu 429 dari OpenRouter.
+     */
+    private function ensureOpenRouterLocalDailyQuotaIsOpen(): void
+    {
+        if (! $this->openRouterFreeOnly()) {
+            return;
+        }
+
+        if (! \Illuminate\Support\Facades\Schema::hasTable('ai_usage_logs')) {
+            return;
+        }
+
+        $limit = max(1, (int) config('ai.openrouter.free_daily_limit', 50));
+        $timezone = config('app.timezone', 'Asia/Jakarta');
+        $todayUtc = Carbon::now('UTC')->startOfDay();
+        $resetUtc = $todayUtc->copy()->addDay();
+        $dayStartLocal = $todayUtc->copy()->setTimezone($timezone);
+        $dayEndLocal = $resetUtc->copy()->setTimezone($timezone);
+
+        try {
+            $used = \App\Models\AiUsageLog::query()
+                ->where('status', 'success')
+                ->where(function ($q) {
+                    $q->where('model', 'like', '%:free')
+                        ->orWhere('model', 'like', 'openrouter/%');
+                })
+                ->where('created_at', '>=', $dayStartLocal)
+                ->where('created_at', '<', $dayEndLocal)
+                ->count();
+        } catch (\Throwable) {
+            return;
+        }
+
+        if ($used < $limit) {
+            return;
+        }
+
+        $this->rememberOpenRouterQuotaExhausted($this->openRouterModelChain([]));
+
+        throw new AiProviderUnavailableException(
+            'Batas request gratis AI Asisten SIMS hari ini ('.$limit.') sudah tercapai. Mengalihkan ke layanan cadangan bila tersedia.'
+        );
     }
 
     /** @param string[] $modelChain */
@@ -387,8 +511,8 @@ class GeminiService
                 ->format('d/m/Y H:i T').'.';
         }
 
-        return 'Kuota gratis OpenRouter sedang habis atau terkena rate limit. '
-            .'Sistem tidak akan mencoba OpenRouter lagi sampai kuota free tier reset dan tidak akan memakai model berbayar.'
+        return 'Kuota gratis AI Asisten SIMS sedang habis atau terkena rate limit. '
+            .'Sistem tidak akan mencoba jalur ini lagi sampai kuota free tier reset dan tidak akan memakai model berbayar.'
             .$displayReset;
     }
 
@@ -398,6 +522,240 @@ class GeminiService
             'HTTP-Referer' => config('ai.openrouter.site_url'),
             'X-OpenRouter-Title' => config('ai.openrouter.site_name'),
         ]);
+    }
+
+    /**
+     * Status live API key OpenRouter (GET /api/v1/key).
+     * Dipakai Generate Kuota agar angka mengikuti kredit/usage nyata, bukan estimasi lokal semata.
+     *
+     * @return array{
+     *   alive:bool,
+     *   status:string,
+     *   message:?string,
+     *   label:?string,
+     *   is_free_tier:?bool,
+     *   limit:?float,
+     *   limit_remaining:?float,
+     *   limit_reset:?string,
+     *   usage:?float,
+     *   usage_daily:?float,
+     *   usage_weekly:?float,
+     *   usage_monthly:?float,
+     *   fetched_at:string
+     * }
+     */
+    public function openRouterKeyStatus(bool $fresh = false): array
+    {
+        $apiKey = (string) config('ai.openrouter.api_key');
+        $fetchedAt = now()->toIso8601String();
+
+        if ($apiKey === '') {
+            return [
+                'alive' => false,
+                'status' => 'missing_key',
+                'message' => 'API key AI Asisten SIMS belum diisi.',
+                'label' => null,
+                'is_free_tier' => null,
+                'limit' => null,
+                'limit_remaining' => null,
+                'limit_reset' => null,
+                'usage' => null,
+                'usage_daily' => null,
+                'usage_weekly' => null,
+                'usage_monthly' => null,
+                'fetched_at' => $fetchedAt,
+            ];
+        }
+
+        $cacheKey = 'ai:openrouter:key-status:'.sha1($apiKey);
+        $ttl = max(1, (int) config('ai.openrouter.quota_cache_seconds', 8));
+
+        if (! $fresh) {
+            $cached = Cache::get($cacheKey);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        }
+
+        try {
+            $response = Http::timeout(8)
+                ->withToken($apiKey)
+                ->withHeaders($this->openRouterHeaders())
+                ->acceptJson()
+                ->get(rtrim((string) config('ai.openrouter.base_url'), '/').'/key');
+        } catch (\Throwable $e) {
+            return [
+                'alive' => false,
+                'status' => 'unreachable',
+                'message' => 'Tidak dapat menghubungi AI Asisten SIMS.',
+                'label' => null,
+                'is_free_tier' => null,
+                'limit' => null,
+                'limit_remaining' => null,
+                'limit_reset' => null,
+                'usage' => null,
+                'usage_daily' => null,
+                'usage_weekly' => null,
+                'usage_monthly' => null,
+                'fetched_at' => $fetchedAt,
+            ];
+        }
+
+        if ($response->status() === 401 || $response->status() === 403) {
+            $payload = [
+                'alive' => false,
+                'status' => 'invalid_key',
+                'message' => 'API key AI Asisten SIMS ditolak (tidak valid / kedaluwarsa).',
+                'label' => null,
+                'is_free_tier' => null,
+                'limit' => null,
+                'limit_remaining' => null,
+                'limit_reset' => null,
+                'usage' => null,
+                'usage_daily' => null,
+                'usage_weekly' => null,
+                'usage_monthly' => null,
+                'fetched_at' => $fetchedAt,
+            ];
+            Cache::put($cacheKey, $payload, $ttl);
+
+            return $payload;
+        }
+
+        if (! $response->successful()) {
+            return [
+                'alive' => false,
+                'status' => 'error',
+                'message' => 'AI Asisten SIMS mengembalikan status '.$response->status().'.',
+                'label' => null,
+                'is_free_tier' => null,
+                'limit' => null,
+                'limit_remaining' => null,
+                'limit_reset' => null,
+                'usage' => null,
+                'usage_daily' => null,
+                'usage_weekly' => null,
+                'usage_monthly' => null,
+                'fetched_at' => $fetchedAt,
+            ];
+        }
+
+        $data = (array) ($response->json('data') ?? []);
+        $payload = [
+            'alive' => true,
+            'status' => 'ok',
+            'message' => null,
+            'label' => isset($data['label']) ? (string) $data['label'] : null,
+            'is_free_tier' => array_key_exists('is_free_tier', $data) ? (bool) $data['is_free_tier'] : null,
+            'limit' => array_key_exists('limit', $data) && $data['limit'] !== null ? (float) $data['limit'] : null,
+            'limit_remaining' => array_key_exists('limit_remaining', $data) && $data['limit_remaining'] !== null
+                ? (float) $data['limit_remaining']
+                : null,
+            'limit_reset' => isset($data['limit_reset']) ? (string) $data['limit_reset'] : null,
+            'usage' => isset($data['usage']) ? (float) $data['usage'] : null,
+            'usage_daily' => isset($data['usage_daily']) ? (float) $data['usage_daily'] : null,
+            'usage_weekly' => isset($data['usage_weekly']) ? (float) $data['usage_weekly'] : null,
+            'usage_monthly' => isset($data['usage_monthly']) ? (float) $data['usage_monthly'] : null,
+            'fetched_at' => $fetchedAt,
+        ];
+
+        Cache::put($cacheKey, $payload, $ttl);
+
+        return $payload;
+    }
+
+    /**
+     * Status live API key 9Router — probe GET /models (gateway OpenAI-compatible).
+     *
+     * @return array{
+     *   alive:bool,
+     *   status:string,
+     *   message:?string,
+     *   label:?string,
+     *   model:?string,
+     *   fetched_at:string
+     * }
+     */
+    public function nineRouterKeyStatus(bool $fresh = false): array
+    {
+        $apiKey = (string) config('ai.ninerouter.api_key');
+        $fetchedAt = now()->toIso8601String();
+        $model = (string) config('ai.ninerouter.model');
+
+        if ($apiKey === '') {
+            return [
+                'alive' => false,
+                'status' => 'missing_key',
+                'message' => 'NINEROUTER_API_KEY belum diisi.',
+                'label' => null,
+                'model' => $model !== '' ? $model : null,
+                'fetched_at' => $fetchedAt,
+            ];
+        }
+
+        $cacheKey = 'ai:ninerouter:key-status:'.sha1($apiKey.'|'.(string) config('ai.ninerouter.base_url'));
+        $ttl = max(1, (int) config('ai.ninerouter.quota_cache_seconds', 8));
+
+        if (! $fresh) {
+            $cached = Cache::get($cacheKey);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        }
+
+        try {
+            $response = Http::timeout(8)
+                ->withToken($apiKey)
+                ->acceptJson()
+                ->get(rtrim((string) config('ai.ninerouter.base_url'), '/').'/models');
+        } catch (\Throwable $e) {
+            return [
+                'alive' => false,
+                'status' => 'unreachable',
+                'message' => 'Tidak dapat menghubungi AI Asisten SIMS. Pastikan gateway aktif.',
+                'label' => null,
+                'model' => $model !== '' ? $model : null,
+                'fetched_at' => $fetchedAt,
+            ];
+        }
+
+        if (in_array($response->status(), [401, 403], true)) {
+            $payload = [
+                'alive' => false,
+                'status' => 'invalid_key',
+                'message' => 'API key AI Asisten SIMS ditolak.',
+                'label' => null,
+                'model' => $model !== '' ? $model : null,
+                'fetched_at' => $fetchedAt,
+            ];
+            Cache::put($cacheKey, $payload, $ttl);
+
+            return $payload;
+        }
+
+        if (! $response->successful()) {
+            return [
+                'alive' => false,
+                'status' => 'error',
+                'message' => 'AI Asisten SIMS mengembalikan status '.$response->status().'.',
+                'label' => null,
+                'model' => $model !== '' ? $model : null,
+                'fetched_at' => $fetchedAt,
+            ];
+        }
+
+        $payload = [
+            'alive' => true,
+            'status' => 'ok',
+            'message' => null,
+            'label' => 'AI Asisten SIMS',
+            'model' => $model !== '' ? $model : null,
+            'fetched_at' => $fetchedAt,
+        ];
+
+        Cache::put($cacheKey, $payload, $ttl);
+
+        return $payload;
     }
 
     private function buildOpenRouterMessages(string $system, string $prompt, array $history): array
@@ -423,17 +781,22 @@ class GeminiService
 
     private function parseOpenRouter(array $json, string $model): array
     {
+        return $this->parseOpenAiCompatible($json, $model, 'AI Asisten SIMS');
+    }
+
+    private function parseOpenAiCompatible(array $json, string $model, string $label): array
+    {
         $choice = $json['choices'][0] ?? null;
         $finishReason = $choice['finish_reason'] ?? null;
         $content = $choice['message']['content'] ?? '';
         $text = is_array($content) ? $this->openRouterContentToText($content) : trim((string) $content);
 
         if ($text === '') {
-            throw new RuntimeException('OpenRouter tidak mengembalikan jawaban. Coba lagi.');
+            throw new RuntimeException("{$label} tidak mengembalikan jawaban. Coba lagi.");
         }
 
         if ($finishReason === 'length') {
-            throw new RuntimeException('Jawaban OpenRouter terpotong karena terlalu panjang. Persempit topik atau coba lagi.');
+            throw new RuntimeException("Jawaban {$label} terpotong karena terlalu panjang. Persempit topik atau coba lagi.");
         }
 
         $usage = $json['usage'] ?? [];
@@ -463,13 +826,28 @@ class GeminiService
         $detail = (string) ($json['error']['message'] ?? $json['message'] ?? '');
 
         return match (true) {
-            $status === 429 => 'Kuota atau rate limit free model OpenRouter sedang habis. Coba lagi besok atau setelah kuota free tier kembali.',
-            $status === 402 => 'OpenRouter membutuhkan saldo/kredit untuk model ini. SIMS berada di mode free-only dan tidak akan mencoba model berbayar.',
-            $status === 400 => 'Permintaan ke OpenRouter tidak valid.'.($detail ? " ({$detail})" : ''),
+            $status === 429 => 'Kuota atau rate limit free model AI Asisten SIMS sedang habis. Coba lagi besok atau setelah kuota free tier kembali.',
+            $status === 402 => 'AI Asisten SIMS membutuhkan saldo/kredit untuk model ini. Mode free-only aktif dan tidak akan mencoba model berbayar.',
+            $status === 400 => 'Permintaan ke AI Asisten SIMS tidak valid.'.($detail ? " ({$detail})" : ''),
             $status === 401,
-            $status === 403 => 'Konfigurasi OpenRouter bermasalah (kredensial ditolak).',
-            $status >= 500 => 'Layanan OpenRouter sedang gangguan. Coba lagi nanti.',
-            default => 'Terjadi kesalahan saat memproses permintaan OpenRouter.',
+            $status === 403 => 'Konfigurasi AI Asisten SIMS bermasalah (kredensial ditolak).',
+            $status >= 500 => 'Layanan AI Asisten SIMS sedang gangguan. Coba lagi nanti.',
+            default => 'Terjadi kesalahan saat memproses permintaan AI Asisten SIMS.',
+        };
+    }
+
+    private function normalizeNinerouterError(int $status, ?array $json): string
+    {
+        $detail = (string) ($json['error']['message'] ?? $json['message'] ?? '');
+
+        return match (true) {
+            $status === 429 => 'Rate limit AI Asisten SIMS sedang penuh. Coba lagi sebentar.',
+            $status === 402 => 'AI Asisten SIMS menolak permintaan karena kuota/kredit model habis.',
+            $status === 400 => 'Permintaan ke AI Asisten SIMS tidak valid.'.($detail ? " ({$detail})" : ''),
+            $status === 401,
+            $status === 403 => 'Konfigurasi AI Asisten SIMS bermasalah (kredensial ditolak).',
+            $status >= 500 => 'Layanan AI Asisten SIMS sedang gangguan. Coba lagi nanti.',
+            default => 'Terjadi kesalahan saat memproses permintaan AI Asisten SIMS.',
         };
     }
 
@@ -558,8 +936,8 @@ class GeminiService
                 ->format('d/m/Y H:i T').'.';
         }
 
-        return 'Kuota gratis Google AI Studio sudah habis untuk semua model yang dikonfigurasi. '
-            .'Sistem tidak akan mencoba Gemini lagi sampai kuota free tier reset agar tidak memakai API berbayar.'
+        return 'Kuota gratis AI Asisten SIMS sudah habis untuk semua model yang dikonfigurasi. '
+            .'Sistem tidak akan mencoba lagi sampai kuota free tier reset agar tidak memakai API berbayar.'
             .$displayReset;
     }
 

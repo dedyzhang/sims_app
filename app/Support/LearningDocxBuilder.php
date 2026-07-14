@@ -52,17 +52,23 @@ final class LearningDocxBuilder
         $xml = '';
         foreach ($lines as $i => $line) {
             $isCaps = mb_strtoupper($line, 'UTF-8') === $line && ! preg_match('/\d{5}|@|http/u', $line);
-            $sz = $isCaps ? ($i < 2 ? 26 : 20) : 16;
-            $xml .= self::p([self::run($line, $isCaps, false, $sz)], ['align' => 'center', 'after' => 0]);
+            // Acuan PDF/DOCX: yayasan+sekolah 13pt & 12pt bold, akreditasi 10pt bold, alamat 8pt.
+            $sz = match (true) {
+                $i === 0 && $isCaps => 26,
+                $i === 1 && $isCaps => 24,
+                $isCaps => 20,
+                default => 16,
+            };
+            $xml .= self::p([self::run($line, $isCaps || $i < 3, false, $sz)], ['align' => 'center', 'after' => 0]);
         }
 
-        // Garis tebal di bawah kop.
+        // Garis tebal di bawah kop (acuan: border bawah tebal).
         return $xml.'<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="24" w:space="1" w:color="000000"/></w:pBdr><w:spacing w:after="120"/></w:pPr></w:p>';
     }
 
     private static function title(array $doc): string
     {
-        $xml = self::p([self::run($doc['title'], true, false, 26)], ['align' => 'center', 'after' => 40]);
+        $xml = self::p([self::run($doc['title'], true, false, 26)], ['align' => 'center', 'after' => 40, 'before' => 120]);
         if ($doc['subtitle'] !== '') {
             $xml .= self::p([self::run($doc['subtitle'], true, false, 22)], ['align' => 'center', 'after' => 160]);
         }
@@ -79,9 +85,9 @@ final class LearningDocxBuilder
         $trs = '';
         foreach ($rows as $row) {
             $trs .= self::tr(
-                self::tc([self::p([self::run($row['label'])], ['after' => 20])], ['w' => 2500])
-                .self::tc([self::p([self::run(':')], ['after' => 20])], ['w' => 250])
-                .self::tc([self::p([self::run($row['value'])], ['after' => 20])], ['w' => self::CONTENT_W - 2750])
+                self::tc([self::p([self::run($row['label'])], ['after' => 20])], ['w' => 2500, 'borders' => false])
+                .self::tc([self::p([self::run(':')], ['after' => 20])], ['w' => 250, 'borders' => false])
+                .self::tc([self::p([self::run($row['value'])], ['after' => 20])], ['w' => self::CONTENT_W - 2750, 'borders' => false])
             );
         }
 
@@ -112,7 +118,7 @@ final class LearningDocxBuilder
 
             $trs .= self::tr(
                 self::secCell($sectionLabel, $i === 0)
-                .self::tc([self::p([self::run($row['label'])], ['after' => 20])], ['w' => self::SUB_W])
+                .self::tc([self::p([self::run($row['label'], true)], ['after' => 20])], ['w' => self::SUB_W])
                 .self::tc([$bodyXml], ['w' => self::BODY_W])
             );
         }
@@ -135,7 +141,7 @@ final class LearningDocxBuilder
             }
             $trs .= self::tr(
                 self::secCell('PENGALAMAN BELAJAR', $first)
-                .self::tc([$headParas], ['w' => self::SUB_W + self::BODY_W, 'span' => 2, 'fill' => 'E7E6E6'])
+                .self::tc([$headParas], ['w' => self::SUB_W + self::BODY_W, 'span' => 2, 'fill' => 'F2F2F2'])
             );
             $first = false;
 
@@ -191,12 +197,15 @@ final class LearningDocxBuilder
             if ($bold) {
                 // Ruang kosong untuk tanda tangan basah.
                 for ($s = 0; $s < 3; $s++) {
-                    $trs .= self::tr(self::tc(['<w:p/>'], ['w' => $half]).self::tc(['<w:p/>'], ['w' => $half]));
+                    $trs .= self::tr(
+                        self::tc(['<w:p/>'], ['w' => $half, 'borders' => false])
+                        .self::tc(['<w:p/>'], ['w' => $half, 'borders' => false])
+                    );
                 }
             }
             $trs .= self::tr(
-                self::tc([self::p([self::run($r[0], $bold)], ['after' => 20])], ['w' => $half])
-                .self::tc([self::p([self::run($r[1], $bold)], ['after' => 20, 'align' => 'center'])], ['w' => $half])
+                self::tc([self::p([self::run($r[0], $bold)], ['after' => 20])], ['w' => $half, 'borders' => false])
+                .self::tc([self::p([self::run($r[1], $bold)], ['after' => 20, 'align' => 'center'])], ['w' => $half, 'borders' => false])
             );
         }
 
@@ -252,7 +261,10 @@ final class LearningDocxBuilder
             $cells = '';
             foreach ([$left[$j] ?? null, $right[$j] ?? null] as $item) {
                 $text = $item !== null ? ($item['checked'] ? '☑ ' : '☐ ').$item['label'] : '';
-                $cells .= self::tc([self::p([self::run($text, true)], ['after' => 20, 'left' => 284, 'hanging' => 284])], ['w' => $colW]);
+                $cells .= self::tc(
+                    [self::p([self::run($text, true)], ['after' => 20, 'left' => 284, 'hanging' => 284])],
+                    ['w' => $colW, 'borders' => false],
+                );
             }
             $trs .= self::tr($cells);
         }
@@ -262,7 +274,22 @@ final class LearningDocxBuilder
 
     private static function lampiranTable(array $rows): string
     {
-        $cols = max(1, count($rows[0] ?? []));
+        if ($rows === []) {
+            return '';
+        }
+
+        $first = array_map('trim', $rows[0]);
+        // Acuan PDF LAMPIRAN 2: header 2 baris — Kompetensi (merge) + Kriteria (span 4),
+        // lalu subheader Baru Mulai | Berkembang | Cakap | Mahir.
+        $isRubrik5 = count($first) === 5
+            && preg_match('/^kompetensi$/iu', $first[0])
+            && preg_match('/^baru\s*mulai$/iu', $first[1]);
+
+        if ($isRubrik5) {
+            return self::rubrikTable(array_slice($rows, 1));
+        }
+
+        $cols = max(1, count($first));
         $colW = (int) floor(self::CONTENT_W / $cols);
         $grid = array_fill(0, $cols, $colW);
 
@@ -273,7 +300,49 @@ final class LearningDocxBuilder
             foreach (array_slice($cells, 0, $cols) as $cell) {
                 $tcXml .= self::tc(
                     [self::p([self::run($cell, $ri === 0, false, 18)], ['after' => 20])],
-                    ['w' => $colW, 'fill' => $ri === 0 ? 'FBE5C9' : null],
+                    ['w' => $colW, 'fill' => $ri === 0 ? 'FCE4B6' : null],
+                );
+            }
+            $trs .= self::tr($tcXml);
+        }
+
+        return self::tbl($grid, $trs);
+    }
+
+    /** Rubrik LAMPIRAN 2 sesuai PDF acuan (header Kompetensi + Kriteria merge). */
+    private static function rubrikTable(array $dataRows): string
+    {
+        $kompW = 2200;
+        $critW = (int) floor((self::CONTENT_W - $kompW) / 4);
+        $grid = [$kompW, $critW, $critW, $critW, $critW];
+        $peach = 'FCE4B6';
+
+        $header = self::tr(
+            self::tc(
+                [self::p([self::run('Kompetensi', true, false, 18)], ['after' => 20])],
+                ['w' => $kompW, 'vmerge' => 'restart', 'fill' => $peach],
+            )
+            .self::tc(
+                [self::p([self::run('Kriteria', true, false, 18)], ['after' => 20, 'align' => 'center'])],
+                ['w' => $critW * 4, 'span' => 4, 'fill' => $peach],
+            )
+        );
+        $subheader = self::tr(
+            self::tc(['<w:p/>'], ['w' => $kompW, 'vmerge' => 'continue', 'fill' => $peach])
+            .self::tc([self::p([self::run('Baru Mulai', true, false, 18)], ['after' => 20])], ['w' => $critW, 'fill' => $peach])
+            .self::tc([self::p([self::run('Berkembang', true, false, 18)], ['after' => 20])], ['w' => $critW, 'fill' => $peach])
+            .self::tc([self::p([self::run('Cakap', true, false, 18)], ['after' => 20])], ['w' => $critW, 'fill' => $peach])
+            .self::tc([self::p([self::run('Mahir', true, false, 18)], ['after' => 20])], ['w' => $critW, 'fill' => $peach])
+        );
+
+        $trs = $header.$subheader;
+        foreach ($dataRows as $cells) {
+            $cells = array_pad(array_map('trim', $cells), 5, '');
+            $tcXml = '';
+            foreach ($cells as $i => $cell) {
+                $tcXml .= self::tc(
+                    [self::p([self::run($cell, false, false, 18)], ['after' => 20])],
+                    ['w' => $i === 0 ? $kompW : $critW],
                 );
             }
             $trs .= self::tr($tcXml);
@@ -293,7 +362,11 @@ final class LearningDocxBuilder
     {
         return self::tc(
             [$first ? self::p([self::run($label, true)], ['after' => 0]) : '<w:p/>'],
-            ['w' => self::SEC_W, 'vmerge' => $first ? 'restart' : 'continue'],
+            [
+                'w' => self::SEC_W,
+                'vmerge' => $first ? 'restart' : 'continue',
+                'fill' => 'F2F2F2',
+            ],
         );
     }
 }

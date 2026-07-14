@@ -1,0 +1,6 @@
+FITUR 10
+Mata Pelajaran
+
+/pelajaran
+
+Untuk: Admin/Operator/Kurikulum

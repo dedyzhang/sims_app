@@ -25,11 +25,11 @@
         .rpm-doc table.identitas td { padding: 1px 0; vertical-align: top; }
         .rpm-doc table.identitas td.lbl { width: 170px; }
         .rpm-doc table.identitas td.sep { width: 14px; }
-        .rpm-doc table.tbl { width: 100%; border-collapse: collapse; margin-top: 14px; border: 2px solid #000; table-layout: fixed; }
+        .rpm-doc table.tbl { width: 100%; border-collapse: collapse; margin-top: 14px; border: 1px solid #000; table-layout: fixed; }
         .rpm-doc table.tbl td { border: 1px solid #000; padding: 6px 8px; vertical-align: top; word-wrap: break-word; }
-        .rpm-doc table.tbl td.sec { width: 17%; font-weight: 700; text-transform: uppercase; border-top: none; border-bottom: none; }
-        .rpm-doc table.tbl td.sub { width: 21%; }
-        .rpm-doc table.tbl td.stagehead { background: #ececec; font-weight: 700; }
+        .rpm-doc table.tbl td.sec { width: 17%; font-weight: 700; text-transform: uppercase; background: #f2f2f2; vertical-align: middle; text-align: center; }
+        .rpm-doc table.tbl td.sub { width: 21%; font-weight: 700; }
+        .rpm-doc table.tbl td.stagehead { background: #f2f2f2; font-weight: 700; }
         .rpm-doc table.tbl td.stagehead .pilar { font-weight: 400; font-style: italic; font-size: 11px; }
         .rpm-doc .cell-line { margin: 0 0 3px; }
         .rpm-doc .b { font-weight: 700; }
@@ -50,7 +50,8 @@
         .rpm-doc .nomor { padding-left: 10px; }
         .rpm-doc table.rubrik { width: 100%; border-collapse: collapse; margin: 8px 0 10px; table-layout: fixed; }
         .rpm-doc table.rubrik td { border: 1px solid #000; padding: 5px 6px; vertical-align: top; font-size: 11px; text-align: left; word-wrap: break-word; }
-        .rpm-doc table.rubrik tr.head td { background: #fbe5c9; font-weight: 700; }
+        .rpm-doc table.rubrik tr.head td { background: #fce4b6; font-weight: 700; }
+        .rpm-doc table.rubrik tr.subhead td { background: #fce4b6; font-weight: 700; }
         /* Fallback teks polos */
         .rpm-doc .document { white-space: pre-wrap; word-wrap: break-word; }
         .rpm-doc .line { margin: 0 0 3px; }

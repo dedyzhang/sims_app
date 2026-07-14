@@ -16,6 +16,16 @@ class AiTeacherControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Tes tool default memakai jalur Gemini (mock generate). Tes OpenRouter live meng-override sendiri.
+        config()->set('ai.provider', 'gemini');
+        config()->set('ai.api_key', 'gemini-test-key');
+        config()->set('ai.fallback_providers', []);
+    }
+
     public function test_generator_soal_bisa_memakai_materi_dari_file_docx(): void
     {
         $user = User::create([
@@ -145,6 +155,7 @@ class AiTeacherControllerTest extends TestCase
 
     public function test_halaman_asisten_guru_hanya_menampilkan_generate_kuota_untuk_guru(): void
     {
+        config()->set('ai.provider', 'gemini');
         config()->set('ai.model', 'gemini-3.5-flash');
         config()->set('ai.fallback_models', ['gemini-2.5-flash']);
         config()->set('ai.free_tier_daily_limits', [
@@ -197,6 +208,7 @@ class AiTeacherControllerTest extends TestCase
 
     public function test_admin_tidak_melihat_detail_model_pada_generate_kuota(): void
     {
+        config()->set('ai.provider', 'gemini');
         config()->set('ai.model', 'gemini-3.5-flash');
         config()->set('ai.fallback_models', ['gemini-2.5-flash']);
         config()->set('ai.free_tier_daily_limits', [
@@ -247,6 +259,7 @@ class AiTeacherControllerTest extends TestCase
 
     public function test_respons_generate_guru_hanya_membawa_keterangan_kuota(): void
     {
+        config()->set('ai.provider', 'gemini');
         config()->set('ai.model', 'gemini-test');
         config()->set('ai.fallback_models', []);
         config()->set('ai.free_tier_daily_limits', ['gemini-test' => 5]);
@@ -285,6 +298,7 @@ class AiTeacherControllerTest extends TestCase
 
     public function test_respons_generate_admin_tidak_membawa_detail_model(): void
     {
+        config()->set('ai.provider', 'gemini');
         config()->set('ai.model', 'gemini-test');
         config()->set('ai.fallback_models', []);
         config()->set('ai.free_tier_daily_limits', ['gemini-test' => 5]);
@@ -320,6 +334,61 @@ class AiTeacherControllerTest extends TestCase
             ->assertJsonMissingPath('quota.models.0.model')
             ->assertJsonMissingPath('quota.models.0.prompt_tokens')
             ->assertJsonMissingPath('quota.models.0.completion_tokens');
+    }
+
+    public function test_endpoint_kuota_openrouter_live_dan_key_aktif(): void
+    {
+        config()->set('ai.provider', 'openrouter');
+        config()->set('ai.openrouter.api_key', 'sk-or-test-live');
+        config()->set('ai.openrouter.base_url', 'https://openrouter.ai/api/v1');
+        config()->set('ai.openrouter.model', 'openrouter/free');
+        config()->set('ai.openrouter.fallback_models', []);
+        config()->set('ai.openrouter.free_only', true);
+        config()->set('ai.openrouter.free_daily_limit', 50);
+        config()->set('ai.openrouter.quota_cache_seconds', 1);
+
+        \Illuminate\Support\Facades\Http::fake([
+            'https://openrouter.ai/api/v1/key' => \Illuminate\Support\Facades\Http::response([
+                'data' => [
+                    'label' => 'sk-or-v1-test',
+                    'limit' => null,
+                    'limit_remaining' => null,
+                    'limit_reset' => null,
+                    'usage' => 0,
+                    'usage_daily' => 0,
+                    'usage_weekly' => 0,
+                    'usage_monthly' => 0,
+                    'is_free_tier' => true,
+                ],
+            ], 200),
+        ]);
+
+        $user = User::create([
+            'username' => 'guru-quota-live',
+            'password' => 'password',
+            'access' => 'guru',
+        ]);
+
+        AiUsageLog::create([
+            'user_uuid' => $user->uuid,
+            'feature' => 'teacher_quiz',
+            'model' => 'openrouter/free',
+            'prompt_tokens' => 10,
+            'completion_tokens' => 5,
+            'status' => 'success',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson(route('ai.teacher.quota', ['fresh' => 1]))
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('quota.live', true)
+            ->assertJsonPath('quota.provider', 'openrouter')
+            ->assertJsonPath('quota.key_alive', true)
+            ->assertJsonPath('quota.total.used', 1)
+            ->assertJsonPath('quota.total.limit', 50)
+            ->assertJsonPath('quota.remaining', 49)
+            ->assertJsonPath('quota.remaining_label', '49 request tersisa');
     }
 
     public function test_hasil_generator_soal_bisa_dieksport_ke_word(): void
@@ -469,7 +538,9 @@ class AiTeacherControllerTest extends TestCase
                         && str_contains($prompt, 'PENGALAMAN BELAJAR')
                         && str_contains($prompt, 'ASESMEN PEMBELAJARAN')
                         && str_contains($prompt, 'LAMPIRAN 1')
-                        && str_contains($prompt, '4 Pilar PM')
+                        && str_contains($prompt, 'Berkesadaran, Bermakna, dan Menggembirakan')
+                        && str_contains($prompt, 'YAYASAN BUMI MAITRI')
+                        && str_contains($prompt, 'Kompetensi | Baru Mulai | Berkembang | Cakap | Mahir')
                         // Dokumen RPM utuh butuh jatah token besar + porsi berpikir ditekan,
                         // kalau tidak keluaran terpotong di tengah (finishReason MAX_TOKENS).
                         && ($options['max_output_tokens'] ?? null) === 8192
@@ -666,6 +737,9 @@ class AiTeacherControllerTest extends TestCase
         $this->assertStringContainsString("\u{2610}", $xml);
         $this->assertStringContainsString('PENGALAMAN BELAJAR', $xml);
         $this->assertStringContainsString('LAMPIRAN 1', $xml);
+        $this->assertStringContainsString('Kriteria', $xml);
+        $this->assertStringContainsString('FCE4B6', $xml);
+        $this->assertStringContainsString('F2F2F2', $xml);
         $this->assertStringNotContainsString('Dibuat dari Asisten Guru', $xml);
     }
 
@@ -779,7 +853,7 @@ class AiTeacherControllerTest extends TestCase
         }
     }
 
-    /** Isi dokumen dirender lewat Blade escaping â€” HTML dari guru tak boleh dieksekusi. */
+    /** Isi dokumen dirender lewat Blade escaping +?G?G? HTML dari guru tak boleh dieksekusi. */
     public function test_pratinjau_learning_meng_escape_html_berbahaya(): void
     {
         $user = User::create([
@@ -1034,6 +1108,41 @@ class AiTeacherControllerTest extends TestCase
         ]);
     }
 
+
+    public function test_asisten_guru_terbuka_untuk_kepala_dan_waka_bukan_siswa(): void
+    {
+        foreach (['kepala', 'kurikulum', 'kesiswaan', 'sapras', 'guru'] as $access) {
+            $user = User::create([
+                'username' => 'ai_ok_'.$access,
+                'password' => 'password',
+                'access' => $access,
+            ]);
+
+            $this->actingAs($user)
+                ->get(route('ai.teacher.index'))
+                ->assertOk();
+        }
+
+        $siswa = User::create([
+            'username' => 'ai_no_siswa',
+            'password' => 'password',
+            'access' => 'siswa',
+        ]);
+
+        $this->actingAs($siswa)
+            ->get(route('ai.teacher.index'))
+            ->assertForbidden();
+
+        $ortu = User::create([
+            'username' => 'ai_no_ortu',
+            'password' => 'password',
+            'access' => 'orangtua',
+        ]);
+
+        $this->actingAs($ortu)
+            ->get(route('ai.teacher.index'))
+            ->assertForbidden();
+    }
     private function makeDocx(string $path, string $body): void
     {
         $zip = new ZipArchive;

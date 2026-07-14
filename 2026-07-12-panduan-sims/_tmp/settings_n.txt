@@ -1,0 +1,2 @@
+NARASI:  "Pengaturan Sistem mengatur identitas sekolah, semester aktif, aturan penilaian dan absensi,
+hingga hak akses tiap peran."

@@ -1,7 +1,7 @@
-{{-- ─── Floating Asisten Guru (Chatbot AI — Fase 2) ──────────────────────────────
+{{-- ─── Floating AI Asisten SIMS (Chatbot AI — Fase 2) ──────────────────────────────
      Widget chat AI untuk STAF & ADMIN (siswa/ortu dikecualikan di layout).
      Berbeda dari "Asisten Sekolah" (handoff ke admin manusia): ini menjawab
-     langsung via Gemini. Karena tak ada role yang memegang dua bola sekaligus,
+     langsung via gateway AI. Karena tak ada role yang memegang dua bola sekaligus,
      posisinya selalu di sudut standar (bottom-14). --}}
 <div x-data="aiAssistant()" x-cloak
      class="fixed right-4 bottom-11 z-[9992] flex flex-col items-end gap-3 print:hidden">
@@ -26,7 +26,7 @@
                 </svg>
             </div>
             <div class="min-w-0 flex-1">
-                <p class="font-semibold leading-tight">Asisten Guru</p>
+                <p class="font-semibold leading-tight">AI Asisten SIMS</p>
                 <p class="text-[11px] text-white/80 leading-tight truncate" x-text="view === 'history' ? 'Riwayat percakapan' : 'Tanya seputar sekolah &amp; aplikasi'"></p>
             </div>
             <button type="button" @click="loadHistory()" title="Riwayat" class="grid h-8 w-8 place-items-center rounded-lg hover:bg-white/20 transition" x-show="view === 'chat'">
@@ -51,7 +51,7 @@
                     {{-- Sambutan / empty state --}}
                     <template x-if="messages.length === 0">
                         <div class="text-center py-6">
-                            <p class="text-slate-600 dark:text-slate-300 text-sm">Halo! 👋 Aku <b>Asisten Guru</b>.<br>Tanya apa saja soal sekolah atau cara pakai aplikasi.</p>
+                            <p class="text-slate-600 dark:text-slate-300 text-sm">Halo! 👋 Aku <b>AI Asisten SIMS</b>.<br>Tanya apa saja soal sekolah atau cara pakai aplikasi.</p>
                             <div class="mt-4 flex flex-wrap justify-center gap-2">
                                 <template x-for="c in suggestions" :key="c">
                                     <button type="button" @click="input = c; send()" class="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-primary hover:text-white hover:border-primary transition" x-text="c"></button>
@@ -98,7 +98,7 @@
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
                         </button>
                     </div>
-                    <p class="mt-1.5 text-[10px] text-slate-400 text-center">Asisten Guru bisa keliru. Jangan bagikan data sensitif.</p>
+                    <p class="mt-1.5 text-[10px] text-slate-400 text-center">AI Asisten SIMS bisa keliru. Jangan bagikan data sensitif.</p>
                 </div>
             </div>
         </template>
@@ -130,7 +130,7 @@
     <button type="button" @click="toggle()" :aria-expanded="open"
             :class="open ? 'hidden sm:grid' : 'grid'"
             class="relative h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary-700 text-white shadow-lg shadow-primary/30 place-items-center hover:scale-105 active:scale-95 transition focus:outline-none focus:ring-4 focus:ring-primary/40"
-            title="Asisten Guru">
+            title="AI Asisten SIMS">
         <svg x-show="!open" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3l1.6 3.9L17.5 8.5 13.6 10 12 14l-1.6-4L6.5 8.5l3.9-1.6z"/>
             <path d="M18 15l.7 1.8L20.5 17.5 18.7 18.2 18 20l-.7-1.8L15.5 17.5l1.8-.7z"/>

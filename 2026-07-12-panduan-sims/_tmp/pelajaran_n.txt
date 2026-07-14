@@ -1,0 +1,2 @@
+NARASI:  "Semua mata pelajaran dikelola di sini beserta kodenya. Anda bisa menyeret baris untuk
+mengatur urutannya."

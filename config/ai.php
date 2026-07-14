@@ -11,21 +11,21 @@
 
 return [
 
-    // Provider teks utama: gemini atau openrouter.
-    'provider' => env('AI_PROVIDER', 'gemini'),
+    // Provider teks utama: ninerouter (9Router), openrouter, atau gemini.
+    'provider' => env('AI_PROVIDER', 'openrouter'),
 
     /*
     | Router provider: provider cadangan yang dicoba bila provider utama kehabisan
     | kuota/limit atau sedang down (429, koneksi putus, 5xx). Kegagalan lain — mis.
     | konfigurasi salah atau prompt ditolak — TIDAK dialihkan supaya cepat ketahuan.
     |
-    | Provider tanpa API key otomatis dilewati, jadi baris ini aman dibiarkan meski
-    | OPENROUTER_API_KEY belum diisi. Kosongkan (AI_FALLBACK_PROVIDERS=) untuk mematikan
-    | router dan memakai satu provider saja.
+    | Default: OpenRouter utama → Gemini cadangan. Provider tanpa API key otomatis
+    | dilewati. Kosongkan (AI_FALLBACK_PROVIDERS=) untuk mematikan router.
+    | Contoh rantai 9Router: AI_PROVIDER=ninerouter, AI_FALLBACK_PROVIDERS=openrouter,gemini
     */
     'fallback_providers' => array_values(array_filter(array_map(
         'trim',
-        explode(',', (string) env('AI_FALLBACK_PROVIDERS', 'openrouter')),
+        explode(',', (string) env('AI_FALLBACK_PROVIDERS', 'gemini')),
     ))),
 
     // Kredensial — HANYA di server. Bila kosong, GeminiService->enabled() = false
@@ -91,8 +91,27 @@ return [
             explode(',', (string) env('OPENROUTER_FALLBACK_MODELS', '')),
         ))),
         'free_only' => (bool) env('OPENROUTER_FREE_ONLY', env('AI_FREE_TIER_ONLY', true)),
+        // Batas request/hari model gratis OpenRouter (tanpa kredit). Angka resmi bisa berubah.
+        'free_daily_limit' => (int) env('OPENROUTER_FREE_DAILY_LIMIT', 50),
+        // Cache singkat hasil GET /key agar UI live tanpa memukul API tiap detik.
+        'quota_cache_seconds' => (int) env('OPENROUTER_QUOTA_CACHE_SECONDS', 8),
         'site_url' => env('OPENROUTER_SITE_URL', env('APP_URL', 'http://localhost')),
         'site_name' => env('OPENROUTER_SITE_NAME', env('APP_NAME', 'SIMS')),
+    ],
+
+    /*
+    | 9Router — gateway OpenAI-compatible (lokal default :20128, atau URL cloud).
+    | Alias config: ninerouter (nama PHP-safe). Tidak ada mode free-only seperti OpenRouter.
+    */
+    'ninerouter' => [
+        'api_key' => env('NINEROUTER_API_KEY'),
+        'base_url' => env('NINEROUTER_BASE_URL', 'http://127.0.0.1:20128/v1'),
+        'model' => env('NINEROUTER_MODEL', 'FL-OpenCode'),
+        'fallback_models' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('NINEROUTER_FALLBACK_MODELS', '')),
+        ))),
+        'quota_cache_seconds' => (int) env('NINEROUTER_QUOTA_CACHE_SECONDS', 8),
     ],
 
     // Ketahanan panggilan HTTP.
@@ -189,15 +208,13 @@ return [
             mengarang nilai/angka yang tidak diberikan.
             TXT,
         'learning' => <<<'TXT'
-            Kamu asisten guru penyusun perangkat ajar RPM Learning.
-            Hasil harus siap direview, diedit, dan diunduh guru. Gunakan Bahasa Indonesia
-            baku, praktis, dan sesuai konteks kelas. Ikuti format dokumen RPM formal:
-            kop sekolah, PERENCANAAN PEMBELAJARAN MENDALAM, identitas, IDENTIFIKASI,
+            Kamu asisten guru penyusun perangkat ajar RPM (Perencanaan Pembelajaran Mendalam).
+            Hasil harus siap direview, diedit, dan diunduh guru. Gunakan Bahasa Indonesia baku.
+            Ikuti PERSIS format dokumen acuan: kop sekolah, judul, identitas, IDENTIFIKASI,
             DESAIN PEMBELAJARAN, PENGALAMAN BELAJAR, ASESMEN PEMBELAJARAN, tanda tangan,
-            dan LAMPIRAN 1-3. Tekankan pembelajaran
-            berkesadaran, bermakna, menggembirakan, eksplorasi-konsep-aplikasi-refleksi,
-            diferensiasi, asesmen autentik, dan tindak lanjut. Jangan mengarang identitas
-            sekolah/guru yang tidak diberikan; gunakan placeholder yang jelas bila data belum tersedia.
+            dan LAMPIRAN 1-3. Bentuk tabel, DPL 8 baris, rubrik Kompetensi/Kriteria, dan
+            lampiran soal harus lengkap. Jangan mengarang identitas yang tidak diberikan;
+            gunakan placeholder jelas bila data belum tersedia.
             TXT,
     ],
 
@@ -270,7 +287,7 @@ return [
     | Menekankan kejujuran: AI tak boleh mengarang data sekolah yang tak diberikan.
     */
     'system_prompt' => env('AI_SYSTEM_PROMPT', <<<'TXT'
-        Kamu adalah Asisten Guru, asisten cerdas serba bisa yang tersedia di dalam
+        Kamu adalah AI Asisten SIMS, asisten cerdas serba bisa yang tersedia di dalam
         aplikasi sekolah SIMS. Kamu BOLEH membantu segala macam topik — bukan hanya
         seputar sekolah. Contohnya: menjelaskan materi & konsep, membuat atau mencari
         contoh soal/latihan beserta pembahasannya, membantu tugas, menulis, menerjemahkan,

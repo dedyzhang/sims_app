@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\ChatbotConversation;
 use App\Models\ChatbotMessage;
+use App\Models\User;
 use App\Notifications\Channels\FcmChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
@@ -22,6 +23,10 @@ class ChatbotInboxMessageReceived extends Notification
 
     public function via(object $notifiable): array
     {
+        if (! $notifiable instanceof User || ! $notifiable->isAdmin()) {
+            return [];
+        }
+
         return ['database', FcmChannel::class];
     }
 

@@ -7,6 +7,35 @@ use Tests\TestCase;
 
 class LearningDocumentTest extends TestCase
 {
+    /** Fixture acuan PDF/DOCX Fellianto harus terparse penuh dan rubrik LAMPIRAN 2 ber-header Kriteria. */
+    public function test_fixture_rpm_fellianto_terparse_dengan_rubrik_kriteria(): void
+    {
+        $path = base_path('tests/Fixtures/rpm-fellianto-agama-buddha-kelas8.txt');
+        $this->assertFileExists($path);
+
+        $doc = LearningDocument::parse((string) file_get_contents($path));
+
+        $this->assertTrue($doc['parsed']);
+        $this->assertSame('YAYASAN BUMI MAITRI', $doc['kop'][0]);
+        $this->assertCount(3, $doc['identifikasi']);
+        $this->assertCount(8, $doc['desain']);
+        $this->assertCount(6, $doc['pengalaman']);
+        $this->assertCount(3, $doc['asesmen']);
+        $this->assertCount(3, $doc['lampiran']);
+
+        $rubrik = null;
+        foreach ($doc['lampiran'][1]['blocks'] as $block) {
+            if ($block['type'] === 'table') {
+                $rubrik = $block;
+                break;
+            }
+        }
+        $this->assertNotNull($rubrik);
+        $this->assertSame('Kompetensi', $rubrik['rows'][0][0]);
+        $this->assertSame('Baru Mulai', $rubrik['rows'][0][1]);
+        $this->assertGreaterThanOrEqual(4, count($rubrik['rows']));
+    }
+
     /** Keluaran nyata Gemini kerap ber-Markdown dan memakai placeholder, bukan teks polos ideal. */
     public function test_dokumen_ber_markdown_tetap_terparse_sebagai_rpm(): void
     {
