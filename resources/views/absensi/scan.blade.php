@@ -321,7 +321,7 @@ function faceScan(data){
 
         hasEnoughSampleAgreement(match){
             if(!match) return false;
-            if((match.sampleCount || 0) <= 1) return match.top1 >= this.confidentThreshold;
+            if((match.sampleCount || 0) <= 1) return match.top1 >= this.threshold;
             return match.support >= this.minSampleSupport || match.top1 >= this.confidentThreshold;
         },
 

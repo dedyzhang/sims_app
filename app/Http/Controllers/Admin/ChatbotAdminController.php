@@ -9,13 +9,11 @@ use App\Models\ChatbotMessage;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\Chatbot\ChatbotService;
-use App\Support\Uploads;
+use App\Support\ChatAttachments;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ChatbotAdminController extends Controller
@@ -161,16 +159,13 @@ class ChatbotAdminController extends Controller
         ]);
 
         $file = $data['image'];
-        $name = (string) Str::uuid().'.'.Uploads::safeExtension($file, ['jpeg', 'jpg', 'png', 'webp'], 'jpg');
-        $dir = public_path('uploads/chat');
-        File::ensureDirectoryExists($dir);
-        $file->move($dir, $name);
+        $path = ChatAttachments::storeImage($file);
 
         $message = $this->chatbot->replyAsAdmin(
             $conversation,
             $request->user(),
             $data['caption'] ?? '',
-            'uploads/chat/'.$name,
+            $path,
         );
 
         return response()->json([
@@ -188,19 +183,13 @@ class ChatbotAdminController extends Controller
         ]);
 
         $file = $data['file'];
-        $ext = Uploads::safeExtension($file, ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'], 'bin');
-        $base = Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) ?: 'file';
-        $folder = (string) Str::uuid();
-
-        $dir = public_path('uploads/chat/'.$folder);
-        File::ensureDirectoryExists($dir);
-        $file->move($dir, $base.'.'.$ext);
+        $path = ChatAttachments::storeFile($file);
 
         $message = $this->chatbot->replyAsAdmin(
             $conversation,
             $request->user(),
             $data['caption'] ?? '',
-            'uploads/chat/'.$folder.'/'.$base.'.'.$ext,
+            $path,
         );
 
         return response()->json([

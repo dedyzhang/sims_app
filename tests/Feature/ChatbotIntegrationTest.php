@@ -16,6 +16,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -477,25 +478,16 @@ class ChatbotIntegrationTest extends TestCase
 
     public function test_admin_menghapus_percakapan_juga_menghapus_file_fisik(): void
     {
+        Storage::fake('local');
         $siswa = $this->makeUser('siswa', 'siswa_delete_file');
         $admin = $this->makeUser('admin', 'admin_delete_file');
 
         $this->actingAs($siswa)->postJson('/chatbot/send', ['message' => 'halo admin'])->assertOk();
         $conv = ChatbotConversation::where('user_id', $siswa->getKey())->firstOrFail();
 
-        // Create a fake folder and file
-        $folder = 'test-delete-folder-' . \Illuminate\Support\Str::uuid();
-        $filePath = 'uploads/chat/' . $folder . '/document.pdf';
-        
-        $fullDirPath = public_path('uploads/chat/' . $folder);
-        \Illuminate\Support\Facades\File::ensureDirectoryExists($fullDirPath);
-        
-        $fullFilePath = public_path($filePath);
-        file_put_contents($fullFilePath, 'test content');
+        $filePath = 'chat/'.(string) \Illuminate\Support\Str::uuid().'/document.pdf';
+        Storage::disk('local')->put($filePath, 'test content');
 
-        $this->assertTrue(\Illuminate\Support\Facades\File::exists($fullFilePath));
-
-        // Create a message in DB with attachment
         ChatbotMessage::create([
             'conversation_id' => $conv->id,
             'sender' => 'user',
@@ -503,11 +495,10 @@ class ChatbotIntegrationTest extends TestCase
             'attachment_path' => $filePath,
         ]);
 
-        // Admin menghapus percakapan
+        Storage::disk('local')->assertExists($filePath);
+
         $this->actingAs($admin)->deleteJson("/chatbot/admin/{$conv->id}")->assertOk();
 
-        // Cek file dan foldernya sudah terhapus secara fisik
-        $this->assertFalse(\Illuminate\Support\Facades\File::exists($fullFilePath));
-        $this->assertFalse(\Illuminate\Support\Facades\File::exists($fullDirPath));
+        Storage::disk('local')->assertMissing($filePath);
     }
 }
