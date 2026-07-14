@@ -17,12 +17,14 @@ use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 
 class SiswaTemplateExport implements FromArray, WithHeadings, WithStyles, WithColumnWidths, WithTitle, WithEvents
 {
-    /** Kolom dalam bahasa Indonesia yang rapi */
+    /** Kolom dalam bahasa Indonesia yang rapi. Kolom Wali opsional (diisi bila anak diasuh wali). */
     public array $columns = [
         'Nama Lengkap', 'NIS', 'NISN', 'Jenis Kelamin (L/P)',
         'Tempat Lahir', 'Tanggal Lahir (YYYY-MM-DD)', 'Agama', 'No. HP',
         'Alamat', 'Nama Ayah', 'Pekerjaan Ayah', 'No. HP Ayah',
-        'Nama Ibu', 'Pekerjaan Ibu', 'No. HP Ibu', 'Asal Sekolah', 'SPP',
+        'Nama Ibu', 'Pekerjaan Ibu', 'No. HP Ibu',
+        'Nama Wali', 'Pekerjaan Wali', 'No. HP Wali',
+        'Asal Sekolah', 'SPP',
     ];
 
     public function title(): string
@@ -41,10 +43,14 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithStyles, WithCo
         return [
             ['CONTOH - Ahmad Fauzi', '', '0098765432', 'L', 'Jakarta', '2011-03-12', 'Islam', '081234567890',
              'Jl. Melati No. 10, Jakarta', 'Budi Santoso', 'Wiraswasta', '081200000001',
-             'Siti Aminah', 'Ibu Rumah Tangga', '081200000002', 'SD Negeri 1 Jakarta', '350000'],
+             'Siti Aminah', 'Ibu Rumah Tangga', '081200000002',
+             'Hasan (Paman)', 'Wiraswasta', '081200000003',
+             'SD Negeri 1 Jakarta', '350000'],
             ['CONTOH - Putri Lestari', '24001', '0091234567', 'P', 'Bandung', '2011-07-25', 'Kristen', '081298765432',
              'Jl. Mawar No. 5, Bandung', 'Anton Wijaya', 'PNS', '081300000001',
-             'Dewi Sartika', 'Guru', '081300000002', 'SD Negeri 3 Bandung', '350000'],
+             'Dewi Sartika', 'Guru', '081300000002',
+             '', '', '',
+             'SD Negeri 3 Bandung', '350000'],
         ];
     }
 
@@ -53,14 +59,16 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithStyles, WithCo
         return [
             'A' => 24, 'B' => 14, 'C' => 16, 'D' => 18, 'E' => 16, 'F' => 26,
             'G' => 14, 'H' => 18, 'I' => 32, 'J' => 20, 'K' => 18, 'L' => 18,
-            'M' => 20, 'N' => 18, 'O' => 18, 'P' => 24, 'Q' => 12,
+            'M' => 20, 'N' => 18, 'O' => 18,
+            'P' => 20, 'Q' => 18, 'R' => 18,
+            'S' => 24, 'T' => 12,
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
         // Baris contoh dibuat italic abu-abu
-        $sheet->getStyle('A2:Q3')->getFont()->setItalic(true)->getColor()->setRGB('94A3B8');
+        $sheet->getStyle('A2:T3')->getFont()->setItalic(true)->getColor()->setRGB('94A3B8');
         return [];
     }
 
@@ -69,7 +77,7 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithStyles, WithCo
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                $lastCol = 'Q';
+                $lastCol = 'T';
 
                 // ===== Header style (baris 1) =====
                 $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
@@ -97,11 +105,11 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithStyles, WithCo
                     ],
                 ]);
 
-                // ===== Dropdown validasi Jenis Kelamin (kolom D) =====
+                // ===== Dropdown validasi Jenis Kelamin (kolom D) & Agama (kolom G) =====
                 for ($row = 2; $row <= 200; $row++) {
                     $validation = $sheet->getCell("D{$row}")->getDataValidation();
                     $validation->setType(DataValidation::TYPE_LIST);
-                    $validation->setErrorStyle(DataValidation::STYLE_INFORMATION);
+                    $validation->setErrorStyle(DataValidation::STYLE_STOP);
                     $validation->setAllowBlank(false);
                     $validation->setShowInputMessage(true);
                     $validation->setShowErrorMessage(true);
@@ -109,6 +117,19 @@ class SiswaTemplateExport implements FromArray, WithHeadings, WithStyles, WithCo
                     $validation->setErrorTitle('Input salah');
                     $validation->setError('Pilih L atau P.');
                     $validation->setFormula1('"L,P"');
+
+                    // Agama boleh kosong; kalau diisi harus salah satu pilihan (dicocokkan
+                    // lagi saat impor oleh App\Support\Agama — dua-duanya pakai daftar sama).
+                    $validasiAgama = $sheet->getCell("G{$row}")->getDataValidation();
+                    $validasiAgama->setType(DataValidation::TYPE_LIST);
+                    $validasiAgama->setErrorStyle(DataValidation::STYLE_STOP);
+                    $validasiAgama->setAllowBlank(true);
+                    $validasiAgama->setShowInputMessage(true);
+                    $validasiAgama->setShowErrorMessage(true);
+                    $validasiAgama->setShowDropDown(true);
+                    $validasiAgama->setErrorTitle('Input salah');
+                    $validasiAgama->setError('Pilih salah satu dari daftar agama yang tersedia.');
+                    $validasiAgama->setFormula1(\App\Support\Agama::excelFormula());
                 }
 
                 // Auto filter header

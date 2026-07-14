@@ -28,7 +28,7 @@ class QrAbsensiController extends Controller
     }
 
     /** Halaman ADMIN: tampilkan QR absensi hari ini (untuk dipajang). */
-    public function show()
+    public function show(Request $request)
     {
         return view('qr.show', [
             'token'   => $this->token(),
@@ -36,18 +36,30 @@ class QrAbsensiController extends Controller
             'aktif'   => Setting::get('qr_absensi_aktif', '1') == '1',
             'lat'     => Setting::get('sekolah_lat'),
             'lng'     => Setting::get('sekolah_lng'),
+            // Mode kiosk ditentukan per-request dari token URL (lihat EnsureKioskOrPermission), bukan session.
+            'isKiosk' => \App\Http\Middleware\EnsureKioskOrPermission::hasValidToken($request),
         ]);
     }
 
     /** Halaman USER: scan QR + baca lokasi untuk absen. */
     public function absen()
     {
+        $siswa = auth()->user()->siswa;
+        $kaihBelum = false;
+        $kaihPertanyaans = collect();
+        if ($siswa && \App\Support\KaihSiswa::wajibSebelumAbsen() && !\App\Support\KaihSiswa::sudahDiisi($siswa->uuid)) {
+            $kaihBelum = true;
+            $kaihPertanyaans = \App\Models\KaihPertanyaan::with('opsi')->where('aktif', true)->orderBy('urutan')->get();
+        }
+
         return view('qr.absen', [
             'lat'    => Setting::get('sekolah_lat'),
             'lng'    => Setting::get('sekolah_lng'),
             'radius' => (float) Setting::get('absen_radius', 100),
             'aktif'  => Setting::get('qr_absensi_aktif', '1') == '1',
             'isGuru' => (bool) auth()->user()->guru,   // guru bisa absen masuk & pulang
+            'kaihBelum'       => $kaihBelum,
+            'kaihPertanyaans' => $kaihPertanyaans,
         ]);
     }
 
@@ -105,6 +117,10 @@ class QrAbsensiController extends Controller
             // Hormati kalender: absensi siswa harus dibuka untuk hari ini.
             if (!\App\Support\KalenderAbsensi::absenSiswaDibuka($today)) {
                 return response()->json(['ok' => false, 'message' => 'Absensi siswa tidak dibuka untuk hari ini.'], 422);
+            }
+            // Wajib isi kuesioner 7 KAIH hari ini sebelum boleh absen.
+            if (!\App\Support\KaihSiswa::bolehAbsen($user->siswa->uuid, $today)) {
+                return response()->json(['ok' => false, 'message' => \App\Support\KaihSiswa::pesanTolak()], 422);
             }
             // Siswa: hanya absen masuk, SEKALI per hari
             $row = Absensi::firstOrNew(['id_siswa' => $user->siswa->uuid, 'tanggal' => $today]);

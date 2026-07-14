@@ -23,11 +23,13 @@
             <h1 class="page-title">Presensi Scan Wajah (Siswa & Guru)</h1>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Mode kiosk &mdash; siswa dan guru cukup menghadap kamera. Wajah yang dikenali akan otomatis tercatat <span class="font-semibold text-emerald-600">Hadir</span>.</p>
         </div>
+        @unless($isKiosk ?? false)
         <div class="flex items-center gap-2">
             <a href="{{ route('absensi.wajah') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
                 <i data-lucide="user-plus" class="w-4 h-4"></i> Registrasi Wajah Siswa
             </a>
         </div>
+        @endunless
     </div>
 
     @if($siswas->isEmpty() && $gurus->isEmpty())
@@ -59,6 +61,9 @@
                 </div>
                 <div x-show="scanning" class="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Memindai...
+                </div>
+                <div x-show="scanning && lowLight" x-cloak class="absolute top-12 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/85 backdrop-blur text-white text-xs font-semibold">
+                    <i data-lucide="sun" class="w-3.5 h-3.5"></i> Pencahayaan rendah — kecerahan otomatis aktif
                 </div>
 
                 {{-- HUD: mode aktif (Masuk/Pulang) --}}
@@ -163,7 +168,10 @@
                                     <p class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate" x-text="s.nama"></p>
                                     <p class="text-xs text-slate-400">Kelas <span x-text="s.kelas"></span> &bull; <span x-text="s.nis"></span></p>
                                 </div>
-                                <span x-show="s.marked" class="badge bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Hadir</span>
+                                <div x-show="s.marked" class="flex items-center">
+                                    <span class="badge bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Hadir <span x-text="s.jam_masuk" class="ml-1 font-mono"></span></span>
+                                    <button @click="cancelAbsen(s, 'masuk')" class="text-rose-500 hover:text-rose-700 ml-1 p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-900/30 transition" title="Batalkan absensi"><i data-lucide="x" class="w-4 h-4"></i></button>
+                                </div>
                                 <span x-show="!s.marked" class="text-xs text-slate-300">—</span>
                             </div>
                         </template>
@@ -197,8 +205,17 @@
                                     <p class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate" x-text="g.nama"></p>
                                     <p class="text-xs text-slate-400" x-text="g.nip || 'Guru'"></p>
                                 </div>
-                                <span x-show="g.marked" class="badge bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Hadir</span>
-                                <span x-show="!g.marked" class="text-xs text-slate-300">—</span>
+                                <div class="flex flex-col gap-1 items-end">
+                                    <div x-show="g.marked" class="flex items-center">
+                                        <span class="badge bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 flex items-center gap-1"><i data-lucide="log-in" class="w-3 h-3"></i> M: <span x-text="g.jam_masuk" class="font-mono"></span></span>
+                                        <button @click="cancelAbsen(g, 'masuk')" class="text-rose-500 hover:text-rose-700 ml-1 p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-900/30 transition" title="Batalkan masuk"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                                    </div>
+                                    <div x-show="g.pulangMarked" class="flex items-center">
+                                        <span class="badge bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 flex items-center gap-1"><i data-lucide="log-out" class="w-3 h-3"></i> P: <span x-text="g.jam_pulang" class="font-mono"></span></span>
+                                        <button @click="cancelAbsen(g, 'pulang')" class="text-rose-500 hover:text-rose-700 ml-1 p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-900/30 transition" title="Batalkan pulang"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                                    </div>
+                                </div>
+                                <span x-show="!g.marked && !g.pulangMarked" class="text-xs text-slate-300">—</span>
                             </div>
                         </template>
                         <div x-show="filteredGuru.length === 0" class="text-center py-8 text-slate-400 text-sm">
@@ -255,19 +272,19 @@ function normalizeFaceDescriptors(desc){
 
 function faceScan(data){
     return {
-        loading:false, camOn:false, scanning:false, busy:false, fs:false,
+        loading:false, camOn:false, scanning:false, busy:false, fs:false, lowLight:false,
         status:'Klik "Mulai Scan" untuk mengaktifkan kamera',
-        attendees: data.map(s=>({ ...s, marked: s.status==='hadir', justMarked:false, pulangMarked: !!s.pulangDone })),
+        attendees: data.map(s=>({ ...s, marked: s.status==='hadir', justMarked:false, pulangMarked: !!s.pulangDone, jam_masuk: s.jam_masuk, jam_pulang: s.jam_pulang })),
         enrolled:[], stream:null, timer:null,
         // ===== Ambang pencocokan wajah: ketat untuk absensi produksi (hindari false positive) =====
-        threshold:0.66,        // skor robust minimum; jangan turunkan tanpa uji lapangan
+        threshold:0.58,        // skor robust minimum; diturunkan agar lebih toleran
         confidentThreshold:0.80,
-        supportThreshold:0.62, // minimal 2 sampel orang yang sama harus cukup mirip
+        supportThreshold:0.55, // minimal 2 sampel orang yang sama harus cukup mirip
         minSampleSupport:2,
         margin:0.08,           // kandidat terbaik harus unggul jelas dari kandidat kedua
-        minFaceFrac:0.14,      // wajah harus cukup besar di frame agar embedding stabil
+        minFaceFrac:0.10,      // wajah harus cukup besar di frame agar embedding stabil (diturunkan agar bisa mendeteksi jarak agak jauh)
         minFaceScore:0.55,     // buang deteksi ragu/blur/pencahayaan buruk
-        confirmFrames:4,       // wajib stabil beberapa frame beruntun sebelum absen ditandai
+        confirmFrames:2,       // wajib stabil beberapa frame beruntun sebelum absen ditandai (diturunkan agar lebih cepat)
         _streak:{},            // penghitung frame beruntun per uuid
         recent:[], lastMatch:null, _seq:0, audioCtx:null,
         scanMode:'masuk',
@@ -397,6 +414,7 @@ function faceScan(data){
                 const v=this.$refs.video; v.srcObject=this.stream;
                 await new Promise(r=> v.onloadedmetadata = r); v.play();
                 this.camOn=true;
+                this.applyAutoExposure(); // aktifkan exposure/white-balance kontinu di kamera bila didukung perangkat
                 this.status='Memuat model AI (pertama kali agak lama, lalu tersimpan)...';
                 await loadHuman();
                 this.loading=false; this.scanning=true;
@@ -408,6 +426,55 @@ function faceScan(data){
             }
         },
 
+        // Coba nyalakan exposure/white-balance/focus KONTINU di kamera (bila hardware & browser mendukung).
+        // Tak semua webcam/HP mendukung — dibungkus try/catch, gagal diam-diam & tetap fallback ke enhanceFrame().
+        applyAutoExposure(){
+            try {
+                const track = this.stream?.getVideoTracks()?.[0];
+                if(!track || !track.getCapabilities) return;
+                const caps = track.getCapabilities();
+                const adv = {};
+                if(caps.exposureMode?.includes('continuous')) adv.exposureMode = 'continuous';
+                if(caps.whiteBalanceMode?.includes('continuous')) adv.whiteBalanceMode = 'continuous';
+                if(caps.focusMode?.includes('continuous')) adv.focusMode = 'continuous';
+                // Kalau kamera cuma dukung exposure manual (tak ada mode continuous), dorong exposureTime/ISO ke arah lebih terang.
+                if(!adv.exposureMode && caps.exposureCompensation && caps.exposureCompensation.max > 0){
+                    adv.exposureCompensation = caps.exposureCompensation.max;
+                }
+                if(Object.keys(adv).length) track.applyConstraints({ advanced:[adv] }).catch(()=>{});
+            } catch(e){ /* browser/kamera tak dukung getCapabilities — abaikan, pakai enhanceFrame() saja */ }
+        },
+
+        // Pencerahan otomatis berbasis software (jalan di semua kamera/browser, tak tergantung dukungan hardware).
+        // Sampling cepat kecerahan rata-rata frame → kalau gelap, naikkan brightness sebelum deteksi wajah.
+        // CATATAN: sengaja TIDAK dicampur dgn contrast() — contrast linear di sekitar titik tengah 128 justru
+        // menekan piksel gelap balik ke bawah, melawan efek brightness yg baru dinaikkan (percobaan menunjukkan
+        // kombinasi brightness+contrast hanya menghasilkan ~28 dari basis ~20, brightness murni ~2x lebih efektif).
+        enhanceFrame(video){
+            const w = video.videoWidth, h = video.videoHeight;
+            if(!w || !h) return video;
+            if(!this._ecv){ this._ecv = document.createElement('canvas'); this._ectx = this._ecv.getContext('2d', { willReadFrequently:true }); }
+            const cv=this._ecv, ctx=this._ectx;
+            cv.width=w; cv.height=h;
+            ctx.filter = 'none';
+            ctx.drawImage(video, 0, 0, w, h);
+
+            // Sampling jarang (tiap ~40px) — cukup akurat utk estimasi kecerahan, murah utk CPU tiap tick.
+            const px = ctx.getImageData(0, 0, w, h).data;
+            let sum=0, n=0;
+            for(let i=0; i<px.length; i+=160){ sum += 0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]; n++; }
+            const avgLuma = n ? sum/n : 128;
+            this.lowLight = avgLuma < 90;
+
+            if(this.lowLight){
+                const boost = Math.min(2.8, 1 + (90-avgLuma)/50).toFixed(2);
+                ctx.filter = `brightness(${boost})`;
+                ctx.drawImage(video, 0, 0, w, h);
+                ctx.filter = 'none';
+            }
+            return cv;
+        },
+
         async tick(){
             if(!this.scanning) return;
             if(this.busy){ this.timer=setTimeout(()=>this.tick(), 120); return; }
@@ -416,7 +483,8 @@ function faceScan(data){
             this.busy=true;
             const t0=performance.now();
             try {
-                const res = await human.detect(v);   // WebGPU asinkron → UI tetap responsif
+                const frame = this.enhanceFrame(v);   // pencerahan otomatis sebelum deteksi (aman di tempat gelap)
+                const res = await human.detect(frame);   // WebGPU asinkron → UI tetap responsif
                 this.render(res);
             } catch(e){ /* skip frame */ }
             this.busy=false;
@@ -497,7 +565,7 @@ function faceScan(data){
                 // Cek server DULU (agenda wajib lengkap) — baru tampilkan konfirmasi bila lolos.
                 fetch('{{ route('presensi-guru.mark') }}', {
                     method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                    body: JSON.stringify({ id_guru: uuid, tanggal: '{{ $tanggal }}', mode:'pulang' })
+                    body: JSON.stringify({ id_guru: uuid, tanggal: '{{ $tanggal }}', mode:'pulang', _kiosk: @json($kioskToken ?? null) })
                 }).then(r=>r.json()).then(d=>{
                     s._pulangBusy=false;
                     if(!d || d.success===false){
@@ -507,10 +575,11 @@ function faceScan(data){
                     }
                     // Lolos → tampilkan konfirmasi pulang
                     s.pulangMarked=true; s.justMarked=true;
-                    this.playDing();
-                    this.speak('pulang', s.nama);
                     const k=++this._seq;
                     const jamK=d.jam || this.nowHM();
+                    s.jam_pulang = jamK;
+                    this.playDing();
+                    this.speak('pulang', s.nama);
                     this.lastMatch={ key:k, nama:s.nama, type:s.type, kelas:'Guru', mode:'pulang', jam:jamK };
                     this.recent.unshift({ key:k, nama:s.nama.split(' ')[0], type:s.type, kelas:'Pulang', mode:'pulang', jam:jamK });
                     if(this.recent.length>5) this.recent.pop();
@@ -532,7 +601,7 @@ function faceScan(data){
                 s._masukBusy=true;
                 fetch('{{ route('presensi-guru.mark') }}', {
                     method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                    body: JSON.stringify({ id_guru: uuid, tanggal: '{{ $tanggal }}', status:'hadir', mode:'masuk' })
+                    body: JSON.stringify({ id_guru: uuid, tanggal: '{{ $tanggal }}', status:'hadir', mode:'masuk', _kiosk: @json($kioskToken ?? null) })
                 }).then(r=>r.json()).then(d=>{
                     s._masukBusy=false;
                     if(!d || d.success===false){
@@ -541,8 +610,9 @@ function faceScan(data){
                         return;
                     }
                     s.marked=true; s.justMarked=true;
-                    this.playDing(); this.speak('masuk', s.nama);
                     const key=++this._seq; const jam=d.jam || this.nowHM();
+                    s.jam_masuk = jam;
+                    this.playDing(); this.speak('masuk', s.nama);
                     this.lastMatch={ key, nama:s.nama, type:'guru', kelas:'Guru', mode:'masuk', jam };
                     this.recent.unshift({ key, nama:s.nama.split(' ')[0], type:'guru', kelas:'Guru', mode:'masuk', jam });
                     if(this.recent.length>5) this.recent.pop();
@@ -561,7 +631,7 @@ function faceScan(data){
             s._masukBusy=true;
             fetch('{{ route('absensi.mark') }}', {
                 method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                body: JSON.stringify({ id_siswa: uuid, id_kelas: s.id_kelas, tanggal: '{{ $tanggal }}', status: 'hadir' })
+                body: JSON.stringify({ id_siswa: uuid, id_kelas: s.id_kelas, tanggal: '{{ $tanggal }}', status: 'hadir', _kiosk: @json($kioskToken ?? null) })
             }).then(r=>r.json()).then(d=>{
                 s._masukBusy=false;
                 if(!d || d.success===false){
@@ -571,8 +641,9 @@ function faceScan(data){
                     return;
                 }
                 s.marked=true; s.justMarked=true;
-                this.playDing(); this.speak('masuk', s.nama);
                 const key=++this._seq; const jam=d.jam || this.nowHM();
+                s.jam_masuk = jam;
+                this.playDing(); this.speak('masuk', s.nama);
                 this.lastMatch={ key, nama:s.nama, type:'siswa', kelas:s.kelas, mode:'masuk', jam };
                 this.recent.unshift({ key, nama:s.nama.split(' ')[0], type:'siswa', kelas:s.kelas, mode:'masuk', jam });
                 if(this.recent.length>5) this.recent.pop();
@@ -592,6 +663,52 @@ function faceScan(data){
             const c=this.$refs.canvas; if(c){ c.getContext('2d').clearRect(0,0,c.width,c.height); }
             this.recent=[]; this.lastMatch=null;
             this.status='Pemindaian dihentikan. '+this.totalHadir+' hadir. Klik Mulai Scan untuk lanjut.';
+        },
+
+        cancelAbsen(s, mode) {
+            $.confirm({
+                title: 'Konfirmasi Pembatalan',
+                content: 'Batalkan absen ' + mode + ' untuk <b>' + s.nama + '</b>?',
+                theme: 'material',
+                type: 'red',
+                buttons: {
+                    ok: {
+                        text: 'Batalkan',
+                        btnClass: 'btn-red',
+                        action: () => {
+                            s._masukBusy = true; // reuse busy state
+                            let url = s.type === 'guru' ? '{{ route('presensi-guru.cancel') }}' : '{{ route('absensi.cancel') }}';
+                            let body = s.type === 'guru' ? { id_guru: s.uuid, tanggal: '{{ $tanggal }}', mode: mode, _kiosk: @json($kioskToken ?? null) } : { id_siswa: s.uuid, tanggal: '{{ $tanggal }}', _kiosk: @json($kioskToken ?? null) };
+                            
+                            fetch(url, {
+                                method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
+                                body: JSON.stringify(body)
+                            }).then(r=>r.json()).then(d=>{
+                                s._masukBusy=false;
+                                if(d && d.success) {
+                                    if (mode === 'masuk') {
+                                        s.marked = false;
+                                        s.jam_masuk = null;
+                                        if(s.type === 'siswa') s.pulangMarked = false; // reset
+                                    } else if (mode === 'pulang') {
+                                        s.pulangMarked = false;
+                                        s.jam_pulang = null;
+                                        s.pulangDone = false;
+                                    }
+                                    showToast('Absensi dibatalkan', 'success');
+                                    setTimeout(()=> window.lucide && lucide.createIcons(), 60);
+                                } else {
+                                    showToast('Gagal membatalkan', 'error');
+                                }
+                            }).catch(()=>{ s._masukBusy=false; showToast('Gagal membatalkan', 'error'); });
+                        }
+                    },
+                    batal: {
+                        text: 'Batal',
+                        btnClass: 'btn-default'
+                    }
+                }
+            });
         }
     }
 }

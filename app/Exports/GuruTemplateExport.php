@@ -97,11 +97,11 @@ class GuruTemplateExport implements FromArray, WithHeadings, WithStyles, WithCol
                     ],
                 ]);
 
-                // ===== Dropdown validasi Jenis Kelamin (kolom D) =====
+                // ===== Dropdown validasi Jenis Kelamin (kolom D) & Agama (kolom G) =====
                 for ($row = 2; $row <= 200; $row++) {
                     $validation = $sheet->getCell("D{$row}")->getDataValidation();
                     $validation->setType(DataValidation::TYPE_LIST);
-                    $validation->setErrorStyle(DataValidation::STYLE_INFORMATION);
+                    $validation->setErrorStyle(DataValidation::STYLE_STOP);
                     $validation->setAllowBlank(false);
                     $validation->setShowInputMessage(true);
                     $validation->setShowErrorMessage(true);
@@ -109,6 +109,19 @@ class GuruTemplateExport implements FromArray, WithHeadings, WithStyles, WithCol
                     $validation->setErrorTitle('Input salah');
                     $validation->setError('Pilih L atau P.');
                     $validation->setFormula1('"L,P"');
+
+                    // Agama boleh kosong; kalau diisi harus salah satu pilihan (dicocokkan
+                    // lagi saat impor oleh App\Support\Agama — dua-duanya pakai daftar sama).
+                    $validasiAgama = $sheet->getCell("G{$row}")->getDataValidation();
+                    $validasiAgama->setType(DataValidation::TYPE_LIST);
+                    $validasiAgama->setErrorStyle(DataValidation::STYLE_STOP);
+                    $validasiAgama->setAllowBlank(true);
+                    $validasiAgama->setShowInputMessage(true);
+                    $validasiAgama->setShowErrorMessage(true);
+                    $validasiAgama->setShowDropDown(true);
+                    $validasiAgama->setErrorTitle('Input salah');
+                    $validasiAgama->setError('Pilih salah satu dari daftar agama yang tersedia.');
+                    $validasiAgama->setFormula1(\App\Support\Agama::excelFormula());
                 }
 
                 // Auto filter header

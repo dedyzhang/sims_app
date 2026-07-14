@@ -77,6 +77,27 @@ class CetakController extends Controller
         return Excel::download(new AbsensiGuruExport($data['dari'], $data['sampai']), 'Absensi Guru.xlsx');
     }
 
+    // ====== Absensi Siswa ======
+    public function absensiSiswa()
+    {
+        return view('cetak.absensi-siswa.index', ['kelas' => $this->kelasList()]);
+    }
+
+    public function cetakAbsensiSiswa(Request $request)
+    {
+        $data = $request->validate([
+            'kelas' => 'required|exists:kelas,uuid',
+            'dari' => 'required|date',
+            'sampai' => 'required|date|after_or_equal:dari'
+        ]);
+        
+        $k = Kelas::findOrFail($data['kelas']);
+        return Excel::download(
+            new \App\Exports\Cetak\AbsensiSiswaExport($data['kelas'], $data['dari'], $data['sampai']), 
+            "Rekap Absensi Siswa Kelas {$k->tingkat}{$k->kelas}.xlsx"
+        );
+    }
+
     // ====== Data Agenda ======
     public function agenda()
     {

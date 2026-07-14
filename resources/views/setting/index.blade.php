@@ -533,9 +533,19 @@ function qrLokasi(cfg){
             if(recenter) this.map.setView([la,ln], 16);
         },
         useMyLocation(){
-            if(!navigator.geolocation){ showToast('Perangkat tak mendukung lokasi','error'); return; }
+            if(!navigator.geolocation){ showToast('Perangkat ini tidak mendukung deteksi lokasi. Coba buka lewat HP atau browser lain.','error'); return; }
+            // Konteks tidak aman (http) = penyebab umum "izin ditolak" walau izin sudah aktif.
+            if(typeof window.isSecureContext !== 'undefined' && !window.isSecureContext){
+                showToast('Lokasi hanya bisa dibaca lewat alamat aman (https://). Buka halaman ini memakai https, bukan http.','error'); return;
+            }
             navigator.geolocation.getCurrentPosition(p=> this.place(p.coords.latitude, p.coords.longitude),
-                ()=> showToast('Gagal baca lokasi','error'), { enableHighAccuracy:true });
+                err=>{
+                    const msg = err && err.code===1 ? 'Izin lokasi ditolak. Klik ikon gembok di address bar browser, aktifkan Lokasi, lalu coba lagi.'
+                        : err && err.code===2 ? 'Lokasi belum ditemukan. Pastikan GPS/Layanan Lokasi menyala, lalu coba lagi.'
+                        : err && err.code===3 ? 'Membaca lokasi terlalu lama. Coba lagi di tempat yang lebih terbuka.'
+                        : 'Lokasi gagal dibaca. Silakan coba lagi.';
+                    showToast(msg,'error');
+                }, { enableHighAccuracy:true });
         }
     }
 }

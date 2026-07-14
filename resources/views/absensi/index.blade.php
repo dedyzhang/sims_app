@@ -86,14 +86,14 @@
                             @if($row && $row->terlambat($batas))<span class="badge bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300 font-semibold font-sans">Terlambat</span>@endif
                         </p>
                     </div>
-                    <div class="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto justify-end pl-8 sm:pl-0">
+                    <div class="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto sm:justify-end mt-2 sm:mt-0 pl-[68px] sm:pl-0">
                         @foreach(['hadir'=>['H','h'],'izin'=>['I','i'],'sakit'=>['S','s'],'alpa'=>['A','a']] as $val => [$abbr,$cls])
                         <label>
-                            <input type="radio" name="status[{{ $s->uuid }}]" value="{{ $val }}" @checked($cur===$val) class="sr-only stat-radio stat-{{ $cls }}">
+                            <input type="radio" name="status[{{ $s->uuid }}]" value="{{ $val }}" @checked($cur===$val) class="hidden stat-radio stat-{{ $cls }}">
                             <span class="stat-pill grid place-items-center w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 text-sm font-bold" title="{{ \App\Models\Absensi::STATUS[$val] }}">{{ $abbr }}</span>
                         </label>
                         @endforeach
-                        <input type="text" name="keterangan[{{ $s->uuid }}]" value="{{ $existing->get($s->uuid)?->keterangan }}" placeholder="Ket." class="form-input !py-1.5 !w-24 text-xs hidden sm:block">
+                        <input type="text" name="keterangan[{{ $s->uuid }}]" value="{{ $existing->get($s->uuid)?->keterangan }}" placeholder="Ket." class="form-input !py-1.5 !w-24 text-xs">
                     </div>
                 </div>
                 @endforeach

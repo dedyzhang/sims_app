@@ -152,4 +152,26 @@ class PresensiGuruController extends Controller
             'terlambat' => $mode === 'masuk' && $row->terlambat($batas),
         ]);
     }
+
+    /** Batalkan absen masuk/pulang dari scan wajah */
+    public function cancel(Request $request)
+    {
+        $data = $request->validate([
+            'id_guru' => 'required|exists:gurus,uuid',
+            'tanggal' => 'required|date',
+            'mode'    => 'required|in:masuk,pulang',
+        ]);
+
+        $row = PresensiGuru::where('id_guru', $data['id_guru'])->where('tanggal', $data['tanggal'])->first();
+        if ($row) {
+            if ($data['mode'] === 'pulang') {
+                $row->jam_pulang = null;
+                $row->save();
+            } else {
+                $row->delete();
+            }
+        }
+
+        return response()->json(['success' => true]);
+    }
 }

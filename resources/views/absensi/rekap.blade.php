@@ -46,7 +46,12 @@
             <label class="form-label">Sampai tanggal</label>
             <input type="date" name="sampai" value="{{ $sampai }}" class="form-input" onchange="this.form.submit()">
         </div>
-        <button type="submit" class="px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">Tampilkan</button>
+        <div class="flex gap-2">
+            <button type="submit" class="px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition">Tampilkan</button>
+            <a href="{{ route('absensi.rekap.cetak', ['kelas'=>$selectedKelas, 'dari'=>$dari, 'sampai'=>$sampai]) }}" class="px-4 py-2.5 rounded-xl text-sm font-medium bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center gap-2">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel
+            </a>
+        </div>
     </form>
 
     @if($rekap->isEmpty())

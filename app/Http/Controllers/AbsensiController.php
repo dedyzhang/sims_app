@@ -7,21 +7,14 @@ use App\Models\Kelas;
 use App\Models\Siswa;
 use App\Models\Guru;
 use App\Models\PresensiGuru;
-use App\Models\RolePermission;
 use App\Models\Setting;
-use App\Models\User;
 use App\Support\AbsensiGuru;
 use App\Support\AttendanceParentNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 
 class AbsensiController extends Controller
 {
-    /** Username tetap akun perangkat kiosk (bukan orang sungguhan, dibuat lazy saat link pertama dipakai). */
-    private const KIOSK_USERNAME = '__kiosk_absensi__';
-
     /** Kelas homeroom guru saat ini bila BUKAN admin (null berarti admin = boleh semua kelas). */
     private function walikelasKelasId(): ?string
     {
@@ -29,31 +22,20 @@ class AbsensiController extends Controller
     }
 
     /**
-     * Masuk mode kiosk publik via link rahasia (tanpa login manual) — dipakai sbg shortcut
-     * di komputer meja piket, supaya guru bisa langsung scan tanpa minta admin login-kan.
-     * Login sbg akun perangkat khusus (role 'kiosk', hanya diberi izin manage_absensi),
-     * lalu diarahkan ke halaman scan wajah/QR sesuai metode aktif sekolah.
+     * Masuk mode kiosk publik via link rahasia — TANPA login sama sekali (tidak ada Auth::login,
+     * tidak ada session). Token diteruskan lewat query string `?_kiosk=` ke halaman scan/QR, lalu
+     * divalidasi ulang per-request oleh EnsureKioskOrPermission. Dengan begitu membuka link ini di
+     * browser yang sama dengan tab lain yang sudah login (mis. admin) tidak pernah mengubah sesi
+     * login orang itu — beda dari pendekatan lama yang login-kan browser sbg akun kiosk.
      */
     public function kioskEnter(string $token)
     {
         $real = Setting::get('kiosk_token');
         abort_unless($real && hash_equals((string) $real, $token), 404);
 
-        $kiosk = User::firstOrCreate(
-            ['username' => self::KIOSK_USERNAME],
-            [
-                'access'               => 'kiosk',
-                'password'             => Str::random(40),
-                'must_change_password' => false,
-            ]
-        );
-        RolePermission::firstOrCreate(['role' => 'kiosk', 'permission' => 'manage_absensi']);
+        $target = AbsensiGuru::bolehQr() ? route('qr.absensi') : route('absensi.scan');
 
-        Auth::login($kiosk);
-        // Tandai seluruh sesi ini "kiosk" → layout (sidebar/header/ticker) disembunyikan, lihat layouts/app.blade.php.
-        session(['kiosk_chrome' => true]);
-
-        return AbsensiGuru::bolehQr() ? redirect()->route('qr.absensi') : redirect()->route('absensi.scan');
+        return redirect($target . '?_kiosk=' . urlencode($token));
     }
 
     public function index(Request $request)
@@ -102,6 +84,7 @@ class AbsensiController extends Controller
             $row->id_kelas     = $request->id_kelas;
             $row->status       = $status;
             $row->dicatat_oleh = auth()->id();
+            if (!$row->exists) $row->id_semester = \App\Models\Semester::aktif()?->id;
             // keterangan: jangan timpa dengan kosong (pertahankan mis. "Scan wajah")
             $ket = $request->keterangan[$siswaUuid] ?? null;
             if ($ket !== null && $ket !== '') {
@@ -161,6 +144,26 @@ class AbsensiController extends Controller
         return view('absensi.rekap', compact('kelasList', 'selectedKelas', 'dari', 'sampai', 'rekap', 'batas', 'dates'));
     }
 
+    public function cetakRekap(Request $request)
+    {
+        $walikelasKelas = $this->walikelasKelasId();
+        abort_if(!auth()->user()->canAccess('manage_absensi') && !$walikelasKelas, 403);
+        
+        // admin harus milih kelas, wk otomatis pakai kelasnya
+        $selectedKelas = $walikelasKelas ?: $request->kelas;
+        abort_if(!$selectedKelas, 404, 'Kelas tidak valid.');
+        
+        $dari   = $request->dari   ?: now()->startOfMonth()->toDateString();
+        $sampai = $request->sampai ?: now()->toDateString();
+        if ($dari > $sampai) [$dari, $sampai] = [$sampai, $dari];
+
+        $k = Kelas::findOrFail($selectedKelas);
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\Cetak\AbsensiSiswaExport($selectedKelas, $dari, $sampai), 
+            "Rekap Absensi Siswa Kelas {$k->tingkat}{$k->kelas}.xlsx"
+        );
+    }
+
     /** Daftar tanggal dalam rentang (untuk header rincian), dibatasi 92 hari. */
     public static function dateRange(string $dari, string $sampai): array
     {
@@ -190,6 +193,13 @@ class AbsensiController extends Controller
             ? Siswa::where('id_kelas', $selectedKelas)->orderBy('nama')->get()
             : collect();
         return view('absensi.wajah', compact('kelasList', 'selectedKelas', 'siswas'));
+    }
+
+    /** Halaman registrasi wajah guru */
+    public function wajahGuru()
+    {
+        $gurus = Guru::orderBy('nama')->get();
+        return view('absensi.wajah-guru', compact('gurus'));
     }
 
     /** Halaman scan absensi via kamera — mode kiosk, lintas semua kelas untuk siswa dan guru */
@@ -228,6 +238,7 @@ class AbsensiController extends Controller
             'id_kelas' => $s->id_kelas,
             'desc'     => $s->face_descriptor,           // array of embeddings
             'status'   => $existingSiswa->get($s->uuid)?->status,
+            'jam_masuk'=> substr($existingSiswa->get($s->uuid)?->jam_masuk, 0, 5),
         ]);
 
         $payloadGuru = $gurus->map(fn($g) => [
@@ -239,11 +250,18 @@ class AbsensiController extends Controller
             'nip'        => $g->nip ?: $g->nik,
             'status'     => $existingGuru->get($g->uuid)?->status,
             'pulangDone' => (bool) ($existingGuru->get($g->uuid)?->jam_pulang),  // sudah scan pulang?
+            'jam_masuk'  => substr($existingGuru->get($g->uuid)?->jam_masuk, 0, 5),
+            'jam_pulang' => substr($existingGuru->get($g->uuid)?->jam_pulang, 0, 5),
         ]);
 
         $payload = $payloadSiswa->concat($payloadGuru)->values();
 
-        return view('absensi.scan', compact('tanggal', 'siswas', 'gurus', 'payload', 'existingSiswa', 'existingGuru'));
+        // Mode kiosk ditentukan per-request dari token di URL (lihat EnsureKioskOrPermission),
+        // BUKAN dari session — supaya tab lain di browser yang sama yg sudah login tak terganggu.
+        $isKiosk = \App\Http\Middleware\EnsureKioskOrPermission::hasValidToken($request);
+        $kioskToken = $isKiosk ? $request->query('_kiosk') : null;
+
+        return view('absensi.scan', compact('tanggal', 'siswas', 'gurus', 'payload', 'existingSiswa', 'existingGuru', 'isKiosk', 'kioskToken'));
     }
 
     /** Tandai 1 siswa hadir (AJAX dari scan wajah) */
@@ -272,6 +290,14 @@ class AbsensiController extends Controller
             ]);
         }
 
+        // Wajib isi kuesioner 7 KAIH hari ini sebelum boleh absen (berlaku juga di kios scan wajah).
+        if (!\App\Support\KaihSiswa::bolehAbsen($data['id_siswa'], $data['tanggal'])) {
+            return response()->json([
+                'success' => false,
+                'message' => \App\Support\KaihSiswa::pesanTolak(),
+            ]);
+        }
+
         $row = Absensi::firstOrNew([
             'id_siswa' => $data['id_siswa'],
             'tanggal'  => $data['tanggal'],
@@ -283,9 +309,10 @@ class AbsensiController extends Controller
         $row->dicatat_oleh = auth()->id();
         // catat jam masuk hanya sekali (scan pertama) agar deteksi terlambat akurat
         $scanPertama = empty($row->jam_masuk);
-        if ($scanPertama) {
+        if (!$row->jam_masuk) {
             $row->jam_masuk = now()->format('H:i:s');
         }
+        if (!$row->exists) $row->id_semester = \App\Models\Semester::aktif()?->id;
         $row->save();
 
         $batas = Setting::get('waktu_terlambat', '07:30');
@@ -302,5 +329,21 @@ class AbsensiController extends Controller
             'jam'       => substr($row->jam_masuk, 0, 5),
             'terlambat' => $terlambat,
         ]);
+    }
+
+    /** Batalkan absen dari scan wajah */
+    public function cancel(Request $request)
+    {
+        $data = $request->validate([
+            'id_siswa' => 'required|exists:siswa,uuid',
+            'tanggal'  => 'required|date',
+        ]);
+        
+        $row = Absensi::where('id_siswa', $data['id_siswa'])->where('tanggal', $data['tanggal'])->first();
+        if ($row) {
+            $row->delete();
+        }
+        
+        return response()->json(['success' => true]);
     }
 }

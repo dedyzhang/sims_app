@@ -14,6 +14,8 @@ class GuruImport implements ToCollection, WithStartRow
 {
     public int $imported = 0;
     public int $skipped = 0;
+    /** Baris terisi Agama tapi nilainya tidak cocok daftar dropdown — diisi null, bukan diblokir. */
+    public int $agamaTidakValid = 0;
 
     /** Kredensial akun yang baru dibuat batch ini — nilai plaintext, HANYA ada di sini sebelum di-hash. */
     public array $kredensial = [];
@@ -70,7 +72,7 @@ class GuruImport implements ToCollection, WithStartRow
                 'jk'            => strtoupper(trim((string)($row[3] ?? 'L'))) === 'P' ? 'P' : 'L',
                 'tempat_lahir'  => $this->str($row[4] ?? null),
                 'tanggal_lahir' => $this->date($row[5] ?? null),
-                'agama'         => $this->str($row[6] ?? null),
+                'agama'         => $this->agama($row[6] ?? null),
                 'alamat'        => $this->str($row[7] ?? null),
                 'tingkat_studi' => $this->str($row[8] ?? null),
                 'program_studi' => $this->str($row[9] ?? null),
@@ -97,6 +99,17 @@ class GuruImport implements ToCollection, WithStartRow
     {
         $val = trim((string)($val ?? ''));
         return $val === '' ? null : $val;
+    }
+
+    /** Cocokkan ke daftar agama baku (sama dgn dropdown Excel). Diisi tapi tak cocok → null + hitung. */
+    private function agama($val): ?string
+    {
+        $mentah = trim((string)($val ?? ''));
+        $baku = \App\Support\Agama::normalize($mentah);
+        if ($mentah !== '' && $baku === null) {
+            $this->agamaTidakValid++;
+        }
+        return $baku;
     }
 
     private function date($val): ?string

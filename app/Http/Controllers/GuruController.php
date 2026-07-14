@@ -251,7 +251,23 @@ class GuruController extends Controller
         $request->validate([
             'descriptors'   => 'required|array|min:3|max:5',
             'descriptors.*' => 'array|min:64',   // embedding
+            'photo'         => 'nullable|string',
         ]);
+
+        // Deteksi wajah ganda: cocok dengan orang lain yang sudah terdaftar?
+        if (!$request->boolean('force')) {
+            $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $uuid);
+            if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::THRESHOLD) {
+                return response()->json([
+                    'duplicate'  => true,
+                    'nama'       => $dup['nama'],
+                    'tipe'       => $dup['tipe'],
+                    'similarity' => round($dup['similarity'] * 100),
+                    'message'    => 'Wajah ini mirip ' . $dup['nama'] . ' (' . $dup['tipe'] . ').',
+                ], 422);
+            }
+        }
+
         $guru = Guru::findOrFail($uuid);
 
         $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $guru->uuid);
@@ -268,6 +284,7 @@ class GuruController extends Controller
         $guru->update([
             'face_descriptor'    => $request->descriptors,
             'face_registered_at' => now(),
+            'face_photo'         => \App\Support\FaceMatch::saveFromDataUrl($request->photo, $guru->uuid, $guru->face_photo),
         ]);
         return response()->json(['success' => true, 'message' => 'Wajah ' . $guru->nama . ' terdaftar.']);
     }
@@ -294,7 +311,8 @@ class GuruController extends Controller
             \Maatwebsite\Excel\Facades\Excel::import($import, $request->file('file'));
 
             $msg = "Import selesai: {$import->imported} guru berhasil ditambahkan."
-                 . ($import->skipped > 0 ? " ({$import->skipped} baris dilewati)" : '');
+                 . ($import->skipped > 0 ? " ({$import->skipped} baris dilewati)" : '')
+                 . ($import->agamaTidakValid > 0 ? " {$import->agamaTidakValid} data agama diabaikan karena tidak sesuai pilihan dropdown." : '');
 
             // Simpan kredensial plaintext sementara ke session untuk diunduh.
             if (!empty($import->kredensial)) {

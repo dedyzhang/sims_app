@@ -22,6 +22,7 @@ class Siswa extends Model
         'tempat_lahir_ijazah', 'tanggal_lahir_ijazah',
         'va', 'spp', 'foto',
         'face_descriptor', 'face_registered_at', 'face_photo',
+        'status', 'tahun_lulus', 'angkatan',
     ];
 
     protected $casts = [
@@ -67,5 +68,10 @@ class Siswa extends Model
     public function pembayaran()
     {
         return $this->hasMany(SppPembayaran::class, 'id_siswa', 'uuid');
+    }
+
+    public function kaihJawaban()
+    {
+        return $this->hasMany(KaihJawaban::class, 'id_siswa', 'uuid');
     }
 }

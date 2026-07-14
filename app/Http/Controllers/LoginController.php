@@ -43,10 +43,6 @@ class LoginController extends Controller
         }
 
         Auth::login($user, $request->boolean('remember'));
-        // Jaga-jaga: kalau browser ini sebelumnya dipakai lewat link kiosk (lihat
-        // AbsensiController::kioskEnter) tanpa logout eksplisit, jangan sampai sidebar/header
-        // ikut tersembunyi utk login normal ini.
-        $request->session()->forget('kiosk_chrome');
 
         return $this->redirectAfterLogin($user);
     }
@@ -70,7 +66,6 @@ class LoginController extends Controller
         }
 
         Auth::login($user);
-        $request->session()->forget('kiosk_chrome');
 
         return response()->json([
             'message'  => 'Login berhasil.',

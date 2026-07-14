@@ -199,12 +199,12 @@
         background: linear-gradient(180deg, #4285F4, #34A853);
     }
     .google-quote-heading {
-        display: inline-flex; flex-direction: column; align-items: flex-start; gap: .08rem;
+        display: inline-flex; flex-direction: row; align-items: center; gap: .35rem;
         font-family: "Segoe Script", "Lucida Handwriting", "Brush Script MT", cursive; font-style: italic; font-size: clamp(1rem, 1.35vw, 1.2rem); line-height: 1.05; letter-spacing: 0;
         color: #334155;
     }
     .google-quote-heading span:last-child {
-        padding-left: 1.1rem; color: #4285F4;
+        color: #4285F4;
     }
     .google-quote-body {
         margin-top: .75rem;
@@ -634,7 +634,25 @@
                     </div>
                 </div>
             </div>
-
+            <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                @foreach(($aiQuotaUsage['models'] ?? []) as $modelQuota)
+                    @php
+                        $modelRemaining = $modelQuota['remaining'] ?? null;
+                        $modelLimit = $modelQuota['limit'] ?? null;
+                        $modelPercent = $modelRemaining !== null && $modelLimit ? max(0, min(100, (int) floor(($modelRemaining / $modelLimit) * 100))) : 0;
+                    @endphp
+                    <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/40">
+                        <div class="flex items-center justify-between gap-2 text-xs">
+                            {{-- Nama/penyedia model sengaja disembunyikan; cukup label netral bernomor. --}}
+                            <span class="truncate font-semibold text-slate-700 dark:text-slate-100">Kuota {{ $loop->iteration }}</span>
+                            <span class="shrink-0 text-slate-400">{{ $modelRemaining !== null ? number_format((int) $modelRemaining, 0, ',', '.').' tersisa' : 'batas tercapai' }}</span>
+                        </div>
+                        <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                            <div class="h-full rounded-full bg-primary" style="width: {{ $modelPercent }}%"></div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
         </div>
     @endif
     {{-- Grid blok yang bisa di-drag --}}

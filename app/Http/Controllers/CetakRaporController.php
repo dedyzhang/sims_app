@@ -122,7 +122,9 @@ class CetakRaporController extends Controller
 
         // Ketidakhadiran per siswa.
         $absensi = [];
-        foreach (Absensi::whereIn('id_siswa', $siswas->pluck('uuid'))->selectRaw('id_siswa, status, count(*) as c')->groupBy('id_siswa', 'status')->get() as $r) {
+        $queryAbsen = Absensi::whereIn('id_siswa', $siswas->pluck('uuid'))->selectRaw('id_siswa, status, count(*) as c')->groupBy('id_siswa', 'status');
+        if ($sem) $queryAbsen->where('id_semester', $sem->id);
+        foreach ($queryAbsen->get() as $r) {
             $absensi[$r->id_siswa][$r->status] = $r->c;
         }
 

@@ -20,6 +20,7 @@ class SiswaController extends Controller
     {
         $kelas  = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
         $siswas = Siswa::with(['kelas', 'user'])
+            ->where('status', 'aktif')
             ->when($request->search, fn($q) => $q->where('nama', 'like', "%{$request->search}%")->orWhere('nis', 'like', "%{$request->search}%"))
             ->when($request->id_kelas, fn($q) => $q->where('id_kelas', $request->id_kelas))
             ->orderBy('nama')
@@ -267,7 +268,8 @@ class SiswaController extends Controller
             Excel::import($import, $request->file('file'));
 
             $msg = "Import selesai: {$import->imported} siswa berhasil ditambahkan."
-                 . ($import->skipped > 0 ? " ({$import->skipped} baris dilewati)" : '');
+                 . ($import->skipped > 0 ? " ({$import->skipped} baris dilewati)" : '')
+                 . ($import->agamaTidakValid > 0 ? " {$import->agamaTidakValid} data agama diabaikan karena tidak sesuai pilihan dropdown." : '');
 
             // Kredensial (password plaintext) HANYA ada di titik ini — simpan sementara
             // di session supaya bisa diunduh sekali via tombol di halaman berikutnya.

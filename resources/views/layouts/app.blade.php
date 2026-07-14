@@ -17,20 +17,29 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     @php
+        // Halaman kiosk publik (lihat EnsureKioskOrPermission) bisa dirender TANPA user login sama
+        // sekali → $pref harus tetap objek valid (bukan null) agar semua akses $pref->xxx di bawah aman.
         $pref = auth()->user()?->preference()->firstOrCreate(
             ['user_uuid' => auth()->id()],
             \App\Models\UserPreference::defaults()
-        );
-        // Mode kiosk: sidebar/header/ticker disembunyikan (lihat AbsensiController::kioskEnter).
-        $kioskChrome = (bool) session('kiosk_chrome', false);
+        ) ?? new \App\Models\UserPreference(\App\Models\UserPreference::defaults());
+        // Mode kiosk: sidebar/header/ticker disembunyikan. Dihitung PER-REQUEST dari variabel
+        // $isKiosk yg dikirim controller (lihat AbsensiController::scan/QrAbsensiController::show),
+        // BUKAN dari session — supaya membuka link kiosk tak pernah memengaruhi tab lain di
+        // browser yang sama yg mungkin sedang login sbg user lain.
+        $kioskChrome = (bool) ($isKiosk ?? false);
         // $access/$isAdmin dipakai di luar blok sidebar juga (mis. floating chat) — jadi
         // dihitung di sini, bukan cuma di dalam <aside> yang bisa disembunyikan (mode kiosk).
         $access  = auth()->user()?->access;
         $isAdmin = in_array($access, ['superadmin','admin']);
         $canManageFeedback = auth()->user()?->canAccess('manage_feedback') ?? false;
-        $feedbackUnreadCount = $canManageFeedback
-            ? \App\Models\UserFeedback::where('status', 'baru')->count()
-            : 0;
+        // Badge kosmetik — JANGAN sampai menjatuhkan seluruh halaman kalau tabelnya belum
+        // dimigrasikan (mis. baru deploy, migration belum jalan → tampil blank di production).
+        $feedbackUnreadCount = 0;
+        if ($canManageFeedback) {
+            try { $feedbackUnreadCount = \App\Models\UserFeedback::where('status', 'baru')->count(); }
+            catch (\Throwable $e) { $feedbackUnreadCount = 0; }
+        }
         $fontMap = ['sm' => ['11px','13px','15px'], 'md' => ['12px','14px','16px'], 'lg' => ['13px','15px','17px']];
         $fonts = $fontMap[$pref->font_size ?? 'md'];
 
@@ -383,8 +392,12 @@
 
 @php $myFace = auth()->user()?->siswa?->face_photo_url ?? auth()->user()?->guru?->face_photo_url; @endphp
 
-<div class="h-screen flex flex-col relative z-10" :class="{ 'mob-open': mobileOpen }">
-    <div class="flex-1 flex relative overflow-hidden">
+{{-- h-screen (100vh) TIDAK cocok di mobile: address bar yang muncul/hilang bikin 100vh
+     ≠ tinggi layar terlihat → konten terpotong & muncul area putih saat scroll. h-[100dvh]
+     (dynamic viewport height) mengikuti tinggi layar sebenarnya; h-screen jadi fallback
+     utk browser lama yang belum dukung dvh. --}}
+<div class="h-screen h-[100dvh] flex flex-col relative z-10 min-h-0" :class="{ 'mob-open': mobileOpen }">
+    <div class="flex-1 flex relative overflow-hidden min-h-0">
         <div class="sidebar-overlay lg:hidden" @click="mobileOpen=false"></div>
 
     {{-- ============ SIDEBAR (disembunyikan di mode kiosk) ============ --}}
@@ -416,6 +429,7 @@
                     if ($isAdmin || auth()->user()?->canAccess('manage_users')) {
                         $masterItems[] = ['guru.index',      ['guru.*'],            'users',          'Data Guru'];
                         $masterItems[] = ['siswa.index',     ['siswa.*'],           'graduation-cap', 'Data Siswa'];
+                        $masterItems[] = ['alumni.index',    ['alumni.*'],          'award',          'Data Alumni'];
                         $masterItems[] = ['kelas.index',     ['kelas.*'],           'door-open',      'Data Kelas'];
                         $masterItems[] = ['pelajaran.index', ['pelajaran.*'],       'book-open-text', 'Mata Pelajaran'];
                         $masterItems[] = ['kartu-pelajar.kelola', ['kartu-pelajar.kelola'], 'id-card', 'Kartu Pelajar'];
@@ -433,6 +447,16 @@
                     $presensiItems[] = ['presensi-guru.index', ['presensi-guru.*'], 'user-check',      'Presensi Guru'];
                     $presensiItems[] = ['wajah.galeri',        ['wajah.*'],         'scan-face',       'Validasi Wajah'];
                     $presensiItems[] = ['qr.absensi',          ['qr.*'],            'qr-code',         'QR Absensi'];
+                }
+                // 7 KAIH: siswa isi sendiri tiap pagi; walikelas/admin lihat rekap; admin/kurikulum kelola soal.
+                if (auth()->user()?->siswa) {
+                    $presensiItems[] = ['kaih.isi', ['kaih.isi'], 'heart-handshake', 'Isi 7 KAIH'];
+                }
+                if ($isAdmin || auth()->user()?->canAccess('manage_kaih')) {
+                    $presensiItems[] = ['kaih.rekap', ['kaih.rekap', 'kaih.override.*'], 'list-checks', 'Rekap 7 KAIH'];
+                }
+                if ($isAdmin || auth()->user()?->canAccess('manage_kaih')) {
+                    $presensiItems[] = ['kaih.soal', ['kaih.soal', 'kaih.opsi.*'], 'settings-2', 'Soal 7 KAIH'];
                 }
                 if (!empty($presensiItems)) {
                     $groups['presensi'] = ['Absensi & Presensi', 'clipboard-check', $presensiItems];
@@ -498,6 +522,10 @@
                     $agendaItems[] = ['agenda.rekap', ['agenda.rekap','agenda.validasi'], 'calendar-check-2', 'Rekap Agenda'];
                     $agendaItems[] = ['agenda.batas', ['agenda.batas'], 'book-open-text', 'Buku Batas'];
                 }
+                // Agenda Rapat: semua guru/staff boleh lihat; kelola penuh utk admin/manage_rapat/sekretaris rapat.
+                if (auth()->user()?->guru || $isAdmin || auth()->user()?->canAccess('manage_rapat') || in_array($access, ['kesiswaan','sarpras','kurikulum','kepala'])) {
+                    $agendaItems[] = ['rapat.index', ['rapat.*'], 'users-round', 'Agenda Rapat'];
+                }
                 if (!empty($agendaItems)) {
                     $groups['agenda'] = ['Agenda', 'notebook-pen', $agendaItems];
                 }
@@ -546,6 +574,7 @@
                         ['walikelas.sekretaris.form', ['walikelas.sekretaris.*'], 'user-cog', 'Set Sekretaris'],
                         ['absensi.index', ['absensi.index', 'absensi.store'], 'clipboard-check', 'Absensi Kelas Saya'],
                         ['absensi.rekap', ['absensi.rekap'], 'calendar-check-2', 'Rekap Absensi Kelas'],
+                        ['kaih.rekap', ['kaih.rekap', 'kaih.override.*'], 'list-checks', 'Rekap 7 KAIH Kelas'],
                     ];
                     $walikelasItems[] = $jenisAturan === 'poin'
                         ? ['poin.siswa.index', ['poin.siswa.*'], 'shield-alert', 'Poin Siswa Kelas']
@@ -601,6 +630,7 @@
                         ['cetak.guru.index', ['cetak.guru.*'], 'user-round', 'Data Guru'],
                         ['cetak.kelas.index', ['cetak.kelas.*'], 'school', 'Data Kelas'],
                         ['cetak.absensiGuru.index', ['cetak.absensiGuru.*'], 'clipboard-check', 'Absensi Guru'],
+                        ['cetak.absensiSiswa.index', ['cetak.absensiSiswa.*'], 'calendar-check-2', 'Absensi Siswa'],
                         ['cetak.agenda.index', ['cetak.agenda.*'], 'notebook-pen', 'Data Agenda'],
                         ['cetak.bukuBatas.index', ['cetak.bukuBatas.*'], 'book-open-text', 'Buku Batas'],
                         ['cetak.formatif.index', ['cetak.formatif.*'], 'pencil', 'Nilai Formatif'],
@@ -790,7 +820,7 @@
     @endunless
 
     {{-- ============ MAIN ============ --}}
-    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden min-h-0">
 
         @unless($kioskChrome)
         <header class="h-16 flex items-center justify-between px-5 md:px-7 flex-shrink-0 gap-4 z-30">
