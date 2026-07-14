@@ -303,7 +303,7 @@ Untuk mengakses fitur ini, silakan buka menu **`Data Master`.** pada bilah navig
 
 ### Data Guru
 
-![Halaman Data Guru](/images/panduan/data_guru.png)
+![Halaman Data Guru](/images/panduan/data-guru.png)
 
 
 Fitur ini menyediakan beberapa fungsi utama, di antaranya:
@@ -438,7 +438,7 @@ Untuk mengakses fitur ini, silakan buka menu **`Absensi & Presensi`.** pada bila
 
 ### Kalender Absensi
 
-![Tampilan Kalender Absensi](/images/panduan/kalender_absensi.png)
+![Tampilan Kalender Absensi](/images/panduan/kalender-absensi.png)
 
 
 Fitur ini menyediakan beberapa fungsi utama, di antaranya:
@@ -554,7 +554,7 @@ Berikut adalah panduan langkah demi langkah untuk menggunakannya:
 
 ### Ruang Kelas
 
-![Tampilan Ruang Kelas Akademik](/images/panduan/ruang_kelas.png)
+![Tampilan Ruang Kelas Akademik](/images/panduan/ruang-kelas.png)
 
 
 Untuk mengakses fitur ini, silakan buka menu **`Akademik > Ruang Kelas`.** pada bilah navigasi (sidebar).
@@ -575,6 +575,7 @@ Fitur ini menyediakan beberapa fungsi utama, di antaranya:
 - Lock materi/tugas dengan token.
 - Pemantauan lock peristiwa.
 - Tautan meet dan tutup meet.
+- Arena Belajar (kuis interaktif async dan live).
 
 Langkah-langkah bagi Guru untuk membuat materi pembelajaran:
 
@@ -615,6 +616,44 @@ Langkah-langkah bagi Guru untuk menilai tugas yang dikumpulkan:
 3. Beri nilai dan umpan balik.
 4. Kembalikan pengumpulan jika perlu revisi.
 5. Gunakan transfer nilai untuk memasukkan nilai ke buku nilai.
+
+### Arena Belajar
+
+Arena Belajar adalah modul kuis interaktif di dalam Ruang Kelas (per ruang mapel).
+
+Untuk mengakses fitur ini, buka **`Akademik > Ruang Kelas`**, pilih kelas dan mapel, lalu tab **Arena Belajar**.
+
+- Guru: membuat, mengedit, menerbitkan kuis; host sesi live; melihat hasil; transfer skor ke buku nilai.
+- Siswa: mengerjakan kuis async atau bergabung sesi live.
+- Orang tua tidak masuk menu ini.
+
+Fitur utama:
+
+- Builder soal (pilihan ganda, benar/salah, isian, pasangkan).
+- Mode latihan async (mengerjakan kapan saja selama jendela kuis terbuka).
+- Mode live (guru memandu soal secara real-time, siswa jawab dari perangkat).
+- Hasil, leaderboard/podium, dan transfer nilai ke formatif/sumatif.
+- Template permainan (flashcard, dll.) untuk guru yang punya akses kelola.
+
+Langkah-langkah bagi Guru membuat kuis:
+
+1. Buka Ruang Kelas, pilih ruang mapel, tab Arena Belajar.
+2. Klik Buat Kuis, isi judul dan pengaturan.
+3. Tambah soal dan kunci jawaban.
+4. Terbitkan kuis agar siswa bisa melihatnya.
+
+Langkah-langkah bagi Siswa (async):
+
+1. Buka tab Arena Belajar di ruang mapel.
+2. Pilih kuis yang tersedia, klik Mulai.
+3. Jawab soal, lalu kumpulkan.
+
+Langkah-langkah bagi Guru menjalankan live:
+
+1. Dari daftar kuis, klik Mulai Live.
+2. Tunggu siswa bergabung di lobi, lalu mulai soal.
+3. Maju soal sesuai alur host, lalu Akhiri sesi.
+4. Buka Hasil untuk pantau skor; gunakan Transfer Nilai bila perlu.
 
 ### Jadwal Pelajaran
 
@@ -1610,7 +1649,7 @@ Gunakan checklist ini saat demo ke sekolah:
 - QR Absensi dan Absen QR pengguna.
 - Presensi guru dan rekap.
 - Validasi wajah, galeri, dan wajah ganda.
-- Ruang Kelas: materi, tugas, komentar, pengumpulan, penilaian, transfer nilai.
+- Ruang Kelas: materi, tugas, komentar, pengumpulan, penilaian, transfer nilai, Arena Belajar.
 - Jadwal Pelajaran dan Jadwal Mengajar.
 - Penilaian: KKTP, materi, TP, formatif, sumatif, penjabaran, PTS, PAS, rapor.
 - Nilai Saya.
