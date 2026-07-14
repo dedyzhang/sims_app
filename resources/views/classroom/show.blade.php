@@ -40,9 +40,9 @@
     @endif
 
     {{-- Tabs --}}
-    <div class="flex gap-1 border-b border-slate-200 dark:border-slate-700">
-        @foreach(['materi'=>'Materi','tugas'=>'Latihan & Tugas','anggota'=>'Anggota'] as $k=>$label)
-        <button @click="tab='{{ $k }}'" :class="tab==='{{ $k }}' ? 'border-primary text-primary' : 'border-transparent text-slate-500'" class="px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition" style="--tw-text-opacity:1" :style="tab==='{{ $k }}' ? 'color:var(--cp);border-color:var(--cp)' : ''">{{ $label }}</button>
+    <div class="flex gap-1 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
+        @foreach(['materi'=>'Materi','tugas'=>'Latihan & Tugas','arena'=>'Arena Belajar','anggota'=>'Anggota'] as $k=>$label)
+        <button @click="tab='{{ $k }}'" :class="tab==='{{ $k }}' ? 'border-primary text-primary' : 'border-transparent text-slate-500'" class="px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition whitespace-nowrap" style="--tw-text-opacity:1" :style="tab==='{{ $k }}' ? 'color:var(--cp);border-color:var(--cp)' : ''">{{ $label }}</button>
         @endforeach
     </div>
 
@@ -98,6 +98,24 @@
         @empty
         <div class="card p-10 text-center text-slate-400"><i data-lucide="clipboard-list" class="w-10 h-10 mx-auto mb-2 opacity-30"></i><p>Belum ada tugas/latihan.</p></div>
         @endforelse
+    </div>
+
+    {{-- ===== TAB ARENA BELAJAR ===== --}}
+    <div x-show="tab==='arena'" x-cloak class="space-y-4">
+        <a href="{{ route('classroom.arena.index', $classroom) }}"
+           class="relative overflow-hidden block rounded-2xl p-5 sm:p-6 text-white"
+           style="background:radial-gradient(ellipse 80% 60% at 15% 0%,color-mix(in srgb,var(--cp) 55%,transparent),transparent 55%),linear-gradient(155deg,#0c1a24,#152836 55%,#0f2430)">
+            <div class="relative z-[1] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-300 mb-1">Mode game</p>
+                    <h3 class="text-xl font-black">Arena Belajar</h3>
+                    <p class="text-sm text-slate-300 mt-1">Kuis interaktif, live podium, skor otomatis.</p>
+                </div>
+                <span class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-black text-[#0c1a24] bg-white min-h-[48px] shrink-0">
+                    <i data-lucide="gamepad-2" class="w-4 h-4"></i> Masuk Arena
+                </span>
+            </div>
+        </a>
     </div>
 
     {{-- ===== TAB ANGGOTA ===== --}}
