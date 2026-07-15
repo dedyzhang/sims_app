@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\CanUseChatbot;
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\EnsureModulAktif;
 use App\Http\Middleware\EnforceLangganan;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\UpdateLastSeen;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role'         => CheckRole::class,
             'permission'   => \App\Http\Middleware\CheckPermission::class,
             'chatbot.user' => CanUseChatbot::class,
+            'modul'        => EnsureModulAktif::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

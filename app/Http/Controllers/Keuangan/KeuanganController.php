@@ -31,7 +31,7 @@ class KeuanganController extends Controller
 
         // Ringkasan lunas per kelas pada tahun ajaran ini.
         $lunasPerKelas = SppPembayaran::where('tahun_ajaran', $ta)
-            ->where('status', SppPembayaran::STATUS_LUNAS)
+            ->where('spp_pembayaran.status', SppPembayaran::STATUS_LUNAS)
             ->join('siswa', 'siswa.uuid', '=', 'spp_pembayaran.id_siswa')
             ->selectRaw('siswa.id_kelas, COUNT(*) as lunas, SUM(spp_pembayaran.nominal) as nominal')
             ->groupBy('siswa.id_kelas')

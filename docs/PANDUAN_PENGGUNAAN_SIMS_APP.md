@@ -213,7 +213,7 @@ Buka menu **Chat / Inbox** di daftar menu sebelah kiri.
 
 ### Fitur Asisten Guru
 
-Buka menu **Akademik > Asisten Guru**. Menu ini muncul untuk guru dan wali kelas.
+Buka menu **Akademik > Asisten Guru**. Menu ini muncul untuk guru mapel, wali kelas, Kepala Sekolah, dan semua Waka.
 
 Fitur ini membantu guru menyusun bahan pembelajaran lebih cepat. Namun, hasilnya tetap harus diperiksa dulu sebelum dibagikan ke siswa.
 

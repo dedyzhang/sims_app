@@ -56,6 +56,7 @@ use App\Http\Controllers\GameTemplateController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\Keuangan\KeuanganController;
 use App\Http\Controllers\Keuangan\TagihanController;
+use App\Http\Controllers\LanggananController;
 use App\Http\Middleware\EnsureFaceRegistered;
 use App\Http\Middleware\EnsureKioskOrPermission;
 use App\Support\TickerStats;
@@ -87,7 +88,7 @@ WebAuthnRoutes::register('webauthn');
 //     menimpa/mengeluarkan sesi login orang itu. Token divalidasi ulang tiap request lewat URL. ───
 Route::get('/kiosk-absensi/{token}', [AbsensiController::class, 'kioskEnter'])->name('absensi.kioskEnter');
 
-Route::middleware(EnsureKioskOrPermission::class)->group(function () {
+Route::middleware([EnsureKioskOrPermission::class, 'modul:absensi'])->group(function () {
     Route::get('/absensi/scan', [AbsensiController::class, 'scan'])->name('absensi.scan');
     Route::post('/absensi/mark', [AbsensiController::class, 'mark'])->name('absensi.mark');
     Route::post('/absensi/cancel', [AbsensiController::class, 'cancel'])->name('absensi.cancel');
@@ -102,9 +103,10 @@ Route::middleware(EnsureKioskOrPermission::class)->group(function () {
 Route::get('/langganan-berakhir', fn () => response()->view('langganan.berakhir'))->name('langganan.berakhir');
 
 // Panduan SIMS: sengaja hanya auth, tidak melewati gate wajah, agar user baru tetap bisa membaca tutorial awal.
-Route::middleware('auth')->prefix('panduan-sims')->name('panduan.')->group(function () {
-    Route::get('/', [PanduanController::class, 'visual'])->name('visual');
-    Route::get('/content', [PanduanController::class, 'content'])->name('content');
+Route::middleware('auth')->group(function () {
+    Route::get('/panduan-sims', [PanduanController::class, 'visual'])->name('panduan.visual');
+    Route::get('/panduan-sims/konten', [PanduanController::class, 'content'])->name('panduan.content');
+    Route::redirect('/panduan-sims/visual', '/panduan-sims');
 });
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
@@ -124,6 +126,14 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{feedback}/respon', 'respond')->middleware('permission:manage_feedback')->name('respond');
     });
 
+    // ─── Langganan (lisensi) — khusus superadmin ────────────────────────────────
+    Route::middleware('role:superadmin')->prefix('langganan')->name('langganan.')
+        ->controller(LanggananController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::post('/perpanjang', 'perpanjang')->name('perpanjang');
+        });
+
     // ─── AsistenAI (Gateway Gemini — Fase 1) ────────────────────────────────────
     // Gateway generik; dibatasi superadmin. Fitur per-role menyusul di fase berikut.
     Route::middleware('role:superadmin')->prefix('ai')->name('ai.')->group(function () {
@@ -131,17 +141,18 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── AsistenAI Chatbot (Fase 2) ─────────────────────────────────────────────
-    // Widget mengambang untuk SEMUA role login. Percakapan di-scope per user.
-    Route::prefix('ai/chat')->name('ai.chat.')->controller(AiChatController::class)->group(function () {
-        Route::post('/', 'send')->name('send');
-        Route::get('/history', 'history')->name('history');
-        Route::get('/{conversation}', 'show')->name('show');
-        Route::delete('/{conversation}', 'destroy')->name('destroy');
-    });
+    // Widget AI generatif hanya untuk staf/admin — siswa & orang tua memakai chatbot handoff.
+    Route::middleware('role:admin,superadmin,guru,walikelas,kepala,kurikulum,kesiswaan,sapras,bendahara,sekretaris')
+        ->prefix('ai/chat')->name('ai.chat.')->controller(AiChatController::class)->group(function () {
+            Route::post('/', 'send')->name('send');
+            Route::get('/history', 'history')->name('history');
+            Route::get('/{conversation}', 'show')->name('show');
+            Route::delete('/{conversation}', 'destroy')->name('destroy');
+        });
 
-    // ─── AsistenAI Asisten Guru (Fase 3) ────────────────────────────────────────
-    // Panel tool guru (soal/rangkum/feedback). Guru, Kepala, semua Waka — bukan siswa/orang tua.
-    Route::middleware('role:guru,walikelas,kepala,kurikulum,kesiswaan,sapras')->prefix('ai/teacher')->name('ai.teacher.')->controller(AiTeacherController::class)->group(function () {
+    // ─── Asisten Guru (Fase 3) ─────────────────────────────────────────────────
+    // Panel tool guru (soal/rangkum/feedback). Guru mapel, wali kelas, Kepala, semua Waka.
+    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,sapras', 'modul:asisten_guru'])->prefix('ai/teacher')->name('ai.teacher.')->controller(AiTeacherController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/quota', 'quota')->name('quota');
         Route::post('/quiz', 'quiz')->name('quiz');
@@ -159,7 +170,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     // ─── AsistenAI Narasi Data (Fase 4) ─────────────────────────────────────────
     // Controller agregasi angka server-side → AI narasikan. Pimpinan/staf sekolah.
-    Route::middleware('role:admin,kepala,kurikulum,kesiswaan')->prefix('ai/analyze')->name('ai.analyze.')->controller(AiAnalyzeController::class)->group(function () {
+    Route::middleware(['role:admin,kepala,kurikulum,kesiswaan', 'modul:analisis_ai'])->prefix('ai/analyze')->name('ai.analyze.')->controller(AiAnalyzeController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/nilai', 'nilai')->name('nilai');
         Route::post('/absensi', 'absensi')->name('absensi');
@@ -168,7 +179,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     // ─── AsistenAI RAG Dokumen (Fase 5) ─────────────────────────────────────────
     // Unggah dokumen → embed; tanya-jawab berbasis isi dokumen + sitasi.
-    Route::middleware('role:admin,kepala,kurikulum,kesiswaan')->prefix('ai/rag')->name('ai.rag.')->controller(AiRagController::class)->group(function () {
+    Route::middleware(['role:admin,kepala,kurikulum,kesiswaan', 'modul:analisis_ai'])->prefix('ai/rag')->name('ai.rag.')->controller(AiRagController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/', 'store')->name('store');
         Route::post('/ask', 'ask')->name('ask');
@@ -180,8 +191,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::post('/wajah-saya', [FaceController::class, 'selfStore'])->name('face.self.store');
 
     // Absen QR mandiri (siswa/guru) — scan QR harian + cek lokasi
-    Route::get('/absen-qr', [QrAbsensiController::class, 'absen'])->name('absen.qr');
-    Route::post('/absen-qr', [QrAbsensiController::class, 'mark'])->name('absen.qr.mark');
+    Route::middleware('modul:absensi')->get('/absen-qr', [QrAbsensiController::class, 'absen'])->name('absen.qr');
+    Route::middleware('modul:absensi')->post('/absen-qr', [QrAbsensiController::class, 'mark'])->name('absen.qr.mark');
 
     // Ganti password & PIN
     Route::get('/ganti-password', [LoginController::class, 'changePasswordPage'])->name('ganti.password');
@@ -212,7 +223,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::delete('/fcm/token', [NotificationController::class, 'destroyFcmToken'])->name('fcm.token.destroy');
 
     // Pengumuman: riwayat untuk semua user; buat/ubah/hapus butuh izin manage_pengumuman.
-    Route::controller(PengumumanController::class)->prefix('pengumuman')->name('pengumuman.')->group(function () {
+    Route::middleware('modul:pengumuman')->controller(PengumumanController::class)->prefix('pengumuman')->name('pengumuman.')->group(function () {
         Route::get('/', 'index')->name('index');
         Route::middleware('permission:manage_pengumuman')->group(function () {
             Route::get('/buat', 'create')->name('create');
@@ -232,7 +243,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     })->name('dashboard.ticker-stats');
 
     // ─── Penilaian (guru menilai penugasan mengajarnya; admin akses semua) ───
-    Route::controller(NilaiController::class)->group(function () {
+    Route::middleware('modul:akademik')->controller(NilaiController::class)->group(function () {
         Route::get('/nilai', 'index')->name('nilai.index');
         Route::get('/nilai/saya', 'selfShow')->name('nilai.self');
         // KKTP (dulu KKM) per penugasan
@@ -267,17 +278,21 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Rekap nilai (admin/kurikulum/kepala = semua; walikelas = kelasnya) ───
-    Route::get('/rekap-nilai', [RekapController::class, 'nilai'])->name('rekap.nilai');
+    Route::middleware('modul:akademik')->get('/rekap-nilai', [RekapController::class, 'nilai'])->name('rekap.nilai');
 
     // ─── Cetak rapor (akses sama dgn rekap; walikelas = kelasnya) ───
-    Route::get('/cetak/absensi-siswa', [CetakController::class, 'absensiSiswa'])->name('cetak.absensiSiswa.index');
-    Route::post('/cetak/absensi-siswa', [CetakController::class, 'cetakAbsensiSiswa'])->name('cetak.absensiSiswa');
-    Route::get('/cetak/agenda', [CetakController::class, 'agenda'])->name('cetak.agenda.index');
-    Route::get('/cetak-rapor', [CetakRaporController::class, 'index'])->name('cetak.rapor.index');
-    Route::get('/cetak-rapor/cetak', [CetakRaporController::class, 'cetak'])->name('cetak.rapor');
+    Route::middleware('modul:cetak')->group(function () {
+        Route::get('/cetak/absensi-siswa', [CetakController::class, 'absensiSiswa'])->name('cetak.absensiSiswa.index');
+        Route::post('/cetak/absensi-siswa', [CetakController::class, 'cetakAbsensiSiswa'])->name('cetak.absensiSiswa');
+        Route::get('/cetak/agenda', [CetakController::class, 'agenda'])->name('cetak.agenda.index');
+    });
+    Route::middleware('modul:akademik')->group(function () {
+        Route::get('/cetak-rapor', [CetakRaporController::class, 'index'])->name('cetak.rapor.index');
+        Route::get('/cetak-rapor/cetak', [CetakRaporController::class, 'cetak'])->name('cetak.rapor');
+    });
 
     // ─── Forum Diskusi Kelas (modul berdiri sendiri; izin via matriks forum) ───
-    Route::prefix('forum')->name('forum.')->group(function () {
+    Route::middleware('modul:forum')->prefix('forum')->name('forum.')->group(function () {
         Route::get('/', [ForumController::class, 'index'])->name('index');
         Route::get('/akses', [ForumAccessController::class, 'edit'])->name('access.edit');
         Route::post('/akses', [ForumAccessController::class, 'update'])->name('access.update');
@@ -299,7 +314,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Ruang Kelas (Classroom) — modul kelas digital B'tive ───
-    Route::prefix('ruang-kelas')->name('classroom.')->group(function () {
+    Route::middleware('modul:akademik')->prefix('ruang-kelas')->name('classroom.')->group(function () {
         Route::get('/', [ClassroomController::class, 'index'])->name('index');
         // Navigasi: kelas → mapel (auto-provision ruang)
         Route::get('/kelas/{kelas}', [ClassroomController::class, 'kelas'])->name('kelas');
@@ -343,37 +358,38 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
         // Arena Belajar (kuis interaktif async)
         Route::get('/{classroom}/arena-belajar', [GameQuizController::class, 'index'])->name('arena.index');
-        Route::get('/{classroom}/arena-belajar/buat', [GameQuizController::class, 'create'])->name('arena.create');
-        Route::post('/{classroom}/arena-belajar', [GameQuizController::class, 'store'])->middleware('throttle:30,1')->name('arena.store');
-        Route::post('/{classroom}/arena-belajar/impor-preview', [GameQuizController::class, 'importPreview'])->middleware('throttle:20,1')->name('arena.import');
-        Route::get('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'show'])->name('arena.show');
-        Route::get('/{classroom}/arena-belajar/{quiz}/edit', [GameQuizController::class, 'edit'])->name('arena.edit');
-        Route::post('/{classroom}/arena-belajar/{quiz}/update', [GameQuizController::class, 'update'])->middleware('throttle:30,1')->name('arena.update');
-        Route::post('/{classroom}/arena-belajar/{quiz}/terbit', [GameQuizController::class, 'publish'])->name('arena.publish');
-        Route::delete('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'destroy'])->name('arena.destroy');
-        Route::get('/{classroom}/arena-belajar/{quiz}/hasil', [GameQuizController::class, 'results'])->name('arena.results');
-        Route::post('/{classroom}/arena-belajar/{quiz}/transfer-nilai', [GameQuizController::class, 'transferGrades'])->name('arena.transfer');
-        Route::post('/{classroom}/arena-belajar/{quiz}/mulai', [GameAttemptController::class, 'start'])->middleware('throttle:30,1')->name('arena.start');
-        Route::get('/{classroom}/arena-belajar/{quiz}/main/{attempt}', [GameAttemptController::class, 'play'])->name('arena.play');
-        Route::post('/{classroom}/arena-belajar/{quiz}/main/{attempt}/jawab', [GameAttemptController::class, 'saveAnswer'])->middleware('throttle:60,1')->name('arena.answer');
-        Route::post('/{classroom}/arena-belajar/{quiz}/main/{attempt}/kumpul', [GameAttemptController::class, 'submit'])->middleware('throttle:20,1')->name('arena.submit');
-        Route::get('/{classroom}/arena-belajar/{quiz}/hasil-saya/{attempt}', [GameAttemptController::class, 'result'])->name('arena.result');
-        // Live session (polling)
-        Route::get('/{classroom}/arena-belajar/{quiz}/live', [GameLiveController::class, 'show'])->name('arena.live');
-        Route::post('/{classroom}/arena-belajar/{quiz}/live/mulai', [GameLiveController::class, 'start'])->middleware('throttle:20,1')->name('arena.live.start');
-        Route::post('/{classroom}/arena-belajar/{quiz}/live/maju', [GameLiveController::class, 'advance'])->middleware('throttle:60,1')->name('arena.live.advance');
-        Route::post('/{classroom}/arena-belajar/{quiz}/live/akhiri', [GameLiveController::class, 'end'])->name('arena.live.end');
-        Route::get('/{classroom}/arena-belajar/{quiz}/live/state', [GameLiveController::class, 'state'])->middleware('throttle:120,1')->name('arena.live.state');
-        Route::get('/{classroom}/arena-belajar/{quiz}/live/podium', [GameLiveController::class, 'leaderboard'])->middleware('throttle:120,1')->name('arena.live.leaderboard');
-        Route::post('/{classroom}/arena-belajar/{quiz}/live/jawab', [GameLiveController::class, 'answer'])->middleware('throttle:60,1')->name('arena.live.answer');
-        // Template / tim / PDF / offline (Fase 3)
-        Route::post('/{classroom}/arena-belajar/{quiz}/template', [GameTemplateController::class, 'setTemplate'])->name('arena.template');
-        Route::get('/{classroom}/arena-belajar/{quiz}/template/main', [GameTemplateController::class, 'playTemplate'])->name('arena.template.play');
-        Route::get('/{classroom}/arena-belajar/{quiz}/tim', [GameTemplateController::class, 'teams'])->name('arena.teams');
-        Route::post('/{classroom}/arena-belajar/{quiz}/tim', [GameTemplateController::class, 'saveTeams'])->name('arena.teams.save');
-        Route::get('/{classroom}/arena-belajar/{quiz}/tim/podium', [GameTemplateController::class, 'teamLeaderboard'])->name('arena.teams.board');
-        Route::get('/{classroom}/arena-belajar/{quiz}/pdf', [GameTemplateController::class, 'pdf'])->name('arena.pdf');
-        Route::post('/{classroom}/arena-belajar/{quiz}/sync-offline', [GameTemplateController::class, 'syncOffline'])->middleware('throttle:30,1')->name('arena.sync');
+        // Arena Belajar — gate modul terpisah dari akademik
+        Route::middleware('modul:arena_belajar')->group(function () {
+            Route::get('/{classroom}/arena-belajar/buat', [GameQuizController::class, 'create'])->name('arena.create');
+            Route::post('/{classroom}/arena-belajar', [GameQuizController::class, 'store'])->middleware('throttle:30,1')->name('arena.store');
+            Route::post('/{classroom}/arena-belajar/impor-preview', [GameQuizController::class, 'importPreview'])->middleware('throttle:20,1')->name('arena.import');
+            Route::get('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'show'])->name('arena.show');
+            Route::get('/{classroom}/arena-belajar/{quiz}/edit', [GameQuizController::class, 'edit'])->name('arena.edit');
+            Route::post('/{classroom}/arena-belajar/{quiz}/update', [GameQuizController::class, 'update'])->middleware('throttle:30,1')->name('arena.update');
+            Route::post('/{classroom}/arena-belajar/{quiz}/terbit', [GameQuizController::class, 'publish'])->name('arena.publish');
+            Route::delete('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'destroy'])->name('arena.destroy');
+            Route::get('/{classroom}/arena-belajar/{quiz}/hasil', [GameQuizController::class, 'results'])->name('arena.results');
+            Route::post('/{classroom}/arena-belajar/{quiz}/transfer-nilai', [GameQuizController::class, 'transferGrades'])->name('arena.transfer');
+            Route::post('/{classroom}/arena-belajar/{quiz}/mulai', [GameAttemptController::class, 'start'])->middleware('throttle:30,1')->name('arena.start');
+            Route::get('/{classroom}/arena-belajar/{quiz}/main/{attempt}', [GameAttemptController::class, 'play'])->name('arena.play');
+            Route::post('/{classroom}/arena-belajar/{quiz}/main/{attempt}/jawab', [GameAttemptController::class, 'saveAnswer'])->middleware('throttle:60,1')->name('arena.answer');
+            Route::post('/{classroom}/arena-belajar/{quiz}/main/{attempt}/kumpul', [GameAttemptController::class, 'submit'])->middleware('throttle:20,1')->name('arena.submit');
+            Route::get('/{classroom}/arena-belajar/{quiz}/hasil-saya/{attempt}', [GameAttemptController::class, 'result'])->name('arena.result');
+            Route::get('/{classroom}/arena-belajar/{quiz}/live', [GameLiveController::class, 'show'])->name('arena.live');
+            Route::post('/{classroom}/arena-belajar/{quiz}/live/mulai', [GameLiveController::class, 'start'])->middleware('throttle:20,1')->name('arena.live.start');
+            Route::post('/{classroom}/arena-belajar/{quiz}/live/maju', [GameLiveController::class, 'advance'])->middleware('throttle:60,1')->name('arena.live.advance');
+            Route::post('/{classroom}/arena-belajar/{quiz}/live/akhiri', [GameLiveController::class, 'end'])->name('arena.live.end');
+            Route::get('/{classroom}/arena-belajar/{quiz}/live/state', [GameLiveController::class, 'state'])->middleware('throttle:120,1')->name('arena.live.state');
+            Route::get('/{classroom}/arena-belajar/{quiz}/live/podium', [GameLiveController::class, 'leaderboard'])->middleware('throttle:120,1')->name('arena.live.leaderboard');
+            Route::post('/{classroom}/arena-belajar/{quiz}/live/jawab', [GameLiveController::class, 'answer'])->middleware('throttle:60,1')->name('arena.live.answer');
+            Route::post('/{classroom}/arena-belajar/{quiz}/template', [GameTemplateController::class, 'setTemplate'])->name('arena.template');
+            Route::get('/{classroom}/arena-belajar/{quiz}/template/main', [GameTemplateController::class, 'playTemplate'])->name('arena.template.play');
+            Route::get('/{classroom}/arena-belajar/{quiz}/tim', [GameTemplateController::class, 'teams'])->name('arena.teams');
+            Route::post('/{classroom}/arena-belajar/{quiz}/tim', [GameTemplateController::class, 'saveTeams'])->name('arena.teams.save');
+            Route::get('/{classroom}/arena-belajar/{quiz}/tim/podium', [GameTemplateController::class, 'teamLeaderboard'])->name('arena.teams.board');
+            Route::get('/{classroom}/arena-belajar/{quiz}/pdf', [GameTemplateController::class, 'pdf'])->name('arena.pdf');
+            Route::post('/{classroom}/arena-belajar/{quiz}/sync-offline', [GameTemplateController::class, 'syncOffline'])->middleware('throttle:30,1')->name('arena.sync');
+        });
 
         // Ruang mapel (auto-provisioned) + halaman tambah konten terpisah
         Route::get('/{classroom}/materi/buat', [ClassroomMaterialController::class, 'create'])->name('material.create');
@@ -384,7 +400,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Ekskul (pembina/guru & admin; CRUD master admin-only di controller) ───
-    Route::controller(EkskulController::class)->group(function () {
+    Route::middleware('modul:akademik')->controller(EkskulController::class)->group(function () {
         Route::get('/ekskul', 'index')->name('ekskul.index');
         Route::post('/ekskul', 'store')->name('ekskul.store');
         Route::put('/ekskul/{uuid}', 'update')->name('ekskul.update');
@@ -394,7 +410,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Perangkat Ajar (guru upload sendiri; monitoring via permission manage_perangkat, guard di controller) ───
-    Route::prefix('perangkat-ajar')->name('perangkat.')->controller(PerangkatAjarController::class)->group(function () {
+    Route::middleware('modul:akademik')->prefix('perangkat-ajar')->name('perangkat.')->controller(PerangkatAjarController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/saya', 'self')->name('self');
         Route::post('/jenis', 'store')->name('jenis.store');
@@ -409,7 +425,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Kalender Absensi & Agenda (admin & kurikulum; guard di controller) ───
-    Route::prefix('kalender-absensi')->name('kalender.')->controller(KalenderController::class)->group(function () {
+    Route::middleware('modul:absensi')->prefix('kalender-absensi')->name('kalender.')->controller(KalenderController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::post('/toggle', 'toggle')->name('toggle');
         Route::post('/bulk', 'bulk')->name('bulk');
@@ -417,7 +433,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── 7 KAIH (siswa isi harian sebelum absen; rekap walikelas/admin; soal admin/kurikulum) ───
-    Route::prefix('kaih')->name('kaih.')->controller(KaihController::class)->group(function () {
+    Route::middleware('modul:absensi')->prefix('kaih')->name('kaih.')->controller(KaihController::class)->group(function () {
         Route::get('/isi', 'isi')->name('isi');
         Route::post('/isi', 'simpan')->name('simpan');
         Route::get('/rekap', 'rekap')->name('rekap');
@@ -434,7 +450,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Agenda Guru (guru mengisi; rekap utk admin/kepala/kurikulum) ───
-    Route::prefix('agenda')->name('agenda.')->controller(AgendaController::class)->group(function () {
+    Route::middleware('modul:agenda')->prefix('agenda')->name('agenda.')->controller(AgendaController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/slots', 'slots')->name('slots');           // AJAX: jadwal per tanggal
         Route::get('/siswa', 'siswa')->name('siswa');           // AJAX: siswa per jadwal
@@ -450,7 +466,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Agenda Rapat / Notulen Rapat — admin/kurikulum/kepala atau guru sekretaris ───
-    Route::prefix('rapat')->name('rapat.')->controller(RapatController::class)->group(function () {
+    Route::middleware('modul:agenda')->prefix('rapat')->name('rapat.')->controller(RapatController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/buat', 'create')->name('create');
         Route::post('/', 'store')->name('store');
@@ -469,7 +485,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Poin/Aturan (lama, ledger basis 100) — dua sistem, dipilih di Pengaturan ───
-    Route::prefix('poin')->name('poin.')->group(function () {
+    Route::middleware('modul:disiplin')->prefix('poin')->name('poin.')->group(function () {
         // Guard peran kini ditangani langsung di PoinController (RBAC)
         Route::group([], function () {
             Route::get('/', [PoinController::class, 'index'])->name('index');
@@ -513,7 +529,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── P3: Pelanggaran, Prestasi, Partisipasi (baru, akumulatif per semester) ───
-    Route::prefix('p3')->name('p3.')->group(function () {
+    Route::middleware('modul:disiplin')->prefix('p3')->name('p3.')->group(function () {
         // Guard peran kini ditangani langsung di P3Controller (RBAC)
         Route::group([], function () {
             Route::get('/', [P3Controller::class, 'index'])->name('index');
@@ -556,7 +572,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     //     ditangani langsung di AbsensiController (canAccess('manage_absensi') || walikelas),
     //     JANGAN pasang middleware permission: di sini, nanti wali kelas dgn access role lain
     //     (mis. kesiswaan/guru) yg belum diberi izin manage_absensi malah keblokir duluan. ───
-    Route::group([], function () {
+    Route::middleware('modul:absensi')->group(function () {
         Route::get('/absensi', [AbsensiController::class, 'index'])->name('absensi.index');
         Route::post('/absensi', [AbsensiController::class, 'store'])->name('absensi.store');
         Route::get('/absensi/rekap', [AbsensiController::class, 'rekap'])->name('absensi.rekap');
@@ -585,8 +601,10 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::resource('siswa', SiswaController::class);
 
         // ─── Alumni ───
-        Route::get('/alumni', [AlumniController::class, 'index'])->name('alumni.index');
-        Route::post('/alumni/luluskan', [AlumniController::class, 'luluskan'])->name('alumni.luluskan');
+        Route::middleware('modul:alumni')->group(function () {
+            Route::get('/alumni', [AlumniController::class, 'index'])->name('alumni.index');
+            Route::post('/alumni/luluskan', [AlumniController::class, 'luluskan'])->name('alumni.luluskan');
+        });
 
         Route::get('/guru/template', [GuruController::class, 'template'])->name('guru.template');
         Route::get('/guru/import', [GuruController::class, 'importForm'])->name('guru.import.form');
@@ -625,15 +643,17 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/siswa/import/kredensial', [SiswaController::class, 'importKredensial'])->name('siswa.import.kredensial');
 
         // Kartu Pelajar Digital — kelola per siswa (admin)
-        Route::get('/kartu-pelajar/kelola', [KartuPelajarController::class, 'kelola'])->name('kartu-pelajar.kelola');
-        Route::get('/kartu-pelajar/kelola/cetak', [KartuPelajarController::class, 'cetakTingkat'])->name('kartu-pelajar.cetak');
-        Route::post('/kartu-pelajar/kelola/{siswa}', [KartuPelajarController::class, 'store'])->name('kartu-pelajar.store');
-        Route::get('/kartu-pelajar/kelola/{siswa}/lihat', [KartuPelajarController::class, 'lihatAdmin'])->name('kartu-pelajar.kelola.lihat');
-        Route::delete('/kartu-pelajar/kelola/{siswa}', [KartuPelajarController::class, 'destroy'])->name('kartu-pelajar.destroy');
+        Route::middleware('modul:kartu_pelajar')->group(function () {
+            Route::get('/kartu-pelajar/kelola', [KartuPelajarController::class, 'kelola'])->name('kartu-pelajar.kelola');
+            Route::get('/kartu-pelajar/kelola/cetak', [KartuPelajarController::class, 'cetakTingkat'])->name('kartu-pelajar.cetak');
+            Route::post('/kartu-pelajar/kelola/{siswa}', [KartuPelajarController::class, 'store'])->name('kartu-pelajar.store');
+            Route::get('/kartu-pelajar/kelola/{siswa}/lihat', [KartuPelajarController::class, 'lihatAdmin'])->name('kartu-pelajar.kelola.lihat');
+            Route::delete('/kartu-pelajar/kelola/{siswa}', [KartuPelajarController::class, 'destroy'])->name('kartu-pelajar.destroy');
+        });
     });
 
     // ─── Cetak Data (admin only) — export Excel siswa/guru/kelas/absensi guru/agenda/nilai ───
-    Route::middleware('role:admin')->prefix('cetak')->name('cetak.')->controller(CetakController::class)->group(function () {
+    Route::middleware(['role:admin', 'modul:cetak'])->prefix('cetak')->name('cetak.')->controller(CetakController::class)->group(function () {
         Route::get('/siswa', 'siswa')->name('siswa.index');
         Route::get('/siswa/{params}', 'cetakSiswa')->name('siswa.excel');
         Route::get('/guru', 'guru')->name('guru.index');
@@ -659,7 +679,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/penjabaran/{params}', 'cetakPenjabaran')->name('penjabaran.excel');
     });
 
-    Route::middleware('permission:manage_jadwal')->group(function () {
+    Route::middleware(['permission:manage_jadwal', 'modul:akademik'])->group(function () {
         // Jadwal Pelajaran — editor grid per hari + generate + master jam
         Route::get('/jadwal', [JadwalController::class, 'index'])->name('jadwal.index');
         Route::get('/jadwal/kelas', [JadwalController::class, 'kelasView'])->name('jadwal.kelas');
@@ -674,7 +694,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     });
 
-    Route::middleware('permission:manage_absensi')->group(function () {
+    Route::middleware(['permission:manage_absensi', 'modul:absensi'])->group(function () {
         // Absensi wajah (face recognition)
         Route::get('/absensi/wajah', [AbsensiController::class, 'wajah'])->name('absensi.wajah');
         Route::get('/absensi/wajah-guru', [AbsensiController::class, 'wajahGuru'])->name('absensi.wajah-guru');
@@ -720,6 +740,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
             // Unduh Aplikasi (upload APK + Installer Windows)
             Route::post('/app-download', 'setAppDownload')->name('setting.appDownload');
+            Route::post('/fitur', 'updateFitur')->name('setting.fitur');
 
             // Role Permissions
             Route::get('/roles', 'roles')->name('setting.roles');
@@ -734,19 +755,19 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Kartu Pelajar Digital: milik siswa yang login ─────────────────────
-    Route::controller(KartuPelajarController::class)->group(function () {
+    Route::middleware('modul:kartu_pelajar')->controller(KartuPelajarController::class)->group(function () {
         Route::get('/kartu-pelajar', 'self')->name('kartu-pelajar.self');
         Route::get('/kartu-pelajar/lihat', 'lihatSelf')->name('kartu-pelajar.lihat');
         Route::get('/kartu-pelajar/unduh', 'unduhSelf')->name('kartu-pelajar.unduh');
     });
 
     // ─── Akses Jadwal per Guru (Admin + Ekstra Role) ───────────────────────
-    Route::middleware('role:admin,kurikulum,kepala,kesiswaan,sapras,guru,walikelas')->group(function () {
+    Route::middleware(['role:admin,kurikulum,kepala,kesiswaan,sapras,guru,walikelas', 'modul:akademik'])->group(function () {
         Route::get('/jadwal/guru', [JadwalController::class, 'guruView'])->name('jadwal.guru');
     });
 
     // ─── Keuangan: Bendahara (juga admin/superadmin) ───────────────────────
-    Route::middleware('permission:manage_keuangan')->prefix('keuangan')->name('keuangan.')->group(function () {
+    Route::middleware(['permission:manage_keuangan', 'modul:keuangan'])->prefix('keuangan')->name('keuangan.')->group(function () {
         Route::get('/', [KeuanganController::class, 'index'])->name('index');
         Route::get('/verifikasi', [KeuanganController::class, 'verifikasi'])->name('verifikasi');
         Route::post('/verifikasi/verify', [KeuanganController::class, 'verifyBatch'])->name('verify-batch');
@@ -762,7 +783,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── Keuangan: Tagihan SPP siswa & orang tua ───────────────────────────
-    Route::prefix('tagihan-spp')->name('keuangan.tagihan.')->group(function () {
+    Route::middleware('modul:keuangan')->prefix('tagihan-spp')->name('keuangan.tagihan.')->group(function () {
         Route::get('/', [TagihanController::class, 'index'])->name('index');
         // Streaming bukti dari disk privat (auth + cek role/kepemilikan). Sebelum {pembayaran}.
         Route::get('/{pembayaran}/bukti-file', [TagihanController::class, 'buktiFile'])->name('bukti');
@@ -775,12 +796,13 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 // Sengaja DI LUAR gate EnsureFaceRegistered agar widget chat selalu bisa diakses.
 
 // Widget penanya (siswa & orang tua).
-Route::middleware(['auth', 'chatbot.user'])->group(function () {
+Route::middleware(['auth', 'chatbot.user', 'modul:chatbot'])->group(function () {
     Route::get('/chatbot', [ChatbotController::class, 'show'])->name('chatbot.show');
-    Route::post('/chatbot/send', [ChatbotController::class, 'send'])->name('chatbot.send');
-    Route::post('/chatbot/upload', [ChatbotController::class, 'upload'])->name('chatbot.upload');
-    Route::post('/chatbot/upload-file', [ChatbotController::class, 'uploadFile'])->name('chatbot.upload-file');
-    Route::get('/chatbot/poll', [ChatbotController::class, 'poll'])->name('chatbot.poll');
+    Route::post('/chatbot/send', [ChatbotController::class, 'send'])->middleware('throttle:30,1')->name('chatbot.send');
+    Route::post('/chatbot/upload', [ChatbotController::class, 'upload'])->middleware('throttle:30,1')->name('chatbot.upload');
+    Route::post('/chatbot/upload-file', [ChatbotController::class, 'uploadFile'])->middleware('throttle:30,1')->name('chatbot.upload-file');
+    Route::get('/chatbot/poll', [ChatbotController::class, 'poll'])->middleware('throttle:60,1')->name('chatbot.poll');
+    Route::get('/chatbot/attachment/{message}', [ChatbotController::class, 'attachment'])->name('chatbot.attachment');
     Route::get('/chatbot/unread', [ChatbotController::class, 'unread'])->name('chatbot.unread');
 
     // Handoff sisi user.
@@ -789,15 +811,15 @@ Route::middleware(['auth', 'chatbot.user'])->group(function () {
 });
 
 // Inbox admin (hanya admin/superadmin).
-Route::middleware(['auth', 'role:admin'])->prefix('chatbot/admin')->name('chatbot.admin.')->group(function () {
+Route::middleware(['auth', 'role:admin', 'modul:chatbot'])->prefix('chatbot/admin')->name('chatbot.admin.')->group(function () {
     Route::get('/inbox', [ChatbotAdminController::class, 'inbox'])->name('inbox');
     Route::get('/queue', [ChatbotAdminController::class, 'queue'])->name('queue');
     Route::get('/history', [ChatbotAdminController::class, 'history'])->name('history');
     Route::get('/{conversation}/messages', [ChatbotAdminController::class, 'messages'])->name('messages');
     Route::post('/{conversation}/assign', [ChatbotAdminController::class, 'assign'])->name('assign');
     Route::post('/{conversation}/reply', [ChatbotAdminController::class, 'reply'])->name('reply');
-    Route::post('/{conversation}/reply-image', [ChatbotAdminController::class, 'replyImage'])->name('reply-image');
-    Route::post('/{conversation}/reply-file', [ChatbotAdminController::class, 'replyFile'])->name('reply-file');
+    Route::post('/{conversation}/reply-image', [ChatbotAdminController::class, 'replyImage'])->middleware('throttle:60,1')->name('reply-image');
+    Route::post('/{conversation}/reply-file', [ChatbotAdminController::class, 'replyFile'])->middleware('throttle:60,1')->name('reply-file');
     Route::post('/{conversation}/back-to-bot', [ChatbotAdminController::class, 'backToBot'])->name('back-to-bot');
     Route::post('/{conversation}/close', [ChatbotAdminController::class, 'close'])->name('close');
     Route::delete('/{conversation}', [ChatbotAdminController::class, 'destroy'])->name('destroy');

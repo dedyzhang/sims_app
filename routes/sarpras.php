@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Route;
 | Otorisasi granular via middleware 'can:...' (Gate native SIMS — lihat
 | App\Sarpras\SarprasServiceProvider yang memetakan tiap izin ke users.access).
 */
-Route::middleware(['web', 'auth'])->prefix('sarpras')->name('sarpras.')->group(function () {
+Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sarpras.')->group(function () {
 
     Route::get('/', [DashboardController::class, 'index'])
         ->middleware('can:sarpras.dashboard.lihat')->name('dashboard');

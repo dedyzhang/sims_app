@@ -423,16 +423,22 @@
             @php
                 // $access/$isAdmin sudah dihitung di atas (dekat $kioskChrome), dipakai lagi di sini.
                 // Grup menu: key => [label, ikon, items[]]; item = [route, [pattern...], ikon, label]
+                // ModulAktif: on/off per sekolah dari Pengaturan → Fitur (default aktif).
+                $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
                 $groups = [];
                 if ($isAdmin || auth()->user()?->canAccess('manage_users')) {
                     $masterItems = [];
                     if ($isAdmin || auth()->user()?->canAccess('manage_users')) {
                         $masterItems[] = ['guru.index',      ['guru.*'],            'users',          'Data Guru'];
                         $masterItems[] = ['siswa.index',     ['siswa.*'],           'graduation-cap', 'Data Siswa'];
-                        $masterItems[] = ['alumni.index',    ['alumni.*'],          'award',          'Data Alumni'];
+                        if ($modulOn('alumni')) {
+                            $masterItems[] = ['alumni.index',    ['alumni.*'],          'award',          'Data Alumni'];
+                        }
                         $masterItems[] = ['kelas.index',     ['kelas.*'],           'door-open',      'Data Kelas'];
                         $masterItems[] = ['pelajaran.index', ['pelajaran.*'],       'book-open-text', 'Mata Pelajaran'];
-                        $masterItems[] = ['kartu-pelajar.kelola', ['kartu-pelajar.kelola'], 'id-card', 'Kartu Pelajar'];
+                        if ($modulOn('kartu_pelajar')) {
+                            $masterItems[] = ['kartu-pelajar.kelola', ['kartu-pelajar.kelola'], 'id-card', 'Kartu Pelajar'];
+                        }
                     }
                     if (!empty($masterItems)) {
                         $groups['master'] = ['Data Master', 'database', $masterItems];
@@ -440,73 +446,78 @@
                 }
 
                 // ── Absensi & Presensi ──
-                $presensiItems = [];
-                if ($isAdmin || auth()->user()?->canAccess('manage_absensi')) {
-                    $presensiItems[] = ['kalender.index', ['kalender.*'], 'calendar-days', 'Kalender Absensi'];
-                    $presensiItems[] = ['absensi.index',       ['absensi.*'],       'clipboard-check', 'Absensi Siswa'];
-                    $presensiItems[] = ['presensi-guru.index', ['presensi-guru.*'], 'user-check',      'Presensi Guru'];
-                    $presensiItems[] = ['wajah.galeri',        ['wajah.*'],         'scan-face',       'Validasi Wajah'];
-                    $presensiItems[] = ['qr.absensi',          ['qr.*'],            'qr-code',         'QR Absensi'];
-                }
-                // 7 KAIH: siswa isi sendiri tiap pagi; walikelas/admin lihat rekap; admin/kurikulum kelola soal.
-                if (auth()->user()?->siswa) {
-                    $presensiItems[] = ['kaih.isi', ['kaih.isi'], 'heart-handshake', 'Isi 7 KAIH'];
-                }
-                if ($isAdmin || auth()->user()?->canAccess('manage_kaih')) {
-                    $presensiItems[] = ['kaih.rekap', ['kaih.rekap', 'kaih.override.*'], 'list-checks', 'Rekap 7 KAIH'];
-                }
-                if ($isAdmin || auth()->user()?->canAccess('manage_kaih')) {
-                    $presensiItems[] = ['kaih.soal', ['kaih.soal', 'kaih.opsi.*'], 'settings-2', 'Soal 7 KAIH'];
-                }
-                if (!empty($presensiItems)) {
-                    $groups['presensi'] = ['Absensi & Presensi', 'clipboard-check', $presensiItems];
+                if ($modulOn('absensi')) {
+                    $presensiItems = [];
+                    if ($isAdmin || auth()->user()?->canAccess('manage_absensi')) {
+                        $presensiItems[] = ['kalender.index', ['kalender.*'], 'calendar-days', 'Kalender Absensi'];
+                        $presensiItems[] = ['absensi.index',       ['absensi.*'],       'clipboard-check', 'Absensi Siswa'];
+                        $presensiItems[] = ['presensi-guru.index', ['presensi-guru.*'], 'user-check',      'Presensi Guru'];
+                        $presensiItems[] = ['wajah.galeri',        ['wajah.*'],         'scan-face',       'Validasi Wajah'];
+                        $presensiItems[] = ['qr.absensi',          ['qr.*'],            'qr-code',         'QR Absensi'];
+                    }
+                    // 7 KAIH: siswa isi sendiri tiap pagi; walikelas/admin lihat rekap; admin/kurikulum kelola soal.
+                    if (auth()->user()?->siswa) {
+                        $presensiItems[] = ['kaih.isi', ['kaih.isi'], 'heart-handshake', 'Isi 7 KAIH'];
+                    }
+                    if ($isAdmin || auth()->user()?->canAccess('manage_kaih')) {
+                        $presensiItems[] = ['kaih.rekap', ['kaih.rekap', 'kaih.override.*'], 'list-checks', 'Rekap 7 KAIH'];
+                    }
+                    if ($isAdmin || auth()->user()?->canAccess('manage_kaih')) {
+                        $presensiItems[] = ['kaih.soal', ['kaih.soal', 'kaih.opsi.*'], 'settings-2', 'Soal 7 KAIH'];
+                    }
+                    if (!empty($presensiItems)) {
+                        $groups['presensi'] = ['Absensi & Presensi', 'clipboard-check', $presensiItems];
+                    }
                 }
 
                 // ── Akademik ──
                 $akademik = [];
-                if ($access !== 'orangtua') {
-                    $akademik[] = ['classroom.index', ['classroom.*'], 'graduation-cap', 'Ruang Kelas'];
-                }
-                
-                if ($isAdmin || auth()->user()?->canAccess('manage_jadwal')) {
-                    $akademik[] = ['jadwal.index', ['jadwal.*'], 'calendar-clock', 'Jadwal Pelajaran'];
-                } elseif (auth()->user()?->guru) {
-                    $akademik[] = ['jadwal.guru', ['jadwal.guru'], 'calendar-clock', 'Jadwal Mengajar'];
-                }
-                
-                if ($isAdmin || auth()->user()?->canAccess('view_all_nilai')) {
-                    $akademik[] = ['nilai.index', ['nilai.*'], 'pencil-line', 'Penilaian'];
-                    $akademik[] = ['ekskul.index', ['ekskul.*'], 'volleyball', 'Ekstrakurikuler'];
-                } elseif (auth()->user()?->guru) {
-                    $akademik[] = ['nilai.index', ['nilai.*'], 'pencil-line', 'Buku Guru'];
-                    $akademik[] = ['ekskul.index', ['ekskul.*'], 'volleyball', 'Ekstrakurikuler'];
-                }
-                
-                if ($isAdmin || auth()->user()?->canAccess('manage_rapor')) {
-                    $akademik[] = ['rekap.nilai', ['rekap.*'], 'table-2', 'Rekap Nilai'];
-                    $akademik[] = ['cetak.rapor.index', ['cetak.*'], 'printer', 'Cetak Rapor'];
+                if ($modulOn('akademik')) {
+                    if ($access !== 'orangtua') {
+                        $akademik[] = ['classroom.index', ['classroom.*'], 'graduation-cap', 'Ruang Kelas'];
+                    }
+
+                    if ($isAdmin || auth()->user()?->canAccess('manage_jadwal')) {
+                        $akademik[] = ['jadwal.index', ['jadwal.*'], 'calendar-clock', 'Jadwal Pelajaran'];
+                    } elseif (auth()->user()?->guru) {
+                        $akademik[] = ['jadwal.guru', ['jadwal.guru'], 'calendar-clock', 'Jadwal Mengajar'];
+                    }
+
+                    if ($isAdmin || auth()->user()?->canAccess('view_all_nilai')) {
+                        $akademik[] = ['nilai.index', ['nilai.*'], 'pencil-line', 'Penilaian'];
+                        $akademik[] = ['ekskul.index', ['ekskul.*'], 'volleyball', 'Ekstrakurikuler'];
+                    } elseif (auth()->user()?->guru) {
+                        $akademik[] = ['nilai.index', ['nilai.*'], 'pencil-line', 'Buku Guru'];
+                        $akademik[] = ['ekskul.index', ['ekskul.*'], 'volleyball', 'Ekstrakurikuler'];
+                    }
+
+                    if ($isAdmin || auth()->user()?->canAccess('manage_rapor')) {
+                        $akademik[] = ['rekap.nilai', ['rekap.*'], 'table-2', 'Rekap Nilai'];
+                        $akademik[] = ['cetak.rapor.index', ['cetak.*'], 'printer', 'Cetak Rapor'];
+                    }
+
+                    if ($isAdmin || auth()->user()?->canAccess('manage_perangkat')) {
+                        $akademik[] = ['perangkat.index', ['perangkat.index', 'perangkat.show'], 'folder-check', 'Perangkat Ajar'];
+                    } elseif (auth()->user()?->guru) {
+                        $akademik[] = ['perangkat.self', ['perangkat.self', 'perangkat.show'], 'folder-check', 'Perangkat Ajar Saya'];
+                    }
+
+                    if (auth()->user()?->siswa || $access === 'orangtua') {
+                        $akademik[] = ['nilai.self', ['nilai.self'], 'chart-column', 'Nilai Saya'];
+                    }
                 }
 
-                if ($isAdmin || auth()->user()?->canAccess('manage_perangkat')) {
-                    $akademik[] = ['perangkat.index', ['perangkat.index', 'perangkat.show'], 'folder-check', 'Perangkat Ajar'];
-                } elseif (auth()->user()?->guru) {
-                    $akademik[] = ['perangkat.self', ['perangkat.self', 'perangkat.show'], 'folder-check', 'Perangkat Ajar Saya'];
+                // Asisten Guru: guru mapel, wali kelas, Kepala Sekolah, semua Waka — bukan siswa/orang tua
+                if ($modulOn('asisten_guru') && in_array($access, ['guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sapras'], true)) {
+                    $akademik[] = ['ai.teacher.index', ['ai.teacher.*'], 'sparkles', 'Asisten Guru'];
                 }
 
-                // AI Asisten: guru, Kepala Sekolah, semua Waka — bukan siswa/orang tua
-                if (in_array($access, ['guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sapras'], true)) {
-                    $akademik[] = ['ai.teacher.index', ['ai.teacher.*'], 'sparkles', 'AI Asisten SIMS'];
-                }
-                if (auth()->user()?->siswa || $access === 'orangtua') {
-                    $akademik[] = ['nilai.self', ['nilai.self'], 'chart-column', 'Nilai Saya'];
-                }
-                
                 if (!empty($akademik)) {
                     $groups['akademik'] = ['Akademik', 'book-open-check', $akademik];
                 }
 
                 // ── Analisis AI (Fase 4) — narasi data untuk pimpinan/staf ──
-                if ($isAdmin || in_array($access, ['kepala', 'kurikulum', 'kesiswaan'])) {
+                if ($modulOn('analisis_ai') && ($isAdmin || in_array($access, ['kepala', 'kurikulum', 'kesiswaan']))) {
                     $groups['analisis'] = ['Analisis AI', 'sparkles', [
                         ['ai.analyze.index', ['ai.analyze.*'], 'chart-line', 'Narasi Data AI'],
                         ['ai.rag.index',     ['ai.rag.*'],     'file-search', 'Dokumen AI'],
@@ -514,57 +525,61 @@
                 }
 
                 // ── Agenda ──
-                $agendaItems = [];
-                if (auth()->user()?->guru) {
-                    $agendaItems[] = ['agenda.index', ['agenda.index','agenda.create','agenda.edit'], 'clipboard-pen-line', 'Agenda Guru'];
-                }
-                if ($isAdmin || auth()->user()?->canAccess('manage_agenda')) {
-                    $agendaItems[] = ['agenda.rekap', ['agenda.rekap','agenda.validasi'], 'calendar-check-2', 'Rekap Agenda'];
-                    $agendaItems[] = ['agenda.batas', ['agenda.batas'], 'book-open-text', 'Buku Batas'];
-                }
-                // Agenda Rapat: semua guru/staff boleh lihat; kelola penuh utk admin/manage_rapat/sekretaris rapat.
-                if (auth()->user()?->guru || $isAdmin || auth()->user()?->canAccess('manage_rapat') || in_array($access, ['kesiswaan','sarpras','kurikulum','kepala'])) {
-                    $agendaItems[] = ['rapat.index', ['rapat.*'], 'users-round', 'Agenda Rapat'];
-                }
-                if (!empty($agendaItems)) {
-                    $groups['agenda'] = ['Agenda', 'notebook-pen', $agendaItems];
+                if ($modulOn('agenda')) {
+                    $agendaItems = [];
+                    if (auth()->user()?->guru) {
+                        $agendaItems[] = ['agenda.index', ['agenda.index','agenda.create','agenda.edit'], 'clipboard-pen-line', 'Agenda Guru'];
+                    }
+                    if ($isAdmin || auth()->user()?->canAccess('manage_agenda')) {
+                        $agendaItems[] = ['agenda.rekap', ['agenda.rekap','agenda.validasi'], 'calendar-check-2', 'Rekap Agenda'];
+                        $agendaItems[] = ['agenda.batas', ['agenda.batas'], 'book-open-text', 'Buku Batas'];
+                    }
+                    // Agenda Rapat: semua guru/staff boleh lihat; kelola penuh utk admin/manage_rapat/sekretaris rapat.
+                    if (auth()->user()?->guru || $isAdmin || auth()->user()?->canAccess('manage_rapat') || in_array($access, ['kesiswaan','sarpras','kurikulum','kepala'])) {
+                        $agendaItems[] = ['rapat.index', ['rapat.*'], 'users-round', 'Agenda Rapat'];
+                    }
+                    if (!empty($agendaItems)) {
+                        $groups['agenda'] = ['Agenda', 'notebook-pen', $agendaItems];
+                    }
                 }
 
                 // ── Kedisiplinan ──
                 $jenisAturan = \App\Models\Setting::get('jenis_aturan', 'p3');
-                $bolehKelolaDisiplin = $isAdmin || auth()->user()?->canAccess('manage_disiplin');
-                $bolehAjukanDisiplin = auth()->user()?->guru || (auth()->user()?->siswa && \App\Models\Sekretaris::where('id_siswa', auth()->user()->siswa->uuid)->exists());
-                $bolehLihatDisiplin = auth()->user()?->siswa || $access === 'orangtua';
+                if ($modulOn('disiplin')) {
+                    $bolehKelolaDisiplin = $isAdmin || auth()->user()?->canAccess('manage_disiplin');
+                    $bolehAjukanDisiplin = auth()->user()?->guru || (auth()->user()?->siswa && \App\Models\Sekretaris::where('id_siswa', auth()->user()->siswa->uuid)->exists());
+                    $bolehLihatDisiplin = auth()->user()?->siswa || $access === 'orangtua';
 
-                $disiplinItems = [];
-                if ($jenisAturan === 'poin') {
-                    if ($bolehKelolaDisiplin) {
-                        $disiplinItems[] = ['poin.index', ['poin.index', 'poin.create', 'poin.edit'], 'list-checks', 'Master Aturan'];
-                        $disiplinItems[] = ['poin.siswa.index', ['poin.siswa.*'], 'users', 'Poin Siswa'];
-                        $disiplinItems[] = ['poin.dashboard', ['poin.dashboard'], 'trophy', 'Dashboard Kedisiplinan'];
-                        $disiplinItems[] = ['poin.temp.index', ['poin.temp.*'], 'inbox', 'Pengajuan Poin'];
+                    $disiplinItems = [];
+                    if ($jenisAturan === 'poin') {
+                        if ($bolehKelolaDisiplin) {
+                            $disiplinItems[] = ['poin.index', ['poin.index', 'poin.create', 'poin.edit'], 'list-checks', 'Master Aturan'];
+                            $disiplinItems[] = ['poin.siswa.index', ['poin.siswa.*'], 'users', 'Poin Siswa'];
+                            $disiplinItems[] = ['poin.dashboard', ['poin.dashboard'], 'trophy', 'Dashboard Kedisiplinan'];
+                            $disiplinItems[] = ['poin.temp.index', ['poin.temp.*'], 'inbox', 'Pengajuan Poin'];
+                        }
+                        if ($bolehAjukanDisiplin) {
+                            $disiplinItems[] = ['poin.guru.index', ['poin.guru.*'], 'square-plus', 'Ajukan Poin'];
+                        }
+                        if ($bolehLihatDisiplin) {
+                            $disiplinItems[] = ['poin.self', ['poin.self'], 'user-round', 'Poin Saya'];
+                        }
+                    } else {
+                        if ($bolehKelolaDisiplin) {
+                            $disiplinItems[] = ['p3.index', ['p3.index', 'p3.create', 'p3.edit'], 'list-checks', 'Master Kategori'];
+                            $disiplinItems[] = ['p3.siswa.index', ['p3.siswa.*'], 'users', 'P3 Siswa'];
+                            $disiplinItems[] = ['p3.temp.index', ['p3.temp.*'], 'inbox', 'Pengajuan P3'];
+                        }
+                        if ($bolehAjukanDisiplin) {
+                            $disiplinItems[] = ['p3.guru.index', ['p3.guru.*'], 'square-plus', 'Ajukan P3'];
+                        }
+                        if ($bolehLihatDisiplin) {
+                            $disiplinItems[] = ['p3.self', ['p3.self'], 'user-round', 'P3 Saya'];
+                        }
                     }
-                    if ($bolehAjukanDisiplin) {
-                        $disiplinItems[] = ['poin.guru.index', ['poin.guru.*'], 'square-plus', 'Ajukan Poin'];
+                    if (!empty($disiplinItems)) {
+                        $groups['disiplin'] = [$jenisAturan === 'poin' ? 'Poin & Aturan' : 'P3 Kedisiplinan', 'shield-alert', $disiplinItems];
                     }
-                    if ($bolehLihatDisiplin) {
-                        $disiplinItems[] = ['poin.self', ['poin.self'], 'user-round', 'Poin Saya'];
-                    }
-                } else {
-                    if ($bolehKelolaDisiplin) {
-                        $disiplinItems[] = ['p3.index', ['p3.index', 'p3.create', 'p3.edit'], 'list-checks', 'Master Kategori'];
-                        $disiplinItems[] = ['p3.siswa.index', ['p3.siswa.*'], 'users', 'P3 Siswa'];
-                        $disiplinItems[] = ['p3.temp.index', ['p3.temp.*'], 'inbox', 'Pengajuan P3'];
-                    }
-                    if ($bolehAjukanDisiplin) {
-                        $disiplinItems[] = ['p3.guru.index', ['p3.guru.*'], 'square-plus', 'Ajukan P3'];
-                    }
-                    if ($bolehLihatDisiplin) {
-                        $disiplinItems[] = ['p3.self', ['p3.self'], 'user-round', 'P3 Saya'];
-                    }
-                }
-                if (!empty($disiplinItems)) {
-                    $groups['disiplin'] = [$jenisAturan === 'poin' ? 'Poin & Aturan' : 'P3 Kedisiplinan', 'shield-alert', $disiplinItems];
                 }
 
                 // ── Wali Kelas ──
@@ -572,50 +587,56 @@
                     $walikelasItems = [
                         ['walikelas.siswa.index', ['walikelas.siswa.*'], 'users-round', 'Data Siswa Kelas'],
                         ['walikelas.sekretaris.form', ['walikelas.sekretaris.*'], 'user-cog', 'Set Sekretaris'],
-                        ['absensi.index', ['absensi.index', 'absensi.store'], 'clipboard-check', 'Absensi Kelas Saya'],
-                        ['absensi.rekap', ['absensi.rekap'], 'calendar-check-2', 'Rekap Absensi Kelas'],
-                        ['kaih.rekap', ['kaih.rekap', 'kaih.override.*'], 'list-checks', 'Rekap 7 KAIH Kelas'],
                     ];
-                    $walikelasItems[] = $jenisAturan === 'poin'
-                        ? ['poin.siswa.index', ['poin.siswa.*'], 'shield-alert', 'Poin Siswa Kelas']
-                        : ['p3.siswa.index', ['p3.siswa.*'], 'shield-alert', 'P3 Siswa Kelas'];
-                    if (\App\Models\Setting::get('walikelas_lihat_nilai', '0') === '1') {
+                    if ($modulOn('absensi')) {
+                        $walikelasItems[] = ['absensi.index', ['absensi.index', 'absensi.store'], 'clipboard-check', 'Absensi Kelas Saya'];
+                        $walikelasItems[] = ['absensi.rekap', ['absensi.rekap'], 'calendar-check-2', 'Rekap Absensi Kelas'];
+                        $walikelasItems[] = ['kaih.rekap', ['kaih.rekap', 'kaih.override.*'], 'list-checks', 'Rekap 7 KAIH Kelas'];
+                    }
+                    if ($modulOn('disiplin')) {
+                        $walikelasItems[] = $jenisAturan === 'poin'
+                            ? ['poin.siswa.index', ['poin.siswa.*'], 'shield-alert', 'Poin Siswa Kelas']
+                            : ['p3.siswa.index', ['p3.siswa.*'], 'shield-alert', 'P3 Siswa Kelas'];
+                    }
+                    if ($modulOn('akademik') && \App\Models\Setting::get('walikelas_lihat_nilai', '0') === '1') {
                         $walikelasItems[] = ['walikelas.nilai.index', ['walikelas.nilai.*'], 'graduation-cap', 'Nilai Kelas Saya'];
                     }
-                    
-                    if (!$isAdmin && !auth()->user()?->canAccess('manage_rapor')) {
+
+                    if ($modulOn('akademik') && !$isAdmin && !auth()->user()?->canAccess('manage_rapor')) {
                         $walikelasItems[] = ['rekap.nilai', ['rekap.*'], 'table-2', 'Rekap Nilai'];
                         $walikelasItems[] = ['cetak.rapor.index', ['cetak.*'], 'printer', 'Cetak Rapor'];
                     }
-                    
+
                     $groups['walikelas'] = ['Wali Kelas', 'presentation', $walikelasItems];
                 }
 
                 // ── Sarana & Prasarana ──
-                $bolehKelolaSarpras = $isAdmin || auth()->user()?->canAccess('manage_sarpras');
-                if ($bolehKelolaSarpras) {
-                    $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
-                        ['sarpras.dashboard',        ['sarpras.dashboard'],                          'layout-dashboard', 'Dashboard Sarpras'],
-                        ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
-                        ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
-                        ['sarpras.aset.index',       ['sarpras.aset.*','sarpras.kategori.*'],        'package',          'Inventaris Barang'],
-                        ['sarpras.pengadaan.index',  ['sarpras.pengadaan.*'],                        'shopping-cart',    'Pengadaan Aset'],
-                        ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Aset'],
-                        ['sarpras.perbaikan.index',  ['sarpras.perbaikan.*','sarpras.teknisi.*','sarpras.jadwal.*'], 'wrench', 'Perbaikan & Teknisi'],
-                        ['sarpras.mutasi.index',     ['sarpras.mutasi.*','sarpras.penghapusan.*'],   'trash-2',          'Mutasi & Hapus'],
-                        ['sarpras.supplier.index',   ['sarpras.supplier.*'],                         'truck',            'Supplier'],
-                        ['sarpras.laporan.index',    ['sarpras.laporan.*'],                          'file-bar-chart',   'Laporan'],
-                    ]];
-                } elseif (auth()->user()?->guru || auth()->user()?->siswa || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris'])) {
-                    $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
-                        ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
-                        ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
-                        ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Aset'],
-                    ]];
+                if ($modulOn('sarpras')) {
+                    $bolehKelolaSarpras = $isAdmin || auth()->user()?->canAccess('manage_sarpras');
+                    if ($bolehKelolaSarpras) {
+                        $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
+                            ['sarpras.dashboard',        ['sarpras.dashboard'],                          'layout-dashboard', 'Dashboard Sarpras'],
+                            ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
+                            ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
+                            ['sarpras.aset.index',       ['sarpras.aset.*','sarpras.kategori.*'],        'package',          'Inventaris Barang'],
+                            ['sarpras.pengadaan.index',  ['sarpras.pengadaan.*'],                        'shopping-cart',    'Pengadaan Aset'],
+                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Aset'],
+                            ['sarpras.perbaikan.index',  ['sarpras.perbaikan.*','sarpras.teknisi.*','sarpras.jadwal.*'], 'wrench', 'Perbaikan & Teknisi'],
+                            ['sarpras.mutasi.index',     ['sarpras.mutasi.*','sarpras.penghapusan.*'],   'trash-2',          'Mutasi & Hapus'],
+                            ['sarpras.supplier.index',   ['sarpras.supplier.*'],                         'truck',            'Supplier'],
+                            ['sarpras.laporan.index',    ['sarpras.laporan.*'],                          'file-bar-chart',   'Laporan'],
+                        ]];
+                    } elseif (auth()->user()?->guru || auth()->user()?->siswa || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris'])) {
+                        $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
+                            ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
+                            ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
+                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Aset'],
+                        ]];
+                    }
                 }
 
                 // ── Keuangan ──
-                if ($isAdmin || auth()->user()?->canAccess('manage_keuangan')) {
+                if ($modulOn('keuangan') && ($isAdmin || auth()->user()?->canAccess('manage_keuangan'))) {
                     $groups['keuangan'] = ['Keuangan', 'wallet', [
                         ['keuangan.index',      ['keuangan.index','keuangan.kelas'], 'layout-dashboard', 'Pembayaran SPP'],
                         ['keuangan.verifikasi', ['keuangan.verifikasi'],             'badge-check',      'Verifikasi'],
@@ -624,7 +645,7 @@
                 }
 
                 // ── Cetak Data (export Excel: siswa, guru, kelas, absensi guru, agenda, nilai) ──
-                if ($isAdmin) {
+                if ($modulOn('cetak') && $isAdmin) {
                     $groups['cetak'] = ['Cetak Data', 'printer', [
                         ['cetak.siswa.index', ['cetak.siswa.*'], 'users-round', 'Data Siswa'],
                         ['cetak.guru.index', ['cetak.guru.*'], 'user-round', 'Data Guru'],
@@ -647,6 +668,10 @@
                         ['setting.index', ['setting.index', 'setting.kopRapor', 'setting.penjabaran', 'setting.tpRange'], 'settings-2', 'Pengaturan'],
                         ['setting.roles', ['setting.roles'], 'shield-check', 'Hak Akses (RBAC)'],
                     ]];
+                    // Langganan (lisensi) — hanya superadmin
+                    if ($access === 'superadmin') {
+                        $groups['sistem'][2][] = ['langganan.index', ['langganan.*'], 'badge-check', 'Langganan'];
+                    }
                 }
                 // (Akun Saya dipindah ke dropdown profil di navbar)
 
@@ -668,26 +693,29 @@
                 <i data-lucide="layout-dashboard" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Dashboard</span>
             </a>
-            @if(auth()->user()?->siswa || auth()->user()?->guru)
+            @if($modulOn('absensi') && (auth()->user()?->siswa || auth()->user()?->guru))
             <a href="{{ route('absen.qr') }}" data-tip="Absen QR" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('absen.qr') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="qr-code" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Absen QR</span>
             </a>
             @endif
-            @if(auth()->user()?->siswa)
+            @if($modulOn('kartu_pelajar') && auth()->user()?->siswa)
             <a href="{{ route('kartu-pelajar.self') }}" data-tip="Kartu Pelajar" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('kartu-pelajar.self') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="id-card" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Kartu Pelajar</span>
             </a>
             @endif
 
+            @if($modulOn('forum'))
             @can('viewAny', App\Models\ForumTopic::class)
             <a href="{{ route('forum.index') }}" data-tip="Forum Diskusi" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('forum.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="messages-square" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Forum Diskusi</span>
             </a>
             @endcan
+            @endif
 
+            @if($modulOn('pengumuman'))
             <a href="{{ route('pengumuman.index') }}" data-tip="Pengumuman" class="nav-link relative flex items-center px-3 py-2.5 {{ request()->routeIs('pengumuman.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="megaphone" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate flex-1">Pengumuman</span>
@@ -696,6 +724,7 @@
                 <span x-show="pengumumanUnread > 0 && mini" x-cloak
                       class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
             </a>
+            @endif
 
             {{-- Unduh Aplikasi: tampil untuk semua pengguna bila diaktifkan admin & ada file --}}
             @php
@@ -712,7 +741,7 @@
 
             {{-- Asisten Sekolah: untuk pengguna non-admin dipakai lewat floating ball
                  (lihat akhir layout). Admin tetap punya menu Inbox di sidebar. --}}
-            @if($isAdmin)
+            @if($modulOn('chatbot') && $isAdmin)
             <a href="{{ route('chatbot.admin.inbox') }}" data-tip="Chat / Inbox" class="nav-link relative flex items-center px-3 py-2.5 {{ request()->routeIs('chatbot.admin.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="message-circle" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate flex-1">Chat / Inbox</span>
@@ -724,7 +753,7 @@
             @endif
 
             {{-- Tagihan SPP: siswa & orang tua --}}
-            @if(auth()->user()?->siswa || auth()->user()?->access === 'orangtua')
+            @if($modulOn('keuangan') && (auth()->user()?->siswa || auth()->user()?->access === 'orangtua'))
             <a href="{{ route('keuangan.tagihan.index') }}" data-tip="Tagihan SPP" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('keuangan.tagihan.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="wallet" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Tagihan SPP</span>
@@ -959,6 +988,7 @@
         @endunless
 
         <main class="flex-1 overflow-y-auto px-5 md:px-7 py-4 flex flex-col">
+            @include('partials.langganan-banner')
             <div class="anim-fade flex-1">@yield('content')</div>
             {{-- Footer — selalu menempel di bawah berkat mt-auto (konten flex-1 mendorongnya turun) --}}
             @unless(View::hasSection('hide_page_footer'))
@@ -1189,7 +1219,7 @@
     @endif
 </div>
 
-@if(in_array($access, ['siswa', 'orangtua']) && !$kioskChrome)
+@if(\App\Support\ModulAktif::aktif('chatbot') && in_array($access, ['siswa', 'orangtua']) && !$kioskChrome)
 {{-- ─── Floating Asisten Sekolah ─────────────────────────────────────────────
      Bola mengambang khusus SISWA & ORANG TUA untuk menghubungi admin manusia
      (handoff). Staf & admin memakai widget AsistenAI, bukan ini — agar tiap

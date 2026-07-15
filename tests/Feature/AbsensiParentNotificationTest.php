@@ -18,6 +18,13 @@ class AbsensiParentNotificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Fokus tes: notifikasi ortu — nonaktifkan gate 7 KAIH agar absen tidak ditolak.
+        Setting::set('kaih_wajib_sebelum_absen', '0');
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();

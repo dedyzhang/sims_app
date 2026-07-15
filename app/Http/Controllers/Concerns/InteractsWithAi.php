@@ -174,7 +174,7 @@ trait InteractsWithAi
                 default => 'Kuota tersedia',
             },
             'message' => match ($status) {
-                'locked' => 'Sistem menunggu reset free tier sebelum mencoba AI Asisten SIMS lagi.',
+                'locked' => 'Sistem menunggu reset free tier sebelum mencoba Asisten Guru lagi.',
                 'exhausted' => 'Estimasi batas harian model gratis sudah tercapai. Coba lagi setelah reset.',
                 'warning' => 'Pemakaian hari ini sudah tinggi. Pakai seperlunya sampai reset berikutnya.',
                 default => 'Pemakaian hari ini masih tersedia untuk model gratis yang dikonfigurasi.',
@@ -245,20 +245,20 @@ trait InteractsWithAi
             'live' => true,
             'status' => $status,
             'status_label' => match ($status) {
-                'error' => 'Key AI Asisten SIMS bermasalah',
-                'locked' => 'Kuota gratis AI Asisten SIMS terkunci',
+                'error' => 'Key Asisten Guru bermasalah',
+                'locked' => 'Kuota gratis Asisten Guru terkunci',
                 'exhausted' => 'Batas harian tercapai',
                 'warning' => 'Kuota mulai menipis',
                 default => 'Kuota live tersedia',
             },
             'message' => match ($status) {
-                'error' => $key['message'] ?? 'API key AI Asisten SIMS tidak bisa dipakai.',
-                'locked' => 'Sistem menunggu reset free tier AI Asisten SIMS.',
+                'error' => $key['message'] ?? 'API key Asisten Guru tidak bisa dipakai.',
+                'locked' => 'Sistem menunggu reset free tier Asisten Guru.',
                 'exhausted' => 'Batas request gratis hari ini sudah tercapai. Coba lagi setelah reset UTC.',
                 'warning' => 'Pemakaian hari ini sudah tinggi. Pakai seperlunya sampai reset berikutnya.',
-                default => 'Status live AI Asisten SIMS + pemakaian dari log SIMS.',
+                default => 'Status live Asisten Guru + pemakaian dari log SIMS.',
             },
-            'notice' => 'Live dari status key AI Asisten SIMS. Request tersisa dihitung dari log SIMS vs batas harian free.',
+            'notice' => 'Live dari status key Asisten Guru. Request tersisa dihitung dari log SIMS vs batas harian free.',
             'reset_at' => $resetAt->toIso8601String(),
             'reset_at_human' => $resetLocal->format('d/m/Y H:i T'),
             'day_start' => $todayUtc->toIso8601String(),
@@ -348,7 +348,7 @@ trait InteractsWithAi
             : null;
 
         $remainingLabel = match ($status) {
-            'error' => 'Key AI Asisten SIMS tidak aktif',
+            'error' => 'Key Asisten Guru tidak aktif',
             'locked' => 'Kuota gratis habis — tunggu reset',
             'exhausted' => 'Batas harian tercapai',
             default => $remaining !== null
@@ -361,7 +361,7 @@ trait InteractsWithAi
         if ($creditRemaining !== null) {
             $creditLabel = '$'.number_format((float) $creditRemaining, 4, '.', '').' kredit tersisa';
         } elseif (($key['alive'] ?? false) && ($key['is_free_tier'] ?? false)) {
-            $creditLabel = 'Free tier AI Asisten SIMS';
+            $creditLabel = 'Free tier Asisten Guru';
         }
 
         return [
@@ -406,7 +406,7 @@ trait InteractsWithAi
             'provider' => 'ninerouter',
             'live' => true,
             'status' => $status,
-            'status_label' => 'AI Asisten SIMS',
+            'status_label' => 'Asisten Guru',
             'message' => null,
             'reset_at' => null,
             'reset_at_human' => '-',
@@ -414,7 +414,7 @@ trait InteractsWithAi
             'day_start_human' => null,
             'remaining' => null,
             'remaining_percent' => null,
-            'remaining_label' => 'AI Asisten SIMS',
+            'remaining_label' => 'Asisten Guru',
             'total' => [
                 'used' => null,
                 'remaining' => null,
