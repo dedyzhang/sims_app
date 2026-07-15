@@ -423,10 +423,13 @@
         <div class="card p-6" x-data="qrLokasi({ lat:@js($settings['sekolah_lat'] ?? ''), lng:@js($settings['sekolah_lng'] ?? '') })" x-init="init()">
             <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
                 <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="map-pin" class="w-[18px] h-[18px] text-primary"></i> Lokasi & QR Absensi</h2>
-                <a href="{{ route('qr.absensi') }}" class="text-xs text-primary font-semibold flex items-center gap-1"><i data-lucide="qr-code" class="w-3.5 h-3.5"></i> Lihat QR hari ini</a>
+                <div class="flex items-center gap-3">
+                    <a href="{{ route('qr.absensi') }}" class="text-xs text-primary font-semibold flex items-center gap-1"><i data-lucide="qr-code" class="w-3.5 h-3.5"></i> Lihat QR</a>
+                    <a href="{{ route('qr.cetak') }}" target="_blank" class="text-xs text-primary font-semibold flex items-center gap-1"><i data-lucide="printer" class="w-3.5 h-3.5"></i> Cetak QR</a>
+                </div>
             </div>
             <p class="text-xs text-slate-400 mb-4">Tetapkan titik sekolah & radius. Absen QR hanya berhasil di dalam radius ini.</p>
-            <form method="POST" action="{{ route('setting.lokasiQr') }}" class="space-y-4">
+            <form method="POST" action="{{ route('setting.lokasiQr') }}" class="space-y-4" x-data="{ mode: @js($settings['qr_absensi_mode'] ?? 'harian') }">
                 @csrf
                 <div id="setMap" style="height:240px" class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 z-0"></div>
                 <p class="text-xs text-slate-400">Klik di peta untuk menetapkan titik sekolah, atau gunakan tombol lokasi.</p>
@@ -444,6 +447,28 @@
                         <input type="number" name="absen_radius" value="{{ $settings['absen_radius'] ?? 100 }}" min="10" max="5000" class="form-input">
                     </div>
                 </div>
+
+                {{-- Mode QR: harian (otomatis berganti) atau tetap (satu QR permanen, cocok utk dicetak & ditempel) --}}
+                <div>
+                    <label class="form-label">Mode QR Absensi</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="qr_absensi_mode" value="harian" x-model="mode" class="sr-only peer">
+                            <div class="border-2 rounded-xl p-3.5 transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600 h-full">
+                                <p class="font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center gap-1.5"><i data-lucide="refresh-cw" class="w-4 h-4 text-slate-400"></i> Ganti Setiap Hari</p>
+                                <p class="text-xs text-slate-400 mt-1">QR otomatis berubah tiap hari — lebih aman dari QR lama yang difoto/disebarluaskan. Cetak/tampilkan ulang tiap pagi.</p>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="qr_absensi_mode" value="tetap" x-model="mode" class="sr-only peer">
+                            <div class="border-2 rounded-xl p-3.5 transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600 h-full">
+                                <p class="font-bold text-sm text-slate-700 dark:text-slate-200 flex items-center gap-1.5"><i data-lucide="pin" class="w-4 h-4 text-slate-400"></i> Satu QR Tetap</p>
+                                <p class="text-xs text-slate-400 mt-1">QR sama setiap hari — cetak sekali, tempel permanen. Buat ulang manual kalau dicurigai bocor.</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="flex items-center justify-between flex-wrap gap-3">
                     <button type="button" @click="useMyLocation()" class="text-sm font-semibold text-primary flex items-center gap-1.5"><i data-lucide="locate-fixed" class="w-4 h-4"></i> Gunakan lokasi saya sekarang</button>
                     <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
@@ -452,6 +477,15 @@
                 </div>
                 <button type="submit" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan Lokasi</button>
             </form>
+
+            @if(($settings['qr_absensi_mode'] ?? 'harian') === 'tetap')
+            <form method="POST" action="{{ route('setting.qrTokenTetap.regenerate') }}" onsubmit="return confirmAction(this, 'Buat ulang token QR tetap? QR lama yang sudah ditempel tidak akan berlaku lagi — Anda perlu mencetak & menempel QR baru.', 'orange')" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                @csrf
+                <button class="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-900/30">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> Buat Ulang QR Tetap
+                </button>
+            </form>
+            @endif
         </div>
     </div>
 

@@ -6,12 +6,24 @@
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
             <h1 class="page-title">QR Absensi</h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Pajang QR ini di pintu/lokasi absen. <span class="font-semibold">Berganti otomatis setiap hari.</span></p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Pajang QR ini di pintu/lokasi absen.
+                @if(($mode ?? 'harian') === 'tetap')
+                <span class="font-semibold">QR tetap — tidak berganti tiap hari.</span>
+                @else
+                <span class="font-semibold">Berganti otomatis setiap hari.</span>
+                @endif
+            </p>
         </div>
         @unless($isKiosk ?? false)
-        <a href="{{ route('setting.index') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
-            <i data-lucide="settings-2" class="w-4 h-4"></i> Atur Lokasi
-        </a>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('qr.cetak') }}" target="_blank" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                <i data-lucide="printer" class="w-4 h-4"></i> Cetak QR
+            </a>
+            <a href="{{ route('setting.index') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                <i data-lucide="settings-2" class="w-4 h-4"></i> Atur Lokasi
+            </a>
+        </div>
         @endunless
     </div>
 

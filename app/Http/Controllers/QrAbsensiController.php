@@ -3,18 +3,40 @@
 namespace App\Http\Controllers;
 
 use App\Models\Absensi;
+use App\Models\Guru;
 use App\Models\PresensiGuru;
 use App\Models\Setting;
 use App\Support\AttendanceParentNotifier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class QrAbsensiController extends Controller
 {
-    /** Token QR harian — deterministik per tanggal, rahasia (pakai APP_KEY), berubah tiap hari. */
+    /**
+     * Token QR aktif — dua mode (diatur admin lewat Pengaturan > Absensi):
+     * - "harian": deterministik per tanggal (HMAC + APP_KEY), otomatis berubah tiap hari.
+     * - "tetap" : satu token permanen tersimpan di Setting, tidak berubah sampai admin
+     *             membuatnya ulang secara manual (cocok utk QR yang dicetak & ditempel).
+     */
     private function token(?string $date = null): string
     {
+        if (Setting::get('qr_absensi_mode', 'harian') === 'tetap') {
+            return $this->tokenTetap();
+        }
         $date = $date ?: now()->toDateString();
         return substr(hash_hmac('sha256', 'qrabsen|' . $date, (string) config('app.key')), 0, 12);
+    }
+
+    /** Token mode tetap — dibuat sekali (lazy) & disimpan; admin bisa buat ulang lewat Pengaturan. */
+    private function tokenTetap(): string
+    {
+        $t = Setting::get('qr_absensi_token_tetap');
+        if (!$t) {
+            $t = Str::random(12);
+            Setting::set('qr_absensi_token_tetap', $t);
+        }
+        return $t;
     }
 
     /** Jarak dua koordinat (meter) — Haversine. */
@@ -33,12 +55,43 @@ class QrAbsensiController extends Controller
         return view('qr.show', [
             'token'   => $this->token(),
             'tanggal' => now()->toDateString(),
+            'mode'    => Setting::get('qr_absensi_mode', 'harian'),
             'aktif'   => Setting::get('qr_absensi_aktif', '1') == '1',
             'lat'     => Setting::get('sekolah_lat'),
             'lng'     => Setting::get('sekolah_lng'),
             // Mode kiosk ditentukan per-request dari token URL (lihat EnsureKioskOrPermission), bukan session.
             'isKiosk' => \App\Http\Middleware\EnsureKioskOrPermission::hasValidToken($request),
         ]);
+    }
+
+    /** Halaman cetak: QR + kop sekolah + langkah-langkah scan, didesain utk dicetak & ditempel. */
+    public function cetak()
+    {
+        $kepsek = Guru::whereHas('user', fn ($q) => $q->where('access', 'kepala'))->first();
+
+        return view('qr.cetak', [
+            'token'         => $this->token(),
+            'tanggal'       => now()->toDateString(),
+            'mode'          => Setting::get('qr_absensi_mode', 'harian'),
+            'namaSekolah'   => Setting::get('nama_sekolah', ''),
+            'alamatSekolah' => Setting::get('alamat_sekolah', ''),
+            'kopTeks'       => Setting::get('kop_teks'),
+            'kopLogoKiri'   => $this->kopImg('kop_logo_kiri', 'img/tutwuri.png'),
+            'kopLogoKanan'  => $this->kopImg('kop_logo_kanan', 'img/maitreyawira_square.png'),
+            'kepsekNama'    => $kepsek?->nama ?? Setting::get('kepala_sekolah', ''),
+        ]);
+    }
+
+    private function kopImg(string $key, string $default): ?string
+    {
+        $v = Setting::get($key);
+        if ($v && Storage::disk('public')->exists($v)) {
+            return asset('storage/' . $v);
+        }
+        if (file_exists(public_path($default))) {
+            return asset($default);
+        }
+        return null;
     }
 
     /** Halaman USER: scan QR + baca lokasi untuk absen. */
@@ -78,9 +131,13 @@ class QrAbsensiController extends Controller
             return response()->json(['ok' => false, 'message' => 'Absen QR sedang dinonaktifkan admin.'], 422);
         }
 
-        // QR berubah tiap hari → token kemarin tidak berlaku
+        // Mode "harian": QR berubah tiap hari, token kemarin tidak berlaku lagi.
+        // Mode "tetap": token sama tiap hari, hanya berubah bila admin membuatnya ulang.
         if (!hash_equals($this->token(), $data['token'])) {
-            return response()->json(['ok' => false, 'message' => 'QR tidak valid atau sudah kedaluwarsa. Pindai QR hari ini.'], 422);
+            $pesan = Setting::get('qr_absensi_mode', 'harian') === 'tetap'
+                ? 'QR tidak valid. QR ini mungkin sudah dibuat ulang oleh admin — pindai QR yang terbaru.'
+                : 'QR tidak valid atau sudah kedaluwarsa. Pindai QR hari ini.';
+            return response()->json(['ok' => false, 'message' => $pesan], 422);
         }
 
         $slat = Setting::get('sekolah_lat');

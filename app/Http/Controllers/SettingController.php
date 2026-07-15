@@ -147,13 +147,23 @@ class SettingController extends Controller
             'sekolah_lat' => 'nullable|numeric|between:-90,90',
             'sekolah_lng' => 'nullable|numeric|between:-180,180',
             'absen_radius' => 'required|integer|min:10|max:5000',
+            'qr_absensi_mode' => 'nullable|in:harian,tetap',
         ]);
         Setting::set('sekolah_lat', $request->sekolah_lat);
         Setting::set('sekolah_lng', $request->sekolah_lng);
         Setting::set('absen_radius', $request->absen_radius);
         Setting::set('qr_absensi_aktif', $request->boolean('qr_absensi_aktif') ? '1' : '0');
+        Setting::set('qr_absensi_mode', $request->input('qr_absensi_mode', 'harian'));
 
         return back()->with('success', 'Lokasi & QR absensi disimpan.');
+    }
+
+    /** Buat ulang token QR mode "tetap" — dipakai bila QR lama dicurigai bocor/disalahgunakan. */
+    public function regenerateQrTokenTetap()
+    {
+        Setting::set('qr_absensi_token_tetap', Str::random(12));
+
+        return back()->with('success', 'Token QR tetap berhasil dibuat ulang. QR lama tidak berlaku lagi — cetak & tempel ulang QR yang baru.');
     }
 
     public function setMapelRapor(Request $request)

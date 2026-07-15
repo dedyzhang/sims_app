@@ -14,6 +14,7 @@ use App\Http\Controllers\KartuPelajarController;
 use App\Http\Controllers\KalenderController;
 use App\Http\Controllers\PoinController;
 use App\Http\Controllers\P3Controller;
+use App\Http\Controllers\PemanggilanController;
 use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EkskulController;
@@ -552,6 +553,21 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/saya', [P3Controller::class, 'selfShow'])->name('self');
     });
 
+    // ─── Rekapan Pemanggilan Orang Tua/Siswa: dicatat guru/kesiswaan, tanpa alur approval ───
+    Route::prefix('pemanggilan')->name('pemanggilan.')->controller(PemanggilanController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/buat', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/cari-siswa', 'cariSiswa')->name('cari-siswa');
+        Route::get('/riwayat-saya', 'guruRiwayat')->name('riwayat');
+        Route::get('/saya', 'self')->name('self');
+        Route::get('/{panggilan}', 'show')->name('show');
+        Route::get('/{panggilan}/edit', 'edit')->name('edit');
+        Route::put('/{panggilan}', 'update')->name('update');
+        Route::delete('/{panggilan}', 'destroy')->name('destroy');
+        Route::delete('/{panggilan}/dokumentasi/{dokumentasi}', 'dokumentasiDestroy')->name('dokumentasi.destroy');
+    });
+
     // ─── Absensi Siswa: admin (semua kelas) + wali kelas (kelasnya saja) — guard peran
     //     ditangani langsung di AbsensiController (canAccess('manage_absensi') || walikelas),
     //     JANGAN pasang middleware permission: di sini, nanti wali kelas dgn access role lain
@@ -689,6 +705,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::delete('/guru/{uuid}/wajah', [GuruController::class, 'destroyFace'])->name('guru.face.destroy');
         Route::get('/wajah-galeri', [FaceController::class, 'gallery'])->name('wajah.galeri');
         Route::get('/wajah-ganda', [FaceController::class, 'duplicates'])->name('wajah.ganda');
+        Route::get('/qr-absensi/cetak', [QrAbsensiController::class, 'cetak'])->name('qr.cetak');
 
     });
 
@@ -710,6 +727,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/jenis-aturan', 'setJenisAturan')->name('setting.jenisAturan');
             Route::post('/poin-terlambat-aturan', 'setPoinTerlambatAturan')->name('setting.poinTerlambatAturan');
             Route::post('/lokasi-qr', 'setLokasiQr')->name('setting.lokasiQr');
+            Route::post('/qr-token-tetap/regenerate', 'regenerateQrTokenTetap')->name('setting.qrTokenTetap.regenerate');
             Route::post('/rumus-rapor', 'setRumusRapor')->name('setting.rumusRapor');
             Route::post('/walikelas-lihat-nilai', 'setWalikelasLihatNilai')->name('setting.walikelasLihatNilai');
             Route::get('/penjabaran', 'penjabaran')->name('setting.penjabaran');
