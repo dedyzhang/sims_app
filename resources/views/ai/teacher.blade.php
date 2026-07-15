@@ -30,8 +30,8 @@
                     <div class="pb-1 text-xs font-medium text-slate-400" x-show="quota.provider !== 'ninerouter' && quota.remaining_percent !== null && quota.status === 'ok'" x-text="quota.remaining_percent + '% tersisa'"></div>
                 </div>
                 <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                    <span x-show="quota.provider !== 'ninerouter' && quota.key_alive === true" class="text-emerald-600 dark:text-emerald-400 font-semibold">Key aktif</span>
-                    <span x-show="quota.provider !== 'ninerouter' && quota.key_alive === false" class="text-rose-600 dark:text-rose-400 font-semibold">Key bermasalah</span>
+                    <span x-show="quota.key_alive === true" class="text-emerald-600 dark:text-emerald-400 font-semibold">Key aktif</span>
+                    <span x-show="quota.key_alive === false" class="text-rose-600 dark:text-rose-400 font-semibold">Key bermasalah</span>
                     <span x-show="quota.updated_at_human" x-text="'Update ' + quota.updated_at_human"></span>
                     <button type="button" class="font-semibold text-primary hover:underline" @click="refreshQuota(true)" :disabled="quotaLoading">Segarkan</button>
                 </div>
@@ -134,7 +134,6 @@
 
             {{-- RPM Learning --}}
             <div x-show="tab === 'learning'" class="space-y-4" x-cloak>
-                <div class="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary">RPM Learning</div>
                 <div>
                     <label class="form-label">Topik / Judul RPM <span class="text-rose-500" x-show="learning.source === 'ai'" x-cloak>*</span></label>
                     <input type="text" x-model="learning.topik" placeholder="mis. Ekosistem, Persamaan Linear, Teks Prosedur..." class="form-input">
