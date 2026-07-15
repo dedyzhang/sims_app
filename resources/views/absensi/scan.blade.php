@@ -277,14 +277,14 @@ function faceScan(data){
         attendees: data.map(s=>({ ...s, marked: s.status==='hadir', justMarked:false, pulangMarked: !!s.pulangDone, jam_masuk: s.jam_masuk, jam_pulang: s.jam_pulang })),
         enrolled:[], stream:null, timer:null,
         // ===== Ambang pencocokan wajah: ketat untuk absensi produksi (hindari false positive) =====
-        threshold:0.58,        // skor robust minimum; diturunkan agar lebih toleran
+        threshold:0.66,        // skor robust minimum; jangan turunkan tanpa uji lapangan
         confidentThreshold:0.80,
-        supportThreshold:0.55, // minimal 2 sampel orang yang sama harus cukup mirip
+        supportThreshold:0.62, // minimal 2 sampel orang yang sama harus cukup mirip
         minSampleSupport:2,
         margin:0.08,           // kandidat terbaik harus unggul jelas dari kandidat kedua
-        minFaceFrac:0.10,      // wajah harus cukup besar di frame agar embedding stabil (diturunkan agar bisa mendeteksi jarak agak jauh)
+        minFaceFrac:0.14,      // wajah harus cukup besar di frame agar embedding stabil
         minFaceScore:0.55,     // buang deteksi ragu/blur/pencahayaan buruk
-        confirmFrames:2,       // wajib stabil beberapa frame beruntun sebelum absen ditandai (diturunkan agar lebih cepat)
+        confirmFrames:4,       // wajib stabil beberapa frame beruntun sebelum absen ditandai
         _streak:{},            // penghitung frame beruntun per uuid
         recent:[], lastMatch:null, _seq:0, audioCtx:null,
         scanMode:'masuk',

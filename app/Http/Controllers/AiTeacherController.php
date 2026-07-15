@@ -184,7 +184,7 @@ class AiTeacherController extends Controller
     {
         $data = $this->validatedQuizExport($request);
 
-        $title = trim((string) ($data['title'] ?? '')) ?: 'Soal dari AI Asisten SIMS';
+        $title = trim((string) ($data['title'] ?? '')) ?: 'Soal dari Asisten Guru';
         $safeName = Str::slug($title) ?: 'soal-asisten-ai';
         $fileName = $safeName.'-'.now()->format('Ymd-His').'.docx';
         $path = tempnam(sys_get_temp_dir(), 'ai-quiz-word-');
@@ -213,7 +213,7 @@ class AiTeacherController extends Controller
     {
         $data = $this->validatedQuizExport($request);
 
-        $title = trim((string) ($data['title'] ?? '')) ?: 'Soal dari AI Asisten SIMS';
+        $title = trim((string) ($data['title'] ?? '')) ?: 'Soal dari Asisten Guru';
         $fileName = (Str::slug($title) ?: 'soal-asisten-ai').'-'.now()->format('Ymd-His').'.pdf';
 
         // Konten berformat dirender lewat partial yang sama dengan pratinjau & Word;
@@ -808,7 +808,7 @@ TXT;
             $paragraphs .= $this->wordParagraph($title, true);
         }
         if ($includeGeneratedNote) {
-            $paragraphs .= $this->wordParagraph('Dibuat dari AI Asisten SIMS pada '.now()->format('d/m/Y H:i'));
+            $paragraphs .= $this->wordParagraph('Dibuat dari Asisten Guru pada '.now()->format('d/m/Y H:i'));
         }
         if ($paragraphs !== '') {
             $paragraphs .= '<w:p/>';

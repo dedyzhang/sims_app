@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'AI Asisten SIMS')
+@section('title', 'Asisten Guru')
 
 @section('content')
 <div class="space-y-5" x-data="teacherAi()">
@@ -7,7 +7,7 @@
     {{-- Header --}}
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
-            <h1 class="page-title flex items-center gap-2"><i data-lucide="sparkles" class="w-6 h-6 text-primary"></i> AI Asisten SIMS</h1>
+            <h1 class="page-title flex items-center gap-2"><i data-lucide="sparkles" class="w-6 h-6 text-primary"></i> Asisten Guru</h1>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Percepat menyusun soal, RPM Learning, ringkasan materi, dan umpan balik siswa.</p>
         </div>
     </div>
@@ -26,12 +26,12 @@
                 </h2>
                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400" x-show="quota.provider !== 'ninerouter' && quota.status && quota.status !== 'ok'" x-text="quota.message"></p>
                 <div class="mt-3 flex flex-wrap items-end gap-3">
-                    <div class="text-2xl font-extrabold text-slate-800 dark:text-slate-100" x-text="quota.remaining_label || 'AI Asisten SIMS'"></div>
+                    <div class="text-2xl font-extrabold text-slate-800 dark:text-slate-100" x-text="quota.remaining_label || 'Asisten Guru'"></div>
                     <div class="pb-1 text-xs font-medium text-slate-400" x-show="quota.provider !== 'ninerouter' && quota.remaining_percent !== null && quota.status === 'ok'" x-text="quota.remaining_percent + '% tersisa'"></div>
                 </div>
                 <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
-                    <span x-show="quota.provider !== 'ninerouter' && quota.key_alive === true" class="text-emerald-600 dark:text-emerald-400 font-semibold">Key aktif</span>
-                    <span x-show="quota.provider !== 'ninerouter' && quota.key_alive === false" class="text-rose-600 dark:text-rose-400 font-semibold">Key bermasalah</span>
+                    <span x-show="quota.key_alive === true" class="text-emerald-600 dark:text-emerald-400 font-semibold">Key aktif</span>
+                    <span x-show="quota.key_alive === false" class="text-rose-600 dark:text-rose-400 font-semibold">Key bermasalah</span>
                     <span x-show="quota.updated_at_human" x-text="'Update ' + quota.updated_at_human"></span>
                     <button type="button" class="font-semibold text-primary hover:underline" @click="refreshQuota(true)" :disabled="quotaLoading">Segarkan</button>
                 </div>
@@ -134,7 +134,6 @@
 
             {{-- RPM Learning --}}
             <div x-show="tab === 'learning'" class="space-y-4" x-cloak>
-                <div class="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary">RPM Learning</div>
                 <div>
                     <label class="form-label">Topik / Judul RPM <span class="text-rose-500" x-show="learning.source === 'ai'" x-cloak>*</span></label>
                     <input type="text" x-model="learning.topik" placeholder="mis. Ekosistem, Persamaan Linear, Teks Prosedur..." class="form-input">
@@ -245,7 +244,7 @@
             <div x-show="loading" x-cloak class="flex-1 grid place-items-center text-slate-400">
                 <div class="text-center">
                     <i data-lucide="loader-circle" class="w-8 h-8 mx-auto animate-spin"></i>
-                    <p class="text-sm mt-2">AI Asisten SIMS sedang menyusun...</p>
+                    <p class="text-sm mt-2">Asisten Guru sedang menyusun...</p>
                 </div>
             </div>
 
@@ -542,7 +541,7 @@
                 if (isPdf) this.exportingPdf = true; else this.exportingWord = true;
                 this.error = '';
                 try {
-                    const title = this.quiz.topik ? 'Soal - ' + this.quiz.topik : 'Soal dari AI Asisten SIMS';
+                    const title = this.quiz.topik ? 'Soal - ' + this.quiz.topik : 'Soal dari Asisten Guru';
                     const r = await fetch(isPdf ? this.urls.quizPdf : this.urls.quizWord, {
                         method: 'POST',
                         headers: {

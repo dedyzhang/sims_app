@@ -338,7 +338,7 @@
         <details class="edu-section p-4 sm:p-5 group">
             <summary class="cursor-pointer list-none edu-section-title">
                 <span class="edu-step" style="background:color-mix(in srgb,var(--cp) 70%,#0f172a)">AI</span>
-                Impor soal dari teks / AI Asisten SIMS
+                Impor soal dari teks / Asisten Guru
                 <span class="ml-auto text-xs font-medium text-slate-400 group-open:hidden">buka</span>
             </summary>
             <div class="mt-3 space-y-3">
