@@ -55,7 +55,7 @@
         </template>
     </div>
 
-    <div class="grid gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(240px,0.55fr)]">
+    <div class="grid gap-5 xl:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(240px,0.55fr)]">
         {{-- Form --}}
         <div class="card p-5">
             {{-- Generator Soal --}}
@@ -270,7 +270,7 @@
         </div>
 
         {{-- History generate: collapse + drag-resize supaya tidak mendominasi layar --}}
-        <div class="card p-0 flex flex-col overflow-hidden lg:col-span-2 xl:col-span-1"
+        <div class="card p-0 flex flex-col overflow-hidden xl:col-span-2 2xl:col-span-1"
              x-data="{
                 collapsed: localStorage.getItem('ai.teacher.historyCollapsed') === '1',
                 height: Number(localStorage.getItem('ai.teacher.historyHeight') || 220),
