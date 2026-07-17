@@ -132,13 +132,30 @@ final class QuizDocument
             if ($state === 'soal' && $section !== null) {
                 if (preg_match('/^(\d{1,2})[.)]\s*(.+)$/u', $trimmed, $m)) {
                     $flushQuestion();
-                    $question = ['number' => $m[1], 'text' => trim($m[2]), 'options' => [], 'answer_space' => false];
+                    $parsedQ = self::extractImagesFromText(trim($m[2]));
+                    $question = [
+                        'number' => $m[1],
+                        'text' => $parsedQ['text'],
+                        'options' => [],
+                        'answer_space' => false,
+                        'images' => $parsedQ['images'],
+                    ];
 
                     continue;
                 }
 
                 if ($question !== null && preg_match('/^([A-E])[.)]\s*(.+)$/u', $trimmed, $m)) {
                     $question['options'][] = ['label' => $m[1], 'text' => trim($m[2])];
+
+                    continue;
+                }
+
+                // Baris khusus token gambar AI (tanpa teks soal).
+                if ($question !== null && preg_match(QuizImageEnricher::TOKEN_PATTERN, $trimmed)) {
+                    $parsedLine = self::extractImagesFromText($trimmed);
+                    foreach ($parsedLine['images'] as $img) {
+                        $question['images'][] = $img;
+                    }
 
                     continue;
                 }
@@ -156,7 +173,13 @@ final class QuizDocument
                     $section['intro'][] = self::stripBullet($trimmed);
                 } elseif ($question['options'] === []) {
                     // Lanjutan kalimat soal yang terpotong ke baris berikutnya.
-                    $question['text'] .= ' '.$trimmed;
+                    $parsedLine = self::extractImagesFromText($trimmed);
+                    foreach ($parsedLine['images'] as $img) {
+                        $question['images'][] = $img;
+                    }
+                    if ($parsedLine['text'] !== '') {
+                        $question['text'] .= ' '.$parsedLine['text'];
+                    }
                 } else {
                     $last = count($question['options']) - 1;
                     $question['options'][$last]['text'] .= ' '.$trimmed;
@@ -277,6 +300,19 @@ final class QuizDocument
         }
 
         return null;
+    }
+
+    /**
+     * @return array{text:string,images:list<array{path:string,url:string,caption:string}>}
+     */
+    private static function extractImagesFromText(string $text): array
+    {
+        $images = QuizImageEnricher::extractTokens($text);
+
+        return [
+            'text' => QuizImageEnricher::stripTokens($text),
+            'images' => $images,
+        ];
     }
 
     private static function stripBullet(string $line): string

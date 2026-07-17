@@ -254,11 +254,14 @@
     {{-- Integrasi Nalar Guru --}}
     <div x-show="tab==='integrasi'" x-transition>
         <form method="POST" action="{{ route('setting.integrasi') }}" class="card p-6 space-y-5"
-              x-data="{ on: {{ ($settings['tp_launcher_aktif'] ?? '1')=='1' ? 'true' : 'false' }} }">
+              x-data="{
+                  on: {{ ($settings['tp_launcher_aktif'] ?? '1')=='1' ? 'true' : 'false' }},
+                  canvaOn: {{ ($settings['canva_connect_aktif'] ?? '1')=='1' ? 'true' : 'false' }}
+              }">
             @csrf
             <div>
                 <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="plug" class="w-4 h-4 text-primary"></i> Integrasi Asisten Guru</h2>
-                <p class="text-xs text-slate-400 mt-1 leading-relaxed">Kartu pintasan Nalar Guru di Asisten Guru (generate di dalam SIMS).</p>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">Launcher Nalar Guru dan Canva Pendidikan (gratis via belajar.id).</p>
             </div>
 
             <div class="flex items-start justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-4 py-3">
@@ -271,6 +274,25 @@
                     <input type="checkbox" name="tp_launcher_aktif" value="1" class="hidden peer" x-model="on">
                     <div class="relative w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-[color:var(--cp)] transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition peer-checked:after:translate-x-5"></div>
                 </label>
+            </div>
+
+            <div class="flex items-start justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-4 py-3">
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Canva Connect (belajar.id)</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Izinkan guru menghubungkan Canva Pendidikan gratis. Hanya email belajar.id.</p>
+                    <p class="text-xs mt-1.5 font-semibold" :class="canvaOn ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" x-text="canvaOn ? '● Aktif' : '○ Nonaktif'"></p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input type="checkbox" name="canva_connect_aktif" value="1" class="sr-only peer" x-model="canvaOn">
+                    <div class="relative w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-[color:var(--cp)] transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition peer-checked:after:translate-x-5"></div>
+                </label>
+            </div>
+
+            <div>
+                <label class="form-label">Domain email Canva yang diizinkan</label>
+                <input type="text" name="canva_allowed_email_suffix" value="{{ $settings['canva_allowed_email_suffix'] ?? '.belajar.id' }}"
+                       class="form-input font-mono text-sm" placeholder=".belajar.id">
+                <p class="text-[11px] text-slate-400 mt-1">Wajib berakhiran <code>.belajar.id</code>. Contoh: <code>.belajar.id</code> atau <code>@smpn1.belajar.id</code>. Domain lain ditolak.</p>
             </div>
 
             <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">

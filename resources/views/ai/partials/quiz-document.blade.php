@@ -53,6 +53,26 @@
 
     @foreach($section['questions'] as $question)
         <div class="soal">{{ $question['number'] }}. {{ $question['text'] }}</div>
+        @foreach(($question['images'] ?? []) as $image)
+            @php
+                $abs = \App\Support\QuizImageEnricher::absolutePath($image['path'] ?? '');
+                $imgSrc = null;
+                if ($abs) {
+                    $mime = mime_content_type($abs) ?: 'image/png';
+                    $imgSrc = 'data:'.$mime.';base64,'.base64_encode((string) file_get_contents($abs));
+                } elseif (! empty($image['url'])) {
+                    $imgSrc = $image['url'];
+                }
+            @endphp
+            @if($imgSrc)
+                <div class="soal-gambar">
+                    <img src="{{ $imgSrc }}" alt="{{ $image['caption'] ?? 'Gambar soal' }}">
+                    @if(!empty($image['caption']))
+                        <div class="soal-gambar-caption">{{ $image['caption'] }}</div>
+                    @endif
+                </div>
+            @endif
+        @endforeach
         @foreach($question['options'] as $option)
             <div class="opsi">{{ $option['label'] }}. {{ $option['text'] }}</div>
         @endforeach

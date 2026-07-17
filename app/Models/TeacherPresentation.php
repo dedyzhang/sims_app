@@ -30,6 +30,11 @@ class TeacherPresentation extends Model
         'outline',
         'notes',
         'slides',
+        'canva_design_id',
+        'canva_edit_url',
+        'canva_view_url',
+        'canva_exported_pdf_path',
+        'canva_last_synced_at',
         'last_opened_at',
     ];
 
@@ -38,6 +43,7 @@ class TeacherPresentation extends Model
         return [
             'slides' => 'array',
             'last_opened_at' => 'datetime',
+            'canva_last_synced_at' => 'datetime',
         ];
     }
 

@@ -24,6 +24,7 @@ class PresentationStudioController extends Controller
         return view('ai.presentasi.index', [
             'items' => $items,
             'statuses' => TeacherPresentation::STATUSES,
+            'canvaStatus' => app(\App\Services\CanvaConnectService::class)->statusPayload($request->user()),
         ]);
     }
 
@@ -68,6 +69,7 @@ class PresentationStudioController extends Controller
             'presentation' => $presentation,
             'slides' => $presentation->resolvedSlides(),
             'statuses' => TeacherPresentation::STATUSES,
+            'canvaStatus' => app(\App\Services\CanvaConnectService::class)->statusPayload($request->user()),
         ]);
     }
 

@@ -58,7 +58,7 @@ class PresentationStudioTest extends TestCase
             ->assertOk()
             ->assertSee('Studio Presentasi', false)
             ->assertSee('Presentasikan', false)
-            ->assertDontSee('canva.com', false);
+            ->assertSee('Canva Pendidikan', false);
     }
 
     public function test_presentasi_from_chat_creates_studio_item(): void
@@ -79,7 +79,7 @@ class PresentationStudioTest extends TestCase
         ]);
     }
 
-    public function test_asisten_guru_hides_presentasi_menu(): void
+    public function test_asisten_guru_shows_studio_and_canva_without_chat_presentasi_send(): void
     {
         $guru = $this->guru();
 
@@ -87,8 +87,9 @@ class PresentationStudioTest extends TestCase
             ->get(route('ai.teacher.index'))
             ->assertOk()
             ->assertSee('Tanya Nalar Guru', false)
+            ->assertSee('Canva Pendidikan', false)
+            ->assertSee(route('ai.teacher.presentasi.index'), false)
             ->assertDontSee(route('ai.teacher.presentasi-from-chat'), false)
-            ->assertDontSee(route('ai.teacher.presentasi.index'), false)
             ->assertDontSee('Kirim ke Presentasi', false);
     }
 

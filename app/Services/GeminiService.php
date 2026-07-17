@@ -127,6 +127,133 @@ class GeminiService
     }
 
     /**
+     * Hasilkan satu gambar via model Gemini image-capable (responseModalities IMAGE).
+     * Selalu memakai API key Gemini (pribadi atau sekolah) — OpenRouter tidak dipakai.
+     *
+     * @return array{binary:string,mime:string,model:string,prompt_tokens:int,completion_tokens:int}
+     */
+    public function generateImage(string $prompt, array $options = []): array
+    {
+        $apiKey = $this->resolveApiKey($options);
+        if ($apiKey === '') {
+            throw new RuntimeException('Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).');
+        }
+
+        $models = array_values(array_unique(array_filter(array_merge(
+            [trim((string) ($options['model'] ?? config('ai.image.model', 'gemini-2.5-flash-image')))],
+            (array) ($options['fallback_models'] ?? config('ai.image.fallback_models', [])),
+        ))));
+
+        if ($models === []) {
+            throw new RuntimeException('Model generate gambar belum dikonfigurasi.');
+        }
+
+        $lastError = null;
+        $body = [
+            'contents' => [[
+                'role' => 'user',
+                'parts' => [['text' => $prompt]],
+            ]],
+            'generationConfig' => [
+                'responseModalities' => ['TEXT', 'IMAGE'],
+            ],
+        ];
+
+        foreach ($models as $model) {
+            $this->extendExecutionTime($options + [
+                'timeout' => $options['timeout'] ?? config('ai.image.timeout', 90),
+            ]);
+
+            try {
+                $response = Http::timeout($options['timeout'] ?? config('ai.image.timeout', 90))
+                    ->retry(
+                        $options['retries'] ?? 1,
+                        config('ai.retry_delay'),
+                        fn (\Throwable $e) => $this->isTransient($e),
+                        throw: false,
+                    )
+                    ->withQueryParameters(['key' => $apiKey])
+                    ->acceptJson()
+                    ->post(rtrim((string) config('ai.base_url'), '/')."/models/{$model}:generateContent", $body);
+            } catch (\Throwable $e) {
+                $lastError = 'Gagal menghubungi layanan generate gambar AI.';
+
+                continue;
+            }
+
+            if ($response->successful()) {
+                return $this->parseImage($response->json(), $model);
+            }
+
+            if ($response->status() === 429) {
+                $lastError = $this->normalizeError(429, $response->json());
+
+                continue;
+            }
+
+            if ($response->status() >= 500) {
+                $lastError = $this->normalizeError($response->status(), $response->json());
+
+                continue;
+            }
+
+            throw new RuntimeException($this->normalizeError($response->status(), $response->json()));
+        }
+
+        throw new AiProviderUnavailableException($lastError ?? 'Gagal menghasilkan gambar soal.');
+    }
+
+    /**
+     * @return array{binary:string,mime:string,model:string,prompt_tokens:int,completion_tokens:int}
+     */
+    private function parseImage(array $json, string $model): array
+    {
+        $candidate = $json['candidates'][0] ?? null;
+        $finishReason = $candidate['finishReason'] ?? null;
+
+        if ($finishReason === 'SAFETY' || $finishReason === 'PROHIBITED_CONTENT') {
+            throw new RuntimeException('Generate gambar diblokir filter keamanan AI. Ubah deskripsi gambar.');
+        }
+
+        $binary = null;
+        $mime = 'image/png';
+
+        foreach ($candidate['content']['parts'] ?? [] as $part) {
+            $inline = $part['inlineData'] ?? $part['inline_data'] ?? null;
+            if (! is_array($inline)) {
+                continue;
+            }
+
+            $data = (string) ($inline['data'] ?? '');
+            if ($data === '') {
+                continue;
+            }
+
+            $decoded = base64_decode($data, true);
+            if ($decoded === false || $decoded === '') {
+                continue;
+            }
+
+            $binary = $decoded;
+            $mime = (string) ($inline['mimeType'] ?? $inline['mime_type'] ?? 'image/png');
+        }
+
+        if ($binary === null) {
+            throw new RuntimeException('AI tidak mengembalikan gambar. Coba lagi atau nonaktifkan opsi soal bergambar.');
+        }
+
+        $usage = $json['usageMetadata'] ?? [];
+
+        return [
+            'binary' => $binary,
+            'mime' => $mime !== '' ? $mime : 'image/png',
+            'model' => $model,
+            'prompt_tokens' => (int) ($usage['promptTokenCount'] ?? 0),
+            'completion_tokens' => (int) ($usage['candidatesTokenCount'] ?? 0),
+        ];
+    }
+
+    /**
      * Ping ringan untuk memvalidasi API key Gemini (dipakai saat guru menyimpan key).
      */
     public function probeApiKey(string $apiKey): void

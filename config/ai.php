@@ -124,6 +124,23 @@ return [
     'long_timeout' => (int) env('AI_LONG_TIMEOUT', 120),
 
     /*
+    | Generate gambar soal (Gemini native image / "Nano Banana").
+    | Dipakai Generator Soal saat opsi "Soal bergambar" aktif: teks soal dulu,
+    | lalu tiap penanda [GAMBAR: ...] digambar dengan model image-capable.
+    */
+    'image' => [
+        'model' => env('AI_IMAGE_MODEL', 'gemini-2.5-flash-image'),
+        'fallback_models' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('AI_IMAGE_FALLBACK_MODELS', 'gemini-3.1-flash-image-preview,gemini-2.0-flash-preview-image-generation')),
+        ))),
+        'max_per_quiz' => (int) env('AI_IMAGE_MAX_PER_QUIZ', 5),
+        'timeout' => (int) env('AI_IMAGE_TIMEOUT', 90),
+        'disk' => env('AI_IMAGE_DISK', 'public'),
+        'directory' => env('AI_IMAGE_DIRECTORY', 'ai-quiz-images'),
+    ],
+
+    /*
     | Guard biaya — mencegah free tier jebol & abuse tagihan.
     | - rate_limit: maksimum request AI per user per menit.
     | - max_input_chars: batas panjang prompt yang diterima controller (validasi).

@@ -14,6 +14,7 @@ use App\Support\ModulAktif;
 use App\Support\PresentationSlides;
 use App\Support\QuizDocument;
 use App\Support\QuizDocxBuilder;
+use App\Support\QuizImageEnricher;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -79,6 +80,7 @@ class AiTeacherController extends Controller
         }
 
         $hasApiKey = $user->hasGeminiApiKey();
+        $canvaStatus = app(\App\Services\CanvaConnectService::class)->statusPayload($user);
 
         return view('ai.teacher', [
             'histories' => $histories,
@@ -88,9 +90,11 @@ class AiTeacherController extends Controller
             'arenaBelajarAktif' => ModulAktif::aktif('arena_belajar'),
             'launcherAktif' => (Setting::get('tp_launcher_aktif', '1') ?? '1') === '1',
             'needsApiKeySetup' => ! $hasApiKey,
+            'canvaStatus' => $canvaStatus,
             'externalAccounts' => [
                 'has_gemini_api_key' => $hasApiKey,
                 'gemini_api_key_masked' => $user->geminiApiKeyMasked(),
+                'canva_belajar_id' => $user->canva_belajar_id,
             ],
         ]);
     }
@@ -578,21 +582,100 @@ class AiTeacherController extends Controller
 
         $jumlah = (int) ($built['history']['metadata']['jumlah'] ?? 10);
         $tingkat = (string) ($built['history']['metadata']['tingkat'] ?? 'sedang');
+        $soalBergambar = (bool) ($built['soal_bergambar'] ?? false);
 
-        return $this->respond(
-            $request,
-            'teacher_quiz',
-            $built['system'],
-            $built['prompt'],
-            $this->quizMaxOutputTokens($jumlah, $tingkat),
-            [
+        if ($blocked = $this->requireTeacherReady($request)) {
+            return $blocked;
+        }
+
+        $user = $request->user();
+        $userId = $user->uuid;
+        $apiKey = $user->plainGeminiApiKey();
+
+        if ($limited = $this->aiRateLimited('teacher_quiz', $userId)) {
+            return $limited;
+        }
+
+        try {
+            $result = $this->gemini->generate($built['prompt'], [
+                'system' => $built['system'],
+                'max_output_tokens' => $this->quizMaxOutputTokens($jumlah, $tingkat),
+                'api_key' => $apiKey,
                 'answer_style' => $built['answer_style'],
-                // thinking low: jatah maxOutputTokens tidak habis untuk "pikir" internal model
                 'thinking_level' => 'low',
                 'timeout' => (int) config('ai.long_timeout'),
-            ],
-            $built['history'],
+            ]);
+        } catch (RuntimeException $e) {
+            $this->logAiUsage($userId, 'teacher_quiz', config('ai.model'), 0, 0, 'error');
+
+            return response()->json([
+                'ok' => false,
+                'message' => $e->getMessage(),
+                'quota' => $this->aiPublicQuotaUsage(),
+            ], 502);
+        }
+
+        $answer = $result['text'];
+        $images = [];
+        $imageMeta = null;
+
+        if ($soalBergambar) {
+            @set_time_limit((int) config('ai.image.timeout', 90) * ((int) config('ai.image.max_per_quiz', 5) + 1));
+            $enriched = app(QuizImageEnricher::class)->enrich($answer, $apiKey, $userId);
+            $answer = $enriched['text'];
+            $images = $enriched['images'];
+            $imageMeta = [
+                'generated' => $enriched['generated'],
+                'failed' => $enriched['failed'],
+                'max' => (int) config('ai.image.max_per_quiz', 5),
+            ];
+
+            if ($enriched['generated'] > 0) {
+                $this->logAiUsage(
+                    $userId,
+                    'teacher_quiz_image',
+                    $images[0]['model'] ?? (string) config('ai.image.model'),
+                    0,
+                    $enriched['generated'],
+                    'success',
+                );
+            }
+        }
+
+        $this->logAiUsage(
+            $userId,
+            'teacher_quiz',
+            $result['model'],
+            $result['prompt_tokens'],
+            $result['completion_tokens'],
+            'success',
         );
+
+        $historyPayload = $built['history'];
+        if ($imageMeta !== null) {
+            $historyPayload['metadata']['images'] = $imageMeta;
+        }
+
+        $history = $this->storeHistory($userId, $historyPayload, $answer);
+
+        $payload = [
+            'ok' => true,
+            'answer' => $answer,
+            'history' => $history,
+            'quota' => $this->aiPublicQuotaUsage(),
+        ];
+
+        if ($soalBergambar) {
+            $payload['images'] = $images;
+            $payload['image_meta'] = $imageMeta;
+            if (($imageMeta['generated'] ?? 0) === 0 && ($imageMeta['failed'] ?? 0) > 0) {
+                $payload['warning'] = 'Soal teks berhasil, tetapi generate gambar gagal. Penanda [GAMBAR: ...] tetap di dokumen agar bisa dilampirkan manual.';
+            } elseif (($imageMeta['generated'] ?? 0) > 0 && ($imageMeta['failed'] ?? 0) > 0) {
+                $payload['warning'] = "Berhasil membuat {$imageMeta['generated']} gambar; {$imageMeta['failed']} gagal.";
+            }
+        }
+
+        return response()->json($payload);
     }
 
     /**
@@ -816,8 +899,10 @@ class AiTeacherController extends Controller
             'tingkat' => ['required', 'in:mudah,sedang,sulit'],
             'jenjang' => ['nullable', 'string', 'max:100'],
             'file' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
+            'soal_bergambar' => ['sometimes', 'boolean'],
         ]);
         $data['jenis_soal'] = array_values(array_unique($data['jenis_soal']));
+        $data['soal_bergambar'] = $request->boolean('soal_bergambar');
 
         $documentText = '';
         if ($request->hasFile('file')) {
@@ -835,7 +920,14 @@ class AiTeacherController extends Controller
         $jenis = $this->quizTypeSummary($data['jenis_soal']);
         $topik = trim((string) ($data['topik'] ?? ''));
         $jenjang = ! empty($data['jenjang']) ? "untuk jenjang {$data['jenjang']}" : '';
-        $formatInstruction = $this->quizFormatInstruction((int) $data['jumlah'], $data['jenis_soal'], $data['tingkat'], $data['jenjang'] ?? null, $topik);
+        $formatInstruction = $this->quizFormatInstruction(
+            (int) $data['jumlah'],
+            $data['jenis_soal'],
+            $data['tingkat'],
+            $data['jenjang'] ?? null,
+            $topik,
+            (bool) $data['soal_bergambar'],
+        );
 
         if ($documentText !== '') {
             $maxChars = (int) config('ai.max_input_chars');
@@ -859,6 +951,7 @@ class AiTeacherController extends Controller
             'prompt' => $prompt,
             'answer_style' => 'Tulis sebagai dokumen soal teks polos siap cetak sesuai format yang diminta. JANGAN memakai Markdown, heading #, atau bullet dekoratif.',
             'title' => (string) $title,
+            'soal_bergambar' => (bool) $data['soal_bergambar'],
             'history' => [
                 'type' => 'quiz',
                 'type_label' => 'Generator Soal',
@@ -868,6 +961,7 @@ class AiTeacherController extends Controller
                     'jenis_soal' => $data['jenis_soal'],
                     'tingkat' => $data['tingkat'],
                     'jenjang' => $data['jenjang'] ?? null,
+                    'soal_bergambar' => (bool) $data['soal_bergambar'],
                     'file' => $request->file('file')?->getClientOriginalName(),
                     'via' => 'sims',
                 ],
@@ -1178,7 +1272,7 @@ class AiTeacherController extends Controller
         return '- '.implode("\n- ", array_map(fn (string $type) => $rules[$type], $jenisSoal));
     }
 
-    private function quizFormatInstruction(int $jumlah, array $jenisSoal, string $tingkat, ?string $jenjang, string $topik): string
+    private function quizFormatInstruction(int $jumlah, array $jenisSoal, string $tingkat, ?string $jenjang, string $topik, bool $soalBergambar = false): string
     {
         $kelas = trim((string) $jenjang) !== '' ? trim((string) $jenjang) : '[KELAS / SEMESTER]';
         $topikJudul = trim($topik) !== '' ? mb_strtoupper($topik) : '[TOPIK]';
@@ -1187,6 +1281,16 @@ class AiTeacherController extends Controller
         $sectionTemplates = $this->quizSectionTemplates($jenisSoal);
         $answerKeyTemplates = $this->quizAnswerKeyTemplates($jenisSoal);
         $typeRules = $this->quizTypeRules($jenisSoal);
+        $gambarRules = $soalBergambar
+            ? <<<'GAMBAR'
+- Wajib menyertakan soal bergambar: pada SEMUA atau sebagian besar nomor, sisipkan penanda tepat di bawah teks soal (sebelum opsi A/B/C/D) dengan format:
+  [GAMBAR: deskripsi visual singkat yang spesifik]
+  Contoh: [GAMBAR: diagram sirkulasi darah manusia dengan label atrium dan ventrikel]
+- Deskripsi harus cukup jelas untuk digambar AI (objek, label, gaya diagram/sketsa sekolah).
+- Jangan menulis Markdown gambar, URL, atau base64. Hanya penanda [GAMBAR: ...].
+- Jangan menaruh penanda gambar di bagian Kunci Jawaban.
+GAMBAR
+            : '- Jangan menyisipkan gambar, Markdown gambar, atau URL gambar.';
 
         return <<<TXT
 FORMAT WAJIB mengikuti contoh file soal-agama-buddha.docx. Tulis teks polos dengan urutan ini, tanpa Markdown:
@@ -1219,6 +1323,7 @@ ATURAN:
 - Total soal harus {$jumlah} nomor, dibagi proporsional jika ada lebih dari satu jenis soal.
 - Nomor soal berurutan dari Bagian A sampai bagian terakhir.
 {$typeRules}
+{$gambarRules}
 - Jika data mata pelajaran/kelas/semester tidak tersedia, gunakan placeholder jelas, jangan mengarang data sekolah selain kop contoh.
 - Jangan menulis pengantar atau catatan di luar dokumen soal.
 TXT;

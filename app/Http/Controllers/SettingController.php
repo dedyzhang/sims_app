@@ -405,12 +405,40 @@ class SettingController extends Controller
         return back()->with('success', 'Pengaturan fitur disimpan. Modul yang dimatikan disembunyikan dari menu dan tidak bisa diakses.');
     }
 
-    /** Toggle launcher di Asisten Guru. */
+    /** Toggle launcher + Canva Connect (jalur gratis belajar.id). */
     public function updateIntegrasi(Request $request)
     {
-        Setting::set('tp_launcher_aktif', $request->boolean('tp_launcher_aktif') ? '1' : '0');
+        $canva = app(\App\Services\CanvaConnectService::class);
 
-        return back()->with('success', 'Pengaturan integrasi Gemini disimpan.');
+        $data = $request->validate([
+            'tp_launcher_aktif' => ['sometimes', 'boolean'],
+            'canva_connect_aktif' => ['sometimes', 'boolean'],
+            'canva_allowed_email_suffix' => [
+                'nullable',
+                'string',
+                'max:80',
+                function (string $attribute, mixed $value, \Closure $fail) use ($canva): void {
+                    $value = strtolower(trim((string) $value));
+                    if ($value === '') {
+                        return;
+                    }
+                    if (! $canva->isValidBelajarIdSuffix($value)) {
+                        $fail('Suffix harus berakhiran .belajar.id (contoh .belajar.id atau @smpn1.belajar.id).');
+                    }
+                },
+            ],
+        ]);
+
+        Setting::set('tp_launcher_aktif', $request->boolean('tp_launcher_aktif') ? '1' : '0');
+        Setting::set('canva_connect_aktif', $request->boolean('canva_connect_aktif') ? '1' : '0');
+
+        $suffix = strtolower(trim((string) ($data['canva_allowed_email_suffix'] ?? '')));
+        if ($suffix === '') {
+            $suffix = '.belajar.id';
+        }
+        Setting::set('canva_allowed_email_suffix', $suffix);
+
+        return back()->with('success', 'Pengaturan integrasi Asisten Guru & Canva disimpan.');
     }
 
     /** Simpan/hapus satu file aplikasi ke disk privat + catat nama asli untuk nama unduhan. */
