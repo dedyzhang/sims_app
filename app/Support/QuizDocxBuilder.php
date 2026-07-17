@@ -111,6 +111,17 @@ final class QuizDocxBuilder
                     ['before' => 60, 'after' => 40, 'left' => 284, 'hanging' => 284],
                 );
 
+                foreach ($question['images'] ?? [] as $image) {
+                    $caption = trim((string) ($image['caption'] ?? ''));
+                    $label = $caption !== ''
+                        ? '[Gambar soal: '.$caption.'] — lihat pratinjau/PDF untuk gambar AI'
+                        : '[Gambar soal] — lihat pratinjau/PDF untuk gambar AI';
+                    $xml .= self::p(
+                        [self::run($label, false, true, 18)],
+                        ['after' => 40, 'left' => 284],
+                    );
+                }
+
                 foreach ($question['options'] as $option) {
                     $xml .= self::p(
                         [self::run($option['label'].'. '.$option['text'])],

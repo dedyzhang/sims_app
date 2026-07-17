@@ -86,6 +86,41 @@
                 <label class="form-label">Catatan</label>
                 <textarea x-model="form.notes" @input="queueSave()" rows="2" class="form-input text-sm"></textarea>
             </div>
+
+            <div class="rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-950/30 p-3 space-y-2"
+                 x-show="canva.feature_enabled" x-cloak>
+                <p class="text-xs font-bold text-sky-800 dark:text-sky-200 flex items-center gap-1.5">
+                    <i data-lucide="palette" class="w-3.5 h-3.5"></i> Canva Pendidikan (belajar.id)
+                </p>
+                <p class="text-[11px] text-slate-500" x-show="!canva.connected" x-cloak>
+                    Hubungkan akun belajar.id di Asisten Guru dulu.
+                    <a href="{{ route('ai.teacher.index') }}" class="font-semibold text-sky-700 underline">Buka Asisten Guru</a>
+                </p>
+                <template x-if="canva.connected && !canvaDesignId">
+                    <button type="button" @click="createCanvaDesign" :disabled="canvaBusy"
+                            class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 text-white px-3 py-2 text-xs font-bold disabled:opacity-50">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                        <span x-text="canvaBusy ? 'Membuat…' : 'Buat di Canva'"></span>
+                    </button>
+                </template>
+                <template x-if="canva.connected && canvaDesignId">
+                    <div class="space-y-2">
+                        <a :href="canvaEditUrl || '#'" target="_blank" rel="noopener"
+                           class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 text-white px-3 py-2 text-xs font-bold"
+                           :class="!canvaEditUrl && 'opacity-50 pointer-events-none'">
+                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Buka di Canva
+                        </a>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" @click="refreshCanvaUrl" :disabled="canvaBusy"
+                                    class="rounded-xl border border-sky-300 px-2 py-2 text-[11px] font-bold text-sky-800 disabled:opacity-50">Refresh tautan</button>
+                            <button type="button" @click="exportCanvaPdf" :disabled="canvaBusy"
+                                    class="rounded-xl border border-sky-300 px-2 py-2 text-[11px] font-bold text-sky-800 disabled:opacity-50">Export PDF</button>
+                        </div>
+                        <a x-show="canvaPdfUrl" x-cloak :href="canvaPdfUrl" class="block text-[11px] font-bold text-emerald-700 underline">Unduh ekspor Canva terakhir</a>
+                    </div>
+                </template>
+            </div>
+
             <p class="text-[11px] text-emerald-600 font-semibold" x-show="message" x-cloak x-text="message"></p>
             <p class="text-[11px] text-rose-500 font-semibold" x-show="error" x-cloak x-text="error"></p>
             <form method="POST" action="{{ route('ai.teacher.presentasi.destroy', $presentation) }}" onsubmit="return confirm('Hapus presentasi ini?')">
@@ -163,8 +198,97 @@ function presentationStudio() {
         message: '',
         error: '',
         saveTimer: null,
+        canva: @js($canvaStatus ?? ['connected' => false, 'feature_enabled' => true]),
+        canvaDesignId: @js($presentation->canva_design_id),
+        canvaEditUrl: @js($presentation->canva_edit_url),
+        canvaPdfUrl: @js($presentation->canva_exported_pdf_path ? route('ai.teacher.presentasi.canva.download', $presentation) : null),
+        canvaBusy: false,
         get current() {
             return this.slides[this.index] || { title: '', body: '' };
+        },
+        async createCanvaDesign() {
+            if (this.canvaBusy) return;
+            this.canvaBusy = true;
+            this.error = '';
+            try {
+                const r = await fetch(@js(route('ai.teacher.presentasi.canva.create', $presentation)), {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok || !d.ok) {
+                    this.error = d.message || 'Gagal membuat desain Canva.';
+                    return;
+                }
+                this.canvaDesignId = d.presentation?.canva_design_id || d.design?.id;
+                this.canvaEditUrl = d.presentation?.canva_edit_url || d.open_url;
+                this.message = d.message || 'Desain Canva dibuat.';
+                if (d.open_url) window.open(d.open_url, '_blank', 'noopener');
+            } catch (_) {
+                this.error = 'Gagal terhubung ke Canva.';
+            } finally {
+                this.canvaBusy = false;
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+            }
+        },
+        async refreshCanvaUrl() {
+            if (this.canvaBusy) return;
+            this.canvaBusy = true;
+            this.error = '';
+            try {
+                const r = await fetch(@js(route('ai.teacher.presentasi.canva.refresh', $presentation)), {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok || !d.ok) {
+                    this.error = d.message || 'Gagal memperbarui tautan.';
+                    return;
+                }
+                this.canvaEditUrl = d.edit_url;
+                this.message = 'Tautan Canva diperbarui.';
+            } catch (_) {
+                this.error = 'Gagal memperbarui tautan.';
+            } finally {
+                this.canvaBusy = false;
+            }
+        },
+        async exportCanvaPdf() {
+            if (this.canvaBusy) return;
+            this.canvaBusy = true;
+            this.error = '';
+            this.message = 'Mengexport PDF dari Canva…';
+            try {
+                const r = await fetch(@js(route('ai.teacher.presentasi.canva.export', $presentation)), {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok || !d.ok) {
+                    this.error = d.message || 'Export Canva gagal.';
+                    this.message = '';
+                    return;
+                }
+                this.canvaPdfUrl = d.download || null;
+                this.message = d.message || 'PDF Canva siap.';
+            } catch (_) {
+                this.error = 'Gagal export PDF Canva.';
+                this.message = '';
+            } finally {
+                this.canvaBusy = false;
+            }
         },
         rebuildFromOutline() {
             const text = (this.form.outline || '').trim();

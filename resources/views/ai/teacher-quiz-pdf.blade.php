@@ -31,6 +31,9 @@
         ol.petunjuk { margin: 5px 0 0; padding-left: 18px; }
         ol.petunjuk li { margin-bottom: 2px; }
         .soal { margin-top: 8px; padding-left: 16px; text-indent: -16px; }
+        .soal-gambar { margin: 6px 0 6px 16px; text-align: center; text-indent: 0; }
+        .soal-gambar img { max-width: 70%; max-height: 220px; border: 1px solid #999; }
+        .soal-gambar-caption { font-size: 8px; color: #555; margin-top: 3px; font-style: italic; }
         .opsi { padding-left: 30px; text-indent: -14px; }
         .garis-jawab { margin: 3px 0 2px 16px; color: #9ca3af; }
         /* Kunci jawaban: halaman terpisah, sama seperti dokumen acuan */

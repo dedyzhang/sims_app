@@ -13,7 +13,7 @@
                 Studio Presentasi
             </h1>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                Buat slide di SIMS — tanpa Canva. Susun outline, presentasikan di layar, unduh PDF.
+                Susun slide di SIMS, atau hubungkan Canva Pendidikan (belajar.id, gratis) untuk desain visual.
             </p>
         </div>
         <button type="button" @click="showCreate = !showCreate"

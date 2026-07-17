@@ -508,6 +508,14 @@
                         <p class="mt-1 text-[11px] text-slate-400">PG kompleks mendukung lebih dari satu kunci benar. Isian &amp; mencocokkan masuk ke builder yang sesuai.</p>
                     </div>
 
+                    <label class="flex items-start gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-2.5 cursor-pointer">
+                        <input type="checkbox" x-model="gen.soal_bergambar" class="mt-0.5 h-4 w-4 rounded border-slate-300" style="accent-color:var(--cp)">
+                        <span class="text-xs">
+                            <span class="font-bold text-slate-700 dark:text-slate-200">Soal bergambar</span>
+                            <span class="block text-slate-400 mt-0.5">Gemini Image menambahkan diagram (teks tetap diimpor ke Arena; gambar tampil di Asisten Guru/PDF).</span>
+                        </span>
+                    </label>
+
                     <button type="button" @click="generateFromAi"
                             :disabled="generating || gen.jenis_soal.length === 0 || (gen.source === 'file' ? !gen.file : !gen.topik.trim())"
                             class="arena-play-btn">
@@ -657,7 +665,7 @@ function arenaBuilder(initial, opts = {}) {
             { value: 'mencocokkan', label: 'Mencocokkan' },
             { value: 'isian', label: 'Isian' },
         ],
-        gen: { topik: '', jumlah: 5, jenis_soal: ['pg'], tingkat: 'sedang', jenjang: '', source: 'ai', file: null, fileName: '' },
+        gen: { topik: '', jumlah: 5, jenis_soal: ['pg'], tingkat: 'sedang', jenjang: '', source: 'ai', file: null, fileName: '', soal_bergambar: false },
         init() {
             if (this.importText.trim()) {
                 this.runImport();
@@ -801,6 +809,7 @@ function arenaBuilder(initial, opts = {}) {
                 (this.gen.jenis_soal || ['pg']).forEach((jenis) => form.append('jenis_soal[]', jenis));
                 form.append('tingkat', this.gen.tingkat || 'sedang');
                 form.append('jenjang', this.gen.jenjang || '');
+                form.append('soal_bergambar', this.gen.soal_bergambar ? '1' : '0');
                 if (this.gen.source === 'file' && this.gen.file) {
                     form.append('file', this.gen.file);
                 }

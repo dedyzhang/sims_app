@@ -8,6 +8,7 @@ use App\Http\Controllers\AiAnalyzeController;
 use App\Http\Controllers\AiChatController;
 use App\Http\Controllers\AiRagController;
 use App\Http\Controllers\AiTeacherController;
+use App\Http\Controllers\CanvaConnectController;
 use App\Http\Controllers\PresentationStudioController;
 use App\Http\Controllers\AlumniController;
 use App\Http\Controllers\AppDownloadController;
@@ -194,6 +195,22 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/{presentation}', 'show')->name('show');
             Route::put('/{presentation}', 'update')->name('update');
             Route::delete('/{presentation}', 'destroy')->name('destroy');
+        });
+
+        Route::controller(CanvaConnectController::class)->prefix('canva')->name('canva.')->group(function () {
+            Route::get('/status', 'status')->name('status');
+            Route::put('/belajar-id', 'updateBelajarId')->middleware('throttle:20,1')->name('belajar-id');
+            Route::get('/connect', 'connect')->middleware('throttle:10,1')->name('connect');
+            Route::get('/callback', 'callback')->name('callback');
+            Route::delete('/disconnect', 'disconnect')->middleware('throttle:20,1')->name('disconnect');
+            Route::get('/designs', 'designs')->middleware('throttle:20,1')->name('designs');
+        });
+
+        Route::controller(CanvaConnectController::class)->prefix('presentasi')->name('presentasi.canva.')->group(function () {
+            Route::post('/{presentation}/canva', 'createDesign')->middleware('throttle:20,1')->name('create');
+            Route::post('/{presentation}/canva/refresh-url', 'refreshUrl')->middleware('throttle:20,1')->name('refresh');
+            Route::post('/{presentation}/canva/export', 'exportPdf')->middleware('throttle:10,1')->name('export');
+            Route::get('/{presentation}/canva/download', 'downloadExport')->name('download');
         });
     });
 

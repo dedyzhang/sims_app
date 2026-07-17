@@ -31,6 +31,9 @@
         .quiz-doc ol.petunjuk { margin: 6px 0 0; padding-left: 20px; }
         .quiz-doc ol.petunjuk li { margin-bottom: 2px; }
         .quiz-doc .soal { margin-top: 10px; padding-left: 18px; text-indent: -18px; }
+        .quiz-doc .soal-gambar { margin: 8px 0 8px 18px; text-align: center; text-indent: 0; }
+        .quiz-doc .soal-gambar img { max-width: 100%; max-height: 280px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; }
+        .quiz-doc .soal-gambar-caption { font-size: 11px; color: #6b7280; margin-top: 4px; font-style: italic; }
         .quiz-doc .opsi { padding-left: 34px; text-indent: -16px; }
         .quiz-doc .garis-jawab { margin: 4px 0 2px 18px; color: #9ca3af; overflow: hidden; white-space: nowrap; }
         .quiz-doc .kunci { margin-top: 24px; padding-top: 8px; border-top: 1px dashed #9ca3af; }

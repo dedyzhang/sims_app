@@ -110,6 +110,58 @@
     </div>
     @endif
 
+    {{-- Canva Pendidikan (belajar.id, gratis) --}}
+    <div class="card p-4 space-y-3" x-show="!needsApiKeySetup && canva.feature_enabled" x-cloak>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0 flex-1">
+                <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                    <span class="grid place-items-center w-8 h-8 rounded-xl bg-sky-500/15 text-sky-600">
+                        <i data-lucide="palette" class="w-4 h-4"></i>
+                    </span>
+                    Canva Pendidikan
+                </h2>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Hubungkan dengan akun <strong>belajar.id</strong> sekolah. Gratis, tanpa Canva Pro.
+                    <span x-show="canva.connected" x-cloak>
+                        Terhubung: <span class="font-semibold font-mono" x-text="canva.email_masked"></span>
+                    </span>
+                </p>
+                <div class="mt-3 flex flex-col sm:flex-row gap-2" x-show="!canva.connected" x-cloak>
+                    <input type="email" x-model="belajarIdInput" placeholder="nama@sekolah.belajar.id"
+                           class="form-input text-sm font-mono flex-1 min-w-0"
+                           :disabled="canvaBusy">
+                    <button type="button" @click="saveBelajarId" :disabled="canvaBusy || !(belajarIdInput || '').trim()"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-3 py-2 text-xs font-bold min-h-[44px] disabled:opacity-40">
+                        Simpan email
+                    </button>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1" x-show="!canva.connected && canva.belajar_hint" x-cloak>
+                    Siap hubungkan: <span class="font-mono font-semibold" x-text="canva.belajar_hint"></span>
+                </p>
+                <p class="text-[11px] text-rose-500 font-semibold mt-1" x-show="canvaError" x-cloak x-text="canvaError"></p>
+                <p class="text-[11px] text-emerald-600 font-semibold mt-1" x-show="canvaMessage" x-cloak x-text="canvaMessage"></p>
+            </div>
+            <div class="flex flex-wrap gap-2 flex-shrink-0">
+                <a href="{{ route('ai.teacher.presentasi.index') }}"
+                   class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm font-bold min-h-[44px] hover:border-primary">
+                    <i data-lucide="presentation" class="w-4 h-4"></i> Studio Presentasi
+                </a>
+                <a x-show="!canva.connected" x-cloak href="{{ route('ai.teacher.canva.connect') }}"
+                   class="inline-flex items-center gap-2 rounded-xl bg-sky-600 text-white px-4 py-2.5 text-sm font-bold min-h-[44px] hover:bg-sky-700"
+                   :class="(!canva.configured || !canva.belajar_hint) && 'opacity-50 pointer-events-none'">
+                    <i data-lucide="link" class="w-4 h-4"></i> Hubungkan Canva
+                </a>
+                <button x-show="canva.connected" x-cloak type="button" @click="disconnectCanva" :disabled="canvaBusy"
+                        class="inline-flex items-center gap-2 rounded-xl border border-rose-200 dark:border-rose-800 px-4 py-2.5 text-sm font-bold text-rose-600 min-h-[44px] disabled:opacity-50">
+                    <i data-lucide="unlink" class="w-4 h-4"></i> Putuskan
+                </button>
+            </div>
+        </div>
+        <p class="text-[11px] text-amber-700 dark:text-amber-300" x-show="!canva.configured" x-cloak>
+            Admin belum mengisi <code>CANVA_CLIENT_ID</code> / <code>CANVA_CLIENT_SECRET</code> di server.
+        </p>
+    </div>
+
     {{-- Generate quota --}}
     <div class="card p-4" x-show="quota" x-cloak>
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -355,6 +407,14 @@
                         </select>
                     </div>
                 </div>
+                <label class="flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-3 transition"
+                       :class="quiz.soal_bergambar ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-700'">
+                    <input type="checkbox" x-model="quiz.soal_bergambar" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary">
+                    <span>
+                        <span class="block text-sm font-semibold text-slate-700 dark:text-slate-200">Soal bergambar (Gemini Image)</span>
+                        <span class="mt-0.5 block text-[11px] text-slate-500 dark:text-slate-400">AI menambahkan diagram/ilustrasi pada soal. Memakai kuota Gemini Image terpisah (maks. {{ (int) config('ai.image.max_per_quiz', 5) }} gambar/batch).</span>
+                    </span>
+                </label>
                 <button type="button" @click="submit('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || (quiz.source === 'file' ? !quiz.file : quiz.topik.trim() === '')" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
                     <i data-lucide="wand-2" class="w-4 h-4"></i> Buat Soal
                 </button>
@@ -671,6 +731,20 @@
                 has_gemini_api_key: @js((bool) ($externalAccounts['has_gemini_api_key'] ?? false)),
                 gemini_api_key_masked: @js($externalAccounts['gemini_api_key_masked'] ?? null),
             },
+            canva: @js($canvaStatus ?? [
+                'configured' => false,
+                'feature_enabled' => true,
+                'connected' => false,
+                'email_masked' => null,
+                'display_name' => null,
+                'allowed_email_suffix' => '.belajar.id',
+                'belajar_hint' => null,
+                'connected_at' => null,
+            ]),
+            canvaBusy: false,
+            canvaError: '',
+            canvaMessage: '',
+            belajarIdInput: @js(($canvaStatus['belajar_hint'] ?? null) ?: ''),
             apiKeyInput: '',
             apiKeySaving: false,
             apiKeyError: '',
@@ -710,7 +784,7 @@
                 { value: 'mencocokkan', label: 'Mencocokkan' },
                 { value: 'isian', label: 'Isian' },
             ],
-            quiz:     { topik: '', jumlah: 5, jenis_soal: ['pg'], tingkat: 'sedang', jenjang: '', source: 'ai', file: null, fileName: '' },
+            quiz:     { topik: '', jumlah: 5, jenis_soal: ['pg'], tingkat: 'sedang', jenjang: '', source: 'ai', file: null, fileName: '', soal_bergambar: false },
             learning: { tool: 'rpp', topik: '', mapel: '', jenjang: '', durasi: '', source: 'ai', file: null, fileName: '' },
             summary:  { materi: '' },
             feedback: { nama: '', konteks: '' },
@@ -729,6 +803,9 @@
                 learningWord: '{{ route('ai.teacher.learning.export-word') }}',
                 learningPdf: '{{ route('ai.teacher.learning.export-pdf') }}',
                 geminiKey: '{{ route('ai.teacher.gemini-key') }}',
+                canvaStatus: '{{ route('ai.teacher.canva.status') }}',
+                canvaDisconnect: '{{ route('ai.teacher.canva.disconnect') }}',
+                canvaBelajarId: '{{ route('ai.teacher.canva.belajar-id') }}',
                 externalPrompt: '{{ route('ai.teacher.external-prompt') }}',
                 externalResult: '{{ route('ai.teacher.external-result') }}',
                 chat: '{{ route('ai.teacher.chat') }}',
@@ -997,6 +1074,68 @@
                 }
             },
 
+            async saveBelajarId() {
+                if (this.canvaBusy) return;
+                this.canvaBusy = true;
+                this.canvaError = '';
+                this.canvaMessage = '';
+                try {
+                    const r = await fetch(this.urls.canvaBelajarId, {
+                        method: 'PUT',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        },
+                        body: JSON.stringify({ canva_belajar_id: (this.belajarIdInput || '').trim() }),
+                    });
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok || !d.ok) {
+                        this.canvaError = d.message || (d.errors?.canva_belajar_id?.[0]) || 'Email belajar.id ditolak.';
+                        return;
+                    }
+                    this.canva = Object.assign({}, this.canva, d.canva || {});
+                    this.belajarIdInput = this.canva.belajar_hint || this.belajarIdInput;
+                    this.canvaMessage = d.message || 'Email belajar.id disimpan.';
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                } catch (_) {
+                    this.canvaError = 'Gagal menyimpan email.';
+                } finally {
+                    this.canvaBusy = false;
+                }
+            },
+
+            async disconnectCanva() {
+                if (this.canvaBusy) return;
+                if (!confirm('Putuskan tautan Canva Pendidikan dari akun SIMS?')) return;
+                this.canvaBusy = true;
+                this.canvaError = '';
+                this.canvaMessage = '';
+                try {
+                    const r = await fetch(this.urls.canvaDisconnect, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        },
+                    });
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok || !d.ok) {
+                        this.canvaError = d.message || 'Gagal memutus Canva.';
+                        return;
+                    }
+                    this.canva = Object.assign({}, this.canva, d.canva || { connected: false, email_masked: null });
+                    this.canvaMessage = d.message || 'Tautan Canva diputus.';
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                } catch (_) {
+                    this.canvaError = 'Gagal terhubung.';
+                } finally {
+                    this.canvaBusy = false;
+                }
+            },
+
             startQuotaPolling() {
                 if (this.quotaTimer) clearInterval(this.quotaTimer);
                 this.quotaTimer = setInterval(() => this.refreshQuota(false), 10000);
@@ -1084,6 +1223,7 @@
                     this.quiz.jenis_soal.forEach((jenis) => form.append('jenis_soal[]', jenis));
                     form.append('tingkat', this.quiz.tingkat);
                     form.append('jenjang', this.quiz.jenjang || '');
+                    form.append('soal_bergambar', this.quiz.soal_bergambar ? '1' : '0');
                     if (this.quiz.source === 'file' && this.quiz.file) form.append('file', this.quiz.file);
                 }
 
@@ -1120,6 +1260,7 @@
                     if (r.ok && d.ok) {
                         this.result = d.answer;
                         if (d.history) this.addHistory(d.history);
+                        if (d.warning) this.error = d.warning;
                         if (tool === 'learning' || tool === 'quiz') await this.refreshPreview();
                         await this.refreshQuota(true);
                     } else if (r.status === 422) {
@@ -1197,6 +1338,7 @@
                     this.quiz.jenis_soal.forEach((jenis) => form.append('jenis_soal[]', jenis));
                     form.append('tingkat', this.quiz.tingkat);
                     form.append('jenjang', this.quiz.jenjang || '');
+                    form.append('soal_bergambar', this.quiz.soal_bergambar ? '1' : '0');
                     if (this.quiz.source === 'file' && this.quiz.file) form.append('file', this.quiz.file);
                 }
 

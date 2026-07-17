@@ -36,7 +36,7 @@ class AiTeacherPresentasiIntegrationTest extends TestCase
         return $guru->fresh();
     }
 
-    public function test_asisten_guru_shows_gemini_without_presentasi_menu(): void
+    public function test_asisten_guru_shows_gemini_studio_and_canva_panel(): void
     {
         $guru = $this->guru();
 
@@ -48,8 +48,9 @@ class AiTeacherPresentasiIntegrationTest extends TestCase
             ->assertSee('Asisten Guru', false)
             ->assertSee('Generator Soal', false)
             ->assertSee(route('ai.teacher.chat'), false)
+            ->assertSee('Canva Pendidikan', false)
+            ->assertSee(route('ai.teacher.presentasi.index'), false)
             ->assertDontSee(route('ai.teacher.presentasi-from-chat'), false)
-            ->assertDontSee(route('ai.teacher.presentasi.index'), false)
             ->assertDontSee('Kirim ke Presentasi', false)
             ->assertSee("item.type === 'gemini_chat'", false)
             ->assertSee("this.tab = 'gemini'", false);
