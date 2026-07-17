@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Classroom;
 use App\Models\Guru;
 use App\Models\Kelas;
 use App\Models\Ngajar;
@@ -239,10 +240,26 @@ class GuruController extends Controller
             : 'Penugasan sudah ada (tidak ada yang baru ditambahkan).');
     }
 
+    /**
+     * Hapus penugasan ngajar. Ruang Kelas (Classroom) yang otomatis dibuat untuk
+     * kombinasi kelas+mapel ini ikut dihapus permanen (materi/tugas/jawaban siswa
+     * di ruang tsb ikut hilang lewat cascadeOnDelete di DB) — sesuai permintaan:
+     * penugasan dihapus → ruang kelasnya juga tidak boleh menggantung.
+     */
     public function hapusNgajar(string $ngajarUuid)
     {
-        Ngajar::findOrFail($ngajarUuid)->delete();
-        return back()->with('success', 'Pelajaran dihapus.');
+        $ngajar = Ngajar::findOrFail($ngajarUuid);
+
+        if ($ngajar->id_kelas && $ngajar->id_pelajaran) {
+            Classroom::where('id_kelas', $ngajar->id_kelas)
+                ->where('id_pelajaran', $ngajar->id_pelajaran)
+                ->get()
+                ->each(fn (Classroom $c) => $c->forceDelete());
+        }
+
+        $ngajar->delete();
+
+        return back()->with('success', 'Pelajaran & ruang kelas terkait dihapus.');
     }
 
     /** Simpan data wajah guru (descriptor) untuk presensi */

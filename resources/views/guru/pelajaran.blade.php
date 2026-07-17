@@ -76,7 +76,7 @@
                             <span class="badge bg-primary-50 text-primary">{{ $ngajar->kelas ? 'Kelas '.$ngajar->kelas->tingkat.$ngajar->kelas->kelas : 'Semua Kelas' }}</span>
                         </td>
                         <td class="text-right">
-                            <form method="POST" action="{{ route('guru.hapusNgajar', $ngajar->uuid) }}" onsubmit="return confirmDelete(this)">
+                            <form method="POST" action="{{ route('guru.hapusNgajar', $ngajar->uuid) }}" onsubmit="return confirmAction(this, 'Ruang Kelas (materi, tugas & jawaban siswa) untuk mapel ini di kelas tsb akan ikut terhapus permanen. Lanjutkan?', 'red')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900 text-rose-500 transition">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
