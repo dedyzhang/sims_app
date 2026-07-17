@@ -1,2 +1,0 @@
-NARASI:  "Setiap kerusakan dilaporkan di sini dengan tingkat urgensi dan status penanganan yang bisa
-dipantau sampai selesai."

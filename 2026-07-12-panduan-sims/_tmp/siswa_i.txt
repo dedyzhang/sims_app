@@ -1,6 +1,0 @@
-FITUR 8
-Data Siswa
-
-/siswa
-
-Untuk: Admin/Operator

@@ -1,6 +1,0 @@
-FITUR 24
-Master Aturan Poin
-
-/poin
-
-Untuk: Admin, Kesiswaan, Wali Kelas

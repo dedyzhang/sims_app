@@ -1,6 +1,0 @@
-FITUR 18
-Penilaian (Buku Guru)
-
-/nilai
-
-Untuk: Guru

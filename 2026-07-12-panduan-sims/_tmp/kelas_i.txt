@@ -1,6 +1,0 @@
-FITUR 9
-Data Kelas
-
-/kelas
-
-Untuk: Admin/Operator

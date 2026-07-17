@@ -1,6 +1,0 @@
-FITUR 11
-Kartu Pelajar Digital
-
-/kartu-pelajar/kelola
-
-Untuk: Admin • Siswa (mengunduh)

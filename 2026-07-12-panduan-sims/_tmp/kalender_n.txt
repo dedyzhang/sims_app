@@ -1,2 +1,0 @@
-NARASI:  "Kalender ini menentukan kapan siswa boleh absen dan guru wajib mengisi agenda. Cukup klik
-tanggal untuk mengaktifkan atau menonaktifkannya."

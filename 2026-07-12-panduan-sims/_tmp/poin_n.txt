@@ -1,2 +1,0 @@
-NARASI:  "Sistem poin kedisiplinan dimulai dari 100. Tentukan aturan penambahan dan pengurangan, lalu
-terapkan ke siswa dan pantau di dashboard."

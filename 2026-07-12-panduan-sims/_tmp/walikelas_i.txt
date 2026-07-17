@@ -1,6 +1,0 @@
-FITUR 25
-Menu Wali Kelas
-
-/walikelas/siswa
-
-Untuk: Hanya akun Wali Kelas

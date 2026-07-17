@@ -1,6 +1,0 @@
-FITUR 4
-Pengumuman Sekolah
-
-/pengumuman
-
-Untuk: Baca: semua • Buat: Admin/Kepala/Kurikulum/Kesiswaan

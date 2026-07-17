@@ -1,6 +1,0 @@
-FITUR 29
-Laporan Kerusakan
-
-/sarpras/kerusakan
-
-Untuk: Semua (lapor) • Sarpras (kelola)

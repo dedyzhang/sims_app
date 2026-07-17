@@ -1,6 +1,0 @@
-FITUR 28
-Inventaris Barang (Aset)
-
-/sarpras/aset
-
-Untuk: Sarpras, Admin

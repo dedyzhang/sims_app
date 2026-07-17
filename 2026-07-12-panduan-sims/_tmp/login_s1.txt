@@ -1,1 +1,0 @@
-SHOT 2 - Ketik username   >>   Isi contoh akun, jangan tampilkan password asli

@@ -1,2 +1,0 @@
-NARASI:  "Kartu pelajar dibuat otomatis lengkap dengan QR. Siswa bisa mengunduh sendiri, atau admin
-mengunggah desain kustom."

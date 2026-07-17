@@ -1,2 +1,0 @@
-NARASI:  "Denah Sekolah memetakan gedung, lantai, dan ruangan lengkap dengan zona warna serta titik
-kerusakan dan aset."

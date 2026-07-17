@@ -1,6 +1,0 @@
-FITUR 17
-Editor Jadwal Pelajaran
-
-/jadwal
-
-Untuk: Admin, Kurikulum

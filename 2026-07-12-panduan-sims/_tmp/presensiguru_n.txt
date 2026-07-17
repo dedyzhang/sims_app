@@ -1,2 +1,0 @@
-NARASI:  "Presensi Guru mencatat kehadiran harian pengajar. Guru yang belum mendaftarkan wajah
-ditandai agar bisa segera didaftarkan."

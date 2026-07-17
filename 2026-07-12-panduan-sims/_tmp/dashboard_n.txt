@@ -1,2 +1,0 @@
-NARASI:  "Dashboard adalah pusat kendali. Di sini Anda melihat ringkasan sekolah dan mengakses aksi
-cepat. Susunan widget bisa diatur sesuai kebutuhan Anda."

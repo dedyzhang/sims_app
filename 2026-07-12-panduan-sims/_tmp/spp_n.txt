@@ -1,2 +1,0 @@
-NARASI:  "Keuangan SPP memantau pembayaran per kelas dan tahun ajaran. Nilai selalu dalam rupiah,
-dengan progres bulan lunas tiap kelas."

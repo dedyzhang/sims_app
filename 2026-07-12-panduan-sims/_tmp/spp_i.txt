@@ -1,6 +1,0 @@
-FITUR 31
-Keuangan SPP
-
-/keuangan
-
-Untuk: Bendahara/Keuangan, Admin

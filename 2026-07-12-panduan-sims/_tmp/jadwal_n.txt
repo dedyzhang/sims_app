@@ -1,2 +1,0 @@
-NARASI:  "Editor Jadwal menyusun jadwal semua kelas sekaligus. Bentrok guru otomatis ditandai, dan
-Anda bisa memakai Auto-Generate untuk mempercepat."

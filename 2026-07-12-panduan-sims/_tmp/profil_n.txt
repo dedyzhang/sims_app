@@ -1,2 +1,0 @@
-NARASI:  "Di halaman Profil, Anda bisa memperbarui data diri dan mengelola keamanan: ganti kata
-sandi, atur PIN, ubah tema, atau daftarkan wajah."

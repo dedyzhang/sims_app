@@ -1,1 +1,0 @@
-SHOT 1 - Layar login penuh   >>   Sorot kolom username & password

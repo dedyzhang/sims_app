@@ -1,6 +1,0 @@
-FITUR 16
-Ruang Kelas Digital
-
-/ruang-kelas
-
-Untuk: Guru, Siswa

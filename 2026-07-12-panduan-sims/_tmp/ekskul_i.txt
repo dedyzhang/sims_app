@@ -1,6 +1,0 @@
-FITUR 20
-Ekstrakurikuler
-
-/ekskul
-
-Untuk: Admin, Guru Pembina

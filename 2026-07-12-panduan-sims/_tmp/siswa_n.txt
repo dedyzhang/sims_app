@@ -1,2 +1,0 @@
-NARASI:  "Data Siswa adalah induk semua data peserta didik. Saring per kelas, impor lewat Excel, dan
-cetak kartu pelajar langsung dari sini."

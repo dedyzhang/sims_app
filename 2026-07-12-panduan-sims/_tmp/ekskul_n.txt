@@ -1,2 +1,0 @@
-NARASI:  "Ekstrakurikuler dikelola beserta pembinanya. Nilai berupa deskripsi, bisa diisi manual atau
-diambil dari nilai rapor mapel."

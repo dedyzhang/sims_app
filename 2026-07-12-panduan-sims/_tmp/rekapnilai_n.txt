@@ -1,2 +1,0 @@
-NARASI:  "Rekap Nilai merangkum semua nilai satu kelas. Nilai di bawah KKM otomatis disorot merah
-agar mudah dievaluasi."
