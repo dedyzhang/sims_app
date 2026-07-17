@@ -681,6 +681,7 @@
                     $groups['sistem'] = ['Sistem', 'sliders-horizontal', [
                         ['setting.index', ['setting.index', 'setting.kopRapor', 'setting.penjabaran', 'setting.tpRange'], 'settings-2', 'Pengaturan'],
                         ['setting.roles', ['setting.roles'], 'shield-check', 'Hak Akses (RBAC)'],
+                        ['pembaruan.index', ['pembaruan.*'], 'sparkles', 'Info Pembaruan'],
                     ]];
                     // Langganan (lisensi) — hanya superadmin
                     if ($access === 'superadmin') {
@@ -819,6 +820,10 @@
                     </span>
                 </button>
                 <div x-show="openGroup==='bantuan'" x-collapse class="nav-submenu ml-[22px] pl-2.5 mt-0.5 space-y-0.5">
+                    <a href="{{ route('pembaruan.riwayat') }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('pembaruan.riwayat') ? 'active' : '' }}">
+                        <i data-lucide="sparkles" class="nav-icon w-4 h-4 flex-shrink-0"></i>
+                        <span class="text-[13px] truncate">Info Pembaruan</span>
+                    </a>
                     <a href="{{ route('panduan.visual') }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
                         <i data-lucide="book-open-check" class="nav-icon w-4 h-4 flex-shrink-0"></i>
                         <span class="text-[13px] truncate">Panduan Visual</span>
@@ -838,6 +843,9 @@
                 </div>
             </div>
             <div x-show="mini" x-cloak class="mt-2 pt-2 border-t border-black/10 dark:border-white/10 space-y-0.5">
+                <a href="{{ route('pembaruan.riwayat') }}" data-tip="Info Pembaruan" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('pembaruan.riwayat') ? 'active' : '' }}">
+                    <i data-lucide="sparkles" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                </a>
                 <a href="{{ route('panduan.visual') }}" data-tip="Panduan Visual" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs('panduan.*') ? 'active' : '' }}">
                     <i data-lucide="book-open-check" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 </a>
@@ -1316,6 +1324,8 @@
 @unless(in_array($access, ['siswa', 'orangtua']))
 @include('partials.ai-assistant')
 @endunless
+
+@include('partials.whats-new-modal')
 
 <script>
     function appShell() {

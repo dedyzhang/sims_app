@@ -28,6 +28,7 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         'reset_token',
         'must_change_password',
         'username_customized',
+        'dismissed_update_id',
     ];
 
     protected $hidden = [

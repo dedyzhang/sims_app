@@ -10,6 +10,7 @@ use App\Http\Controllers\AiRagController;
 use App\Http\Controllers\AiTeacherController;
 use App\Http\Controllers\AlumniController;
 use App\Http\Controllers\AppDownloadController;
+use App\Http\Controllers\AppUpdateController;
 use App\Http\Controllers\KartuPelajarController;
 use App\Http\Controllers\KalenderController;
 use App\Http\Controllers\PoinController;
@@ -766,11 +767,25 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         });
     });
 
+    // ─── Info Pembaruan Aplikasi (kelola konten) — admin saja, dicek juga di controller ───
+    Route::middleware('permission:manage_settings')->prefix('pembaruan')->name('pembaruan.')->controller(AppUpdateController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/buat', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{update}/edit', 'edit')->name('edit');
+        Route::put('/{update}', 'update')->name('update');
+        Route::delete('/{update}', 'destroy')->name('destroy');
+    });
+
     // ─── Unduh Aplikasi: halaman & unduhan untuk SEMUA pengguna login ──────
     Route::controller(AppDownloadController::class)->group(function () {
         Route::get('/unduh-aplikasi', 'page')->name('app.download');
         Route::get('/unduh-aplikasi/{platform}', 'download')->name('app.download.file');
     });
+
+    // ─── Popup "Apa yang Baru": lihat riwayat & dismiss untuk SEMUA pengguna login ───
+    Route::get('/pembaruan/riwayat', [AppUpdateController::class, 'riwayat'])->name('pembaruan.riwayat');
+    Route::post('/pembaruan/dismiss', [AppUpdateController::class, 'dismiss'])->name('pembaruan.dismiss');
 
     // ─── Kartu Pelajar Digital: milik siswa yang login ─────────────────────
     Route::middleware('modul:kartu_pelajar')->controller(KartuPelajarController::class)->group(function () {

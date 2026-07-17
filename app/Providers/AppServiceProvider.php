@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Setting;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
@@ -68,6 +70,16 @@ class AppServiceProvider extends ServiceProvider
                  ->with('alamatSekolah', $alamat)
                  ->with('sekolahLogoUrl', $logoUrl)
                  ->with('sekolahLogoExt', $logoExt);
+        });
+
+        // Popup "Apa yang Baru": ditandai sekali per sesi login lewat semua metode
+        // login (password, PIN, WebAuthn) karena semuanya bermuara ke Auth::login().
+        // Sengaja BUKAN flash session — beberapa middleware (wajib ganti password,
+        // wajib daftar wajah) bisa redirect dulu sebelum halaman pertama benar-benar
+        // tampil, yang akan "memakan" flash sebelum modal sempat dicek. Partial modal
+        // sendiri yang menghapus flag ini begitu ia benar-benar dievaluasi di halaman.
+        Event::listen(Login::class, function () {
+            session()->put('show_whats_new', true);
         });
     }
 }
