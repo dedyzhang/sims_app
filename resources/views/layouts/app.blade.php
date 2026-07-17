@@ -507,8 +507,8 @@
                     }
                 }
 
-                // Asisten Guru: guru mapel, wali kelas, Kepala Sekolah, semua Waka — bukan siswa/orang tua
-                if ($modulOn('asisten_guru') && in_array($access, ['guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sapras'], true)) {
+                // Asisten Guru: guru mapel, wali kelas, Kepala Sekolah, semua Waka, admin — bukan siswa/orang tua
+                if ($modulOn('asisten_guru') && in_array($access, ['guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sapras', 'admin'], true)) {
                     $akademik[] = ['ai.teacher.index', ['ai.teacher.*'], 'sparkles', 'Asisten Guru'];
                 }
 

@@ -161,8 +161,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         });
 
     // ─── Asisten Guru (Fase 3) ─────────────────────────────────────────────────
-    // Panel tool guru (soal/rangkum/feedback). Guru mapel, wali kelas, Kepala, semua Waka.
-    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,sapras', 'modul:asisten_guru'])->prefix('ai/teacher')->name('ai.teacher.')->group(function () {
+    // Panel tool guru (soal/rangkum/feedback). Guru mapel, wali kelas, Kepala, semua Waka, admin.
+    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,sapras,admin', 'modul:asisten_guru'])->prefix('ai/teacher')->name('ai.teacher.')->group(function () {
         Route::controller(AiTeacherController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/quota', 'quota')->name('quota');
