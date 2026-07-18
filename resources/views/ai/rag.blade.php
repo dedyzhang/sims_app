@@ -10,6 +10,12 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Unggah dokumen sekolah (peraturan/materi), lalu tanya-jawab berbasis isinya dengan sumber kutipan.</p>
     </div>
 
+    @unless($schoolAiConfigured ?? false)
+    <div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+        Fitur ini memakai <strong>kunci AI sekolah</strong> (<code>GEMINI_API_KEY</code> di server), bukan API key pribadi guru di Asisten Guru. Minta admin mengisi kunci di <code>.env</code> lalu <code>php artisan config:clear</code>.
+    </div>
+    @endunless
+
     {{-- Unggah --}}
     <div class="card p-5">
         <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 mb-3"><i data-lucide="upload" class="w-4 h-4"></i> Unggah Dokumen</h2>
@@ -20,18 +26,18 @@
                     <input type="text" x-model="title" placeholder="mis. Tata Tertib Siswa 2026" class="form-input">
                 </div>
                 <div>
-                    <label class="form-label">Berkas (PDF / TXT, maks 10 MB) <span class="text-rose-500">*</span></label>
+                    <label class="form-label">Berkas (PDF / TXT, maks {{ number_format(($maxUploadKb ?? 5120) / 1024, 1) }} MB) <span class="text-rose-500">*</span></label>
                     <input type="file" x-ref="file" accept=".pdf,.txt" class="form-input">
                 </div>
             </div>
-            <button type="button" @click="upload()" :disabled="uploading" class="btn-primary flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 h-fit">
+            <button type="button" @click="upload()" :disabled="uploading || !@js((bool) ($schoolAiConfigured ?? false))" class="btn-primary flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 h-fit">
                 <i :data-lucide="uploading ? 'loader-circle' : 'upload'" :class="uploading && 'animate-spin'" class="w-4 h-4"></i>
-                <span x-text="uploading ? 'Memproses…' : 'Unggah & Proses'"></span>
+                <span x-text="uploading ? 'Mengunggah…' : 'Unggah & Proses'"></span>
             </button>
         </div>
         <p x-show="uploadMsg" x-cloak class="mt-3 text-sm text-emerald-600 dark:text-emerald-400" x-text="uploadMsg"></p>
         <p x-show="uploadErr" x-cloak class="mt-3 text-sm text-rose-600 dark:text-rose-400" x-text="uploadErr"></p>
-        <p class="mt-2 text-[11px] text-slate-400">Catatan: PDF hasil scan (gambar) tidak bisa diekstrak teksnya.</p>
+        <p class="mt-2 text-[11px] text-slate-400">Pemrosesan (embed) berjalan di antrean. PDF hasil scan (gambar) tidak bisa diekstrak teksnya. Muat ulang halaman jika status masih Pending.</p>
     </div>
 
     <div class="grid gap-5 lg:grid-cols-2">

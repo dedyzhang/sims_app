@@ -274,8 +274,13 @@ return [
         'embed_model' => env('AI_EMBED_MODEL', 'gemini-embedding-001'),
         'chunk_chars' => (int) env('AI_RAG_CHUNK', 900),   // ukuran target per chunk
         'chunk_overlap' => (int) env('AI_RAG_OVERLAP', 150),
-        'max_chunks' => (int) env('AI_RAG_MAX_CHUNKS', 300), // batas chunk per dokumen
+        'max_chunks' => (int) env('AI_RAG_MAX_CHUNKS', 120), // batas chunk per dokumen (pilot aman)
+        'max_extract_chars' => (int) env('AI_RAG_MAX_EXTRACT_CHARS', 200_000),
+        'max_upload_kb' => (int) env('AI_RAG_MAX_UPLOAD_KB', 5120), // 5 MB
         'top_k' => (int) env('AI_RAG_TOPK', 5),        // chunk termirip yang dipakai
+        // Batas kandidat yang di-score di PHP (hindari O(n) seluruh korpus).
+        'search_candidate_limit' => (int) env('AI_RAG_SEARCH_CANDIDATES', 400),
+        'queue_ingest' => (bool) env('AI_RAG_QUEUE_INGEST', true),
         'system' => <<<'TXT'
             Kamu asisten dokumen sekolah. Jawab pertanyaan HANYA berdasarkan KONTEKS
             kutipan dokumen yang diberikan di bawah. Jika jawabannya tidak ada di dalam

@@ -523,7 +523,7 @@
                 }
 
                 // Asisten Guru: guru mapel, wali kelas, Kepala Sekolah, semua Waka, admin — bukan siswa/orang tua
-                if ($modulOn('asisten_guru') && in_array($access, ['guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sapras', 'admin'], true)) {
+                if ($modulOn('asisten_guru') && \App\Support\UserRole::matches($access, 'guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sapras', 'admin')) {
                     $akademik[] = ['ai.teacher.index', ['ai.teacher.*'], 'sparkles', 'Asisten Guru'];
                 }
 
@@ -666,7 +666,7 @@
 
                 // ── Keuangan ──
                 if ($modulOn('keuangan') && ($isAdmin || auth()->user()?->canAccess('manage_keuangan'))) {
-                    $groups['keuangan'] = ['Keuangan', 'wallet', [
+                    $groups['keuangan'] = ['Keuangan / SPP', 'wallet', [
                         ['keuangan.index',      ['keuangan.index','keuangan.kelas'], 'layout-dashboard', 'Pembayaran SPP'],
                         ['keuangan.verifikasi', ['keuangan.verifikasi'],             'badge-check',      'Verifikasi'],
                         ['keuangan.bank',       ['keuangan.bank'],                   'landmark',         'Bank & Metode'],

@@ -29,7 +29,14 @@ class RagService
 
         // Normalkan spasi/karakter kontrol.
         $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u', ' ', $text);
-        return trim(preg_replace('/\s+/u', ' ', $text));
+        $text = trim(preg_replace('/\s+/u', ' ', $text));
+
+        $maxChars = max(1000, (int) config('ai.rag.max_extract_chars', 200_000));
+        if (mb_strlen($text) > $maxChars) {
+            $text = mb_substr($text, 0, $maxChars);
+        }
+
+        return $text;
     }
 
     /** Potong teks jadi chunk berukuran ~chunk_chars dengan overlap, pecah di batas kata. */
@@ -123,24 +130,37 @@ class RagService
 
     /**
      * Cari chunk paling mirip dengan query (cosine). Hanya dokumen processed.
+     * Kandidat dibatasi search_candidate_limit agar tidak O(n) seluruh korpus.
+     *
      * @return array<int, array{content:string, title:string, score:float}>
      */
-    public function search(string $query, ?int $k = null): array
+    public function search(string $query, ?int $k = null, ?string $documentId = null): array
     {
         $k = $k ?? (int) config('ai.rag.top_k');
+        $candidateLimit = max($k, (int) config('ai.rag.search_candidate_limit', 400));
         $qvec = $this->gemini->embed($query);
 
-        $chunks = AiDocumentChunk::whereHas('document', function ($q) {
-            $q->where('status', AiDocument::STATUS_PROCESSED);
-        })->with('document:uuid,title')->get(['uuid', 'document_id', 'content', 'embedding']);
+        $chunks = AiDocumentChunk::query()
+            ->whereHas('document', function ($q) use ($documentId) {
+                $q->where('status', AiDocument::STATUS_PROCESSED);
+                if ($documentId) {
+                    $q->where('uuid', $documentId);
+                }
+            })
+            ->with('document:uuid,title')
+            ->orderByDesc('created_at')
+            ->limit($candidateLimit)
+            ->get(['uuid', 'document_id', 'content', 'embedding']);
 
         $scored = [];
         foreach ($chunks as $ch) {
-            if (empty($ch->embedding)) continue;
+            if (empty($ch->embedding)) {
+                continue;
+            }
             $scored[] = [
                 'content' => $ch->content,
-                'title'   => $ch->document?->title ?? 'Dokumen',
-                'score'   => $this->cosine($qvec, $ch->embedding),
+                'title' => $ch->document?->title ?? 'Dokumen',
+                'score' => $this->cosine($qvec, $ch->embedding),
             ];
         }
 

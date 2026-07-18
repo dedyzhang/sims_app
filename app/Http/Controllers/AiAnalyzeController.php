@@ -10,6 +10,7 @@ use App\Models\Semester;
 use App\Models\Siswa;
 use App\Models\SppPembayaran;
 use App\Services\GeminiService;
+use App\Support\ModulAktif;
 use App\Support\TahunAjaran;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -33,10 +34,12 @@ class AiAnalyzeController extends Controller
     public function index(): View
     {
         return view('ai.analyze', [
-            'kelasList'    => Kelas::orderBy('tingkat')->orderBy('kelas')->get(),
+            'kelasList' => Kelas::orderBy('tingkat')->orderBy('kelas')->get(),
             'semesterList' => Semester::orderByDesc('tahun')->orderByDesc('semester')->get(),
-            'tahunAjaran'  => TahunAjaran::options(),
-            'taAktif'      => TahunAjaran::current(),
+            'tahunAjaran' => TahunAjaran::options(),
+            'taAktif' => TahunAjaran::current(),
+            'keuanganModulAktif' => ModulAktif::aktif('keuangan'),
+            'schoolAiConfigured' => $this->gemini->enabled(),
         ]);
     }
 
@@ -171,6 +174,13 @@ class AiAnalyzeController extends Controller
     /** POST /ai/analyze/keuangan — narasi rekap SPP satu tahun ajaran. */
     public function keuangan(Request $request): JsonResponse
     {
+        if (! ModulAktif::aktif('keuangan')) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Modul Keuangan / SPP dimatikan di Pengaturan Sistem.',
+            ], 403);
+        }
+
         $data = $request->validate([
             'tahun_ajaran' => ['required', 'string', 'max:20'],
         ]);
@@ -233,6 +243,13 @@ class AiAnalyzeController extends Controller
     {
         $userId = $request->user()->uuid;
 
+        if (! $this->gemini->enabled()) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Narasi Data memakai kunci AI sekolah di server (.env). Minta admin mengisi GEMINI_API_KEY atau OpenRouter — berbeda dari API key pribadi Asisten Guru.',
+            ], 422);
+        }
+
         if ($limited = $this->aiRateLimited($feature, $userId)) {
             return $limited;
         }
@@ -241,8 +258,8 @@ class AiAnalyzeController extends Controller
 
         try {
             $result = $this->gemini->generate($prompt, [
-                'system'            => $system,
-                'temperature'       => 0.4, // lebih faktual untuk laporan
+                'system' => $system,
+                'temperature' => 0.4, // lebih faktual untuk laporan
                 'max_output_tokens' => 1536,
             ]);
         } catch (RuntimeException $e) {

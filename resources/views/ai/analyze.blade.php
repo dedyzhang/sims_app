@@ -10,6 +10,12 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Sistem menghitung angkanya, AI menyusun narasinya. Cocok untuk laporan pimpinan & orang tua.</p>
     </div>
 
+    @unless($schoolAiConfigured ?? false)
+    <div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+        Narasi Data memakai <strong>kunci AI sekolah</strong> di server, bukan API key pribadi Asisten Guru. Minta admin mengisi <code>GEMINI_API_KEY</code> / OpenRouter di <code>.env</code>.
+    </div>
+    @endunless
+
     {{-- Tab --}}
     <div class="flex flex-wrap gap-2">
         <template x-for="t in tabs" :key="t.key">
@@ -148,8 +154,11 @@
             tabs: [
                 { key: 'nilai',    label: 'Ringkasan Nilai',  icon: 'graduation-cap' },
                 { key: 'absensi',  label: 'Tren Absensi',      icon: 'clipboard-check' },
-                { key: 'keuangan', label: 'Catatan Keuangan',  icon: 'wallet' },
+                @if($keuanganModulAktif ?? true)
+                { key: 'keuangan', label: 'Catatan SPP',  icon: 'wallet' },
+                @endif
             ],
+            schoolAiConfigured: @js((bool) ($schoolAiConfigured ?? false)),
             nilai:    { kelas_id: '', semester_id: '' },
             absensi:  { kelas_id: '', dari: '', sampai: '' },
             keuangan: { tahun_ajaran: '{{ $taAktif }}' },

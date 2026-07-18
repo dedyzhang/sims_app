@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\InteractsWithAi;
+use App\Jobs\IngestAiDocumentJob;
 use App\Models\AiDocument;
 use App\Services\GeminiService;
 use App\Services\RagService;
@@ -31,46 +32,77 @@ class AiRagController extends Controller
     {
         return view('ai.rag', [
             'documents' => AiDocument::withCount('chunks')->latest()->get(),
+            'schoolAiConfigured' => $this->gemini->enabled() && filled(config('ai.api_key')),
+            'maxUploadKb' => (int) config('ai.rag.max_upload_kb', 5120),
         ]);
     }
 
-    /** POST /ai/rag — unggah & proses dokumen (sinkron). */
+    /** POST /ai/rag — unggah & antrekan proses dokumen. */
     public function store(Request $request): JsonResponse
     {
+        if (! filled(config('ai.api_key'))) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Dokumen AI memakai kunci sekolah (GEMINI_API_KEY di server), bukan API key pribadi Asisten Guru. Minta admin mengisi kunci di .env.',
+            ], 422);
+        }
+
+        $maxKb = max(100, (int) config('ai.rag.max_upload_kb', 5120));
+
         $data = $request->validate([
             'title' => ['nullable', 'string', 'max:200'],
-            'file'  => ['required', 'file', 'mimes:pdf,txt', 'max:10240'], // 10 MB
+            'file' => ['required', 'file', 'mimes:pdf,txt', 'max:'.$maxKb],
         ]);
 
-        $file  = $request->file('file');
+        $file = $request->file('file');
         $title = $data['title'] ?: pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
         $path = $file->store('ai_documents', 'local');
 
         $doc = AiDocument::create([
             'user_uuid' => $request->user()->uuid,
-            'title'     => $title,
+            'title' => $title,
             'file_path' => $path,
-            'status'    => AiDocument::STATUS_PENDING,
+            'status' => AiDocument::STATUS_PENDING,
         ]);
 
-        $this->rag->ingest($doc, Storage::disk('local')->path($path), $file->getMimeType());
+        $mime = (string) $file->getMimeType();
+
+        if (config('ai.rag.queue_ingest', true)) {
+            IngestAiDocumentJob::dispatch($doc->uuid, $mime);
+            $doc->refresh();
+
+            return response()->json([
+                'ok' => true,
+                'message' => "Dokumen \"{$doc->title}\" diantrekan untuk diproses. Muat ulang sebentar lagi bila status masih Pending.",
+                'queued' => true,
+                'document' => [
+                    'id' => $doc->uuid,
+                    'title' => $doc->title,
+                    'status' => $doc->status,
+                    'chunk_count' => $doc->chunk_count,
+                ],
+            ]);
+        }
+
+        $this->rag->ingest($doc, Storage::disk('local')->path($path), $mime);
         $doc->refresh();
 
         if ($doc->status === AiDocument::STATUS_FAILED) {
             return response()->json([
-                'ok'      => false,
+                'ok' => false,
                 'message' => 'Dokumen gagal diproses: '.$doc->error,
             ], 422);
         }
 
         return response()->json([
-            'ok'       => true,
-            'message'  => "Dokumen \"{$doc->title}\" diproses ({$doc->chunk_count} potongan).",
+            'ok' => true,
+            'message' => "Dokumen \"{$doc->title}\" diproses ({$doc->chunk_count} potongan).",
+            'queued' => false,
             'document' => [
-                'id'          => $doc->uuid,
-                'title'       => $doc->title,
-                'status'      => $doc->status,
+                'id' => $doc->uuid,
+                'title' => $doc->title,
+                'status' => $doc->status,
                 'chunk_count' => $doc->chunk_count,
             ],
         ]);
@@ -93,8 +125,16 @@ class AiRagController extends Controller
     /** POST /ai/rag/ask — tanya-jawab berbasis dokumen (dengan sitasi). */
     public function ask(Request $request): JsonResponse
     {
+        if (! filled(config('ai.api_key'))) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Dokumen AI memakai kunci sekolah (GEMINI_API_KEY di server). Minta admin mengisi kunci di .env.',
+            ], 422);
+        }
+
         $data = $request->validate([
             'question' => ['required', 'string', 'max:1000'],
+            'document_id' => ['nullable', 'string', 'exists:ai_documents,uuid'],
         ]);
 
         $userId = $request->user()->uuid;
@@ -104,7 +144,7 @@ class AiRagController extends Controller
         }
 
         try {
-            $hits = $this->rag->search($data['question']);
+            $hits = $this->rag->search($data['question'], null, $data['document_id'] ?? null);
         } catch (RuntimeException $e) {
             $this->logAiUsage($userId, 'rag', config('ai.model'), 0, 0, 'error');
 
@@ -113,8 +153,8 @@ class AiRagController extends Controller
 
         if ($hits === []) {
             return response()->json([
-                'ok'      => true,
-                'answer'  => 'Belum ada dokumen yang bisa dijadikan rujukan. Unggah dokumen terlebih dahulu.',
+                'ok' => true,
+                'answer' => 'Belum ada dokumen siap yang bisa dijadikan rujukan. Unggah dokumen dan tunggu status Siap, atau coba pertanyaan lain.',
                 'sources' => [],
             ]);
         }
@@ -127,7 +167,7 @@ class AiRagController extends Controller
 
         try {
             $result = $this->gemini->generate($prompt, [
-                'system'      => config('ai.rag.system'),
+                'system' => config('ai.rag.system'),
                 'temperature' => 0.3,
             ]);
         } catch (RuntimeException $e) {
@@ -138,19 +178,18 @@ class AiRagController extends Controller
 
         $this->logAiUsage($userId, 'rag', $result['model'], $result['prompt_tokens'], $result['completion_tokens'], 'success');
 
-        // Sumber unik (judul dokumen dengan skor tertinggi).
         $sources = [];
         foreach ($hits as $h) {
             $t = $h['title'];
-            if (!isset($sources[$t]) || $h['score'] > $sources[$t]) {
+            if (! isset($sources[$t]) || $h['score'] > $sources[$t]) {
                 $sources[$t] = round($h['score'], 3);
             }
         }
         arsort($sources);
 
         return response()->json([
-            'ok'      => true,
-            'answer'  => $result['text'],
+            'ok' => true,
+            'answer' => $result['text'],
             'sources' => collect($sources)->map(fn ($score, $title) => ['title' => $title, 'score' => $score])->values(),
         ]);
     }

@@ -123,9 +123,9 @@
                     <div class="w-[4.25rem] h-[4.25rem] rounded-2xl grid place-items-center text-xl font-black text-white shrink-0 transition group-hover:-translate-y-0.5"
                          style="background:linear-gradient(155deg,#00c2b2,#0b3d6e);box-shadow:inset 0 2px 0 rgba(255,255,255,.3),0 6px 0 rgba(11,61,110,.35)" aria-hidden="true">AB</div>
                     <div class="min-w-0">
-                        <p class="text-[10px] font-black uppercase tracking-[0.14em] text-sky-800/80 mb-1">Game lobby · Online</p>
+                        <p class="text-[10px] font-black uppercase tracking-[0.14em] text-sky-800/80 mb-1">Kuis · Live · Arena Belajar · Misi</p>
                         <h3 class="text-2xl sm:text-3xl font-black tracking-tight text-slate-900" style="font-family:'Plus Jakarta Sans',sans-serif;text-shadow:0 2px 0 rgba(255,255,255,.5)">Arena Belajar</h3>
-                        <p class="text-sm font-semibold text-slate-600 mt-1 max-w-md leading-relaxed">Pilih world, rebut podium — skor masuk rapor.</p>
+                        <p class="text-sm font-semibold text-slate-600 mt-1 max-w-md leading-relaxed">Kuis interaktif dan misi edukatif — skor bisa masuk rapor.</p>
                     </div>
                 </div>
                 <span class="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl text-base font-black text-white min-h-[52px] shrink-0 transition group-hover:brightness-105 group-active:translate-y-1"

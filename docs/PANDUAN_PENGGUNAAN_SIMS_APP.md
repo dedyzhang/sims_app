@@ -217,6 +217,13 @@ Buka menu **Akademik > Asisten Guru**. Menu ini muncul untuk guru mapel, wali ke
 
 Fitur ini membantu guru menyusun bahan pembelajaran lebih cepat lewat Gemini di dalam SIMS. Hasilnya tetap harus diperiksa dulu sebelum dibagikan ke siswa.
 
+**Alur mengajar yang disarankan:**
+
+1. Buat soal di tab **Generator Soal** (atau Nalar Guru).
+2. Kirim ke **Arena Belajar** (Ruang Kelas → tab Arena) untuk kuis/misi, **atau**
+3. Buka **Studio Presentasi** dari kartu Alur mengajar / Canva, lalu hubungkan **Canva Pendidikan** bila ingin desain visual (akun belajar.id).
+4. Setup Canva di server: lihat `docs/canva-connect-setup.md` (Client ID/Secret + Redirect URI).
+
 ![Tampilan Asisten Guru](/images/panduan/asisten-ai.png)
 
 **Persiapan sekali (API key Gemini):**

@@ -162,6 +162,41 @@
         </p>
     </div>
 
+    {{-- Alur mengajar: soal → Arena / Presentasi / Canva --}}
+    <div class="card p-4 space-y-3" x-show="!needsApiKeySetup" x-cloak>
+        <div>
+            <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                <span class="grid place-items-center w-8 h-8 rounded-xl bg-primary/10 text-primary">
+                    <i data-lucide="route" class="w-4 h-4"></i>
+                </span>
+                Alur mengajar
+            </h2>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Buat soal di Generator Soal, lalu lanjut ke Arena (kuis/misi), Studio Presentasi, atau Canva.
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <button type="button" @click="tab = 'quiz'"
+                    class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-3 py-2 text-xs font-bold min-h-[40px] hover:border-primary">
+                <i data-lucide="file-question" class="w-3.5 h-3.5"></i> Generator Soal
+            </button>
+            @if($arenaBelajarAktif ?? false)
+            <a href="{{ route('classroom.index') }}"
+               class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-3 py-2 text-xs font-bold min-h-[40px] hover:border-primary">
+                <i data-lucide="gamepad-2" class="w-3.5 h-3.5"></i> Arena Belajar
+            </a>
+            @endif
+            <a href="{{ route('ai.teacher.presentasi.index') }}"
+               class="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-3 py-2 text-xs font-bold min-h-[40px] hover:border-primary">
+                <i data-lucide="presentation" class="w-3.5 h-3.5"></i> Studio Presentasi
+            </a>
+            <span x-show="canva.feature_enabled" x-cloak
+                  class="inline-flex items-center gap-2 rounded-xl border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300 px-3 py-2 text-xs font-bold min-h-[40px]">
+                <i data-lucide="palette" class="w-3.5 h-3.5"></i> Canva (panel di atas)
+            </span>
+        </div>
+    </div>
+
     {{-- Generate quota --}}
     <div class="card p-4" x-show="quota" x-cloak>
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

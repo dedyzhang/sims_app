@@ -39,7 +39,6 @@ use App\Http\Controllers\RapatController;
 use App\Http\Controllers\RekapController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SiswaController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\WalikelasController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\CetakController;
@@ -163,7 +162,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     // ─── Asisten Guru (Fase 3) ─────────────────────────────────────────────────
     // Panel tool guru (soal/rangkum/feedback). Guru mapel, wali kelas, Kepala, semua Waka, admin.
-    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,sapras,admin', 'modul:asisten_guru'])->prefix('ai/teacher')->name('ai.teacher.')->group(function () {
+    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,sarpras,admin', 'modul:asisten_guru'])->prefix('ai/teacher')->name('ai.teacher.')->group(function () {
         Route::controller(AiTeacherController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/quota', 'quota')->name('quota');
