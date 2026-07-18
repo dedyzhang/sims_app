@@ -44,7 +44,7 @@
         </div>
     </template>
 
-    <div :class="needsApiKeySetup ? 'pointer-events-none select-none opacity-40 blur-[1px]' : ''">
+    <div class="space-y-5" :class="needsApiKeySetup ? 'pointer-events-none select-none opacity-40 blur-[1px]' : ''">
     {{-- Header --}}
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div>

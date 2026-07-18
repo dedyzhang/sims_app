@@ -94,11 +94,19 @@ class CanvaConnectController extends Controller
         $state = (string) $request->query('state', '');
         $code = (string) $request->query('code', '');
         $error = (string) $request->query('error', '');
+        $errorDescription = (string) $request->query('error_description', '');
 
         if ($error !== '') {
+            $pesan = 'Otorisasi Canva dibatalkan atau ditolak.';
+            if ($error !== 'access_denied') {
+                // access_denied = user sendiri klik Batal/Tolak di layar Canva — pesan generik cukup.
+                // Selain itu (misalnya invalid_scope, invalid_request) tampilkan detailnya agar mudah didiagnosis.
+                $pesan .= ' ('.$error.($errorDescription !== '' ? ': '.$errorDescription : '').')';
+            }
+
             return redirect()
                 ->route('ai.teacher.index')
-                ->with('error', 'Otorisasi Canva dibatalkan atau ditolak.');
+                ->with('error', $pesan);
         }
 
         if (! is_array($session)

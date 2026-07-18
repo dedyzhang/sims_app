@@ -426,6 +426,21 @@
                 // ModulAktif: on/off per sekolah dari Pengaturan → Fitur (default aktif).
                 $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
                 $groups = [];
+
+                // ── Absensi Saya (self-service: absen QR + presensi guru pribadi) ──
+                if ($modulOn('absensi')) {
+                    $absensiSayaItems = [];
+                    if (auth()->user()?->siswa || auth()->user()?->guru) {
+                        $absensiSayaItems[] = ['absen.qr', ['absen.qr'], 'qr-code', 'Absen QR'];
+                    }
+                    if (auth()->user()?->guru) {
+                        $absensiSayaItems[] = ['presensi-guru.self', ['presensi-guru.self'], 'clock', 'Presensi Saya'];
+                    }
+                    if (!empty($absensiSayaItems)) {
+                        $groups['absensi_saya'] = ['Absensi Saya', 'qr-code', $absensiSayaItems];
+                    }
+                }
+
                 if ($isAdmin || auth()->user()?->canAccess('manage_users')) {
                     $masterItems = [];
                     if ($isAdmin || auth()->user()?->canAccess('manage_users')) {
@@ -708,18 +723,6 @@
                 <i data-lucide="layout-dashboard" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Dashboard</span>
             </a>
-            @if($modulOn('absensi') && (auth()->user()?->siswa || auth()->user()?->guru))
-            <a href="{{ route('absen.qr') }}" data-tip="Absen QR" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('absen.qr') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
-                <i data-lucide="qr-code" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
-                <span x-show="!mini" class="text-sm truncate">Absen QR</span>
-            </a>
-            @endif
-            @if($modulOn('absensi') && auth()->user()?->guru)
-            <a href="{{ route('presensi-guru.self') }}" data-tip="Presensi Saya" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('presensi-guru.self') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
-                <i data-lucide="clock" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
-                <span x-show="!mini" class="text-sm truncate">Presensi Saya</span>
-            </a>
-            @endif
             @if($modulOn('kartu_pelajar') && auth()->user()?->siswa)
             <a href="{{ route('kartu-pelajar.self') }}" data-tip="Kartu Pelajar" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('kartu-pelajar.self') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="id-card" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
