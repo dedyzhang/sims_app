@@ -2,11 +2,19 @@
 @section('title', 'Langganan')
 
 @section('content')
+@php
+    $basisHariOpsi = ($langganan && ! $langganan->kadaluarsa())
+        ? $langganan->berakhir_pada->toDateString()
+        : now()->toDateString();
+    $hariOpsi = collect(config('langganan.durasi'))->mapWithKeys(
+        fn ($b) => [$b => \App\Models\Langganan::hariUntukDurasi($b, $basisHariOpsi)]
+    );
+@endphp
 <div class="max-w-4xl mx-auto space-y-6">
     <div>
         <h1 class="page-title">Langganan SIMS</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Tetapkan dan pantau masa aktif lisensi. Saat kadaluarsa, seluruh pengguna selain superadmin akan terkunci.
+            Tetapkan dan pantau masa aktif lisensi dalam hari. Saat kadaluarsa, seluruh pengguna selain superadmin akan terkunci.
         </p>
     </div>
 
@@ -15,6 +23,7 @@
         @if($langganan)
             @php
                 $sisa = $langganan->sisaHari();
+                $totalHari = $langganan->totalHari();
                 $tingkat = $langganan->tingkatPeringatan();
                 $badge = match ($tingkat) {
                     'kadaluarsa' => ['bg-rose-500/10 text-rose-600 dark:text-rose-400', 'circle-x', 'Kadaluarsa'],
@@ -39,7 +48,7 @@
                         @endif
                     </p>
                     <p class="text-sm text-slate-500 dark:text-slate-400">
-                        {{ $langganan->durasi_bulan }} bulan ·
+                        Durasi {{ $langganan->durasi_bulan }} bulan ({{ $totalHari }} hari) ·
                         {{ $langganan->mulai_pada->translatedFormat('d F Y') }} —
                         <span class="font-semibold">{{ $langganan->berakhir_pada->translatedFormat('d F Y') }}</span>
                         @if($langganan->paket) · Paket <span class="capitalize font-semibold">{{ $langganan->paket }}</span> @endif
@@ -50,21 +59,52 @@
                 </div>
 
                 {{-- Perpanjang cepat --}}
-                <form method="POST" action="{{ route('langganan.perpanjang') }}" class="flex items-end gap-2">
+                <form method="POST" action="{{ route('langganan.perpanjang') }}" class="flex items-end gap-2"
+                      x-data="{ durasi: 12, hari: {{ json_encode($hariOpsi) }} }">
                     @csrf
                     <div>
                         <label class="form-label" for="perpanjang_durasi">Perpanjang</label>
-                        <select id="perpanjang_durasi" name="durasi_bulan" class="form-select">
-                            <option value="3">3 bulan</option>
-                            <option value="6">6 bulan</option>
-                            <option value="12" selected>12 bulan</option>
+                        <select id="perpanjang_durasi" name="durasi_bulan" class="form-select" x-model.number="durasi">
+                            @foreach(config('langganan.durasi') as $bulan)
+                                <option value="{{ $bulan }}" @selected($bulan === 12)>{{ $bulan }} bulan ({{ $hariOpsi[$bulan] }} hari)</option>
+                            @endforeach
                         </select>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">+<span x-text="hari[durasi]"></span> hari dari tanggal berakhir</p>
                     </div>
                     <button type="submit" class="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold">
                         <i data-lucide="calendar-plus" class="w-4 h-4"></i>Perpanjang
                     </button>
                 </form>
             </div>
+
+            {{-- Peringatan expired bertingkat (H-14 / H-7 / H-3 / kadaluarsa) --}}
+            @if($tingkat)
+                @php
+                    [$alertKelas, $alertIkon, $alertJudul] = match ($tingkat) {
+                        'kadaluarsa' => ['bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300', 'circle-x', 'Langganan sudah kadaluarsa'],
+                        'merah'      => ['bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300', 'alarm-clock', 'Peringatan kritis — sisa ≤ 3 hari'],
+                        'kuning'     => ['bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300', 'clock-alert', 'Peringatan — sisa ≤ 7 hari'],
+                        default      => ['bg-sky-500/10 border-sky-500/30 text-sky-700 dark:text-sky-300', 'info', 'Peringatan — sisa ≤ 14 hari'],
+                    };
+                @endphp
+                <div class="mt-4 flex flex-wrap items-start gap-2.5 rounded-xl border px-4 py-3 text-sm {{ $alertKelas }}" role="alert">
+                    <i data-lucide="{{ $alertIkon }}" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                    <div class="space-y-0.5">
+                        <p class="font-bold">{{ $alertJudul }}</p>
+                        <p>
+                            @if($tingkat === 'kadaluarsa')
+                                Masa aktif berakhir {{ $sisa === 0 ? 'hari ini' : abs($sisa).' hari lalu' }}
+                                ({{ $langganan->berakhir_pada->translatedFormat('d F Y') }}).
+                                Pengguna selain superadmin terkunci — perpanjang segera.
+                            @else
+                                Langganan {{ $langganan->durasi_bulan }} bulan akan berakhir dalam
+                                <b>{{ $sisa }} hari</b> ({{ $langganan->berakhir_pada->translatedFormat('d F Y') }}).
+                                Segera perpanjang agar akses sekolah tidak terputus.
+                            @endif
+                        </p>
+                    </div>
+                </div>
+            @endif
         @else
             <div class="flex items-center gap-3 text-slate-500 dark:text-slate-400">
                 <i data-lucide="badge-alert" class="w-5 h-5"></i>
@@ -74,10 +114,14 @@
     </div>
 
     {{-- ── Tetapkan masa langganan ─────────────────────────────────────────── --}}
-    <div class="card p-5">
+    <div class="card p-5"
+         x-data="langgananForm({
+            durasi: {{ (int) old('durasi_bulan', 12) }},
+            mulai: @js(old('mulai_pada', now()->toDateString())),
+         })">
         <h2 class="font-bold text-slate-700 dark:text-slate-200 mb-1">{{ $langganan ? 'Tetapkan Ulang Langganan' : 'Tetapkan Langganan' }}</h2>
         <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
-            Tanggal berakhir dihitung dari tanggal mulai + durasi (kalender nyata).
+            Tanggal berakhir dihitung dari tanggal mulai + durasi (kalender nyata). Hari ditampilkan sesuai durasi 3 / 6 / 12 bulan.
             @if($langganan) Menetapkan ulang akan <span class="font-semibold">menggantikan</span> masa aktif saat ini. @endif
         </p>
 
@@ -91,16 +135,18 @@
             @csrf
             <div>
                 <label class="form-label" for="durasi_bulan">Durasi <span class="text-rose-500">*</span></label>
-                <select id="durasi_bulan" name="durasi_bulan" class="form-select" required>
-                    <option value="3"  @selected(old('durasi_bulan') == 3)>3 bulan</option>
-                    <option value="6"  @selected(old('durasi_bulan') == 6)>6 bulan</option>
-                    <option value="12" @selected(old('durasi_bulan', 12) == 12)>12 bulan</option>
+                <select id="durasi_bulan" name="durasi_bulan" class="form-select" required x-model.number="durasi">
+                    @foreach(config('langganan.durasi') as $bulan)
+                        <option value="{{ $bulan }}" @selected((int) old('durasi_bulan', 12) === $bulan)>
+                            {{ $bulan }} bulan
+                        </option>
+                    @endforeach
                 </select>
             </div>
             <div>
                 <label class="form-label" for="mulai_pada">Tanggal mulai <span class="text-rose-500">*</span></label>
                 <input type="date" id="mulai_pada" name="mulai_pada" class="form-input"
-                       value="{{ old('mulai_pada', now()->toDateString()) }}" required>
+                       x-model="mulai" required>
             </div>
             <div>
                 <label class="form-label" for="paket">Paket (opsional)</label>
@@ -116,6 +162,18 @@
                 <input type="text" id="catatan" name="catatan" class="form-input" maxlength="2000"
                        value="{{ old('catatan') }}" placeholder="mis. pembayaran transfer 11 Juli">
             </div>
+
+            {{-- Pratinjau hari sesuai durasi subscribe --}}
+            <div class="md:col-span-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-3 text-sm">
+                <p class="font-semibold text-slate-700 dark:text-slate-200">Pratinjau masa langganan</p>
+                <p class="mt-1 text-slate-600 dark:text-slate-300">
+                    <span x-text="durasi"></span> bulan =
+                    <b><span x-text="totalHari"></span> hari</b> ·
+                    berakhir <b x-text="berakhirLabel"></b> ·
+                    sisa <b><span x-text="sisaHari"></span> hari</b> dari hari ini
+                </p>
+            </div>
+
             <div class="md:col-span-2">
                 <button type="submit" class="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold">
                     <i data-lucide="badge-check" class="w-4 h-4"></i>Simpan Masa Langganan
@@ -124,4 +182,40 @@
         </form>
     </div>
 </div>
+
+@push('scripts')
+<script>
+function langgananForm({ durasi, mulai }) {
+    return {
+        durasi,
+        mulai,
+        get berakhir() {
+            if (!this.mulai || !this.durasi) return null;
+            const d = new Date(this.mulai + 'T00:00:00');
+            if (Number.isNaN(d.getTime())) return null;
+            d.setMonth(d.getMonth() + Number(this.durasi));
+            return d;
+        },
+        get totalHari() {
+            const end = this.berakhir;
+            if (!end || !this.mulai) return '—';
+            const start = new Date(this.mulai + 'T00:00:00');
+            return Math.round((end - start) / 86400000);
+        },
+        get sisaHari() {
+            const end = this.berakhir;
+            if (!end) return '—';
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return Math.round((end - today) / 86400000);
+        },
+        get berakhirLabel() {
+            const end = this.berakhir;
+            if (!end) return '—';
+            return end.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+        },
+    };
+}
+</script>
+@endpush
 @endsection

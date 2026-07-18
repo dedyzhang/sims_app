@@ -136,6 +136,47 @@ class LanggananTest extends TestCase
         }
     }
 
+    public function test_total_hari_mengikuti_kalender_durasi_3_6_12(): void
+    {
+        foreach ([3, 6, 12] as $durasi) {
+            $mulai = now()->startOfDay();
+            $langganan = $this->buatLangganan($durasi, $mulai->toDateString());
+            $expected = (int) $mulai->diffInDays($mulai->copy()->addMonths($durasi));
+
+            $this->assertSame($expected, $langganan->totalHari(), "total hari untuk {$durasi} bulan");
+            $this->assertSame($expected, Langganan::hariUntukDurasi($durasi, $mulai->toDateString()));
+        }
+    }
+
+    public function test_halaman_langganan_menampilkan_sisa_dan_total_hari(): void
+    {
+        $superadmin = $this->makeUser('superadmin', 'sa_hari');
+        $langganan = $this->buatLangganan(6);
+        $sisa = $langganan->sisaHari();
+        $total = $langganan->totalHari();
+
+        $this->actingAs($superadmin)->get('/langganan')
+            ->assertOk()
+            ->assertSee("Langganan aktif · sisa {$sisa} hari", false)
+            ->assertSee("Durasi 6 bulan ({$total} hari)", false)
+            ->assertSee('Pratinjau masa langganan')
+            ->assertSee('3 bulan')
+            ->assertSee('6 bulan')
+            ->assertSee('12 bulan');
+    }
+
+    public function test_halaman_langganan_menampilkan_peringatan_expired(): void
+    {
+        $superadmin = $this->makeUser('superadmin', 'sa_peringatan');
+        // sisa ± 3 hari → tingkat merah
+        $this->buatLangganan(3, now()->subMonths(3)->addDays(3)->toDateString());
+
+        $this->actingAs($superadmin)->get('/langganan')
+            ->assertOk()
+            ->assertSee('Peringatan kritis — sisa ≤ 3 hari')
+            ->assertSee('akan berakhir dalam');
+    }
+
     public function test_banner_sisa_hari_tampil_untuk_superadmin(): void
     {
         $superadmin = $this->makeUser('superadmin', 'sa_banner');
@@ -143,7 +184,10 @@ class LanggananTest extends TestCase
 
         $this->actingAs($superadmin)->get('/masukan')
             ->assertOk()
-            ->assertSee('Langganan SIMS akan berakhir');
+            ->assertSee('Langganan SIMS')
+            ->assertSee('akan berakhir')
+            ->assertSee('sisa')
+            ->assertSee('hari');
     }
 
     public function test_banner_tidak_tampil_untuk_non_superadmin(): void
@@ -153,7 +197,22 @@ class LanggananTest extends TestCase
 
         $this->actingAs($guru)->get('/masukan')
             ->assertOk()
-            ->assertDontSee('Langganan SIMS akan berakhir');
+            ->assertDontSee('akan berakhir');
+    }
+
+    public function test_flash_setelah_set_menampilkan_hari(): void
+    {
+        $superadmin = $this->makeUser('superadmin', 'sa_flash');
+
+        $response = $this->actingAs($superadmin)->post('/langganan', [
+            'durasi_bulan' => 3,
+            'mulai_pada' => now()->toDateString(),
+        ]);
+
+        $response->assertRedirect(route('langganan.index'));
+        $response->assertSessionHas('success');
+        $this->assertStringContainsString('hari', session('success'));
+        $this->assertStringContainsString('sisa', session('success'));
     }
 
     // ─── FR-11: penguncian saat kadaluarsa ────────────────────────────────────
