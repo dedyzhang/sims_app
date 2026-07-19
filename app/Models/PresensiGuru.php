@@ -14,6 +14,8 @@ class PresensiGuru extends Model
     protected $table = 'presensi_gurus';
     protected $fillable = [
         'id_guru', 'tanggal', 'jam_masuk', 'jam_pulang', 'status', 'keterangan', 'dicatat_oleh',
+        'geo_lat_masuk', 'geo_lng_masuk', 'geo_accuracy_masuk', 'geo_jarak_masuk',
+        'geo_lat_pulang', 'geo_lng_pulang', 'geo_accuracy_pulang', 'geo_jarak_pulang',
     ];
 
     protected $casts = ['tanggal' => 'date:Y-m-d'];

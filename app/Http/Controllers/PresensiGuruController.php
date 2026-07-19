@@ -198,7 +198,7 @@ class PresensiGuruController extends Controller
         $bolehQr = \App\Support\AbsensiGuru::bolehQr();
         $qrLat    = Setting::get('sekolah_lat');
         $qrLng    = Setting::get('sekolah_lng');
-        $qrRadius = (float) Setting::get('absen_radius', 100);
+        $qrRadius = (float) Setting::get('absen_radius', 200);
 
         return view('presensi_guru.self', compact(
             'guru', 'riwayat', 'batas', 'dari', 'sampai', 'today', 'belumAgenda',

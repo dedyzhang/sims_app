@@ -206,15 +206,22 @@
 @push('scripts')
 @if($bolehQr)
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="{{ asset('js/geo-location.js') }}"></script>
 <script>
 function izinPulangQr(cfg){
     return {
         schoolLat: cfg.lat ? parseFloat(cfg.lat) : null,
         schoolLng: cfg.lng ? parseFloat(cfg.lng) : null,
         radius: cfg.radius,
-        lat:null, lng:null, dist:null, status:'', scanning:false,
+        softTolerance: (window.SimsGeo && SimsGeo.defaults.softToleranceM) || 50,
+        lat:null, lng:null, accuracy:null, dist:null, distMeters:null, status:'', locating:false, scanning:false,
         scannedToken:null, alasan:'', sending:false, msg:'', msgErr:false,
         scanner:null,
+
+        get dalamArea(){
+            if(this.distMeters===null) return false;
+            return SimsGeo.withinRadius(this.distMeters, this.radius);
+        },
 
         init(){
             this.status = this.schoolLat ? 'Tekan "Perbarui" untuk membaca lokasi Anda.' : 'Lokasi sekolah belum diatur admin.';
@@ -224,20 +231,45 @@ function izinPulangQr(cfg){
             const a=Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLn/2)**2;
             return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
         },
-        locate(){
-            if(!this.schoolLat) return;
-            this.status='Sedang membaca lokasi Anda...';
-            if(!navigator.geolocation){ this.status='Perangkat ini tidak mendukung deteksi lokasi.'; return; }
-            navigator.geolocation.getCurrentPosition(p=>{
-                this.lat=p.coords.latitude; this.lng=p.coords.longitude;
-                this.dist=Math.round(this.haversine(this.schoolLat,this.schoolLng,this.lat,this.lng));
-                this.status = this.dist<=this.radius ? 'Anda berada di area sekolah — siap pindai QR.' : ('Anda berada '+this.dist+' m dari sekolah (di luar area).');
-            }, err=>{
-                this.status = (err && err.code===1) ? 'Izin lokasi ditolak. Aktifkan izin Lokasi lalu tekan Perbarui.' : 'Lokasi gagal dibaca. Tekan Perbarui untuk mencoba lagi.';
-            }, { enableHighAccuracy:true, timeout:12000 });
+        applyFix(fix){
+            this.lat = fix.lat; this.lng = fix.lng;
+            this.accuracy = (typeof fix.accuracy === 'number' && isFinite(fix.accuracy)) ? fix.accuracy : null;
+            this.distMeters = this.haversine(this.schoolLat, this.schoolLng, this.lat, this.lng);
+            this.dist = Math.round(this.distMeters);
+            const accTxt = this.accuracy!==null ? (' (±'+Math.round(this.accuracy)+' m)') : '';
+            if(!SimsGeo.accuracyAcceptable(this.accuracy)){
+                this.status = 'Akurasi GPS masih rendah'+accTxt+'. Pindah ke tempat terbuka, lalu Perbarui lagi.';
+            } else if(this.dalamArea){
+                this.status = 'Anda berada di area sekolah — siap pindai QR.'+accTxt;
+            } else {
+                this.status = 'Anda berada '+this.dist+' m dari sekolah (batas '+(this.radius + this.softTolerance)+' m).'+accTxt;
+            }
+        },
+        async locate(){
+            if(!this.schoolLat || this.locating || this.sending) return;
+            this.locating = true;
+            this.status = 'Sedang membaca lokasi (GPS sedang dipanaskan)…';
+            try {
+                const fix = await SimsGeo.getBestLocation({
+                    watchMs: 10000,
+                    targetAccuracy: 40,
+                    onProgress: (msg)=> { this.status = msg; },
+                });
+                this.applyFix(fix);
+            } catch(err){
+                this.status = (err && err.message) || SimsGeo.pesanGagal(err);
+            }
+            this.locating = false;
         },
         startScan(){
+            if(this.locating || this.sending) return;
             if(!this.lat){ this.locate(); showToast('Mengambil lokasi dulu, coba lagi sebentar','info'); return; }
+            if(!SimsGeo.accuracyAcceptable(this.accuracy)){
+                showToast('Akurasi GPS masih rendah. Perbarui lokasi di tempat lebih terbuka dulu.','error'); return;
+            }
+            if(!this.dalamArea){
+                showToast('Anda di luar area sekolah. Mendekat ke lokasi sekolah dulu.','error'); return;
+            }
             this.msg=''; this.msgErr=false; this.scanning=true;
             this.$nextTick(()=>{
                 this.scanner = new Html5Qrcode('izinReader');
@@ -250,17 +282,45 @@ function izinPulangQr(cfg){
             this.scanning=false;
         },
         onScan(token){
+            if(this.sending) return;
             this.stopScan();
             this.scannedToken = token;
         },
         async submitIzin(){
-            if(!this.alasan.trim() || !this.scannedToken) return;
-            this.sending=true; this.msgErr=false;
+            if(!this.alasan.trim() || !this.scannedToken || this.sending) return;
+            this.sending=true; this.msgErr=false; this.msg='Menyempurnakan GPS…';
             try {
+                // Fresh GPS saat submit — jangan pakai koordinat lama dari locate().
+                const fix = await SimsGeo.getBestLocation({
+                    watchMs: 8000,
+                    targetAccuracy: 35,
+                    onProgress: (msg)=> { this.msg = msg; this.msgErr = false; },
+                });
+                this.applyFix(fix);
+                if(!SimsGeo.accuracyAcceptable(this.accuracy)){
+                    this.msg = 'Akurasi GPS terlalu rendah (±'+Math.round(this.accuracy)+' m). Coba di tempat lebih terbuka.';
+                    this.msgErr = true;
+                    showToast(this.msg, 'error');
+                    this.sending=false;
+                    return;
+                }
+                if(!this.dalamArea){
+                    this.msg = 'Anda di luar area sekolah (batas '+(this.radius + this.softTolerance)+' m).';
+                    this.msgErr = true;
+                    showToast(this.msg, 'error');
+                    this.sending=false;
+                    return;
+                }
                 const res = await fetch('{{ route('presensi-guru.izinPulang.qrStore') }}', {
                     method:'POST',
                     headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                    body: JSON.stringify({ token: this.scannedToken, lat: this.lat, lng: this.lng, alasan: this.alasan })
+                    body: JSON.stringify({
+                        token: this.scannedToken,
+                        lat: this.lat,
+                        lng: this.lng,
+                        accuracy: this.accuracy,
+                        alasan: this.alasan,
+                    })
                 });
                 const d = await res.json();
                 if(res.ok && d.ok){
@@ -271,7 +331,11 @@ function izinPulangQr(cfg){
                 this.msg = d.message || 'Gagal mencatat izin pulang.'; this.msgErr = true;
                 this.scannedToken = null;
                 showToast(this.msg, 'error');
-            } catch(e){ showToast('Gagal menghubungi server', 'error'); }
+            } catch(e){
+                this.msg = (e && e.message) || 'Gagal menghubungi server';
+                this.msgErr = true;
+                showToast(this.msg, 'error');
+            }
             this.sending=false;
         }
     }

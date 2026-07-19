@@ -44,17 +44,28 @@
 
         {{-- Peta lokasi --}}
         <div class="card p-3 space-y-2">
-            <div id="absenMap"></div>
+            <div class="relative rounded-2xl overflow-hidden">
+                <div id="absenMap"></div>
+                <div class="absolute top-3 right-3 z-[1000] flex rounded-lg overflow-hidden shadow-md border border-white/40 bg-white/95 dark:bg-slate-800/95 text-xs font-bold">
+                    <button type="button" @click="setBase('street')"
+                        :class="baseMode==='street' ? 'bg-primary text-white' : 'text-slate-600 dark:text-slate-300'"
+                        class="px-2.5 py-1.5 transition">Peta</button>
+                    <button type="button" @click="setBase('satellite')"
+                        :class="baseMode==='satellite' ? 'bg-primary text-white' : 'text-slate-600 dark:text-slate-300'"
+                        class="px-2.5 py-1.5 transition">Satelit</button>
+                </div>
+            </div>
             <div class="flex items-center justify-between text-sm px-1">
                 <span class="text-slate-500 flex items-center gap-1.5"><i data-lucide="map-pin" class="w-4 h-4"></i> <span x-text="status || 'Menunggu lokasi...'"></span></span>
-                <button @click="locate()" class="text-xs text-primary font-semibold flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Perbarui</button>
+                <button @click="locate()" :disabled="locating || loading" class="text-xs text-primary font-semibold flex items-center gap-1 disabled:opacity-50"><i data-lucide="refresh-cw" class="w-3.5 h-3.5" :class="locating && 'animate-spin'"></i> Perbarui</button>
             </div>
             <template x-if="dist!==null">
-                <div class="flex items-center gap-2 px-1">
-                    <span class="badge font-bold" :class="dist<=radius ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300'">
+                <div class="flex flex-wrap items-center gap-2 px-1">
+                    <span class="badge font-bold" :class="dalamArea ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300'">
                         <span x-text="dist"></span> m dari sekolah
                     </span>
-                    <span class="text-xs text-slate-400">batas <span x-text="radius"></span> m</span>
+                    <span class="text-xs text-slate-400">batas <span x-text="radius"></span> m (+toleransi <span x-text="softTolerance"></span> m)</span>
+                    <span x-show="accuracy!==null" class="text-xs text-slate-400">akurasi GPS ±<span x-text="Math.round(accuracy)"></span> m</span>
                 </div>
             </template>
         </div>
@@ -75,10 +86,10 @@
         </template>
 
         {{-- Tombol absen --}}
-        <button x-show="!scanning && !(result && result.ok)" @click="startScan()" :disabled="loading" class="btn-primary w-full px-5 py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50">
-            <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading"></i>
-            <i data-lucide="qr-code" class="w-5 h-5" x-show="!loading"></i>
-            <span x-text="loading ? 'Memproses...' : (isGuru && mode==='pulang' ? 'Scan QR — Absen Pulang' : 'Scan QR — Absen' + (isGuru ? ' Masuk' : ''))"></span>
+        <button x-show="!scanning && !(result && result.ok)" @click="startScan()" :disabled="loading || locating" class="btn-primary w-full px-5 py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+            <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="loading || locating"></i>
+            <i data-lucide="qr-code" class="w-5 h-5" x-show="!loading && !locating"></i>
+            <span x-text="loading ? 'Memproses...' : (locating ? 'Membaca GPS...' : (isGuru && mode==='pulang' ? 'Scan QR — Absen Pulang' : 'Scan QR — Absen' + (isGuru ? ' Masuk' : '')))"></span>
         </button>
     </div>
     @endif
@@ -87,14 +98,23 @@
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="{{ asset('js/geo-location.js') }}"></script>
+<script src="{{ asset('js/geo-map-layers.js') }}"></script>
 <script>
 function qrAbsen(cfg){
     return {
         schoolLat: cfg.lat ? parseFloat(cfg.lat) : null,
         schoolLng: cfg.lng ? parseFloat(cfg.lng) : null,
         radius: cfg.radius, aktif: cfg.aktif, isGuru: cfg.isGuru || false, mode:'masuk',
-        lat:null, lng:null, dist:null, status:'', loading:false, scanning:false, result:null,
-        map:null, uMarker:null, scanner:null,
+        softTolerance: (window.SimsGeo && SimsGeo.defaults.softToleranceM) || 50,
+        lat:null, lng:null, accuracy:null, dist:null, distMeters:null, status:'', locating:false, loading:false, scanning:false, result:null,
+        map:null, uMarker:null, uAccuracy:null, scanner:null,
+        baseMode:'street', baseCtrl:null,
+
+        get dalamArea(){
+            if(this.distMeters===null) return false;
+            return SimsGeo.withinRadius(this.distMeters, this.radius);
+        },
 
         init(){
             // Peta dasar (lokasi sekolah + area) langsung ditampilkan tanpa perlu izin lokasi.
@@ -128,38 +148,43 @@ function qrAbsen(cfg){
             const a=Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLn/2)**2;
             return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
         },
-        // Ubah kode error lokasi jadi kalimat jelas + langkah yang bisa langsung dilakukan pengguna.
-        pesanLokasiGagal(err){
-            // Penyebab paling umum "izin ditolak" padahal izin sudah aktif: halaman dibuka lewat
-            // http:// (bukan https). Browser hanya mengizinkan lokasi di alamat aman (https) / localhost.
-            if(typeof window.isSecureContext !== 'undefined' && !window.isSecureContext)
-                return 'Lokasi hanya bisa dibaca lewat alamat aman (diawali https://). Buka aplikasi memakai alamat https, bukan http.';
-            if(err && err.code===1) return 'Izin lokasi ditolak. Buka pengaturan izin — ikon gembok di address bar (di HP: izin Lokasi untuk aplikasi/browser ini) — aktifkan Lokasi, lalu tekan Perbarui.';
-            if(err && err.code===2) return 'Lokasi belum ditemukan. Pastikan GPS/Layanan Lokasi menyala, lalu tekan Perbarui.';
-            if(err && err.code===3) return 'Membaca lokasi terlalu lama. Pindah ke tempat lebih terbuka, lalu tekan Perbarui.';
-            return 'Lokasi gagal dibaca. Tekan Perbarui untuk mencoba lagi.';
+        applyFix(fix){
+            this.lat = fix.lat; this.lng = fix.lng;
+            this.accuracy = (typeof fix.accuracy === 'number' && isFinite(fix.accuracy)) ? fix.accuracy : null;
+            // Simpan jarak mentah untuk cek soft-geofence (sama seperti server); tampilan dibulatkan.
+            this.distMeters = this.haversine(this.schoolLat, this.schoolLng, this.lat, this.lng);
+            this.dist = Math.round(this.distMeters);
+            const accTxt = this.accuracy!==null ? (' (±'+Math.round(this.accuracy)+' m)') : '';
+            if(!SimsGeo.accuracyAcceptable(this.accuracy)){
+                this.status = 'Akurasi GPS masih rendah'+accTxt+'. Pindah ke tempat terbuka, lalu Perbarui lagi.';
+            } else if(this.dalamArea){
+                this.status = 'Anda berada di area sekolah — siap absen.'+accTxt;
+            } else {
+                this.status = 'Anda berada di luar area sekolah.'+accTxt;
+            }
+            this.$nextTick(()=> this.renderMap());
         },
-        locate(){
-            this.status='Sedang membaca lokasi Anda...';
-            if(!navigator.geolocation){ this.status='Perangkat ini tidak mendukung deteksi lokasi. Coba buka lewat HP atau browser lain.'; return; }
-            // Cegat lebih dulu bila konteks tidak aman → beri alasan sebenarnya, bukan "izin ditolak".
-            if(typeof window.isSecureContext !== 'undefined' && !window.isSecureContext){ this.status = this.pesanLokasiGagal(null); return; }
-            const onOk = p=>{
-                this.lat=p.coords.latitude; this.lng=p.coords.longitude;
-                this.dist=Math.round(this.haversine(this.schoolLat,this.schoolLng,this.lat,this.lng));
-                this.status = this.dist<=this.radius ? 'Anda berada di area sekolah — siap absen.' : 'Anda berada di luar area sekolah.';
-                this.$nextTick(()=> this.renderMap());
-            };
-            navigator.geolocation.getCurrentPosition(onOk, err=>{
-                // Kalau gagal karena timeout (akurasi tinggi butuh sinyal GPS kuat), coba sekali lagi
-                // dengan akurasi biasa — lebih cepat & sering berhasil di dalam ruangan / pakai WiFi.
-                if(err && err.code===3){
-                    navigator.geolocation.getCurrentPosition(onOk, e2=>{ this.status = this.pesanLokasiGagal(e2); },
-                        { enableHighAccuracy:false, timeout:15000, maximumAge:60000 });
-                    return;
-                }
-                this.status = this.pesanLokasiGagal(err);
-            }, { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
+        async locate(){
+            if(this.locating || this.loading) return;
+            this.locating = true;
+            this.status = 'Sedang membaca lokasi (GPS sedang dipanaskan)…';
+            try {
+                const fix = await SimsGeo.getBestLocation({
+                    watchMs: 10000,
+                    targetAccuracy: 40,
+                    onProgress: (msg)=> { this.status = msg; },
+                });
+                this.applyFix(fix);
+            } catch(err){
+                this.status = (err && err.message) || SimsGeo.pesanGagal(err);
+            }
+            this.locating = false;
+            this.$nextTick(()=> lucide.createIcons());
+        },
+        setBase(mode){
+            if(!this.baseCtrl) return;
+            this.baseCtrl.setMode(mode);
+            this.baseMode = this.baseCtrl.mode;
         },
         // Bangun peta dasar: penanda sekolah + lingkaran area radius. TIDAK butuh izin lokasi,
         // jadi peta tetap tampil walau lokasi pengguna belum/ tidak bisa dibaca.
@@ -168,24 +193,42 @@ function qrAbsen(cfg){
             const elMap = document.getElementById('absenMap');
             if(!elMap) return;
             this.map = L.map('absenMap').setView([this.schoolLat, this.schoolLng], 16);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(this.map);
+            this.baseCtrl = SimsMapLayers.attach(this.map, this.baseMode);
+            this.baseMode = this.baseCtrl.mode;
             L.marker([this.schoolLat,this.schoolLng]).addTo(this.map).bindPopup('Sekolah');
+            // Lingkaran solid = radius admin; putus-putus = radius + toleransi GPS server.
             L.circle([this.schoolLat,this.schoolLng],{ radius:this.radius, color:'#10b981', weight:2, fillColor:'#10b981', fillOpacity:0.12 }).addTo(this.map);
+            L.circle([this.schoolLat,this.schoolLng],{ radius:this.radius + this.softTolerance, color:'#10b981', weight:1, fillOpacity:0, dashArray:'6 4' }).addTo(this.map);
             try { new ResizeObserver(()=> this.map && this.map.invalidateSize()).observe(elMap); } catch(e){}
             [100,400,900].forEach(t=> setTimeout(()=> this.map && this.map.invalidateSize(), t));
         },
-        // Tandai posisi pengguna di peta (dipanggil setelah lokasi berhasil dibaca).
+        // Tandai posisi pengguna + lingkaran akurasi GPS di peta.
         renderMap(){
             this.ensureMap();
             if(!this.map || this.lat===null) return;
             if(this.uMarker) this.map.removeLayer(this.uMarker);
-            this.uMarker = L.circleMarker([this.lat,this.lng],{ radius:7, color:'#fff', weight:2, fillColor:'#3b82f6', fillOpacity:1 }).addTo(this.map).bindPopup('Lokasi Anda');
+            if(this.uAccuracy) this.map.removeLayer(this.uAccuracy);
+            if(this.accuracy && this.accuracy > 0){
+                this.uAccuracy = L.circle([this.lat,this.lng],{
+                    radius: this.accuracy, color:'#3b82f6', weight:1,
+                    fillColor:'#3b82f6', fillOpacity:0.12, dashArray:'4 4'
+                }).addTo(this.map);
+            }
+            this.uMarker = L.circleMarker([this.lat,this.lng],{ radius:7, color:'#fff', weight:2, fillColor:'#3b82f6', fillOpacity:1 }).addTo(this.map)
+                .bindPopup('Lokasi Anda'+(this.accuracy!==null ? ' (±'+Math.round(this.accuracy)+' m)' : ''));
             this.map.setView([this.lat,this.lng], 17);
             [100,400,900].forEach(t=> setTimeout(()=> this.map && this.map.invalidateSize(), t));
         },
         startScan(){
             this.primeSpeech();   // buka izin suara (dipicu tap tombol)
+            if(this.loading || this.locating) return;
             if(!this.lat){ this.locate(); showToast('Mengambil lokasi dulu, coba lagi sebentar','info'); return; }
+            if(!SimsGeo.accuracyAcceptable(this.accuracy)){
+                showToast('Akurasi GPS masih rendah. Perbarui lokasi di tempat lebih terbuka dulu.','error'); return;
+            }
+            if(!this.dalamArea){
+                showToast('Anda di luar area sekolah. Mendekat ke lokasi sekolah dulu.','error'); return;
+            }
             this.result=null; this.scanning=true;
             this.$nextTick(()=>{
                 this.scanner = new Html5Qrcode('reader');
@@ -197,23 +240,44 @@ function qrAbsen(cfg){
             if(this.scanner){ this.scanner.stop().then(()=>{ try{this.scanner.clear();}catch(e){} }).catch(()=>{}); this.scanner=null; }
             this.scanning=false;
         },
-        onScan(token){
-            this.stopScan(); this.loading=true; this.status='Memverifikasi lokasi & QR...';
-            navigator.geolocation.getCurrentPosition(async p=>{
-                this.lat=p.coords.latitude; this.lng=p.coords.longitude;
-                try {
-                    const res = await fetch('{{ route('absen.qr.mark') }}', {
-                        method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                        body: JSON.stringify({ token, lat:this.lat, lng:this.lng, mode:this.mode })
-                    });
-                    const d = await res.json();
-                    this.result = d; this.dist = d.jarak ?? this.dist;
-                    this.renderMap();
-                    if(d.ok){ showToast(d.message); this.speak(d.label, d.nama); } else showToast(d.message,'error');
-                } catch { showToast('Gagal menghubungi server','error'); }
-                this.loading=false;
-                this.$nextTick(()=> lucide.createIcons());
-            }, (err)=>{ this.loading=false; showToast(this.pesanLokasiGagal(err),'error'); }, { enableHighAccuracy:true, timeout:12000 });
+        async onScan(token){
+            // Cegah re-entrancy selama warm GPS (~8s) / POST.
+            if(this.loading) return;
+            this.loading=true;
+            this.stopScan();
+            this.status='Menyempurnakan GPS & memverifikasi QR…';
+            try {
+                const fix = await SimsGeo.getBestLocation({
+                    watchMs: 8000,
+                    targetAccuracy: 35,
+                    onProgress: (msg)=> { this.status = msg; },
+                });
+                this.applyFix(fix);
+                if(!SimsGeo.accuracyAcceptable(this.accuracy)){
+                    showToast('Akurasi GPS terlalu rendah (±'+Math.round(this.accuracy)+' m). Coba di tempat lebih terbuka.','error');
+                    this.loading=false;
+                    return;
+                }
+                if(!this.dalamArea){
+                    showToast('Anda di luar area sekolah (batas '+(this.radius + this.softTolerance)+' m).','error');
+                    this.loading=false;
+                    return;
+                }
+                const res = await fetch('{{ route('absen.qr.mark') }}', {
+                    method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
+                    body: JSON.stringify({ token, lat:this.lat, lng:this.lng, accuracy:this.accuracy, mode:this.mode })
+                });
+                const d = await res.json();
+                this.result = d; this.dist = d.jarak ?? this.dist;
+                if(d.jarak!=null){ this.distMeters = d.jarak; this.dist = Math.round(d.jarak); }
+                if(d.accuracy!=null) this.accuracy = d.accuracy;
+                this.renderMap();
+                if(d.ok){ showToast(d.message); this.speak(d.label, d.nama); } else showToast(d.message,'error');
+            } catch(err){
+                showToast((err && err.message) || SimsGeo.pesanGagal(err),'error');
+            }
+            this.loading=false;
+            this.$nextTick(()=> lucide.createIcons());
         }
     }
 }

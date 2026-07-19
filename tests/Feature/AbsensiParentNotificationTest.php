@@ -168,6 +168,7 @@ class AbsensiParentNotificationTest extends TestCase
             'token' => $token,
             'lat' => '-6.200000',
             'lng' => '106.816666',
+            'accuracy' => 25,
         ])->assertOk()->assertJson([
             'ok' => true,
             'jam' => '07:20',
@@ -208,6 +209,7 @@ class AbsensiParentNotificationTest extends TestCase
             'token' => $token,
             'lat' => '-6.200000',
             'lng' => '106.816666',
+            'accuracy' => 25,
         ];
 
         $this->actingAs($siswaUser)->postJson('/absen-qr', $payload)->assertOk();
@@ -223,6 +225,77 @@ class AbsensiParentNotificationTest extends TestCase
             'notifiable_id' => $parentUser->uuid,
         ]);
         Queue::assertPushed(SendFcmNotificationJob::class, 1);
+    }
+
+    public function test_qr_geolocation_menyimpan_audit_dan_menerima_toleransi_server(): void
+    {
+        Queue::fake();
+        Carbon::setTestNow(Carbon::parse('2026-07-13 07:20:00'));
+        [$siswa, $kelas, , $siswaUser] = $this->siswaDenganOrangtua();
+        $token = $this->aktifkanQrGeolocation();
+
+        // ~111 m ke utara; radius tes 100 + soft tolerance 50 = 150 → lolos
+        $this->actingAs($siswaUser)->postJson('/absen-qr', [
+            'token' => $token,
+            'lat' => '-6.199000',
+            'lng' => '106.816666',
+            'accuracy' => 40,
+        ])->assertOk()->assertJsonPath('ok', true);
+
+        $this->assertDatabaseHas('absensis', [
+            'id_siswa' => $siswa->uuid,
+            'id_kelas' => $kelas->uuid,
+            'tanggal' => '2026-07-13',
+            'geo_accuracy' => 40,
+        ]);
+
+        $row = \App\Models\Absensi::where('id_siswa', $siswa->uuid)->whereDate('tanggal', '2026-07-13')->first();
+        $this->assertNotNull($row->geo_lat);
+        $this->assertNotNull($row->geo_lng);
+        $this->assertGreaterThan(90, (int) $row->geo_jarak);
+        $this->assertLessThan(130, (int) $row->geo_jarak);
+    }
+
+    public function test_qr_geolocation_menolak_klaim_accuracy_yang_melebarkan_radius(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-13 07:20:00'));
+        [, , , $siswaUser] = $this->siswaDenganOrangtua();
+        $token = $this->aktifkanQrGeolocation();
+
+        // ~167 m (radius 100 + soft 50 = 150) — dulu lolos dengan accuracy klien 80; sekarang ditolak
+        $this->actingAs($siswaUser)->postJson('/absen-qr', [
+            'token' => $token,
+            'lat' => '-6.198500',
+            'lng' => '106.816666',
+            'accuracy' => 150,
+        ])->assertStatus(422)->assertJsonPath('ok', false);
+    }
+
+    public function test_qr_geolocation_menolak_akurasi_terlalu_rendah(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-13 07:20:00'));
+        [, , , $siswaUser] = $this->siswaDenganOrangtua();
+        $token = $this->aktifkanQrGeolocation();
+
+        $this->actingAs($siswaUser)->postJson('/absen-qr', [
+            'token' => $token,
+            'lat' => '-6.200000',
+            'lng' => '106.816666',
+            'accuracy' => 250,
+        ])->assertStatus(422)->assertJsonPath('ok', false);
+    }
+
+    public function test_qr_geolocation_menolak_tanpa_accuracy(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-13 07:20:00'));
+        [, , , $siswaUser] = $this->siswaDenganOrangtua();
+        $token = $this->aktifkanQrGeolocation();
+
+        $this->actingAs($siswaUser)->postJson('/absen-qr', [
+            'token' => $token,
+            'lat' => '-6.200000',
+            'lng' => '106.816666',
+        ])->assertStatus(422);
     }
 
     public function test_orangtua_melihat_notifikasi_kehadiran_di_api_bell(): void

@@ -519,8 +519,22 @@
             </div>
             <form method="POST" action="{{ route('setting.lokasiQr') }}" class="space-y-4">
                 @csrf
-                <div id="setMap" x-ignore style="height:240px" class="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 z-0"></div>
-                <p class="text-xs text-slate-400">Klik di peta untuk menetapkan titik sekolah, atau gunakan tombol lokasi.</p>
+                <div class="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 z-0">
+                    <div id="setMap" x-ignore style="height:280px"></div>
+                    <div class="absolute top-3 right-3 z-[1000] flex rounded-lg overflow-hidden shadow-md border border-white/40 bg-white/95 dark:bg-slate-800/95 text-xs font-bold">
+                        <button type="button" @click="setBase('street')"
+                            :class="baseMode==='street' ? 'bg-primary text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'"
+                            class="px-3 py-1.5 transition">Peta</button>
+                        <button type="button" @click="setBase('satellite')"
+                            :class="baseMode==='satellite' ? 'bg-primary text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'"
+                            class="px-3 py-1.5 transition">Satelit</button>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400">Klik di peta untuk menetapkan titik sekolah, atau gunakan tombol lokasi. Pakai <span class="font-semibold">Satelit</span> agar pin jatuh tepat di gerbang/gedung. Idealnya diukur di luar ruangan di kampus.</p>
+                <p x-show="pinAccuracy!==null" x-cloak class="text-xs font-medium" :class="pinAccuracy<=50 ? 'text-emerald-600' : (pinAccuracy<=100 ? 'text-amber-600' : 'text-rose-600')">
+                    Akurasi GPS pin: ±<span x-text="Math.round(pinAccuracy)"></span> m
+                    <span x-show="pinAccuracy>80"> — disarankan ulangi di tempat lebih terbuka sebelum menyimpan.</span>
+                </p>
                 <div class="grid sm:grid-cols-3 gap-3">
                     <div>
                         <label class="form-label">Latitude</label>
@@ -532,7 +546,8 @@
                     </div>
                     <div>
                         <label class="form-label">Radius (meter)</label>
-                        <input type="number" name="absen_radius" value="{{ $settings['absen_radius'] ?? 100 }}" min="10" max="5000" class="form-input">
+                        <input type="number" name="absen_radius" value="{{ $settings['absen_radius'] ?? 200 }}" min="10" max="5000" class="form-input">
+                        <p class="text-[11px] text-slate-400 mt-1">Default rekomendasi: 200 m (rentang ideal 150–300 m untuk kampus multi-gedung / absen indoor).</p>
                     </div>
                 </div>
 
@@ -558,7 +573,10 @@
                 </div>
 
                 <div class="flex items-center justify-between flex-wrap gap-3">
-                    <button type="button" @click="useMyLocation()" class="text-sm font-semibold text-primary flex items-center gap-1.5"><span x-ignore><i data-lucide="locate-fixed" class="w-4 h-4"></i></span> Gunakan lokasi saya sekarang</button>
+                    <button type="button" @click="useMyLocation()" :disabled="locating" class="text-sm font-semibold text-primary flex items-center gap-1.5 disabled:opacity-50">
+                        <i data-lucide="locate-fixed" class="w-4 h-4" :class="locating ? 'animate-spin' : ''"></i>
+                        <span x-text="locating ? 'Menyempurnakan GPS…' : 'Gunakan lokasi saya sekarang'"></span>
+                    </button>
                     <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
                         <input type="checkbox" name="qr_absensi_aktif" value="1" @checked(($settings['qr_absensi_aktif'] ?? '1')=='1') class="accent-[color:var(--cp)] w-4 h-4"> Aktifkan Absen QR
                     </label>
@@ -630,17 +648,23 @@
 @push('styles')<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />@endpush
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ asset('js/geo-location.js') }}"></script>
+<script src="{{ asset('js/geo-map-layers.js') }}"></script>
 <script>
 function qrLokasi(cfg){
     return {
-        lat: cfg.lat || '', lng: cfg.lng || '', map:null, marker:null,
+        lat: cfg.lat || '', lng: cfg.lng || '', map:null, marker:null, accCircle:null,
+        pinAccuracy:null, locating:false,
+        // Default satelit di Setting — lebih mudah menaruh pin di gerbang/gedung.
+        baseMode:'satellite', baseCtrl:null,
         init(){
             const has = this.lat && this.lng;
             const start = has ? [parseFloat(this.lat), parseFloat(this.lng)] : [-0.9177, 104.4602]; // default Tanjungpinang
             this.$nextTick(()=>{
                 if(!document.getElementById('setMap')) return;
                 this.map = L.map('setMap').setView(start, has?16:12);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(this.map);
+                this.baseCtrl = SimsMapLayers.attach(this.map, this.baseMode);
+                this.baseMode = this.baseCtrl.mode;
                 if(has) this.place(start[0], start[1], false);
                 this.map.on('click', e=> this.place(e.latlng.lat, e.latlng.lng));
                 // refresh ukuran saat container mendapat lebar penuh (anti peta cuma sebagian)
@@ -648,26 +672,42 @@ function qrLokasi(cfg){
                 [100,400,900,1500].forEach(t=> setTimeout(()=> this.map && this.map.invalidateSize(), t));
             });
         },
-        place(la, ln, recenter=true){
+        setBase(mode){
+            if(!this.baseCtrl) return;
+            this.baseCtrl.setMode(mode);
+            this.baseMode = this.baseCtrl.mode;
+        },
+        place(la, ln, recenter=true, accuracy=null){
             this.lat = (+la).toFixed(6); this.lng = (+ln).toFixed(6);
+            this.pinAccuracy = (typeof accuracy === 'number' && isFinite(accuracy)) ? accuracy : null;
             if(this.marker) this.map.removeLayer(this.marker);
+            if(this.accCircle){ this.map.removeLayer(this.accCircle); this.accCircle=null; }
             this.marker = L.marker([la,ln]).addTo(this.map);
+            if(this.pinAccuracy && this.pinAccuracy > 0){
+                this.accCircle = L.circle([la,ln],{
+                    radius: this.pinAccuracy, color:'#3b82f6', weight:1,
+                    fillColor:'#3b82f6', fillOpacity:0.12, dashArray:'4 4'
+                }).addTo(this.map);
+            }
             if(recenter) this.map.setView([la,ln], 16);
         },
-        useMyLocation(){
+        async useMyLocation(){
+            if(this.locating) return;
             if(!navigator.geolocation){ showToast('Perangkat ini tidak mendukung deteksi lokasi. Coba buka lewat HP atau browser lain.','error'); return; }
-            // Konteks tidak aman (http) = penyebab umum "izin ditolak" walau izin sudah aktif.
             if(typeof window.isSecureContext !== 'undefined' && !window.isSecureContext){
                 showToast('Lokasi hanya bisa dibaca lewat alamat aman (https://). Buka halaman ini memakai https, bukan http.','error'); return;
             }
-            navigator.geolocation.getCurrentPosition(p=> this.place(p.coords.latitude, p.coords.longitude),
-                err=>{
-                    const msg = err && err.code===1 ? 'Izin lokasi ditolak. Klik ikon gembok di address bar browser, aktifkan Lokasi, lalu coba lagi.'
-                        : err && err.code===2 ? 'Lokasi belum ditemukan. Pastikan GPS/Layanan Lokasi menyala, lalu coba lagi.'
-                        : err && err.code===3 ? 'Membaca lokasi terlalu lama. Coba lagi di tempat yang lebih terbuka.'
-                        : 'Lokasi gagal dibaca. Silakan coba lagi.';
-                    showToast(msg,'error');
-                }, { enableHighAccuracy:true });
+            this.locating = true;
+            try {
+                const fix = await SimsGeo.getBestLocation({ watchMs: 12000, targetAccuracy: 25 });
+                this.place(fix.lat, fix.lng, true, fix.accuracy);
+                const acc = Math.round(fix.accuracy);
+                if(acc > 80) showToast('Pin diset dengan akurasi ±'+acc+' m. Ulangi di luar ruangan bila memungkinkan.','info');
+                else showToast('Pin diset dari GPS (±'+acc+' m).','success');
+            } catch(err){
+                showToast((err && err.message) || SimsGeo.pesanGagal(err),'error');
+            }
+            this.locating = false;
         }
     }
 }

@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\GuruIzinPulangNotification;
 use App\Support\AbsensiGuru;
 use App\Support\AttendanceParentNotifier;
+use App\Support\Geofence;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -41,16 +42,6 @@ class QrAbsensiController extends Controller
             Setting::set('qr_absensi_token_tetap', $t);
         }
         return $t;
-    }
-
-    /** Jarak dua koordinat (meter) — Haversine. */
-    private function distanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
-    {
-        $R = 6371000;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLng = deg2rad($lng2 - $lng1);
-        $a = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
-        return $R * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     /** Halaman ADMIN: tampilkan QR absensi hari ini (untuk dipajang). */
@@ -112,7 +103,7 @@ class QrAbsensiController extends Controller
         return view('qr.absen', [
             'lat'    => Setting::get('sekolah_lat'),
             'lng'    => Setting::get('sekolah_lng'),
-            'radius' => (float) Setting::get('absen_radius', 100),
+            'radius' => (float) Setting::get('absen_radius', 200),
             'aktif'  => Setting::get('qr_absensi_aktif', '1') == '1',
             'isGuru' => (bool) auth()->user()->guru,   // guru bisa absen masuk & pulang
             'kaihBelum'       => $kaihBelum,
@@ -124,12 +115,14 @@ class QrAbsensiController extends Controller
     public function mark(Request $request)
     {
         $data = $request->validate([
-            'token' => 'required|string',
-            'lat'   => 'required|numeric',
-            'lng'   => 'required|numeric',
-            'mode'  => 'nullable|in:masuk,pulang',
+            'token'    => 'required|string',
+            'lat'      => 'required|numeric|between:-90,90',
+            'lng'      => 'required|numeric|between:-180,180',
+            'accuracy' => 'required|numeric|min:0|max:10000',
+            'mode'     => 'nullable|in:masuk,pulang',
         ]);
         $mode = $data['mode'] ?? 'masuk';
+        $accuracy = (float) $data['accuracy'];
 
         if (Setting::get('qr_absensi_aktif', '1') != '1') {
             return response()->json(['ok' => false, 'message' => 'Absen QR sedang dinonaktifkan admin.'], 422);
@@ -144,20 +137,11 @@ class QrAbsensiController extends Controller
             return response()->json(['ok' => false, 'message' => $pesan], 422);
         }
 
-        $slat = Setting::get('sekolah_lat');
-        $slng = Setting::get('sekolah_lng');
-        if (!$slat || !$slng) {
-            return response()->json(['ok' => false, 'message' => 'Lokasi sekolah belum diatur oleh admin.'], 422);
+        $gate = $this->assertWithinSchool((float) $data['lat'], (float) $data['lng'], $accuracy);
+        if ($gate !== true) {
+            return $gate;
         }
-
-        $radius = (float) Setting::get('absen_radius', 100);
-        $dist = $this->distanceMeters((float) $slat, (float) $slng, (float) $data['lat'], (float) $data['lng']);
-        if ($dist > $radius) {
-            return response()->json([
-                'ok'      => false,
-                'message' => 'Anda berada ' . round($dist) . ' m dari sekolah (maks ' . round($radius) . ' m). Absen hanya bisa di lokasi sekolah.',
-            ], 422);
-        }
+        [$dist, $radius] = $this->schoolDistance((float) $data['lat'], (float) $data['lng']);
 
         $user = auth()->user();
         $today = now()->toDateString();
@@ -169,6 +153,7 @@ class QrAbsensiController extends Controller
 
         $jamDipakai = $jam;
         $label = 'Hadir';
+        $geoAudit = $this->geoAuditPayload((float) $data['lat'], (float) $data['lng'], $accuracy, $dist);
 
         if ($user->siswa) {
             // Metode absensi aktif harus "Barcode / QR".
@@ -193,6 +178,7 @@ class QrAbsensiController extends Controller
             $row->keterangan = 'Absen QR';
             $row->dicatat_oleh = $user->uuid;
             $row->jam_masuk = $jam;
+            $row->fill($geoAudit);
             $row->save();
             AttendanceParentNotifier::notify($row);
             $jamDipakai = $row->jam_masuk;
@@ -218,6 +204,10 @@ class QrAbsensiController extends Controller
                     return response()->json(['ok' => false, 'message' => \App\Support\AgendaGuru::pesanTolak($belum)], 422);
                 }
                 $row->jam_pulang = $jam;
+                $row->geo_lat_pulang = $geoAudit['geo_lat'];
+                $row->geo_lng_pulang = $geoAudit['geo_lng'];
+                $row->geo_accuracy_pulang = $geoAudit['geo_accuracy'];
+                $row->geo_jarak_pulang = $geoAudit['geo_jarak'];
                 $jamDipakai = $row->jam_pulang;
                 $label = 'Pulang';
             } else {
@@ -225,6 +215,10 @@ class QrAbsensiController extends Controller
                     return response()->json(['ok' => false, 'message' => 'Anda sudah absen masuk hari ini pukul ' . substr($row->jam_masuk, 0, 5) . '.'], 422);
                 }
                 $row->jam_masuk = $jam;
+                $row->geo_lat_masuk = $geoAudit['geo_lat'];
+                $row->geo_lng_masuk = $geoAudit['geo_lng'];
+                $row->geo_accuracy_masuk = $geoAudit['geo_accuracy'];
+                $row->geo_jarak_masuk = $geoAudit['geo_jarak'];
                 $jamDipakai = $row->jam_masuk;
                 $label = 'Masuk';
             }
@@ -237,12 +231,14 @@ class QrAbsensiController extends Controller
         }
 
         return response()->json([
-            'ok'      => true,
-            'message' => 'Absen ' . strtolower($label) . ' berhasil!',
-            'label'   => $label,
-            'nama'    => $panggilan,
-            'jam'     => substr((string) $jamDipakai, 0, 5),
-            'jarak'   => round($dist),
+            'ok'       => true,
+            'message'  => 'Absen ' . strtolower($label) . ' berhasil!',
+            'label'    => $label,
+            'nama'     => $panggilan,
+            'jam'      => substr((string) $jamDipakai, 0, 5),
+            'jarak'    => round($dist),
+            'accuracy' => (int) round($accuracy),
+            'radius'   => (int) round($radius),
         ]);
     }
 
@@ -258,11 +254,13 @@ class QrAbsensiController extends Controller
         abort_unless($guru, 403);
 
         $data = $request->validate([
-            'token'  => 'required|string',
-            'lat'    => 'required|numeric',
-            'lng'    => 'required|numeric',
-            'alasan' => 'required|string|max:500',
+            'token'    => 'required|string',
+            'lat'      => 'required|numeric|between:-90,90',
+            'lng'      => 'required|numeric|between:-180,180',
+            'accuracy' => 'required|numeric|min:0|max:10000',
+            'alasan'   => 'required|string|max:500',
         ]);
+        $accuracy = (float) $data['accuracy'];
 
         if (Setting::get('qr_absensi_aktif', '1') != '1') {
             return response()->json(['ok' => false, 'message' => 'Absen QR sedang dinonaktifkan admin.'], 422);
@@ -277,19 +275,12 @@ class QrAbsensiController extends Controller
             return response()->json(['ok' => false, 'message' => $pesan], 422);
         }
 
-        $slat = Setting::get('sekolah_lat');
-        $slng = Setting::get('sekolah_lng');
-        if (!$slat || !$slng) {
-            return response()->json(['ok' => false, 'message' => 'Lokasi sekolah belum diatur oleh admin.'], 422);
+        $gate = $this->assertWithinSchool((float) $data['lat'], (float) $data['lng'], $accuracy);
+        if ($gate !== true) {
+            return $gate;
         }
-        $radius = (float) Setting::get('absen_radius', 100);
-        $dist = $this->distanceMeters((float) $slat, (float) $slng, (float) $data['lat'], (float) $data['lng']);
-        if ($dist > $radius) {
-            return response()->json([
-                'ok'      => false,
-                'message' => 'Anda berada ' . round($dist) . ' m dari sekolah (maks ' . round($radius) . ' m). Absen hanya bisa di lokasi sekolah.',
-            ], 422);
-        }
+        [$dist] = $this->schoolDistance((float) $data['lat'], (float) $data['lng']);
+        $geoAudit = $this->geoAuditPayload((float) $data['lat'], (float) $data['lng'], $accuracy, $dist);
 
         $row = PresensiGuru::where('id_guru', $guru->uuid)->whereDate('tanggal', now())->first();
         if (!$row || empty($row->jam_masuk)) {
@@ -301,6 +292,10 @@ class QrAbsensiController extends Controller
 
         $row->jam_pulang = now()->format('H:i:s');
         $row->keterangan = trim(($row->keterangan ? $row->keterangan . ' | ' : '') . 'Izin pulang awal: ' . $data['alasan']);
+        $row->geo_lat_pulang = $geoAudit['geo_lat'];
+        $row->geo_lng_pulang = $geoAudit['geo_lng'];
+        $row->geo_accuracy_pulang = $geoAudit['geo_accuracy'];
+        $row->geo_jarak_pulang = $geoAudit['geo_jarak'];
         $row->save();
 
         Notification::send(
@@ -308,6 +303,66 @@ class QrAbsensiController extends Controller
             new GuruIzinPulangNotification($row, $data['alasan'])
         );
 
-        return response()->json(['ok' => true, 'jam' => substr($row->jam_pulang, 0, 5), 'jarak' => round($dist)]);
+        return response()->json([
+            'ok'       => true,
+            'jam'      => substr($row->jam_pulang, 0, 5),
+            'jarak'    => round($dist),
+            'accuracy' => (int) round($accuracy),
+        ]);
+    }
+
+    /**
+     * @return array{0: float, 1: float}  [jarak, radius]
+     */
+    private function schoolDistance(float $lat, float $lng): array
+    {
+        $slat = (float) Setting::get('sekolah_lat');
+        $slng = (float) Setting::get('sekolah_lng');
+        $radius = (float) Setting::get('absen_radius', 200);
+
+        return [Geofence::distanceMeters($slat, $slng, $lat, $lng), $radius];
+    }
+
+    /** true bila OK; JsonResponse 422 bila gagal. */
+    private function assertWithinSchool(float $lat, float $lng, float $accuracy)
+    {
+        $slat = Setting::get('sekolah_lat');
+        $slng = Setting::get('sekolah_lng');
+        if (!$slat || !$slng) {
+            return response()->json(['ok' => false, 'message' => 'Lokasi sekolah belum diatur oleh admin.'], 422);
+        }
+
+        if (!Geofence::accuracyAcceptable($accuracy)) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Akurasi GPS terlalu rendah (~' . (int) round($accuracy) . ' m). Pindah ke tempat lebih terbuka, nyalakan GPS, lalu coba lagi.',
+            ], 422);
+        }
+
+        [$dist, $radius] = $this->schoolDistance($lat, $lng);
+        if (!Geofence::withinRadius($dist, $radius)) {
+            $maks = Geofence::effectiveRadius($radius);
+
+            return response()->json([
+                'ok'       => false,
+                'message'  => 'Anda berada ' . round($dist) . ' m dari sekolah (maks ' . round($maks) . ' m, termasuk toleransi GPS). Absen hanya bisa di lokasi sekolah.',
+                'jarak'    => round($dist),
+                'radius'   => (int) round($radius),
+                'accuracy' => (int) round($accuracy),
+            ], 422);
+        }
+
+        return true;
+    }
+
+    /** @return array{geo_lat: float, geo_lng: float, geo_accuracy: int, geo_jarak: int} */
+    private function geoAuditPayload(float $lat, float $lng, float $accuracy, float $dist): array
+    {
+        return [
+            'geo_lat'      => round($lat, 7),
+            'geo_lng'      => round($lng, 7),
+            'geo_accuracy' => (int) min(65535, max(0, round($accuracy))),
+            'geo_jarak'    => (int) min(65535, max(0, round($dist))),
+        ];
     }
 }

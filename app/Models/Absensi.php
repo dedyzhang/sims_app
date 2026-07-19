@@ -14,6 +14,7 @@ class Absensi extends Model
     protected $table = 'absensis';
     protected $fillable = [
         'id_siswa', 'id_kelas', 'tanggal', 'jam_masuk', 'status', 'keterangan', 'dicatat_oleh',
+        'geo_lat', 'geo_lng', 'geo_accuracy', 'geo_jarak',
     ];
 
     /** True bila hadir & jam_masuk melewati batas (HH:MM). */
