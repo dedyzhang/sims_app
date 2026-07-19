@@ -22,12 +22,20 @@ class KerusakanController extends Controller
 {
     public function index(Request $request): View
     {
+        $user = auth()->user();
+        $canKelola = $user->can('sarpras.kerusakan.kelola');
+
         // Eager load pelapor + foto untuk cegah N+1.
+        // Staff hanya melihat laporan miliknya; operator melihat semua.
         $laporan = LaporanKerusakan::with(['pelapor:uuid,username', 'aset:id,nama', 'ruangan:id,kode,nama'])
+            ->when(! $canKelola, fn ($q) => $q->where('pelapor_id', $user->uuid))
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->latest()->get();
 
-        return view('sarpras.kerusakan.index', compact('laporan'));
+        return view('sarpras.kerusakan.index', [
+            'laporan' => $laporan,
+            'hanyaMilikSaya' => ! $canKelola,
+        ]);
     }
 
     public function create(Request $request): View

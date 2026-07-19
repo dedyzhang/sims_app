@@ -19,16 +19,25 @@ class PeminjamanController extends Controller
 {
     public function index(Request $request): View
     {
+        $user = auth()->user();
+        $canKelola = $user->can('sarpras.peminjaman.setujui') || $user->can('sarpras.peminjaman.kelola');
+
         $peminjaman = Peminjaman::with(['peminjam:uuid,username', 'ruangan:id,kode,nama'])
             ->withCount('items')
+            ->when(! $canKelola, fn ($q) => $q->where('peminjam_id', $user->uuid))
             ->when($request->status, fn ($q, $s) => $q->where('status', $s))
             ->latest()->get();
 
-        // Log reservasi & jadwal ruangan (booking) untuk panel di samping.
+        // Panel samping: operator lihat semua; staff hanya booking miliknya.
         $bookings = BookingRuangan::with(['ruangan:id,kode,nama,gedung,lantai', 'pemohon'])
+            ->when(! $canKelola, fn ($q) => $q->where('pemohon_id', $user->uuid))
             ->latest('mulai')->limit(15)->get();
 
-        return view('sarpras.peminjaman.index', compact('peminjaman', 'bookings'));
+        return view('sarpras.peminjaman.index', [
+            'peminjaman' => $peminjaman,
+            'bookings' => $bookings,
+            'hanyaMilikSaya' => ! $canKelola,
+        ]);
     }
 
     public function create(): View

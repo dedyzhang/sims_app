@@ -55,7 +55,83 @@
 .sarpras-scope .dataTables_scroll,
 .sarpras-scope .dataTables_scrollHead,
 .sarpras-scope .dataTables_scrollBody { max-width:100%; }
-.sarpras-scope .dataTables_wrapper { overflow-x:auto; }
+.sarpras-scope .dataTables_wrapper {
+    overflow:visible;
+    margin-top:0 !important;
+    width:100% !important;
+}
+/* Toolbar DataTables: length + filter tetap di dalam kartu, tidak float keluar. */
+.sarpras-scope .sarpras-dt-toolbar {
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:.75rem 1rem;
+    padding:.85rem 1rem .35rem;
+    box-sizing:border-box;
+    width:100%;
+}
+.sarpras-scope .sarpras-dt-footer {
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:.75rem 1rem;
+    padding:.5rem 1rem 1rem;
+    box-sizing:border-box;
+    width:100%;
+}
+.sarpras-scope .dataTables_length,
+.sarpras-scope .dataTables_filter,
+.sarpras-scope .dataTables_info,
+.sarpras-scope .dataTables_paginate {
+    float:none !important;
+    width:auto !important;
+    margin:0 !important;
+    padding:0 !important;
+    text-align:left !important;
+}
+.sarpras-scope .dataTables_filter {
+    margin-left:auto !important;
+}
+.sarpras-scope .dataTables_length label,
+.sarpras-scope .dataTables_filter label {
+    display:inline-flex;
+    align-items:center;
+    gap:.5rem;
+    flex-wrap:wrap;
+    margin:0;
+    font-size:.75rem;
+    font-weight:700;
+    color:#5f6368;
+}
+.dark .sarpras-scope .dataTables_length label,
+.dark .sarpras-scope .dataTables_filter label { color:#94a3b8; }
+.sarpras-scope .dataTables_length select,
+.sarpras-scope .dataTables_filter input {
+    border:1px solid #dadce0 !important;
+    border-radius:.75rem !important;
+    padding:.4rem .65rem !important;
+    min-height:2.1rem;
+    background:#fff;
+    color:#202124;
+    font-size:.8rem;
+    max-width:100%;
+}
+.dark .sarpras-scope .dataTables_length select,
+.dark .sarpras-scope .dataTables_filter input {
+    background:#0f172a !important;
+    border-color:#334155 !important;
+    color:#e2e8f0 !important;
+}
+.sarpras-scope .dataTables_filter input {
+    width:min(220px, 55vw) !important;
+}
+.sarpras-scope .dataTables_scroll,
+.sarpras-scope .dataTables_scrollHead,
+.sarpras-scope .dataTables_scrollBody {
+    overflow-x:auto;
+}
 .sarpras-scope table:not(.ttd) { max-width:100%; }
 .sarpras-scope table:not(.ttd) th,
 .sarpras-scope table:not(.ttd) td,
@@ -153,6 +229,7 @@
 .sarpras-google-btn {
     display:inline-flex;
     align-items:center;
+    justify-content:center;
     gap:.45rem;
     border:1px solid rgba(218,220,224,.95);
     background:#fff;
@@ -163,6 +240,90 @@
     background:#f8fbff;
     border-color:rgba(26,115,232,.35);
 }
+.sarpras-google-btn-primary {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:.45rem;
+    border:none;
+    border-radius:.75rem;
+    background:#1a73e8;
+    color:#fff;
+    font-weight:800;
+    box-shadow:0 8px 18px rgba(26,115,232,.28);
+    transition:background .15s ease, box-shadow .15s ease;
+}
+.sarpras-google-btn-primary:hover { background:#1557b0; }
+.sarpras-google-btn-success {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:.45rem;
+    border:none;
+    border-radius:.75rem;
+    background:#34a853;
+    color:#fff;
+    font-weight:800;
+    box-shadow:0 8px 18px rgba(52,168,83,.25);
+}
+.sarpras-google-btn-success:hover { background:#2d8e47; }
+.sarpras-google-btn-danger {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:.45rem;
+    border:none;
+    border-radius:.75rem;
+    background:#ea4335;
+    color:#fff;
+    font-weight:800;
+    box-shadow:0 8px 18px rgba(234,67,53,.22);
+}
+.sarpras-google-btn-danger:hover { background:#d93025; }
+.sarpras-google-btn-ghost {
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:.45rem;
+    border:1px solid #dadce0;
+    border-radius:.75rem;
+    background:#fff;
+    color:#5f6368;
+    font-weight:700;
+}
+.sarpras-google-btn-ghost:hover { background:#f8fafd; }
+.sarpras-field-label {
+    display:block;
+    margin-bottom:.4rem;
+    font-size:.68rem;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:#94a3b8;
+}
+.sarpras-field {
+    width:100%;
+    border:1px solid #dadce0;
+    border-radius:.75rem;
+    padding:.65rem .9rem;
+    font-size:.875rem;
+    background:#fff;
+    color:#202124;
+}
+.sarpras-field:focus {
+    outline:none;
+    border-color:#1a73e8 !important;
+    box-shadow:0 0 0 3px rgba(26,115,232,.14);
+}
+.dark .sarpras-google-btn-ghost,
+.dark .sarpras-field {
+    background:#0f172a;
+    border-color:#334155;
+    color:#e2e8f0;
+}
+.dark .sarpras-field-label { color:#64748b; }
+.dark .sarpras-google-btn-ghost { color:#cbd5e1; }
+.dark .sarpras-google-btn-ghost:hover { background:#1e293b; }
 .sarpras-google-tabs {
     background:#fff;
     border:1px solid rgba(218,220,224,.9);
@@ -295,21 +456,32 @@
         </div>
     </div>
 
-    {{-- Navigasi struktur modul Sarpras --}}
+    {{-- Navigasi struktur modul Sarpras: operator vs staf (guru) --}}
     @php
-        $sarprasNav = [
-            ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'route' => 'sarpras.dashboard', 'active' => ['sarpras.dashboard'], 'can' => 'sarpras.dashboard.lihat'],
-            ['label' => 'Kerusakan', 'icon' => 'triangle-alert', 'route' => 'sarpras.kerusakan.index', 'active' => ['sarpras.kerusakan.*'], 'can' => 'sarpras.kerusakan.lihat'],
-            ['label' => 'Inventaris', 'icon' => 'package', 'route' => 'sarpras.aset.index', 'active' => ['sarpras.aset.*'], 'can' => 'sarpras.aset.lihat'],
-            ['label' => 'Denah Sekolah', 'icon' => 'map', 'route' => 'sarpras.denah.index', 'active' => ['sarpras.denah.*', 'sarpras.ruangan.*'], 'can' => 'sarpras.denah.lihat'],
-            ['label' => 'Booking', 'icon' => 'calendar-check', 'route' => 'sarpras.booking.index', 'active' => ['sarpras.booking.*'], 'can' => 'sarpras.peminjaman.lihat'],
-            ['label' => 'Peminjaman', 'icon' => 'hand-helping', 'route' => 'sarpras.peminjaman.index', 'active' => ['sarpras.peminjaman.*'], 'can' => 'sarpras.peminjaman.lihat'],
-            ['label' => 'Pengadaan', 'icon' => 'shopping-cart', 'route' => 'sarpras.pengadaan.index', 'active' => ['sarpras.pengadaan.*'], 'can' => 'sarpras.pengadaan.lihat'],
-            ['label' => 'Perawatan', 'icon' => 'wrench', 'route' => 'sarpras.perbaikan.index', 'active' => ['sarpras.perbaikan.*', 'sarpras.teknisi.*', 'sarpras.jadwal.*'], 'can' => 'sarpras.perbaikan.lihat'],
-            ['label' => 'Mutasi/Hapus', 'icon' => 'replace', 'route' => 'sarpras.mutasi.index', 'active' => ['sarpras.mutasi.*', 'sarpras.penghapusan.*'], 'can' => 'sarpras.mutasi.kelola'],
-            ['label' => 'Laporan', 'icon' => 'file-bar-chart', 'route' => 'sarpras.laporan.index', 'active' => ['sarpras.laporan.*'], 'can' => 'sarpras.laporan.lihat'],
-            ['label' => 'Master Data', 'icon' => 'settings-2', 'route' => 'sarpras.kategori.index', 'active' => ['sarpras.kategori.*', 'sarpras.supplier.*'], 'can' => 'sarpras.pengaturan.kelola'],
-        ];
+        $bolehKelolaSarpras = auth()->user()?->isAdmin() || auth()->user()?->canAccess('manage_sarpras');
+        if ($bolehKelolaSarpras) {
+            $sarprasNav = [
+                ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'route' => 'sarpras.dashboard', 'active' => ['sarpras.dashboard'], 'can' => 'sarpras.dashboard.lihat'],
+                ['label' => 'Kerusakan', 'icon' => 'triangle-alert', 'route' => 'sarpras.kerusakan.index', 'active' => ['sarpras.kerusakan.*'], 'can' => 'sarpras.kerusakan.lihat'],
+                ['label' => 'Inventaris', 'icon' => 'package', 'route' => 'sarpras.aset.index', 'active' => ['sarpras.aset.*'], 'can' => 'sarpras.aset.lihat'],
+                ['label' => 'Denah Sekolah', 'icon' => 'map', 'route' => 'sarpras.denah.index', 'active' => ['sarpras.denah.*', 'sarpras.ruangan.*'], 'can' => 'sarpras.denah.lihat'],
+                ['label' => 'Booking', 'icon' => 'calendar-check', 'route' => 'sarpras.booking.index', 'active' => ['sarpras.booking.*'], 'can' => 'sarpras.peminjaman.lihat'],
+                ['label' => 'Peminjaman', 'icon' => 'hand-helping', 'route' => 'sarpras.peminjaman.index', 'active' => ['sarpras.peminjaman.*'], 'can' => 'sarpras.peminjaman.lihat'],
+                ['label' => 'Pengadaan', 'icon' => 'shopping-cart', 'route' => 'sarpras.pengadaan.index', 'active' => ['sarpras.pengadaan.*'], 'can' => 'sarpras.pengadaan.lihat'],
+                ['label' => 'Perawatan', 'icon' => 'wrench', 'route' => 'sarpras.perbaikan.index', 'active' => ['sarpras.perbaikan.*', 'sarpras.teknisi.*', 'sarpras.jadwal.*'], 'can' => 'sarpras.perbaikan.lihat'],
+                ['label' => 'Mutasi/Hapus', 'icon' => 'replace', 'route' => 'sarpras.mutasi.index', 'active' => ['sarpras.mutasi.*', 'sarpras.penghapusan.*'], 'can' => 'sarpras.mutasi.kelola'],
+                ['label' => 'Laporan', 'icon' => 'file-bar-chart', 'route' => 'sarpras.laporan.index', 'active' => ['sarpras.laporan.*'], 'can' => 'sarpras.laporan.lihat'],
+                ['label' => 'Master Data', 'icon' => 'settings-2', 'route' => 'sarpras.kategori.index', 'active' => ['sarpras.kategori.*', 'sarpras.supplier.*'], 'can' => 'sarpras.pengaturan.kelola'],
+            ];
+        } else {
+            // Staf/guru: aksi harian saja.
+            $sarprasNav = [
+                ['label' => 'Pinjam Barang', 'icon' => 'hand-helping', 'route' => 'sarpras.peminjaman.index', 'active' => ['sarpras.peminjaman.*'], 'can' => 'sarpras.peminjaman.lihat'],
+                ['label' => 'Booking Ruangan', 'icon' => 'calendar-check', 'route' => 'sarpras.booking.index', 'active' => ['sarpras.booking.*'], 'can' => 'sarpras.peminjaman.lihat'],
+                ['label' => 'Lapor Kerusakan', 'icon' => 'triangle-alert', 'route' => 'sarpras.kerusakan.index', 'active' => ['sarpras.kerusakan.*'], 'can' => 'sarpras.kerusakan.lihat'],
+                ['label' => 'Denah Sekolah', 'icon' => 'map', 'route' => 'sarpras.denah.index', 'active' => ['sarpras.denah.*', 'sarpras.ruangan.*'], 'can' => 'sarpras.denah.lihat'],
+            ];
+        }
     @endphp
     <div class="card sarpras-google-tabs !rounded-2xl p-2 overflow-x-auto sarpras-tabs">
         <div class="flex items-center gap-1 min-w-max">

@@ -8,6 +8,7 @@ use App\Sarpras\Exports\MutasiExport;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Support\Rupiah;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
@@ -33,14 +34,11 @@ class LaporanController extends Controller
     }
 
     /**
-     * Laporan aktivitas: audit log (spatie/activitylog) tidak dipakai di SIMS,
-     * jadi halaman ditampilkan kosong agar navigasi tidak putus.
+     * Audit log tidak dipakai di SIMS — redirect agar bookmark/URL lama tidak dead-end.
      */
-    public function aktivitas(): View
+    public function aktivitas(): RedirectResponse
     {
-        $aktivitas = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 30);
-
-        return view('sarpras.laporan.aktivitas', compact('aktivitas'));
+        return redirect()->route('sarpras.laporan.index');
     }
 
     public function exportAsetExcel()

@@ -141,10 +141,13 @@
                 $('table:not(.ttd, .no-dt)').addClass('display w-full').DataTable({
                     scrollX: true,
                     pageLength: 15,
+                    autoWidth: false,
+                    // Toolbar di dalam kartu: length + filter di atas, info + paginate di bawah.
+                    dom: '<"sarpras-dt-toolbar"lf>t<"sarpras-dt-footer"ip>',
                     language: {
                         search: "Cari:",
-                        lengthMenu: "Tampilkan _MENU_ baris",
-                        info: "Menampilkan _START_ - _END_ dari _TOTAL_ data",
+                        lengthMenu: "Tampilkan _MENU_",
+                        info: "Menampilkan _START_–_END_ dari _TOTAL_",
                         infoEmpty: "Tidak ada data",
                         zeroRecords: "Data tidak ditemukan",
                         paginate: { first: "Awal", last: "Akhir", next: "Selanjutnya", previous: "Sebelumnya" }
@@ -650,22 +653,25 @@
                     $bolehKelolaSarpras = $isAdmin || auth()->user()?->canAccess('manage_sarpras');
                     if ($bolehKelolaSarpras) {
                         $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
-                            ['sarpras.dashboard',        ['sarpras.dashboard'],                          'layout-dashboard', 'Dashboard Sarpras'],
+                            ['sarpras.dashboard',        ['sarpras.dashboard'],                          'layout-dashboard', 'Dashboard'],
                             ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
-                            ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
+                            ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Lapor Kerusakan'],
                             ['sarpras.aset.index',       ['sarpras.aset.*','sarpras.kategori.*'],        'package',          'Inventaris Barang'],
-                            ['sarpras.pengadaan.index',  ['sarpras.pengadaan.*'],                        'shopping-cart',    'Pengadaan Aset'],
-                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Aset'],
+                            ['sarpras.pengadaan.index',  ['sarpras.pengadaan.*'],                        'shopping-cart',    'Pengadaan'],
+                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Barang'],
+                            ['sarpras.booking.index',    ['sarpras.booking.*'],                          'calendar-clock',   'Booking Ruangan'],
                             ['sarpras.perbaikan.index',  ['sarpras.perbaikan.*','sarpras.teknisi.*','sarpras.jadwal.*'], 'wrench', 'Perbaikan & Teknisi'],
                             ['sarpras.mutasi.index',     ['sarpras.mutasi.*','sarpras.penghapusan.*'],   'trash-2',          'Mutasi & Hapus'],
                             ['sarpras.supplier.index',   ['sarpras.supplier.*'],                         'truck',            'Supplier'],
                             ['sarpras.laporan.index',    ['sarpras.laporan.*'],                          'file-bar-chart',   'Laporan'],
                         ]];
-                    } elseif (auth()->user()?->guru || auth()->user()?->siswa || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris'])) {
+                    } elseif (auth()->user()?->guru || auth()->user()?->siswa || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru'], true)) {
+                        // Menu staff: aksi harian dulu, denah sebagai pendukung.
                         $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
+                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Pinjam Barang'],
+                            ['sarpras.booking.index',    ['sarpras.booking.*'],                          'calendar-clock',   'Booking Ruangan'],
+                            ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Lapor Kerusakan'],
                             ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
-                            ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Maintenance Lapor'],
-                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Aset'],
                         ]];
                     }
                 }

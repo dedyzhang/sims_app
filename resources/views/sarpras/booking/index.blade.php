@@ -1,5 +1,9 @@
 @extends('sarpras.layouts.app')
-@section('title', 'Ruangan & Booking')
+@section('title', 'Booking Ruangan')
+@section('sarpras_title', 'Booking Ruangan')
+@section('sarpras_subtitle', auth()->user()?->can('sarpras.booking.kelola')
+    ? 'Kelola status ruangan dan setujui jadwal pemakaian kelas, laboratorium, serta ruang rapat.'
+    : 'Ajukan jadwal pemakaian ruang dan pantau status booking Anda. Untuk pinjam barang, buka Pinjam Barang.')
 
 @section('sarpras_body')
 @php
@@ -21,20 +25,20 @@
     {{-- Judul sub-modul + aksi --}}
     <div class="flex items-center justify-between gap-3 flex-wrap">
         <h2 class="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-            <span class="grid place-items-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-500"><i data-lucide="building-2" class="w-4 h-4"></i></span>
-            Ruangan &amp; Peminjaman
+            <span class="grid place-items-center w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/40 text-cyan-500"><i data-lucide="calendar-clock" class="w-4 h-4"></i></span>
+            Jadwal &amp; Status Ruangan
         </h2>
         <div class="flex items-center gap-2 flex-wrap">
             @can('sarpras.denah.kelola')
             <button type="button" @click="openTambah = !openTambah"
-                    class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-primary dark:hover:bg-primary-hover text-white px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-sm hover:shadow transition-all duration-200">
+                    class="sarpras-google-btn-ghost px-4 py-2.5 text-xs sm:text-sm">
                 <i data-lucide="plus" class="w-4 h-4"></i> Tambah Ruangan
             </button>
             @endcan
             @can('sarpras.peminjaman.ajukan')
             <button type="button" @click="form.ruangan_id=''; open=true"
-                    class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-primary dark:hover:bg-primary-hover text-white px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-sm hover:shadow transition-all duration-200">
-                <i data-lucide="plus" class="w-4 h-4"></i> Ajukan Penggunaan Ruang
+                    class="sarpras-google-btn-primary px-5 py-2.5 text-xs sm:text-sm">
+                <i data-lucide="plus" class="w-4 h-4"></i> Ajukan Booking
             </button>
             @endcan
         </div>

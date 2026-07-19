@@ -23,10 +23,10 @@ class SarprasServiceProvider extends ServiceProvider
      * MANAGE = pengelola Sarpras (approver/operator).
      * STAFF  = seluruh staf sekolah (boleh melihat & mengajukan).
      */
-    private const MANAGE = ['superadmin', 'admin', 'sapras'];
+    private const MANAGE = ['superadmin', 'admin', 'sapras', 'sarpras'];
 
     private const STAFF = [
-        'superadmin', 'admin', 'sapras', 'kepala',
+        'superadmin', 'admin', 'sapras', 'sarpras', 'kepala',
         'kurikulum', 'kesiswaan', 'sekretaris', 'walikelas', 'guru',
     ];
 
