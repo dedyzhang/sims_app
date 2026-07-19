@@ -82,16 +82,13 @@
             animation: fingerprint-pulse 2s infinite ease-in-out;
         }
 
-        /* Brand/splash header at top of login — scale down in landscape */
+        /* Brand/splash + card padding owned here (hindari lawan utility Tailwind) */
         .login-splash {
             display: flex;
             flex-direction: column;
             align-items: center;
             text-align: center;
             margin-bottom: 2rem;
-        }
-        @media (min-width: 1024px) {
-            .login-splash { display: none; }
         }
         .login-splash-logo {
             width: 3.5rem;
@@ -106,6 +103,16 @@
         .login-splash-sub {
             font-size: 0.875rem;
             margin-top: 0.25rem;
+        }
+        .login-card {
+            padding: 1.5rem;
+            border-radius: 1.75rem;
+        }
+        @media (min-width: 640px) {
+            .login-card { padding: 2rem; }
+        }
+        .login-brand-panel {
+            padding: 3rem;
         }
 
         /* Phone/tablet landscape: short viewport — keep brand compact so form fits */
@@ -139,17 +146,15 @@
                 margin-top: 0;
             }
             .login-panel {
-                min-height: 100dvh;
+                /* vh fallback dulu, lalu dvh (toolbar mobile) */
                 min-height: 100vh;
+                min-height: 100dvh;
                 padding-top: 0.75rem;
                 padding-bottom: 0.75rem;
                 justify-content: flex-start;
             }
-            .login-card-shell {
-                max-width: 28rem;
-            }
             .login-card {
-                padding: 1rem 1.15rem !important;
+                padding: 1rem 1.15rem;
                 border-radius: 1.25rem;
             }
             .login-card .login-tabs {
@@ -172,14 +177,16 @@
                 display: none;
             }
             .login-brand-panel .login-brand-inner {
-                transform: scale(0.88);
-                transform-origin: center center;
+                gap: 1.25rem;
+            }
+            .login-brand-panel .login-brand-features {
+                gap: 0.75rem;
             }
         }
 
         @media (orientation: landscape) and (max-height: 640px) and (min-width: 1024px) {
             .login-brand-panel {
-                padding: 1.5rem !important;
+                padding: 1.5rem;
                 align-items: flex-start;
                 overflow-y: auto;
             }
@@ -205,14 +212,14 @@
 <body class="min-h-screen bg-slate-50 flex overflow-x-hidden relative">
 
     {{-- 1. LEFT SIDE: Branding Panel (Visible only on Desktop) --}}
-    <div class="login-brand-panel hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 relative items-center justify-center p-12 text-white overflow-hidden select-none">
+    <div class="login-brand-panel hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 relative items-center justify-center text-white overflow-hidden select-none">
         {{-- Mesh overlay & Glowing Blobs --}}
         <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
         <div class="blob-1 absolute -top-40 -left-40 w-96 h-96 rounded-full bg-blue-600/20 filter blur-[90px]"></div>
         <div class="blob-2 absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-amber-500/15 filter blur-[90px]"></div>
 
         {{-- Content Container --}}
-        <div class="login-brand-inner relative z-10 max-w-md space-y-8">
+        <div class="login-brand-inner relative z-10 max-w-md flex flex-col space-y-8">
             <div class="login-brand-logo w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 grid place-items-center shadow-lg shadow-black/10 overflow-hidden">
                 @if($sekolahLogoUrl)
                     <img src="{{ $sekolahLogoUrl }}" class="w-full h-full object-contain" alt="Logo">
@@ -276,7 +283,7 @@
         <div x-data="loginApp()" class="login-card-shell w-full max-w-[400px] z-10 rise-up">
 
             {{-- Mobile brand / splash header (Hidden on Desktop, shown on Mobile) --}}
-            <div class="login-splash">
+            <div class="login-splash lg:hidden">
                 <div class="login-splash-logo rounded-2xl bg-gradient-to-br from-blue-900 to-indigo-950 grid place-items-center shadow-md shadow-blue-950/20 border border-blue-800/30 overflow-hidden">
                     @if($sekolahLogoUrl)
                         <img src="{{ $sekolahLogoUrl }}" class="w-full h-full object-contain" alt="Logo">
@@ -299,7 +306,7 @@
             </div>
 
             {{-- Main Glassmorphic Login Card --}}
-            <div class="login-card bg-white/70 backdrop-blur-xl border border-white/50 rounded-[28px] shadow-[0_20px_50px_rgba(15,23,42,0.06)] p-6 sm:p-8 relative overflow-hidden">
+            <div class="login-card bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_20px_50px_rgba(15,23,42,0.06)] relative overflow-hidden">
                 
                 {{-- Decorative card top line --}}
                 <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500"></div>

@@ -39,7 +39,7 @@
         /* Kunci jawaban: halaman terpisah, sama seperti dokumen acuan */
         .kunci { page-break-before: always; }
         table.kunci-pg { width: 100%; border-collapse: collapse; margin-top: 6px; }
-        table.kunci-pg td { border: 1px solid #000; padding: 4px 6px; font-weight: 700; width: 50%; }
+        table.kunci-pg td { border: 1px solid #000; padding: 4px 6px; font-weight: 700; width: 100%; }
         .esai-head { font-weight: 700; margin-top: 8px; }
         ul.poin { margin: 3px 0 0; padding-left: 18px; }
         ul.poin li { margin-bottom: 2px; }

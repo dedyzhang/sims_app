@@ -85,9 +85,15 @@
         .quiz-doc table.kunci-pg {
             width: 100%;
             max-width: 100%;
-            border-collapse: collapse;
             margin-top: 8px;
-            table-layout: fixed;
+            border-collapse: collapse;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+        .quiz-doc table.kunci-pg tbody,
+        .quiz-doc table.kunci-pg tr {
+            display: contents;
         }
         .quiz-doc table.kunci-pg td {
             border: 1px solid #000;
@@ -126,8 +132,8 @@
             .quiz-doc table.kunci-pg td { padding: 4px 6px; font-size: 11px; }
         }
 
-        /* HP / WebView landscape: tinggi pendek, lebar cukup — cegah overflow & perkecil padding */
-        @media (orientation: landscape) and (max-height: 560px) {
+        /* HP / WebView landscape: tinggi pendek — jangan kena jendela desktop pendek */
+        @media (orientation: landscape) and (max-height: 560px) and (max-width: 900px) {
             .quiz-doc {
                 padding: 12px 14px;
                 font-size: 11px;
@@ -143,17 +149,11 @@
             .quiz-doc table.kunci-pg td { padding: 3px 6px; font-size: 11px; }
         }
 
-        /* Sangat sempit: kunci PG jadi satu kolom agar tidak sumpek */
+        /* Sangat sempit: kunci PG satu kolom, urutan tetap 1..n */
         @media (max-width: 420px) {
-            .quiz-doc table.kunci-pg,
-            .quiz-doc table.kunci-pg tbody,
-            .quiz-doc table.kunci-pg tr,
-            .quiz-doc table.kunci-pg td {
-                display: block;
-                width: 100%;
+            .quiz-doc table.kunci-pg {
+                grid-template-columns: 1fr;
             }
-            .quiz-doc table.kunci-pg tr { margin-bottom: 0; }
-            .quiz-doc table.kunci-pg td:empty { display: none; }
         }
     </style>
 
