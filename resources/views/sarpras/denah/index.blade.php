@@ -1,11 +1,13 @@
 @extends('sarpras.layouts.app')
 @section('title', 'Denah Sekolah')
 @section('sarpras_title', 'Denah Sekolah')
-@section('sarpras_subtitle', 'Peta gedung, lantai, zona ruangan, status pemakaian, dan titik aset/maintenance sekolah.')
+@section('sarpras_subtitle', auth()->user()?->can('sarpras.denah.kelola')
+    ? 'Peta gedung, lantai, zona ruangan, status pemakaian, dan titik aset/maintenance sekolah.'
+    : 'Lihat peta gedung dan lokasi ruangan. Gunakan untuk menemukan lab, kelas, atau titik fasilitas sebelum booking atau lapor kerusakan.')
 
 @section('sarpras_actions')
     @can('sarpras.denah.kelola')
-        <a href="{{ route('sarpras.denah.create') }}" class="btn-primary inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold">
+        <a href="{{ route('sarpras.denah.create') }}" class="sarpras-google-btn-primary px-5 py-2.5 text-xs sm:text-sm">
             <i data-lucide="plus" class="w-4 h-4"></i> Denah Baru
         </a>
     @endcan

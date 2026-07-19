@@ -112,10 +112,27 @@ class SarprasDashboardTest extends TestCase
             ->assertOk()
             ->assertSee('Dashboard Sarana &amp; Prasarana', false)
             ->assertSee('Antrean Kerja Sarpras')
+            ->assertSee('Persetujuan Menunggu')
             ->assertSee('Aset Perlu Tindakan')
             ->assertSee('Pemeliharaan 14 Hari')
+            ->assertSee('Booking Ruangan Hari Ini')
             ->assertSee('Proyektor Lab')
             ->assertSee('Pengadaan LCD')
-            ->assertSee('Rapat sarpras');
+            ->assertSee('Rapat sarpras')
+            ->assertSee('Booking Ruangan')
+            ->assertSee('Peminjaman Barang');
+    }
+
+    public function test_laporan_aktivitas_redirect_ke_index(): void
+    {
+        $admin = User::create([
+            'username' => 'sap_laporan_redirect',
+            'password' => Hash::make('password'),
+            'access' => 'superadmin',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('sarpras.laporan.aktivitas'))
+            ->assertRedirect(route('sarpras.laporan.index'));
     }
 }

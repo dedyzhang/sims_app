@@ -1,5 +1,25 @@
 @extends('sarpras.layouts.app')
 @section('title', 'Inventaris Barang')
+@section('sarpras_title', 'Inventaris Barang')
+@section('sarpras_subtitle', 'Katalog aset sekolah, kondisi fisik, nilai buku, dan lokasi ruangan.')
+
+@section('sarpras_actions')
+    @can('sarpras.aset.kelola')
+        <button type="button" id="toggle-import" class="sarpras-google-btn-ghost px-4 py-2 text-xs sm:text-sm">
+            <i data-lucide="upload" class="w-4 h-4"></i> Import
+        </button>
+    @endcan
+    @if(Route::has('sarpras.laporan.aset.excel'))
+        <a href="{{ route('sarpras.laporan.aset.excel') }}" class="sarpras-google-btn-ghost px-4 py-2 text-xs sm:text-sm">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Export Excel
+        </a>
+    @endif
+    @can('sarpras.aset.kelola')
+        <a href="{{ route('sarpras.aset.create') }}" class="sarpras-google-btn-primary px-5 py-2.5 text-xs sm:text-sm">
+            <i data-lucide="plus" class="w-4 h-4"></i> Tambah Aset
+        </a>
+    @endcan
+@endsection
 
 @use('App\Sarpras\Support\Rupiah')
 @section('sarpras_body')
@@ -22,55 +42,30 @@
     $donut = count($stops) ? 'conic-gradient(' . implode(',', $stops) . ')' : '#e2e8f0';
 @endphp
 
-{{-- Judul sub-modul + aksi --}}
-<div class="flex items-center justify-between gap-3 flex-wrap">
-    <h2 class="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-        <span class="grid place-items-center w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-500"><i data-lucide="archive" class="w-4 h-4"></i></span>
-        Inventaris Barang (Aset)
-    </h2>
-    <div class="flex items-center gap-2 flex-wrap">
-        @can('sarpras.aset.kelola')
-            <button type="button" id="toggle-import" class="inline-flex items-center gap-2 bg-[#eafaf1] text-[#065f46] border border-[#a7f3d0] dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 shadow-sm hover:bg-[#d1fae5]">
-                <i data-lucide="upload" class="w-4 h-4"></i> Import
-            </button>
-        @endcan
-        @if(Route::has('sarpras.laporan.aset.excel'))
-            <a href="{{ route('sarpras.laporan.aset.excel') }}" class="inline-flex items-center gap-2 bg-[#eafaf1] text-[#065f46] border border-[#a7f3d0] dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 shadow-sm hover:bg-[#d1fae5]">
-                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Export Excel
-            </a>
-        @endif
-        @can('sarpras.aset.kelola')
-            <a href="{{ route('sarpras.aset.create') }}" class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-primary dark:hover:bg-primary-hover text-white px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-sm hover:shadow transition-all duration-200">
-                <i data-lucide="plus" class="w-4 h-4"></i> Tambah Aset
-            </a>
-        @endcan
-    </div>
-</div>
-
 @can('sarpras.aset.kelola')
     {{-- Panel import Excel/CSV (tersembunyi by default) --}}
-    <div id="panel-import" class="hidden bg-white rounded-lg shadow border border-emerald-100 p-5">
+    <div id="panel-import" class="hidden card !rounded-[24px] border border-emerald-100 dark:border-emerald-900/40 p-5 mb-4">
         <div class="flex items-start justify-between gap-3 mb-3">
             <div>
-                <h3 class="font-semibold text-gray-800">Import Katalog Aset</h3>
-                <p class="text-xs text-gray-500 mt-0.5">Unggah file Excel/CSV. Aset dengan <b>kode</b> yang sudah ada akan diperbarui, sisanya ditambahkan.</p>
+                <h3 class="font-extrabold text-slate-800 dark:text-slate-100">Import Katalog Aset</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Unggah file Excel/CSV. Aset dengan <b>kode</b> yang sudah ada akan diperbarui, sisanya ditambahkan.</p>
             </div>
-            <a href="{{ route('sarpras.aset.import.template') }}" class="shrink-0 inline-flex items-center gap-1.5 text-sm text-emerald-700 font-medium hover:underline">
+            <a href="{{ route('sarpras.aset.import.template') }}" class="shrink-0 inline-flex items-center gap-1.5 text-sm text-emerald-700 font-bold hover:underline">
                 <i data-lucide="download" class="w-4 h-4"></i> Unduh template
             </a>
         </div>
         <form method="POST" action="{{ route('sarpras.aset.import') }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2 text-sm">
             @csrf
-            <input type="file" name="file" accept=".xlsx,.xls,.csv" required class="border rounded px-3 py-2 file:mr-3 file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:rounded file:text-sm">
-            <button class="inline-flex items-center gap-1.5 bg-[#eafaf1] text-[#065f46] border border-[#a7f3d0] px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 shadow-sm hover:bg-[#d1fae5]">
+            <input type="file" name="file" accept=".xlsx,.xls,.csv" required class="sarpras-field !w-auto">
+            <button class="sarpras-google-btn-success px-5 py-2.5 text-xs sm:text-sm">
                 <i data-lucide="upload" class="w-4 h-4"></i> Proses Import
             </button>
         </form>
-        <p class="text-xs text-gray-400 mt-2">Kolom: <code>kode, nama, kategori, ruangan, merk, kondisi, status, tgl_perolehan, nilai_perolehan, sumber_dana</code>.</p>
+        <p class="text-xs text-slate-400 mt-2">Kolom: <code>kode, nama, kategori, ruangan, merk, kondisi, status, tgl_perolehan, nilai_perolehan, sumber_dana</code>.</p>
     </div>
 
     @if (session('import_catatan') && count(session('import_catatan')))
-        <details class="rounded-xl bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm" open>
+        <details class="rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm mb-4" open>
             <summary class="cursor-pointer font-medium">{{ count(session('import_catatan')) }} catatan saat import (klik untuk lihat)</summary>
             <ul class="list-disc list-inside mt-2 space-y-0.5 max-h-48 overflow-y-auto">
                 @foreach (session('import_catatan') as $c)<li>{{ $c }}</li>@endforeach

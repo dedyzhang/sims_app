@@ -1,33 +1,23 @@
 @extends('sarpras.layouts.app')
 @section('title', 'Laporan Sarpras')
+@section('sarpras_title', 'Laporan Sarpras')
+@section('sarpras_subtitle', 'Rekap kondisi aset, nilai inventaris, dan ekspor untuk pelaporan sekolah.')
+
+@section('sarpras_actions')
+    @can('sarpras.laporan.export')
+        <a href="{{ route('sarpras.laporan.aset.excel') }}" class="sarpras-google-btn-ghost px-4 py-2 text-xs sm:text-sm">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Ekspor Excel
+        </a>
+        <a href="{{ route('sarpras.laporan.aset.pdf') }}" target="_blank" class="sarpras-google-btn-primary px-5 py-2.5 text-xs sm:text-sm">
+            <i data-lucide="file-text" class="w-4 h-4"></i> Ekspor PDF
+        </a>
+    @endcan
+@endsection
 
 @section('sarpras_body')
-<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-    <h2 class="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-        <span class="grid place-items-center w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-indigo-500"><i data-lucide="file-bar-chart" class="w-4 h-4"></i></span>
-        Laporan Data Sarpras
-    </h2>
-    <div class="flex gap-2 flex-wrap">
-        @can('sarpras.laporan.export')
-            <a href="{{ route('sarpras.laporan.aset.excel') }}" 
-               class="inline-flex items-center gap-2 bg-[#eafaf1] text-[#065f46] border border-[#a7f3d0] dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900/30 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 shadow-sm hover:bg-[#d1fae5]">
-                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Ekspor Excel
-            </a>
-            <a href="{{ route('sarpras.laporan.aset.pdf') }}" target="_blank" 
-               class="inline-flex items-center gap-2 bg-[#fff1f2] text-[#9f1239] border border-[#fecdd3] dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/30 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 shadow-sm hover:bg-[#ffe4e6]">
-                <i data-lucide="file-text" class="w-4 h-4"></i> Ekspor PDF
-            </a>
-        @endcan
-        <a href="{{ route('sarpras.laporan.aktivitas') }}" 
-           class="inline-flex items-center gap-2 bg-[#f8fafc] text-[#1e293b] border border-[#cbd5e1] dark:bg-slate-800/40 dark:text-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-200 shadow-sm hover:bg-[#f1f5f9]">
-            <i data-lucide="history" class="w-4 h-4"></i> Log Aktivitas
-        </a>
-    </div>
-</div>
-
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-    <div class="card p-5 lg:col-span-2">
-        <h3 class="font-bold text-slate-800 dark:text-slate-100 mb-4">Rekap Aset per Kondisi</h3>
+    <div class="card p-5 lg:col-span-2 !rounded-[24px]">
+        <h3 class="font-extrabold text-slate-800 dark:text-slate-100 mb-4">Rekap Aset per Kondisi</h3>
         <div class="table-responsive">
             <table class="data-table">
                 <thead>
