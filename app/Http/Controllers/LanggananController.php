@@ -36,6 +36,8 @@ class LanggananController extends Controller
         // Kalender nyata (addMonths), BUKAN 30×bulan — akurat di bulan 31 hari & Februari.
         $berakhir = $mulai->copy()->addMonths((int) $data['durasi_bulan']);
 
+        $totalHari = (int) $mulai->diffInDays($berakhir);
+
         DB::transaction(function () use ($data, $mulai, $berakhir) {
             $langganan = Langganan::current();
 
@@ -52,8 +54,10 @@ class LanggananController extends Controller
             $langganan ? $langganan->update($atribut) : Langganan::create($atribut);
         });
 
+        $sisa = Langganan::current()?->sisaHari() ?? $totalHari;
+
         return redirect()->route('langganan.index')
-            ->with('success', "Langganan ditetapkan: {$data['durasi_bulan']} bulan, berakhir {$berakhir->translatedFormat('d F Y')}.");
+            ->with('success', "Langganan ditetapkan: {$data['durasi_bulan']} bulan ({$totalHari} hari), berakhir {$berakhir->translatedFormat('d F Y')} · sisa {$sisa} hari.");
     }
 
     /**
@@ -75,21 +79,26 @@ class LanggananController extends Controller
                 ->with('error', 'Belum ada langganan — tetapkan masa langganan terlebih dahulu.');
         }
 
-        DB::transaction(function () use ($langganan, $data) {
-            $basis = $langganan->kadaluarsa()
-                ? now()->startOfDay()
-                : $langganan->berakhir_pada->copy()->startOfDay();
+        $basis = $langganan->kadaluarsa()
+            ? now()->startOfDay()
+            : $langganan->berakhir_pada->copy()->startOfDay();
+        $durasi = (int) $data['durasi_bulan'];
+        $berakhirBaru = $basis->copy()->addMonths($durasi);
+        $hariDitambah = (int) $basis->diffInDays($berakhirBaru);
 
+        DB::transaction(function () use ($langganan, $data, $durasi, $berakhirBaru) {
             $langganan->update([
-                'durasi_bulan' => (int) $data['durasi_bulan'],
-                'berakhir_pada' => $basis->addMonths((int) $data['durasi_bulan'])->toDateString(),
+                'durasi_bulan' => $durasi,
+                'berakhir_pada' => $berakhirBaru->toDateString(),
                 'status' => 'aktif',
                 'catatan' => $data['catatan'] ?? $langganan->catatan,
                 'diatur_oleh' => auth()->id(),
             ]);
         });
 
+        $fresh = $langganan->fresh();
+
         return redirect()->route('langganan.index')
-            ->with('success', "Langganan diperpanjang {$data['durasi_bulan']} bulan, berakhir {$langganan->fresh()->berakhir_pada->translatedFormat('d F Y')}.");
+            ->with('success', "Langganan diperpanjang {$durasi} bulan (+{$hariDitambah} hari), berakhir {$fresh->berakhir_pada->translatedFormat('d F Y')} · sisa {$fresh->sisaHari()} hari.");
     }
 }

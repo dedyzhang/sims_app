@@ -18,9 +18,12 @@
             <i data-lucide="{{ $lgnIkon }}" class="w-4 h-4 shrink-0"></i>
             <span>
                 @if($lgnTingkat === 'kadaluarsa')
-                    Langganan SIMS <b>kadaluarsa {{ $lgnSisa === 0 ? 'hari ini' : abs($lgnSisa).' hari lalu' }}</b> — seluruh pengguna lain kini terkunci.
+                    Langganan SIMS ({{ $lgn->durasi_bulan }} bulan)
+                    <b>kadaluarsa {{ $lgnSisa === 0 ? 'hari ini' : abs($lgnSisa).' hari lalu' }}</b>
+                    — seluruh pengguna lain kini terkunci.
                 @else
-                    Langganan SIMS akan berakhir — <b>sisa {{ $lgnSisa }} hari</b>
+                    Langganan SIMS ({{ $lgn->durasi_bulan }} bulan / {{ $lgn->totalHari() }} hari) akan berakhir —
+                    <b>sisa {{ $lgnSisa }} hari</b>
                     ({{ $lgn->berakhir_pada->translatedFormat('d F Y') }}).
                 @endif
             </span>

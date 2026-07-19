@@ -64,6 +64,28 @@ class Langganan extends Model
         return (int) now()->startOfDay()->diffInDays($this->berakhir_pada->copy()->startOfDay(), false);
     }
 
+    /**
+     * Panjang masa langganan dalam HARI kalender (mulai → berakhir).
+     * Sesuai durasi 3 / 6 / 12 bulan via addMonths, bukan 30×bulan.
+     */
+    public function totalHari(): int
+    {
+        return (int) $this->mulai_pada->copy()->startOfDay()
+            ->diffInDays($this->berakhir_pada->copy()->startOfDay());
+    }
+
+    /**
+     * Hitung jumlah hari kalender untuk durasi bulan dari tanggal mulai.
+     */
+    public static function hariUntukDurasi(int $durasiBulan, mixed $mulaiPada = null): int
+    {
+        $mulai = $mulaiPada
+            ? \Illuminate\Support\Carbon::parse($mulaiPada)->startOfDay()
+            : now()->startOfDay();
+
+        return (int) $mulai->diffInDays($mulai->copy()->addMonths($durasiBulan));
+    }
+
     /** Kadaluarsa saat sisa hari ≤ 0 (hari-H sudah terkunci). */
     public function kadaluarsa(): bool
     {
