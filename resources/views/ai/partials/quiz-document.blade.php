@@ -92,20 +92,15 @@
 
         @if($doc['kunci']['pg'])
             <div class="subbagian">Pilihan Ganda</div>
-            @php
-                $pg = $doc['kunci']['pg'];
-                $half = (int) ceil(count($pg) / 2);
-                $left = array_slice($pg, 0, $half);
-                $right = array_slice($pg, $half);
-            @endphp
+            {{-- Urutan DOM 1..n (bukan kolom kiri/kanan) agar stack mobile tetap berurutan --}}
             <table class="kunci-pg">
-                @for($i = 0; $i < $half; $i++)
-                    <tr>
-                        @foreach([$left[$i] ?? null, $right[$i] ?? null] as $item)
-                            <td>{{ $item ? $item['number'].'. '.$item['answer'] : '' }}</td>
-                        @endforeach
-                    </tr>
-                @endfor
+                <tbody>
+                    @foreach($doc['kunci']['pg'] as $item)
+                        <tr>
+                            <td>{{ $item['number'] }}. {{ $item['answer'] }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
             </table>
         @endif
 

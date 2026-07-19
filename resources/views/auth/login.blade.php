@@ -81,22 +81,148 @@
         .pulse-fp {
             animation: fingerprint-pulse 2s infinite ease-in-out;
         }
+
+        /* Brand/splash + card padding owned here (hindari lawan utility Tailwind) */
+        .login-splash {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .login-splash-logo {
+            width: 3.5rem;
+            height: 3.5rem;
+            margin-bottom: 1rem;
+            flex-shrink: 0;
+        }
+        .login-splash-title {
+            font-size: 1.25rem;
+            line-height: 1.25;
+        }
+        .login-splash-sub {
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        .login-card {
+            padding: 1.5rem;
+            border-radius: 1.75rem;
+        }
+        @media (min-width: 640px) {
+            .login-card { padding: 2rem; }
+        }
+        .login-brand-panel {
+            padding: 3rem;
+        }
+
+        /* Phone/tablet landscape: short viewport — keep brand compact so form fits */
+        @media (orientation: landscape) and (max-height: 560px) {
+            .login-splash {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                align-items: center;
+                gap: 0.65rem 0.85rem;
+                margin-bottom: 0.75rem;
+                text-align: left;
+            }
+            .login-splash-logo {
+                width: 2.25rem;
+                height: 2.25rem;
+                margin-bottom: 0;
+                border-radius: 0.75rem;
+            }
+            .login-splash-text {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                min-width: 0;
+            }
+            .login-splash-title {
+                font-size: 1rem;
+            }
+            .login-splash-sub {
+                font-size: 0.75rem;
+                margin-top: 0;
+            }
+            .login-panel {
+                /* vh fallback dulu, lalu dvh (toolbar mobile) */
+                min-height: 100vh;
+                min-height: 100dvh;
+                padding-top: 0.75rem;
+                padding-bottom: 0.75rem;
+                justify-content: flex-start;
+            }
+            .login-card {
+                padding: 1rem 1.15rem;
+                border-radius: 1.25rem;
+            }
+            .login-card .login-tabs {
+                margin-bottom: 0.75rem;
+            }
+            .login-footer-mobile {
+                margin-top: 0.75rem;
+            }
+        }
+
+        @media (orientation: landscape) and (max-height: 420px) {
+            .login-splash-logo {
+                width: 1.875rem;
+                height: 1.875rem;
+            }
+            .login-splash-title {
+                font-size: 0.9rem;
+            }
+            .login-splash-sub {
+                display: none;
+            }
+            .login-brand-panel .login-brand-inner {
+                gap: 1.25rem;
+            }
+            .login-brand-panel .login-brand-features {
+                gap: 0.75rem;
+            }
+        }
+
+        @media (orientation: landscape) and (max-height: 640px) and (min-width: 1024px) {
+            .login-brand-panel {
+                padding: 1.5rem;
+                align-items: flex-start;
+                overflow-y: auto;
+            }
+            .login-brand-panel .login-brand-logo {
+                width: 2.75rem;
+                height: 2.75rem;
+            }
+            .login-brand-panel .login-brand-inner {
+                max-width: 22rem;
+            }
+            .login-brand-panel .login-brand-features {
+                padding-top: 0.5rem;
+            }
+            .login-brand-panel .login-brand-copy {
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+        }
     </style>
 </head>
 <body class="min-h-screen bg-slate-50 flex overflow-x-hidden relative">
 
     {{-- 1. LEFT SIDE: Branding Panel (Visible only on Desktop) --}}
-    <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 relative items-center justify-center p-12 text-white overflow-hidden select-none">
+    <div class="login-brand-panel hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 relative items-center justify-center text-white overflow-hidden select-none">
         {{-- Mesh overlay & Glowing Blobs --}}
         <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
         <div class="blob-1 absolute -top-40 -left-40 w-96 h-96 rounded-full bg-blue-600/20 filter blur-[90px]"></div>
         <div class="blob-2 absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-amber-500/15 filter blur-[90px]"></div>
 
         {{-- Content Container --}}
-        <div class="relative z-10 max-w-md space-y-8">
-            <div class="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 grid place-items-center shadow-lg shadow-black/10 overflow-hidden">
+        <div class="login-brand-inner relative z-10 max-w-md flex flex-col space-y-8">
+            <div class="login-brand-logo w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 grid place-items-center shadow-lg shadow-black/10 overflow-hidden">
                 @if($sekolahLogoUrl)
-                    <img src="{{ $sekolahLogoUrl }}" class="w-full h-full {{ in_array($sekolahLogoExt ?? 'png', ['jpg', 'jpeg']) ? 'object-contain' : 'object-cover' }}" alt="Logo">
+                    <img src="{{ $sekolahLogoUrl }}" class="w-full h-full object-contain" alt="Logo">
                 @else
                     <svg viewBox="0 0 24 24" fill="none" class="w-8 h-8 text-white" stroke="currentColor" stroke-width="2.2">
                         <path d="M12 3L1 9l11 6 9-4.91V17M1 9v7" stroke-linecap="round" stroke-linejoin="round"/>
@@ -107,10 +233,10 @@
             <div class="space-y-3">
                 <h2 class="text-3xl font-extrabold tracking-tight leading-tight text-white">SIMS</h2>
                 <p class="text-xs font-bold text-amber-400 uppercase tracking-widest -mt-1">Sistem Informasi Manajemen Sekolah</p>
-                <p class="text-slate-300 text-sm leading-relaxed">Selamat datang di portal akademik dan manajemen terintegrasi. Akses data siswa, guru, rombongan belajar, jadwal pelajaran, presensi harian, dan administrasi sekolah secara real-time.</p>
+                <p class="login-brand-copy text-slate-300 text-sm leading-relaxed">Selamat datang di portal akademik dan manajemen terintegrasi. Akses data siswa, guru, rombongan belajar, jadwal pelajaran, presensi harian, dan administrasi sekolah secara real-time.</p>
             </div>
 
-            <div class="space-y-4 pt-4">
+            <div class="login-brand-features space-y-4 pt-4">
                 <div class="flex items-center gap-3.5">
                     <div class="w-10 h-10 rounded-xl bg-white/5 border border-white/15 grid place-items-center text-amber-400">
                         <i data-lucide="graduation-cap" class="w-5 h-5"></i>
@@ -145,7 +271,7 @@
     </div>
 
     {{-- 2. RIGHT SIDE: Login Card (100% on Mobile, 50% on Desktop) --}}
-    <div class="w-full lg:w-1/2 min-h-screen flex flex-col items-center justify-center p-6 relative overflow-y-auto bg-slate-50">
+    <div class="login-panel w-full lg:w-1/2 min-h-screen flex flex-col items-center justify-center p-6 relative overflow-y-auto bg-slate-50">
         
         {{-- Background blobs for right side --}}
         <div class="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -154,21 +280,23 @@
             <div class="blob-2 absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-amber-500/10 filter blur-[90px]"></div>
         </div>
 
-        <div x-data="loginApp()" class="w-full max-w-[400px] z-10 rise-up">
+        <div x-data="loginApp()" class="login-card-shell w-full max-w-[400px] z-10 rise-up">
 
-            {{-- Mobile Logo/Header (Hidden on Desktop, shown on Mobile) --}}
-            <div class="flex flex-col items-center mb-8 text-center lg:hidden">
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-900 to-indigo-950 grid place-items-center mb-4 shadow-md shadow-blue-950/20 border border-blue-800/30 overflow-hidden">
+            {{-- Mobile brand / splash header (Hidden on Desktop, shown on Mobile) --}}
+            <div class="login-splash lg:hidden">
+                <div class="login-splash-logo rounded-2xl bg-gradient-to-br from-blue-900 to-indigo-950 grid place-items-center shadow-md shadow-blue-950/20 border border-blue-800/30 overflow-hidden">
                     @if($sekolahLogoUrl)
-                        <img src="{{ $sekolahLogoUrl }}" class="w-full h-full {{ in_array($sekolahLogoExt ?? 'png', ['jpg', 'jpeg']) ? 'object-contain' : 'object-cover' }}" alt="Logo">
+                        <img src="{{ $sekolahLogoUrl }}" class="w-full h-full object-contain" alt="Logo">
                     @else
-                        <svg viewBox="0 0 24 24" fill="none" class="w-7 h-7 text-white" stroke="currentColor" stroke-width="2.2">
+                        <svg viewBox="0 0 24 24" fill="none" class="w-[55%] h-[55%] text-white" stroke="currentColor" stroke-width="2.2">
                             <path d="M12 3L1 9l11 6 9-4.91V17M1 9v7" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     @endif
                 </div>
-                <h1 class="text-xl font-black text-slate-800 tracking-tight">{{ $namaSekolah ?? 'Edutive' }}</h1>
-                <p class="text-sm text-slate-500 mt-1">SIMS ( Sistem Informasi Manajemen Sekolah )</p>
+                <div class="login-splash-text">
+                    <h1 class="login-splash-title font-black text-slate-800 tracking-tight">{{ $namaSekolah ?? 'Edutive' }}</h1>
+                    <p class="login-splash-sub text-slate-500">SIMS ( Sistem Informasi Manajemen Sekolah )</p>
+                </div>
             </div>
 
             {{-- Desktop Header (Hidden on Mobile, shown on Desktop) --}}
@@ -178,7 +306,7 @@
             </div>
 
             {{-- Main Glassmorphic Login Card --}}
-            <div class="bg-white/70 backdrop-blur-xl border border-white/50 rounded-[28px] shadow-[0_20px_50px_rgba(15,23,42,0.06)] p-6 sm:p-8 relative overflow-hidden">
+            <div class="login-card bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_20px_50px_rgba(15,23,42,0.06)] relative overflow-hidden">
                 
                 {{-- Decorative card top line --}}
                 <div class="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-amber-500"></div>
@@ -198,7 +326,7 @@
                 @endif
 
                 {{-- Modern Tabs --}}
-                <div class="flex bg-slate-200/60 p-1 rounded-2xl mb-6 border border-slate-300/20">
+                <div class="login-tabs flex bg-slate-200/60 p-1 rounded-2xl mb-6 border border-slate-300/20">
                     <button @click="tab='password'" :class="tab==='password' ? 'bg-white shadow-sm text-slate-800 font-bold' : 'text-slate-500 hover:text-slate-800'"
                             class="flex-1 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5">
                         <i data-lucide="key" class="w-3.5 h-3.5"></i> Password
@@ -329,7 +457,7 @@
                 </div>
             </div>
 
-            <p class="text-center text-xs text-slate-400 mt-8 font-medium lg:hidden">&copy; {{ date('Y') }} {{ $namaSekolah ?? 'Edutive' }} • Hak Cipta Dilindungi</p>
+            <p class="login-footer-mobile text-center text-xs text-slate-400 mt-8 font-medium lg:hidden">&copy; {{ date('Y') }} {{ $namaSekolah ?? 'Edutive' }} • Hak Cipta Dilindungi</p>
         </div>
     </div>
 

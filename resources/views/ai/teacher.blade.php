@@ -2,7 +2,26 @@
 @section('title', 'Asisten Guru')
 
 @section('content')
-<div class="space-y-5 relative" x-data="teacherAi()">
+<style>
+    /* Generator Soal — hasil dokumen responsif di HP landscape/WebView */
+    .ai-teacher-hasil .quiz-preview-scroll,
+    .ai-teacher-hasil .ai-answer {
+        -webkit-overflow-scrolling: touch;
+        min-height: 0;
+    }
+    @media (orientation: landscape) and (max-height: 560px) and (max-width: 900px) {
+        .ai-teacher-hasil {
+            max-height: min(72vh, 640px);
+            min-height: 0;
+        }
+        .ai-teacher-hasil .quiz-preview-scroll,
+        .ai-teacher-hasil .ai-answer,
+        .ai-teacher-hasil textarea.form-input {
+            min-height: 0;
+        }
+    }
+</style>
+<div class="space-y-5 relative min-w-0 max-w-full" x-data="teacherAi()">
 
     {{-- Gate: wajib API key Gemini pribadi --}}
     <template x-if="needsApiKeySetup">
@@ -304,7 +323,9 @@
                             : (m.previewHtml
                                 ? 'w-full max-w-3xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-primary/15 rounded-bl-md overflow-auto shadow-sm'
                                 : 'max-w-[92%] sm:max-w-[80%] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 border border-primary/15 rounded-bl-md shadow-sm')">
-                        <div x-show="m.role === 'assistant' && m.previewHtml" x-cloak class="overflow-auto" x-html="m.previewHtml"></div>
+                        <div x-show="m.role === 'assistant' && m.previewHtml" x-cloak
+                             class="min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-contain"
+                             x-html="m.previewHtml"></div>
                         <div x-show="m.role === 'assistant' && !m.previewHtml" class="ai-answer break-words whitespace-pre-wrap" x-text="m.text"></div>
                         <div x-show="m.role === 'user'" class="whitespace-pre-wrap" x-text="m.text"></div>
                         <div x-show="m.role === 'assistant'" class="mt-2.5 flex flex-wrap gap-2 border-t border-primary/10 pt-2">
@@ -369,10 +390,10 @@
         </form>
     </div>
 
-    <div class="grid gap-5 xl:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(240px,0.55fr)]"
+    <div class="grid gap-5 min-w-0 xl:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(240px,0.55fr)]"
          x-show="isToolTab" x-cloak>
         {{-- Form --}}
-        <div class="card p-5">
+        <div class="card p-5 min-w-0">
             {{-- Generator Soal --}}
             <div x-show="tab === 'quiz'" class="space-y-4">
                 <div>
@@ -543,10 +564,10 @@
         </div>
 
         {{-- Hasil --}}
-        <div class="card p-5 flex flex-col min-h-[300px]">
-            <div class="flex items-center justify-between gap-3 mb-3">
-                <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2"><i data-lucide="file-text" class="w-4 h-4"></i> Hasil</h2>
-                <div x-show="result" x-cloak class="flex flex-wrap items-center justify-end gap-2">
+        <div class="ai-teacher-hasil card p-4 sm:p-5 flex flex-col min-h-[300px] min-w-0 max-w-full overflow-x-clip">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3 min-w-0">
+                <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 shrink-0"><i data-lucide="file-text" class="w-4 h-4"></i> Hasil</h2>
+                <div x-show="result" x-cloak class="flex flex-wrap items-center gap-1.5 sm:justify-end min-w-0">
                     <button type="button" @click="toggleEdit()" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">
                         <i :data-lucide="editing ? 'check' : 'pencil'" class="w-4 h-4"></i><span x-text="editing ? 'Selesai' : 'Edit'"></span>
                     </button>
@@ -623,39 +644,14 @@
             <textarea x-show="result && !loading && editing" x-cloak x-model="result" rows="16" class="form-input flex-1 min-h-[260px] resize-y text-sm leading-relaxed"></textarea>
 
             {{-- Pratinjau dokumen berformat (soal / RPM): sama persis dengan hasil export --}}
-            <div x-show="result && !loading && !editing && previewHtml" x-cloak class="flex-1 overflow-auto" x-html="previewHtml"></div>
+            <div x-show="result && !loading && !editing && previewHtml" x-cloak
+                 class="quiz-preview-scroll flex-1 min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-contain"
+                 x-html="previewHtml"></div>
 
             {{-- Teks biasa: tab lain, atau bila pratinjau gagal/konten tak berformat RPM --}}
-            <div x-show="result && !loading && !editing && !previewHtml" x-cloak class="ai-answer flex-1 overflow-auto break-words text-sm text-slate-800 dark:text-slate-100" x-html="renderAiMarkdown(result)"></div>
-
-            {{-- Modal pilih ruang kelas untuk Arena --}}
-            <div x-show="showArenaModal" x-cloak class="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" @keydown.escape.window="showArenaModal = false">
-                <div class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-slate-200 dark:ring-slate-700 p-5 space-y-4" @click.outside="showArenaModal = false">
-                    <div>
-                        <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <i data-lucide="gamepad-2" class="w-5 h-5 text-primary"></i>
-                            Kirim ke Arena Belajar
-                        </h3>
-                        <p class="text-xs text-slate-500 mt-1">Pilih ruang kelas. Soal akan diimpor ke form buat kuis.</p>
-                    </div>
-                    <div>
-                        <label class="form-label">Ruang kelas</label>
-                        <select x-model="arenaClassroomId" class="form-input">
-                            <option value="">— pilih —</option>
-                            <template x-for="c in arenaClassrooms" :key="c.uuid">
-                                <option :value="c.uuid" x-text="c.title"></option>
-                            </template>
-                        </select>
-                    </div>
-                    <div class="flex justify-end gap-2">
-                        <button type="button" class="btn-secondary px-3 py-2 rounded-xl text-sm" @click="showArenaModal = false">Batal</button>
-                        <button type="button" class="btn-primary px-3 py-2 rounded-xl text-sm font-semibold disabled:opacity-40"
-                                :disabled="!arenaClassroomId || sendingArena" @click="sendToArena()">
-                            Buka form Arena
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <div x-show="result && !loading && !editing && !previewHtml" x-cloak
+                 class="ai-answer flex-1 min-w-0 max-w-full overflow-x-auto overflow-y-auto break-words text-sm text-slate-800 dark:text-slate-100"
+                 x-html="renderAiMarkdown(result)"></div>
         </div>
 
         {{-- History generate: collapse + drag-resize supaya tidak mendominasi layar --}}
@@ -733,6 +729,35 @@
         </div>
     </div>
     </div>{{-- /blur wrapper --}}
+
+    {{-- Modal Arena di luar card Hasil agar fixed tidak ter-clip overflow --}}
+    <div x-show="showArenaModal" x-cloak class="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" @keydown.escape.window="showArenaModal = false">
+        <div class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-slate-200 dark:ring-slate-700 p-5 space-y-4" @click.outside="showArenaModal = false">
+            <div>
+                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <i data-lucide="gamepad-2" class="w-5 h-5 text-primary"></i>
+                    Kirim ke Arena Belajar
+                </h3>
+                <p class="text-xs text-slate-500 mt-1">Pilih ruang kelas. Soal akan diimpor ke form buat kuis.</p>
+            </div>
+            <div>
+                <label class="form-label">Ruang kelas</label>
+                <select x-model="arenaClassroomId" class="form-input">
+                    <option value="">— pilih —</option>
+                    <template x-for="c in arenaClassrooms" :key="c.uuid">
+                        <option :value="c.uuid" x-text="c.title"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" class="btn-secondary px-3 py-2 rounded-xl text-sm" @click="showArenaModal = false">Batal</button>
+                <button type="button" class="btn-primary px-3 py-2 rounded-xl text-sm font-semibold disabled:opacity-40"
+                        :disabled="!arenaClassroomId || sendingArena" @click="sendToArena()">
+                    Buka form Arena
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 @include('partials.ai-markdown')
