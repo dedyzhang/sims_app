@@ -18,7 +18,7 @@ class SiswaImportKredensialExport implements FromArray, WithColumnWidths, WithTi
 {
     private const HEADINGS = ['No', 'Nama', 'NIS', 'Username Siswa', 'Password Siswa', 'Username Ortu', 'Password Ortu'];
 
-    public function __construct(private array $kredensial)
+    public function __construct(private array $kredensial, private string $judul = 'KREDENSIAL LOGIN SISWA BARU (IMPORT)')
     {
     }
 
@@ -55,7 +55,7 @@ class SiswaImportKredensialExport implements FromArray, WithColumnWidths, WithTi
             AfterSheet::class => function (AfterSheet $event) {
                 CetakExcelStyle::kopDanTabel(
                     $event->sheet->getDelegate(),
-                    'KREDENSIAL LOGIN SISWA BARU (IMPORT)',
+                    $this->judul,
                     count(self::HEADINGS),
                     count($this->kredensial),
                     'Simpan file ini dengan aman — password tidak bisa ditampilkan ulang setelah ini'

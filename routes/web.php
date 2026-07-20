@@ -754,6 +754,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::resource('/siswa', SiswaController::class);
         Route::post('/siswa/{uuid}/reset/siswa', [SiswaController::class, 'resetSiswa'])->name('siswa.reset');
         Route::post('/siswa/{uuid}/reset/ortu', [SiswaController::class, 'resetOrangtua'])->name('siswa.resetOrtu');
+        Route::post('/siswa/reset-massal', [SiswaController::class, 'resetBulk'])->name('siswa.reset.bulk');
+        Route::get('/siswa/reset-massal/kredensial', [SiswaController::class, 'resetBulkKredensial'])->name('siswa.reset.bulk.kredensial');
 
         // Pelajaran (semua AJAX, tanpa halaman create/edit terpisah)
         Route::get('/pelajaran', [PelajaranController::class, 'index'])->name('pelajaran.index');

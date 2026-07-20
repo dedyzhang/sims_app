@@ -27,7 +27,15 @@ class SiswaController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        return view('siswa.index', compact('siswas', 'kelas'));
+        $totalAktif    = Siswa::where('status', 'aktif')->count();
+        $tingkatCounts = Siswa::where('status', 'aktif')
+            ->join('kelas', 'siswa.id_kelas', '=', 'kelas.uuid')
+            ->selectRaw('kelas.tingkat, count(*) as total')
+            ->groupBy('kelas.tingkat')
+            ->orderBy('kelas.tingkat')
+            ->pluck('total', 'tingkat');
+
+        return view('siswa.index', compact('siswas', 'kelas', 'totalAktif', 'tingkatCounts'));
     }
 
     public function create()
@@ -263,6 +271,77 @@ class SiswaController extends Controller
             'username' => $siswa->orangtua?->user?->username ?? '-',
             'password' => $password,
         ])->with('success', "Password orang tua direset: {$password}");
+    }
+
+    /** Reset password akun siswa+ortu massal (semua/tingkat/kelas) — kredensial baru diunduh sekali. */
+    public function resetBulk(Request $request)
+    {
+        // Bisa ratusan hash bcrypt (siswa+ortu) — jangan biarkan PHP timeout memotong
+        // di tengah proses (hosting bervariasi, ada yg batas eksekusinya pendek).
+        set_time_limit(0);
+
+        $data = $request->validate([
+            'scope'    => 'required|in:semua,tingkat,kelas',
+            'tingkat'  => 'required_if:scope,tingkat|nullable|integer',
+            'id_kelas' => 'required_if:scope,kelas|nullable|exists:kelas,uuid',
+        ]);
+
+        $query = Siswa::with(['user', 'orangtua.user'])->where('status', 'aktif');
+
+        if ($data['scope'] === 'tingkat') {
+            $query->whereHas('kelas', fn ($q) => $q->where('tingkat', $data['tingkat']));
+        } elseif ($data['scope'] === 'kelas') {
+            $query->where('id_kelas', $data['id_kelas']);
+        }
+
+        $siswas = $query->get();
+        if ($siswas->isEmpty()) {
+            return back()->with('error', 'Tidak ada siswa aktif pada cakupan yang dipilih.');
+        }
+
+        $kredensial = [];
+        foreach ($siswas as $siswa) {
+            $passwordSiswa = null;
+            if ($siswa->user) {
+                $passwordSiswa = Str::random(8);
+                $siswa->user->update(['password' => $passwordSiswa, 'must_change_password' => true]);
+            }
+
+            $passwordOrtu = null;
+            if ($siswa->orangtua?->user) {
+                $passwordOrtu = Str::random(8);
+                $siswa->orangtua->user->update(['password' => $passwordOrtu, 'must_change_password' => true]);
+            }
+
+            $kredensial[] = [
+                'nama' => $siswa->nama,
+                'nis' => $siswa->nis,
+                'username_siswa' => $siswa->user?->username ?? '-',
+                'password_siswa' => $passwordSiswa ?? '-',
+                'username_ortu' => $siswa->orangtua?->user?->username ?? '-',
+                'password_ortu' => $passwordOrtu ?? '-',
+            ];
+        }
+
+        // Kredensial (password plaintext) HANYA ada di titik ini — simpan sementara
+        // di session supaya bisa diunduh sekali via tombol di halaman berikutnya.
+        session(['reset_kredensial_siswa' => $kredensial]);
+
+        return redirect()->route('siswa.index')->with('success', count($kredensial) . ' akun siswa+ortu berhasil direset.');
+    }
+
+    /** Unduh sekali kredensial hasil reset massal terakhir, lalu hapus dari session. */
+    public function resetBulkKredensial()
+    {
+        $data = session('reset_kredensial_siswa');
+        abort_if(empty($data), 404, 'Tidak ada data kredensial untuk diunduh (mungkin sudah diunduh atau sesi berakhir).');
+
+        session()->forget('reset_kredensial_siswa');
+
+        return Excel::download(
+            new \App\Exports\SiswaImportKredensialExport($data, 'KREDENSIAL LOGIN SISWA HASIL RESET PASSWORD'),
+            'Kredensial Reset Siswa.xlsx'
+        );
     }
 
     public function importForm()

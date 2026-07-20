@@ -2,7 +2,7 @@
 @section('title', 'Data Siswa')
 
 @section('content')
-<div class="space-y-5" x-data="{ importModal: false }">
+<div class="space-y-5" x-data="{ importModal: false, resetModal: false, scope: 'semua', tingkat: '', id_kelas: '', resetSubmitting: false }">
 
     @if(session()->has('import_kredensial_siswa'))
     <div class="card p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 flex items-center justify-between gap-3 flex-wrap">
@@ -14,6 +14,21 @@
             </div>
         </div>
         <a href="{{ route('siswa.import.kredensial') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-amber-600 text-white hover:bg-amber-700 transition flex-shrink-0">
+            <i data-lucide="download" class="w-4 h-4"></i> Unduh Kredensial
+        </a>
+    </div>
+    @endif
+
+    @if(session()->has('reset_kredensial_siswa'))
+    <div class="card p-4 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700 flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-start gap-2.5">
+            <i data-lucide="key-round" class="w-5 h-5 text-violet-600 flex-shrink-0 mt-0.5"></i>
+            <div>
+                <p class="text-sm font-bold text-violet-800 dark:text-violet-300">Kredensial baru hasil reset {{ count(session('reset_kredensial_siswa')) }} akun siswa+ortu siap diunduh</p>
+                <p class="text-xs text-violet-700 dark:text-violet-400 mt-0.5">Unduh sekarang — password tidak bisa ditampilkan ulang setelah ini.</p>
+            </div>
+        </div>
+        <a href="{{ route('siswa.reset.bulk.kredensial') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-violet-600 text-white hover:bg-violet-700 transition flex-shrink-0">
             <i data-lucide="download" class="w-4 h-4"></i> Unduh Kredensial
         </a>
     </div>
@@ -52,6 +67,10 @@
                     </a>
                 </div>
             </div>
+            <button @click="resetModal=true"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-violet-200 dark:border-violet-700 text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition">
+                <i data-lucide="key-round" class="w-4 h-4"></i> Reset Password Massal
+            </button>
             <button @click="importModal=true"
                     class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition">
                 <i data-lucide="upload" class="w-4 h-4"></i> Import Excel
@@ -227,5 +246,98 @@
             </div>
         </div>
     </div>
+
+    {{-- Reset Password Massal Modal --}}
+    <div x-show="resetModal" class="modal-backdrop" x-transition @click.self="resetModal=false" x-cloak>
+        <div class="modal-box max-w-md w-full" @click.stop>
+            <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                <h3 class="font-bold text-slate-800 dark:text-slate-200">Reset Password Massal</h3>
+                <button @click="resetModal=false" class="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <form method="POST" action="{{ route('siswa.reset.bulk') }}" id="resetBulkForm" onsubmit="return confirmResetBulk(this)">
+                @csrf
+                <div class="p-5 space-y-4">
+                    <div class="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-700 rounded-xl p-3 text-sm text-rose-800 dark:text-rose-300">
+                        <p class="font-semibold mb-1">⚠️ Tindakan ini tidak bisa dibatalkan</p>
+                        <p class="text-xs">Password LAMA akun yang direset langsung tidak berlaku. Akun siswa & orang tuanya sekaligus direset. Segera unduh &amp; bagikan kredensial baru setelah ini.</p>
+                        <p class="text-xs mt-1">Untuk cakupan besar (semua siswa/tingkat penuh), proses bisa makan waktu beberapa menit — jangan tutup atau refresh halaman sampai selesai.</p>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 cursor-pointer" :class="scope==='semua' && 'border-violet-400 bg-violet-50 dark:bg-violet-900/20'">
+                            <input type="radio" name="scope" value="semua" x-model="scope" class="accent-violet-600">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Semua siswa aktif <span class="text-slate-400 font-normal">({{ $totalAktif }} siswa)</span></span>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 cursor-pointer" :class="scope==='tingkat' && 'border-violet-400 bg-violet-50 dark:bg-violet-900/20'">
+                            <input type="radio" name="scope" value="tingkat" x-model="scope" class="accent-violet-600">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Per tingkat</span>
+                        </label>
+                        <div x-show="scope==='tingkat'" class="pl-8">
+                            <select name="tingkat" x-model="tingkat" class="form-input py-2 text-sm w-full">
+                                <option value="">Pilih tingkat…</option>
+                                @foreach($tingkatCounts as $t => $jumlah)
+                                <option value="{{ $t }}">Tingkat {{ $t }} ({{ $jumlah }} siswa)</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <label class="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 cursor-pointer" :class="scope==='kelas' && 'border-violet-400 bg-violet-50 dark:bg-violet-900/20'">
+                            <input type="radio" name="scope" value="kelas" x-model="scope" class="accent-violet-600">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Per kelas</span>
+                        </label>
+                        <div x-show="scope==='kelas'" class="pl-8">
+                            <select name="id_kelas" x-model="id_kelas" class="form-input py-2 text-sm w-full">
+                                <option value="">Pilih kelas…</option>
+                                @foreach($kelas as $k)
+                                <option value="{{ $k->uuid }}">Kelas {{ $k->tingkat }}{{ $k->kelas }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-5 border-t border-slate-100 dark:border-slate-700">
+                    <button type="submit"
+                            :disabled="resetSubmitting || (scope==='tingkat' && !tingkat) || (scope==='kelas' && !id_kelas)"
+                            class="w-full py-2.5 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-700 text-white transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                        <i data-lucide="loader-circle" class="w-4 h-4 animate-spin" x-show="resetSubmitting"></i>
+                        <i data-lucide="key-round" class="w-4 h-4" x-show="!resetSubmitting"></i>
+                        <span x-text="resetSubmitting ? 'Memproses reset…' : 'Reset Password Sekarang'"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+function confirmResetBulk(form) {
+    const scope = form.scope.value;
+    let target = 'SEMUA siswa aktif';
+    if (scope === 'tingkat') {
+        const opt = form.tingkat.options[form.tingkat.selectedIndex];
+        target = opt ? opt.text : 'tingkat terpilih';
+    } else if (scope === 'kelas') {
+        const opt = form.id_kelas.options[form.id_kelas.selectedIndex];
+        target = opt ? opt.text : 'kelas terpilih';
+    }
+    $.confirm({
+        theme: 'material', animation: 'scale', closeIcon: true, backgroundDismiss: true, useBootstrap: false, boxWidth: '420px',
+        title: 'Reset password massal?',
+        content: `Password akun siswa & orang tua untuk <b>${target}</b> akan direset semua dan password lama langsung tidak berlaku. Lanjutkan?`,
+        type: 'red',
+        buttons: {
+            ya: { text: 'Ya, Reset Sekarang', btnClass: 'btn-red', action: function(){
+                const root = form.closest('[x-data]');
+                if (root) { Alpine.$data(root).resetSubmitting = true; }
+                form.submit();
+            } },
+            batal: { text: 'Batal' },
+        },
+    });
+    return false;
+}
+</script>
+@endpush
