@@ -86,6 +86,13 @@
                             <span>{{ $s->nis }}</span>
                             @if($row?->jam_masuk)<span class="{{ $row->terlambat($batas) ? 'text-rose-500' : 'text-emerald-500' }} flex items-center gap-0.5 font-sans"><i data-lucide="clock" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::of($row->jam_masuk)->substr(0,5) }}</span>@endif
                             @if($row && $row->terlambat($batas))<span class="badge bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300 font-semibold font-sans">Terlambat</span>@endif
+                            @if($row && $row->geo_jarak !== null)
+                            <span class="font-sans text-[11px] text-sky-600 dark:text-sky-400 flex items-center gap-0.5" title="Audit geolokasi Absen QR">
+                                <i data-lucide="map-pin" class="w-3 h-3"></i>
+                                QR {{ (int) $row->geo_jarak }} m
+                                @if($row->geo_accuracy !== null)· ±{{ (int) $row->geo_accuracy }} m@endif
+                            </span>
+                            @endif
                         </p>
                     </div>
                     <div class="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto sm:justify-end mt-2 sm:mt-0 pl-[68px] sm:pl-0">

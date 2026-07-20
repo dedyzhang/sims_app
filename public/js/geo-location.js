@@ -9,9 +9,9 @@
     'use strict';
 
     var DEFAULTS = {
-        watchMs: 10000,
-        targetAccuracy: 40,
-        highTimeout: 20000,
+        watchMs: 16000,
+        targetAccuracy: 35,
+        highTimeout: 25000,
         lowTimeout: 15000,
         maxAccuracySubmit: 150,
         softToleranceM: 50, // selaras App\Support\Geofence::SOFT_TOLERANCE_M
@@ -155,15 +155,48 @@
         return accuracy <= maxM;
     }
 
-    /** Soft geofence: jarak ≤ radius + toleransi server tetap. */
-    function withinRadius(dist, radius, softTolerance) {
+    /** Soft geofence: jarak ≤ radius + toleransi server (+ bonus jam sibuk opsional). */
+    function withinRadius(dist, radius, softTolerance, bonus) {
         softTolerance = softTolerance != null ? softTolerance : DEFAULTS.softToleranceM;
-        return dist <= (radius + softTolerance);
+        bonus = bonus != null ? bonus : 0;
+        return dist <= (radius + softTolerance + Math.max(0, bonus));
     }
 
-    function effectiveRadius(radius, softTolerance) {
+    function effectiveRadius(radius, softTolerance, bonus) {
         softTolerance = softTolerance != null ? softTolerance : DEFAULTS.softToleranceM;
-        return radius + softTolerance;
+        bonus = bonus != null ? bonus : 0;
+        return radius + softTolerance + Math.max(0, bonus);
+    }
+
+    /**
+     * Pilih titik terbaik (slack terbesar) dari daftar points.
+     * @param {number} lat
+     * @param {number} lng
+     * @param {Array<{lat:number,lng:number,radius:number,label?:string}>} points
+     * @param {number} [bonus]
+     */
+    function nearestMatch(lat, lng, points, bonus) {
+        bonus = bonus != null ? bonus : 0;
+        if (!points || !points.length) return null;
+        var best = null;
+        for (var i = 0; i < points.length; i++) {
+            var p = points[i];
+            var dist = (function (la1, ln1, la2, ln2) {
+                var R = 6371000, dLa = (la2 - la1) * Math.PI / 180, dLn = (ln2 - ln1) * Math.PI / 180;
+                var a = Math.sin(dLa / 2) * Math.sin(dLa / 2)
+                    + Math.cos(la1 * Math.PI / 180) * Math.cos(la2 * Math.PI / 180) * Math.sin(dLn / 2) * Math.sin(dLn / 2);
+                return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            })(p.lat, p.lng, lat, lng);
+            var effective = effectiveRadius(p.radius, DEFAULTS.softToleranceM, bonus);
+            var slack = effective - dist;
+            var ok = dist <= effective;
+            var cand = { ok: ok, dist: dist, radius: p.radius, bonus: bonus, effective: effective, label: p.label || 'Titik', point: p, _slack: slack };
+            if (!best || (cand.ok && !best.ok) || (cand.ok === best.ok && cand._slack > best._slack)) {
+                best = cand;
+            }
+        }
+        if (best) delete best._slack;
+        return best;
     }
 
     global.SimsGeo = {
@@ -173,5 +206,6 @@
         accuracyAcceptable: accuracyAcceptable,
         withinRadius: withinRadius,
         effectiveRadius: effectiveRadius,
+        nearestMatch: nearestMatch,
     };
 })(typeof window !== 'undefined' ? window : this);

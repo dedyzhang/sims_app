@@ -11,7 +11,15 @@
 @endpush
 
 @section('content')
-<div class="max-w-lg mx-auto space-y-4" x-data="qrAbsen({ lat:@js($lat), lng:@js($lng), radius:{{ $radius }}, aktif:{{ $aktif ? 'true':'false' }}, isGuru:{{ ($isGuru ?? false) ? 'true':'false' }} })" x-init="init()">
+<div class="max-w-lg mx-auto space-y-4" x-data="qrAbsen({
+    lat:@js($lat),
+    lng:@js($lng),
+    radius:{{ $radius }},
+    points:@js($points ?? []),
+    rushBonus:{{ (float) ($rushBonus ?? 0) }},
+    aktif:{{ $aktif ? 'true':'false' }},
+    isGuru:{{ ($isGuru ?? false) ? 'true':'false' }}
+})" x-init="init()">
 
     <div>
         <h1 class="page-title">Absen QR</h1>
@@ -29,11 +37,11 @@
     <template x-if="!aktif">
         <div class="card p-4 border-l-4 !border-l-amber-500 text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Absen QR sedang dinonaktifkan oleh admin.</div>
     </template>
-    <template x-if="aktif && !schoolLat">
+    <template x-if="aktif && !schoolLat && !(points && points.length)">
         <div class="card p-4 border-l-4 !border-l-rose-500 text-sm text-rose-700 dark:text-rose-300 flex items-center gap-2"><i data-lucide="map-pin-off" class="w-4 h-4"></i> Lokasi sekolah belum diatur admin. Hubungi admin.</div>
     </template>
 
-    <div x-show="aktif && schoolLat" class="space-y-4">
+    <div x-show="aktif && (schoolLat || (points && points.length))" class="space-y-4">
         {{-- Mode Masuk/Pulang (khusus guru) --}}
         <template x-if="isGuru">
             <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
@@ -62,9 +70,10 @@
             <template x-if="dist!==null">
                 <div class="flex flex-wrap items-center gap-2 px-1">
                     <span class="badge font-bold" :class="dalamArea ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300'">
-                        <span x-text="dist"></span> m dari sekolah
+                        <span x-text="dist"></span> m dari <span x-text="nearestLabel || 'sekolah'"></span>
                     </span>
-                    <span class="text-xs text-slate-400">batas <span x-text="radius"></span> m (+toleransi <span x-text="softTolerance"></span> m)</span>
+                    <span class="text-xs text-slate-400">batas <span x-text="Math.round(effectiveBound)"></span> m</span>
+                    <span x-show="rushBonus>0" class="text-xs text-amber-600 font-semibold">+jam sibuk <span x-text="Math.round(rushBonus)"></span> m</span>
                     <span x-show="accuracy!==null" class="text-xs text-slate-400">akurasi GPS ±<span x-text="Math.round(accuracy)"></span> m</span>
                 </div>
             </template>
@@ -106,26 +115,30 @@ function qrAbsen(cfg){
         schoolLat: cfg.lat ? parseFloat(cfg.lat) : null,
         schoolLng: cfg.lng ? parseFloat(cfg.lng) : null,
         radius: cfg.radius, aktif: cfg.aktif, isGuru: cfg.isGuru || false, mode:'masuk',
+        points: Array.isArray(cfg.points) ? cfg.points : [],
+        rushBonus: cfg.rushBonus || 0,
         softTolerance: (window.SimsGeo && SimsGeo.defaults.softToleranceM) || 50,
-        lat:null, lng:null, accuracy:null, dist:null, distMeters:null, status:'', locating:false, loading:false, scanning:false, result:null,
+        lat:null, lng:null, accuracy:null, dist:null, distMeters:null, nearestLabel:null, nearestRadius:null,
+        status:'', locating:false, loading:false, scanning:false, result:null,
         map:null, uMarker:null, uAccuracy:null, scanner:null,
         baseMode:'street', baseCtrl:null,
 
+        get effectiveBound(){
+            const r = this.nearestRadius != null ? this.nearestRadius : this.radius;
+            return SimsGeo.effectiveRadius(r, this.softTolerance, this.rushBonus);
+        },
         get dalamArea(){
             if(this.distMeters===null) return false;
-            return SimsGeo.withinRadius(this.distMeters, this.radius);
+            const r = this.nearestRadius != null ? this.nearestRadius : this.radius;
+            return SimsGeo.withinRadius(this.distMeters, r, this.softTolerance, this.rushBonus);
         },
 
         init(){
-            // Peta dasar (lokasi sekolah + area) langsung ditampilkan tanpa perlu izin lokasi.
-            // Lokasi PENGGUNA baru diminta saat menekan "Perbarui"/Scan (dipicu klik langsung
-            // supaya prompt izin muncul & tidak keburu ditolak sebelum pengguna siap).
             this.$nextTick(()=>{ lucide.createIcons(); this.ensureMap(); });
-            try { if('speechSynthesis' in window) speechSynthesis.getVoices(); } catch(e){}  // picu load voice
-            if(this.aktif && this.schoolLat) this.status = 'Tekan "Perbarui" untuk menampilkan posisi Anda di peta.';
+            try { if('speechSynthesis' in window) speechSynthesis.getVoices(); } catch(e){}
+            if(this.aktif && (this.schoolLat || (this.points && this.points.length))) this.status = 'Tekan "Perbarui" untuk menampilkan posisi Anda di peta.';
         },
 
-        // suara sambutan: masuk → "Selamat datang, nama", pulang → "Terima kasih, nama"
         speak(label, nama){
             try {
                 if(!('speechSynthesis' in window)) return;
@@ -138,27 +151,34 @@ function qrAbsen(cfg){
                 speechSynthesis.speak(u);
             } catch(e){}
         },
-        // buka izin audio TTS lewat gesture (tap tombol)
         primeSpeech(){
             try { if('speechSynthesis' in window){ speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(' ')); } } catch(e){}
         },
 
-        haversine(la1,ln1,la2,ln2){
-            const R=6371000, dLa=(la2-la1)*Math.PI/180, dLn=(ln2-ln1)*Math.PI/180;
-            const a=Math.sin(dLa/2)**2 + Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLn/2)**2;
-            return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+        zonePoints(){
+            if(this.points && this.points.length) return this.points;
+            if(this.schoolLat != null && this.schoolLng != null){
+                return [{ label:'Utama', lat:this.schoolLat, lng:this.schoolLng, radius:this.radius }];
+            }
+            return [];
         },
         applyFix(fix){
             this.lat = fix.lat; this.lng = fix.lng;
             this.accuracy = (typeof fix.accuracy === 'number' && isFinite(fix.accuracy)) ? fix.accuracy : null;
-            // Simpan jarak mentah untuk cek soft-geofence (sama seperti server); tampilan dibulatkan.
-            this.distMeters = this.haversine(this.schoolLat, this.schoolLng, this.lat, this.lng);
-            this.dist = Math.round(this.distMeters);
+            const match = SimsGeo.nearestMatch(this.lat, this.lng, this.zonePoints(), this.rushBonus);
+            if(match){
+                this.distMeters = match.dist;
+                this.dist = Math.round(match.dist);
+                this.nearestLabel = match.label;
+                this.nearestRadius = match.radius;
+            } else {
+                this.distMeters = null; this.dist = null; this.nearestLabel = null; this.nearestRadius = null;
+            }
             const accTxt = this.accuracy!==null ? (' (±'+Math.round(this.accuracy)+' m)') : '';
             if(!SimsGeo.accuracyAcceptable(this.accuracy)){
                 this.status = 'Akurasi GPS masih rendah'+accTxt+'. Pindah ke tempat terbuka, lalu Perbarui lagi.';
             } else if(this.dalamArea){
-                this.status = 'Anda berada di area sekolah — siap absen.'+accTxt;
+                this.status = 'Anda berada di area «'+(this.nearestLabel||'sekolah')+'» — siap absen.'+accTxt;
             } else {
                 this.status = 'Anda berada di luar area sekolah.'+accTxt;
             }
@@ -170,8 +190,8 @@ function qrAbsen(cfg){
             this.status = 'Sedang membaca lokasi (GPS sedang dipanaskan)…';
             try {
                 const fix = await SimsGeo.getBestLocation({
-                    watchMs: 10000,
-                    targetAccuracy: 40,
+                    watchMs: 16000,
+                    targetAccuracy: 35,
                     onProgress: (msg)=> { this.status = msg; },
                 });
                 this.applyFix(fix);
@@ -186,23 +206,25 @@ function qrAbsen(cfg){
             this.baseCtrl.setMode(mode);
             this.baseMode = this.baseCtrl.mode;
         },
-        // Bangun peta dasar: penanda sekolah + lingkaran area radius. TIDAK butuh izin lokasi,
-        // jadi peta tetap tampil walau lokasi pengguna belum/ tidak bisa dibaca.
         ensureMap(){
-            if(this.map || !this.schoolLat) return;
+            if(this.map) return;
+            const zones = this.zonePoints();
+            if(!zones.length) return;
             const elMap = document.getElementById('absenMap');
             if(!elMap) return;
-            this.map = L.map('absenMap').setView([this.schoolLat, this.schoolLng], 16);
+            const center = zones[0];
+            this.map = L.map('absenMap').setView([center.lat, center.lng], 16);
             this.baseCtrl = SimsMapLayers.attach(this.map, this.baseMode);
             this.baseMode = this.baseCtrl.mode;
-            L.marker([this.schoolLat,this.schoolLng]).addTo(this.map).bindPopup('Sekolah');
-            // Lingkaran solid = radius admin; putus-putus = radius + toleransi GPS server.
-            L.circle([this.schoolLat,this.schoolLng],{ radius:this.radius, color:'#10b981', weight:2, fillColor:'#10b981', fillOpacity:0.12 }).addTo(this.map);
-            L.circle([this.schoolLat,this.schoolLng],{ radius:this.radius + this.softTolerance, color:'#10b981', weight:1, fillOpacity:0, dashArray:'6 4' }).addTo(this.map);
+            zones.forEach((z, i)=>{
+                const color = i === 0 ? '#10b981' : '#f59e0b';
+                L.marker([z.lat, z.lng]).addTo(this.map).bindPopup(z.label || ('Titik '+(i+1)));
+                L.circle([z.lat, z.lng],{ radius:z.radius, color, weight:2, fillColor:color, fillOpacity:0.10 }).addTo(this.map);
+                L.circle([z.lat, z.lng],{ radius:SimsGeo.effectiveRadius(z.radius, this.softTolerance, this.rushBonus), color, weight:1, fillOpacity:0, dashArray:'6 4' }).addTo(this.map);
+            });
             try { new ResizeObserver(()=> this.map && this.map.invalidateSize()).observe(elMap); } catch(e){}
             [100,400,900].forEach(t=> setTimeout(()=> this.map && this.map.invalidateSize(), t));
         },
-        // Tandai posisi pengguna + lingkaran akurasi GPS di peta.
         renderMap(){
             this.ensureMap();
             if(!this.map || this.lat===null) return;
@@ -220,7 +242,7 @@ function qrAbsen(cfg){
             [100,400,900].forEach(t=> setTimeout(()=> this.map && this.map.invalidateSize(), t));
         },
         startScan(){
-            this.primeSpeech();   // buka izin suara (dipicu tap tombol)
+            this.primeSpeech();
             if(this.loading || this.locating) return;
             if(!this.lat){ this.locate(); showToast('Mengambil lokasi dulu, coba lagi sebentar','info'); return; }
             if(!SimsGeo.accuracyAcceptable(this.accuracy)){
@@ -241,14 +263,13 @@ function qrAbsen(cfg){
             this.scanning=false;
         },
         async onScan(token){
-            // Cegah re-entrancy selama warm GPS (~8s) / POST.
             if(this.loading) return;
             this.loading=true;
             this.stopScan();
             this.status='Menyempurnakan GPS & memverifikasi QR…';
             try {
                 const fix = await SimsGeo.getBestLocation({
-                    watchMs: 8000,
+                    watchMs: 12000,
                     targetAccuracy: 35,
                     onProgress: (msg)=> { this.status = msg; },
                 });
@@ -259,7 +280,7 @@ function qrAbsen(cfg){
                     return;
                 }
                 if(!this.dalamArea){
-                    showToast('Anda di luar area sekolah (batas '+(this.radius + this.softTolerance)+' m).','error');
+                    showToast('Anda di luar area sekolah (batas '+Math.round(this.effectiveBound)+' m).','error');
                     this.loading=false;
                     return;
                 }
@@ -271,6 +292,7 @@ function qrAbsen(cfg){
                 this.result = d; this.dist = d.jarak ?? this.dist;
                 if(d.jarak!=null){ this.distMeters = d.jarak; this.dist = Math.round(d.jarak); }
                 if(d.accuracy!=null) this.accuracy = d.accuracy;
+                if(d.titik) this.nearestLabel = d.titik;
                 this.renderMap();
                 if(d.ok){ showToast(d.message); this.speak(d.label, d.nama); } else showToast(d.message,'error');
             } catch(err){

@@ -505,12 +505,16 @@
             </form>
         </div>
 
-        <div class="card p-6" x-data="qrLokasi({ lat:@js($settings['sekolah_lat'] ?? ''), lng:@js($settings['sekolah_lng'] ?? '') })" x-init="init()">
+        <div class="card p-6" x-data="qrLokasi({
+            lat:@js($settings['sekolah_lat'] ?? ''),
+            lng:@js($settings['sekolah_lng'] ?? ''),
+            points:@js(json_decode($settings['sekolah_geo_points'] ?? '[]', true) ?: [])
+        })" x-init="init()">
             <div class="flex items-center gap-3 mb-5 pb-5 border-b border-slate-100 dark:border-slate-700">
                 <div class="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary shrink-0"><span x-ignore><i data-lucide="map-pin" class="w-5 h-5"></i></span></div>
                 <div>
                     <h2 class="font-bold text-slate-800 dark:text-slate-100">Lokasi & Absen QR</h2>
-                    <p class="text-xs text-slate-400 mt-0.5">Tentukan titik sekolah (lintang/bujur) & jarak maksimal absen siswa/guru.</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Pin utama + titik tambahan (gerbang, lapangan, aula). Absen lolos jika dekat salah satu titik.</p>
                 </div>
                 <div class="flex items-center gap-3 ml-auto">
                     <a href="{{ route('qr.absensi') }}" class="text-xs text-primary font-semibold flex items-center gap-1"><span x-ignore><i data-lucide="qr-code" class="w-3.5 h-3.5"></i></span> Lihat QR</a>
@@ -519,6 +523,7 @@
             </div>
             <form method="POST" action="{{ route('setting.lokasiQr') }}" class="space-y-4">
                 @csrf
+                <input type="hidden" name="sekolah_geo_points" :value="JSON.stringify(points)">
                 <div class="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 z-0">
                     <div id="setMap" x-ignore style="height:280px"></div>
                     <div class="absolute top-3 right-3 z-[1000] flex rounded-lg overflow-hidden shadow-md border border-white/40 bg-white/95 dark:bg-slate-800/95 text-xs font-bold">
@@ -530,24 +535,87 @@
                             class="px-3 py-1.5 transition">Satelit</button>
                     </div>
                 </div>
-                <p class="text-xs text-slate-400">Klik di peta untuk menetapkan titik sekolah, atau gunakan tombol lokasi. Pakai <span class="font-semibold">Satelit</span> agar pin jatuh tepat di gerbang/gedung. Idealnya diukur di luar ruangan di kampus.</p>
+                <p class="text-xs text-slate-400">
+                    Klik peta untuk menetapkan <span class="font-semibold" x-text="addMode ? 'titik tambahan baru' : 'pin utama'"></span>.
+                    Pakai <span class="font-semibold">Satelit</span> agar pin jatuh tepat di gerbang/gedung. Idealnya diukur di luar ruangan.
+                </p>
                 <p x-show="pinAccuracy!==null" x-cloak class="text-xs font-medium" :class="pinAccuracy<=50 ? 'text-emerald-600' : (pinAccuracy<=100 ? 'text-amber-600' : 'text-rose-600')">
                     Akurasi GPS pin: ±<span x-text="Math.round(pinAccuracy)"></span> m
                     <span x-show="pinAccuracy>80"> — disarankan ulangi di tempat lebih terbuka sebelum menyimpan.</span>
                 </p>
                 <div class="grid sm:grid-cols-3 gap-3">
                     <div>
-                        <label class="form-label">Latitude</label>
+                        <label class="form-label">Latitude (utama)</label>
                         <input type="text" name="sekolah_lat" x-model="lat" class="form-input font-mono" placeholder="-0.917">
                     </div>
                     <div>
-                        <label class="form-label">Longitude</label>
+                        <label class="form-label">Longitude (utama)</label>
                         <input type="text" name="sekolah_lng" x-model="lng" class="form-input font-mono" placeholder="104.46">
                     </div>
                     <div>
-                        <label class="form-label">Radius (meter)</label>
+                        <label class="form-label">Radius utama (meter)</label>
                         <input type="number" name="absen_radius" value="{{ $settings['absen_radius'] ?? 200 }}" min="10" max="5000" class="form-input">
-                        <p class="text-[11px] text-slate-400 mt-1">Default rekomendasi: 200 m (rentang ideal 150–300 m untuk kampus multi-gedung / absen indoor).</p>
+                        <p class="text-[11px] text-slate-400 mt-1">Default 200 m. Titik tambahan bisa punya radius sendiri.</p>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                            <p class="text-sm font-bold text-slate-700 dark:text-slate-200">Titik tambahan</p>
+                            <p class="text-xs text-slate-400">Mis. Gerbang belakang, lapangan, aula — maks 8 titik.</p>
+                        </div>
+                        <button type="button" @click="toggleAddMode()"
+                            class="text-xs font-bold px-3 py-1.5 rounded-lg border transition"
+                            :class="addMode ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 dark:border-slate-600 text-slate-600'">
+                            <span x-text="addMode ? 'Mode: klik peta = titik baru (aktif)' : 'Mode: tambah titik dari peta'"></span>
+                        </button>
+                    </div>
+                    <template x-if="points.length===0">
+                        <p class="text-xs text-slate-400">Belum ada titik tambahan. Aktifkan mode di atas lalu klik peta.</p>
+                    </template>
+                    <template x-for="(p, idx) in points" :key="idx">
+                        <div class="grid sm:grid-cols-12 gap-2 items-end">
+                            <div class="sm:col-span-3">
+                                <label class="form-label">Label</label>
+                                <input type="text" x-model="p.label" class="form-input text-sm" maxlength="40" placeholder="Gerbang">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="form-label">Lat</label>
+                                <input type="text" x-model="p.lat" class="form-input font-mono text-sm" @change="redrawExtra()">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="form-label">Lng</label>
+                                <input type="text" x-model="p.lng" class="form-input font-mono text-sm" @change="redrawExtra()">
+                            </div>
+                            <div class="sm:col-span-3">
+                                <label class="form-label">Radius (opsional)</label>
+                                <input type="number" x-model="p.radius" min="10" max="5000" class="form-input text-sm" placeholder="ikuti utama" @change="redrawExtra()">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <button type="button" @click="removePoint(idx)" class="w-full py-2.5 rounded-lg text-xs font-bold text-rose-600 border border-rose-200 hover:bg-rose-50">Hapus</button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
+                    <p class="text-sm font-bold text-slate-700 dark:text-slate-200">Zona longgar jam sibuk</p>
+                    <p class="text-xs text-slate-400 -mt-1">Tambah meter ke radius hanya pada jam masuk pagi (GPS indoor sering melenceng).</p>
+                    <div class="grid sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="form-label">Bonus (meter)</label>
+                            <input type="number" name="absen_rush_bonus" value="{{ $settings['absen_rush_bonus'] ?? 100 }}" min="0" max="500" class="form-input">
+                            <p class="text-[11px] text-slate-400 mt-1">0 = nonaktif. Rekomendasi 80–120.</p>
+                        </div>
+                        <div>
+                            <label class="form-label">Mulai</label>
+                            <input type="time" name="absen_rush_start" value="{{ $settings['absen_rush_start'] ?? '06:30' }}" class="form-input">
+                        </div>
+                        <div>
+                            <label class="form-label">Selesai</label>
+                            <input type="time" name="absen_rush_end" value="{{ $settings['absen_rush_end'] ?? '07:45' }}" class="form-input">
+                        </div>
                     </div>
                 </div>
 
@@ -653,8 +721,15 @@
 <script>
 function qrLokasi(cfg){
     return {
-        lat: cfg.lat || '', lng: cfg.lng || '', map:null, marker:null, accCircle:null,
-        pinAccuracy:null, locating:false,
+        lat: cfg.lat || '', lng: cfg.lng || '',
+        points: Array.isArray(cfg.points) ? cfg.points.map(p => ({
+            label: p.label || 'Titik',
+            lat: String(p.lat ?? ''),
+            lng: String(p.lng ?? ''),
+            radius: p.radius != null && p.radius !== '' ? String(p.radius) : '',
+        })) : [],
+        map:null, marker:null, accCircle:null, extraLayers:[],
+        pinAccuracy:null, locating:false, addMode:false,
         // Default satelit di Setting — lebih mudah menaruh pin di gerbang/gedung.
         baseMode:'satellite', baseCtrl:null,
         init(){
@@ -666,11 +741,24 @@ function qrLokasi(cfg){
                 this.baseCtrl = SimsMapLayers.attach(this.map, this.baseMode);
                 this.baseMode = this.baseCtrl.mode;
                 if(has) this.place(start[0], start[1], false);
-                this.map.on('click', e=> this.place(e.latlng.lat, e.latlng.lng));
-                // refresh ukuran saat container mendapat lebar penuh (anti peta cuma sebagian)
+                this.redrawExtra();
+                this.map.on('click', e=>{
+                    if(this.addMode){
+                        this.addPoint(e.latlng.lat, e.latlng.lng);
+                        this.addMode = false;
+                        showToast('Titik tambahan ditambahkan. Isi label lalu Simpan.','success');
+                        return;
+                    }
+                    this.place(e.latlng.lat, e.latlng.lng);
+                });
                 try { new ResizeObserver(()=> this.map && this.map.invalidateSize()).observe(document.getElementById('setMap')); } catch(e){}
                 [100,400,900,1500].forEach(t=> setTimeout(()=> this.map && this.map.invalidateSize(), t));
             });
+        },
+        toggleAddMode(){
+            if(this.points.length >= 8){ showToast('Maksimal 8 titik tambahan.','error'); return; }
+            this.addMode = !this.addMode;
+            if(this.addMode) showToast('Klik peta untuk menambah titik.','info');
         },
         setBase(mode){
             if(!this.baseCtrl) return;
@@ -682,7 +770,7 @@ function qrLokasi(cfg){
             this.pinAccuracy = (typeof accuracy === 'number' && isFinite(accuracy)) ? accuracy : null;
             if(this.marker) this.map.removeLayer(this.marker);
             if(this.accCircle){ this.map.removeLayer(this.accCircle); this.accCircle=null; }
-            this.marker = L.marker([la,ln]).addTo(this.map);
+            this.marker = L.marker([la,ln]).addTo(this.map).bindPopup('Pin utama');
             if(this.pinAccuracy && this.pinAccuracy > 0){
                 this.accCircle = L.circle([la,ln],{
                     radius: this.pinAccuracy, color:'#3b82f6', weight:1,
@@ -690,6 +778,36 @@ function qrLokasi(cfg){
                 }).addTo(this.map);
             }
             if(recenter) this.map.setView([la,ln], 16);
+        },
+        addPoint(la, ln){
+            if(this.points.length >= 8) return;
+            this.points.push({
+                label: 'Titik ' + (this.points.length + 1),
+                lat: (+la).toFixed(6),
+                lng: (+ln).toFixed(6),
+                radius: '',
+            });
+            this.redrawExtra();
+        },
+        removePoint(idx){
+            this.points.splice(idx, 1);
+            this.redrawExtra();
+        },
+        redrawExtra(){
+            if(!this.map) return;
+            this.extraLayers.forEach(l => { try { this.map.removeLayer(l); } catch(e){} });
+            this.extraLayers = [];
+            const defaultR = parseFloat(document.querySelector('input[name=absen_radius]')?.value || '200') || 200;
+            this.points.forEach(p => {
+                const la = parseFloat(p.lat), ln = parseFloat(p.lng);
+                if(!isFinite(la) || !isFinite(ln)) return;
+                const r = (p.radius !== '' && p.radius != null && isFinite(parseFloat(p.radius))) ? parseFloat(p.radius) : defaultR;
+                const m = L.circleMarker([la, ln], { radius: 7, color:'#fff', weight:2, fillColor:'#f59e0b', fillOpacity:1 })
+                    .addTo(this.map).bindPopup(p.label || 'Titik');
+                const c = L.circle([la, ln], { radius: r, color:'#f59e0b', weight:1.5, fillColor:'#f59e0b', fillOpacity:0.08 })
+                    .addTo(this.map);
+                this.extraLayers.push(m, c);
+            });
         },
         async useMyLocation(){
             if(this.locating) return;
@@ -699,7 +817,7 @@ function qrLokasi(cfg){
             }
             this.locating = true;
             try {
-                const fix = await SimsGeo.getBestLocation({ watchMs: 12000, targetAccuracy: 25 });
+                const fix = await SimsGeo.getBestLocation({ watchMs: 16000, targetAccuracy: 25 });
                 this.place(fix.lat, fix.lng, true, fix.accuracy);
                 const acc = Math.round(fix.accuracy);
                 if(acc > 80) showToast('Pin diset dengan akurasi ±'+acc+' m. Ulangi di luar ruangan bila memungkinkan.','info');

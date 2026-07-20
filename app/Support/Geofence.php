@@ -2,11 +2,16 @@
 
 namespace App\Support;
 
+use App\Models\Setting;
+use Carbon\Carbon;
+use DateTimeInterface;
+
 /**
- * Validasi geofence absensi QR — Haversine + toleransi GPS tetap (server-side).
+ * Validasi geofence absensi QR — Haversine + multi-titik + toleransi GPS tetap (server-side).
  *
  * Catatan keamanan: lat/lng/accuracy dari klien tidak boleh melebarkan radius.
  * Soft tolerance adalah konstanta server; accuracy hanya untuk gate kualitas GPS + audit.
+ * Bonus jam sibuk (opsional) juga dikonfigurasi server, bukan dari request klien.
  */
 class Geofence
 {
@@ -37,15 +42,144 @@ class Geofence
         return $accuracy <= self::MAX_ACCURACY_M;
     }
 
-    /** Soft geofence: jarak ≤ radius + toleransi server tetap. */
-    public static function withinRadius(float $dist, float $radius): bool
+    /**
+     * Soft geofence: jarak ≤ radius + toleransi server (+ bonus jam sibuk opsional).
+     */
+    public static function withinRadius(float $dist, float $radius, float $bonus = 0): bool
     {
-        return $dist <= self::effectiveRadius($radius);
+        return $dist <= self::effectiveRadius($radius, $bonus);
     }
 
-    /** Radius efektif (radius admin + toleransi GPS server). */
-    public static function effectiveRadius(float $radius): float
+    /** Radius efektif (radius admin + toleransi GPS server + bonus jam sibuk). */
+    public static function effectiveRadius(float $radius, float $bonus = 0): float
     {
-        return $radius + (float) self::SOFT_TOLERANCE_M;
+        return $radius + (float) self::SOFT_TOLERANCE_M + max(0.0, $bonus);
+    }
+
+    /**
+     * Daftar titik sekolah: pin utama (sekolah_lat/lng) + titik tambahan JSON.
+     *
+     * @return list<array{label: string, lat: float, lng: float, radius: float}>
+     */
+    public static function schoolPoints(): array
+    {
+        $defaultRadius = (float) Setting::get('absen_radius', 200);
+        $points = [];
+
+        $lat = Setting::get('sekolah_lat');
+        $lng = Setting::get('sekolah_lng');
+        if ($lat !== null && $lat !== '' && $lng !== null && $lng !== '') {
+            $points[] = [
+                'label' => 'Utama',
+                'lat' => (float) $lat,
+                'lng' => (float) $lng,
+                'radius' => $defaultRadius,
+            ];
+        }
+
+        $extra = json_decode((string) (Setting::get('sekolah_geo_points', '[]') ?: '[]'), true);
+        if (!is_array($extra)) {
+            return $points;
+        }
+
+        foreach ($extra as $p) {
+            if (!is_array($p) || !isset($p['lat'], $p['lng'])) {
+                continue;
+            }
+            if (!is_numeric($p['lat']) || !is_numeric($p['lng'])) {
+                continue;
+            }
+            $r = $defaultRadius;
+            if (isset($p['radius']) && $p['radius'] !== '' && $p['radius'] !== null && is_numeric($p['radius'])) {
+                $r = (float) $p['radius'];
+            }
+            $label = trim((string) ($p['label'] ?? 'Titik'));
+            $points[] = [
+                'label' => $label !== '' ? $label : 'Titik',
+                'lat' => (float) $p['lat'],
+                'lng' => (float) $p['lng'],
+                'radius' => max(10.0, min(5000.0, $r)),
+            ];
+        }
+
+        return $points;
+    }
+
+    /**
+     * Bonus meter selama jam sibuk pagi (konfigurasi server).
+     * Default: +100 m antara 06:30–07:45.
+     */
+    public static function rushBonusMeters(?DateTimeInterface $now = null): float
+    {
+        $bonus = (float) Setting::get('absen_rush_bonus', 100);
+        if ($bonus <= 0) {
+            return 0.0;
+        }
+
+        $carbon = $now ? Carbon::parse($now)->timezone(config('app.timezone')) : now();
+        $start = (string) Setting::get('absen_rush_start', '06:30');
+        $end = (string) Setting::get('absen_rush_end', '07:45');
+        if (!preg_match('/^\d{2}:\d{2}$/', $start) || !preg_match('/^\d{2}:\d{2}$/', $end)) {
+            return 0.0;
+        }
+
+        $t = $carbon->format('H:i');
+        if ($start <= $end) {
+            return ($t >= $start && $t <= $end) ? $bonus : 0.0;
+        }
+
+        // Rentang melewati tengah malam (jarang, tapi aman).
+        return ($t >= $start || $t <= $end) ? $bonus : 0.0;
+    }
+
+    /**
+     * Evaluasi lokasi terhadap semua titik — pakai jarak terdekat / yang paling longgar.
+     *
+     * @return array{
+     *     ok: bool,
+     *     dist: float,
+     *     radius: float,
+     *     bonus: float,
+     *     effective: float,
+     *     label: string,
+     *     point: array{label: string, lat: float, lng: float, radius: float}
+     * }|null null bila belum ada titik sekolah
+     */
+    public static function evaluate(float $lat, float $lng, ?DateTimeInterface $now = null): ?array
+    {
+        $points = self::schoolPoints();
+        if ($points === []) {
+            return null;
+        }
+
+        $bonus = self::rushBonusMeters($now);
+        $best = null;
+
+        foreach ($points as $point) {
+            $dist = self::distanceMeters($point['lat'], $point['lng'], $lat, $lng);
+            $effective = self::effectiveRadius($point['radius'], $bonus);
+            $slack = $effective - $dist; // semakin besar semakin "dalam"
+            $candidate = [
+                'ok' => $dist <= $effective,
+                'dist' => $dist,
+                'radius' => $point['radius'],
+                'bonus' => $bonus,
+                'effective' => $effective,
+                'label' => $point['label'],
+                'point' => $point,
+                '_slack' => $slack,
+            ];
+
+            if ($best === null
+                || ($candidate['ok'] && !$best['ok'])
+                || ($candidate['ok'] === $best['ok'] && $candidate['_slack'] > $best['_slack'])
+            ) {
+                $best = $candidate;
+            }
+        }
+
+        unset($best['_slack']);
+
+        return $best;
     }
 }

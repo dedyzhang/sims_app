@@ -84,6 +84,8 @@ class AbsensiParentNotificationTest extends TestCase
         Setting::set('sekolah_lat', '-6.200000');
         Setting::set('sekolah_lng', '106.816666');
         Setting::set('absen_radius', '100');
+        Setting::set('sekolah_geo_points', '[]');
+        Setting::set('absen_rush_bonus', '0'); // isolasi tes radius dasar dari zona jam sibuk
 
         return substr(hash_hmac('sha256', 'qrabsen|'.now()->toDateString(), (string) config('app.key')), 0, 12);
     }
@@ -296,6 +298,46 @@ class AbsensiParentNotificationTest extends TestCase
             'lat' => '-6.200000',
             'lng' => '106.816666',
         ])->assertStatus(422);
+    }
+
+    public function test_qr_geolocation_menerima_titik_tambahan(): void
+    {
+        Queue::fake();
+        Carbon::setTestNow(Carbon::parse('2026-07-13 10:00:00')); // di luar jam sibuk
+        [, , , $siswaUser] = $this->siswaDenganOrangtua();
+        $token = $this->aktifkanQrGeolocation();
+
+        // Titik tambahan ~222 m ke utara dari pin utama; radius titik 120 + soft 50 = 170 → masih jauh dari utama tapi dekat titik tambahan
+        Setting::set('sekolah_geo_points', json_encode([
+            ['label' => 'Lapangan', 'lat' => -6.198000, 'lng' => 106.816666, 'radius' => 120],
+        ]));
+
+        $this->actingAs($siswaUser)->postJson('/absen-qr', [
+            'token' => $token,
+            'lat' => '-6.198000',
+            'lng' => '106.816666',
+            'accuracy' => 30,
+        ])->assertOk()->assertJsonPath('ok', true);
+    }
+
+    public function test_qr_geolocation_bonus_jam_sibuk_melebarkan_radius(): void
+    {
+        Queue::fake();
+        Carbon::setTestNow(Carbon::parse('2026-07-13 07:20:00'));
+        [, , , $siswaUser] = $this->siswaDenganOrangtua();
+        $token = $this->aktifkanQrGeolocation();
+
+        Setting::set('absen_rush_bonus', '100');
+        Setting::set('absen_rush_start', '06:30');
+        Setting::set('absen_rush_end', '07:45');
+
+        // ~167 m: tanpa bonus ditolak (100+50=150); dengan bonus 100 → efektif 250 → lolos
+        $this->actingAs($siswaUser)->postJson('/absen-qr', [
+            'token' => $token,
+            'lat' => '-6.198500',
+            'lng' => '106.816666',
+            'accuracy' => 40,
+        ])->assertOk()->assertJsonPath('ok', true);
     }
 
     public function test_orangtua_melihat_notifikasi_kehadiran_di_api_bell(): void

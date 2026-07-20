@@ -43,5 +43,16 @@ class GeofenceTest extends TestCase
             200.0 + Geofence::SOFT_TOLERANCE_M,
             Geofence::effectiveRadius(200)
         );
+        $this->assertSame(
+            100.0 + Geofence::SOFT_TOLERANCE_M + 100.0,
+            Geofence::effectiveRadius(100, 100)
+        );
+    }
+
+    public function test_within_radius_honors_rush_bonus(): void
+    {
+        // 200 m jarak, radius 100 → soft 50 = 150 (tolak); +bonus 100 = 250 (terima)
+        $this->assertFalse(Geofence::withinRadius(200, 100));
+        $this->assertTrue(Geofence::withinRadius(200, 100, 100));
     }
 }

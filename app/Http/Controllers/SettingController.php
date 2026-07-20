@@ -150,10 +150,48 @@ class SettingController extends Controller
             'sekolah_lng' => 'nullable|numeric|between:-180,180',
             'absen_radius' => 'required|integer|min:10|max:5000',
             'qr_absensi_mode' => 'nullable|in:harian,tetap',
+            'sekolah_geo_points' => 'nullable|string|max:8000',
+            'absen_rush_bonus' => 'nullable|integer|min:0|max:500',
+            'absen_rush_start' => ['nullable', 'regex:/^\d{2}:\d{2}$/'],
+            'absen_rush_end' => ['nullable', 'regex:/^\d{2}:\d{2}$/'],
         ]);
+
+        $points = json_decode((string) $request->input('sekolah_geo_points', '[]'), true);
+        if (!is_array($points)) {
+            return back()->withErrors(['sekolah_geo_points' => 'Format titik tambahan tidak valid.'])->withInput();
+        }
+
+        $clean = [];
+        foreach ($points as $p) {
+            if (!is_array($p) || !isset($p['lat'], $p['lng']) || !is_numeric($p['lat']) || !is_numeric($p['lng'])) {
+                continue;
+            }
+            $lat = (float) $p['lat'];
+            $lng = (float) $p['lng'];
+            if ($lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+                continue;
+            }
+            $item = [
+                'label' => mb_substr(trim((string) ($p['label'] ?? 'Titik')), 0, 40) ?: 'Titik',
+                'lat' => round($lat, 7),
+                'lng' => round($lng, 7),
+            ];
+            if (isset($p['radius']) && $p['radius'] !== '' && $p['radius'] !== null && is_numeric($p['radius'])) {
+                $item['radius'] = max(10, min(5000, (int) $p['radius']));
+            }
+            $clean[] = $item;
+            if (count($clean) >= 8) {
+                break;
+            }
+        }
+
         Setting::set('sekolah_lat', $request->sekolah_lat);
         Setting::set('sekolah_lng', $request->sekolah_lng);
         Setting::set('absen_radius', $request->absen_radius);
+        Setting::set('sekolah_geo_points', json_encode($clean, JSON_UNESCAPED_UNICODE));
+        Setting::set('absen_rush_bonus', (string) (int) $request->input('absen_rush_bonus', 100));
+        Setting::set('absen_rush_start', $request->input('absen_rush_start', '06:30') ?: '06:30');
+        Setting::set('absen_rush_end', $request->input('absen_rush_end', '07:45') ?: '07:45');
         Setting::set('qr_absensi_aktif', $request->boolean('qr_absensi_aktif') ? '1' : '0');
         Setting::set('qr_absensi_mode', $request->input('qr_absensi_mode', 'harian'));
 
