@@ -472,6 +472,10 @@
                         $presensiItems[] = ['presensi-guru.index', ['presensi-guru.*'], 'user-check',      'Presensi Guru'];
                         $presensiItems[] = ['wajah.galeri',        ['wajah.*'],         'scan-face',       'Validasi Wajah'];
                         $presensiItems[] = ['qr.absensi',          ['qr.*'],            'qr-code',         'QR Absensi'];
+                        // Pantau Lokasi: admin / kepala / kesiswaan (sekolah) — riwayat GPS absen, bukan live track.
+                        if (\App\Support\PantauLokasi::aktif() && \App\Support\PantauLokasi::canViewSchoolWide(auth()->user())) {
+                            $presensiItems[] = ['pantau-lokasi.index', ['pantau-lokasi.*'], 'map-pinned', 'Pantau Lokasi'];
+                        }
                     }
                     // 7 KAIH: siswa isi sendiri tiap pagi; walikelas/admin lihat rekap; admin/kurikulum kelola soal.
                     if (auth()->user()?->siswa) {
@@ -630,6 +634,9 @@
                         // "Absensi Siswa" yang juga pakai wildcard absensi.*.
                         $walikelasItems[] = ['absensi.index', ['absensi.*'], 'clipboard-check', 'Absensi Kelas Saya'];
                         $walikelasItems[] = ['kaih.rekap', ['kaih.rekap', 'kaih.override.*'], 'list-checks', 'Rekap 7 KAIH Kelas'];
+                        if (\App\Support\PantauLokasi::aktif()) {
+                            $walikelasItems[] = ['pantau-lokasi.index', ['pantau-lokasi.*'], 'map-pinned', 'Pantau Lokasi Kelas'];
+                        }
                     }
                     if ($modulOn('disiplin')) {
                         $walikelasItems[] = $jenisAturan === 'poin'
@@ -799,6 +806,14 @@
             <a href="{{ route('keuangan.tagihan.index') }}" data-tip="Tagihan SPP" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('keuangan.tagihan.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="wallet" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Tagihan SPP</span>
+            </a>
+            @endif
+
+            {{-- Pantau Lokasi: orang tua (anaknya) — riwayat titik absen QR --}}
+            @if($modulOn('absensi') && $access === 'orangtua' && \App\Support\PantauLokasi::aktif() && \App\Support\PantauLokasi::canAccess(auth()->user()))
+            <a href="{{ route('pantau-lokasi.index') }}" data-tip="Pantau Lokasi" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('pantau-lokasi.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
+                <i data-lucide="map-pinned" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                <span x-show="!mini" class="text-sm truncate">Pantau Lokasi</span>
             </a>
             @endif
 
