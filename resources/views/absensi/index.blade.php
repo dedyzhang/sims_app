@@ -90,7 +90,9 @@
                             <span class="font-sans text-[11px] text-sky-600 dark:text-sky-400 flex items-center gap-0.5" title="Audit geolokasi Absen QR">
                                 <i data-lucide="map-pin" class="w-3 h-3"></i>
                                 QR {{ (int) $row->geo_jarak }} m
-                                @if($row->geo_accuracy !== null)· ±{{ (int) $row->geo_accuracy }} m@endif
+                                @if($row->geo_accuracy !== null)
+                                    · ±{{ (int) $row->geo_accuracy }} m
+                                @endif
                             </span>
                             @endif
                         </p>

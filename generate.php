@@ -1,1 +1,0 @@
-<?php \r\nrequire __DIR__." /vendor/autoload.php\;\r\n\ = require_once __DIR__.\/bootstrap/app.php\;\r\n\ = \->make(Illuminate\Contracts\Console\Kernel::class);\r\n\->bootstrap();\r\necho \Pelajaran: \.App\Models\Pelajaran::count().\\n\;\r\necho \Kelas: \.App\Models\Kelas::count().\\n\;\r\necho \Classroom: \.App\Models\Classroom::count().\\n\;
