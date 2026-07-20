@@ -89,6 +89,21 @@ class QrAbsensiController extends Controller
         return null;
     }
 
+    /** Snapshot geofence live (points + bonus jam sibuk) — dipoll klien agar tidak stale. */
+    public function geoConfig()
+    {
+        return response()->json([
+            'ok' => true,
+            'points' => Geofence::schoolPoints(),
+            'rush_bonus' => Geofence::rushBonusMeters(),
+            'radius' => (float) Setting::get('absen_radius', 200),
+            'lat' => Setting::get('sekolah_lat'),
+            'lng' => Setting::get('sekolah_lng'),
+            'soft_tolerance' => Geofence::SOFT_TOLERANCE_M,
+            'server_time' => now()->format('H:i'),
+        ]);
+    }
+
     /** Halaman USER: scan QR + baca lokasi untuk absen. */
     public function absen()
     {
@@ -146,7 +161,9 @@ class QrAbsensiController extends Controller
         if ($gate !== true) {
             return $gate;
         }
-        [$dist, $radius] = $this->schoolDistance((float) $data['lat'], (float) $data['lng']);
+        $eval = Geofence::evaluate((float) $data['lat'], (float) $data['lng']);
+        $dist = $eval['dist'];
+        $radius = $eval['radius'];
 
         $user = auth()->user();
         $today = now()->toDateString();
@@ -244,6 +261,8 @@ class QrAbsensiController extends Controller
             'jarak'    => round($dist),
             'accuracy' => (int) round($accuracy),
             'radius'   => (int) round($radius),
+            'bonus'    => (int) round($eval['bonus']),
+            'titik'    => $eval['label'],
         ]);
     }
 

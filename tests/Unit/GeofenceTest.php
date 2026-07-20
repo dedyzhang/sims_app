@@ -59,6 +59,7 @@ class GeofenceTest extends TestCase
     public function test_sanitize_point_label_strips_html(): void
     {
         $this->assertSame('Titik', Geofence::sanitizePointLabel('<img src=x onerror=alert(1)>'));
+        $this->assertSame('Gerbang', Geofence::sanitizePointLabel('<script>x</script>Gerbang'));
         $this->assertSame('Gerbang Utama', Geofence::sanitizePointLabel('  Gerbang   Utama  '));
         $this->assertSame('Titik', Geofence::sanitizePointLabel(''));
     }

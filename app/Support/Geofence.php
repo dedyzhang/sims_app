@@ -112,6 +112,8 @@ class Geofence
     public static function sanitizePointLabel(string $label): string
     {
         $label = html_entity_decode($label, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Buang isi <script>/<style> sebelum strip_tags (strip_tags menyisakan teks di dalamnya).
+        $label = preg_replace('#<\s*(script|style)[^>]*>.*?<\s*/\s*\1\s*>#is', '', $label) ?? '';
         $label = strip_tags($label);
         $label = preg_replace('/[\x00-\x1F\x7F]/u', '', $label) ?? '';
         $label = trim(preg_replace('/\s+/u', ' ', $label) ?? '');

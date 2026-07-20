@@ -237,6 +237,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     // Absen QR mandiri (siswa/guru) — scan QR harian + cek lokasi
     Route::middleware('modul:absensi')->get('/absen-qr', [QrAbsensiController::class, 'absen'])->name('absen.qr');
+    Route::middleware('modul:absensi')->get('/absen-qr/geo-config', [QrAbsensiController::class, 'geoConfig'])->name('absen.qr.geoConfig');
     Route::middleware('modul:absensi')->post('/absen-qr', [QrAbsensiController::class, 'mark'])->name('absen.qr.mark');
 
     // Ganti password & PIN

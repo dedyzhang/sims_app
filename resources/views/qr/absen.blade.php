@@ -137,6 +137,34 @@ function qrAbsen(cfg){
             this.$nextTick(()=>{ lucide.createIcons(); this.ensureMap(); });
             try { if('speechSynthesis' in window) speechSynthesis.getVoices(); } catch(e){}
             if(this.aktif && (this.schoolLat || (this.points && this.points.length))) this.status = 'Tekan "Perbarui" untuk menampilkan posisi Anda di peta.';
+            // Segarkan geofence dari server agar bonus jam sibuk / titik tidak stale di tab lama.
+            this.refreshGeoConfig();
+            this._geoPoll = setInterval(()=> this.refreshGeoConfig(true), 60000);
+            window.addEventListener('beforeunload', ()=> { if(this._geoPoll) clearInterval(this._geoPoll); });
+        },
+
+        async refreshGeoConfig(silent){
+            try {
+                const res = await fetch('{{ route('absen.qr.geoConfig') }}', {
+                    headers: { Accept: 'application/json' },
+                    credentials: 'same-origin',
+                });
+                if(!res.ok) return;
+                const d = await res.json();
+                if(!d || !d.ok) return;
+                if(Array.isArray(d.points)) this.points = d.points;
+                if(d.rush_bonus != null) this.rushBonus = Number(d.rush_bonus) || 0;
+                if(d.radius != null) this.radius = Number(d.radius) || this.radius;
+                if(d.soft_tolerance != null) this.softTolerance = Number(d.soft_tolerance) || this.softTolerance;
+                if(d.lat) this.schoolLat = parseFloat(d.lat);
+                if(d.lng) this.schoolLng = parseFloat(d.lng);
+                // Rehitung badge bila sudah ada fix GPS.
+                if(this.lat != null && this.lng != null){
+                    this.applyFix({ lat: this.lat, lng: this.lng, accuracy: this.accuracy });
+                }
+            } catch(e){
+                if(!silent) { /* diam saat poll berkala */ }
+            }
         },
 
         speak(label, nama){
@@ -189,6 +217,7 @@ function qrAbsen(cfg){
             this.locating = true;
             this.status = 'Sedang membaca lokasi (GPS sedang dipanaskan)…';
             try {
+                await this.refreshGeoConfig(true);
                 const fix = await SimsGeo.getBestLocation({
                     watchMs: 16000,
                     targetAccuracy: 35,
@@ -272,6 +301,7 @@ function qrAbsen(cfg){
             this.stopScan();
             this.status='Menyempurnakan GPS & memverifikasi QR…';
             try {
+                await this.refreshGeoConfig(true);
                 const fix = await SimsGeo.getBestLocation({
                     watchMs: 12000,
                     targetAccuracy: 35,
