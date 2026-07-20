@@ -107,4 +107,14 @@ class ModulAktifTest extends TestCase
 
         $this->assertFalse(ModulAktif::aktif('arena_belajar'));
     }
+
+    public function test_sumber_modul_aktif_bebas_marker_konflik_git(): void
+    {
+        $source = file_get_contents(base_path('app/Support/ModulAktif.php'));
+
+        $this->assertIsString($source);
+        $this->assertStringNotContainsString('<<<<<<<', $source);
+        $this->assertStringNotContainsString('>>>>>>>', $source);
+        $this->assertStringNotContainsString('Current (Your changes)', $source);
+    }
 }
