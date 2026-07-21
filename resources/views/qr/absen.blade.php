@@ -107,7 +107,7 @@
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="{{ asset('js/geo-location.js') }}"></script>
+<script src="{{ asset('js/geo-location.js') }}?v={{ filemtime(public_path('js/geo-location.js')) }}"></script>
 <script src="{{ asset('js/geo-map-layers.js') }}"></script>
 <script>
 function qrAbsen(cfg){

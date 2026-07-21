@@ -717,7 +717,7 @@
 @push('styles')<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />@endpush
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{{ asset('js/geo-location.js') }}"></script>
+<script src="{{ asset('js/geo-location.js') }}?v={{ filemtime(public_path('js/geo-location.js')) }}"></script>
 <script src="{{ asset('js/geo-map-layers.js') }}"></script>
 <script>
 function qrLokasi(cfg){
