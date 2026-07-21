@@ -570,13 +570,16 @@
                 }
 
                 // ── Kedisiplinan ──
+                // $bolehKelolaDisiplin/$bolehLihatDisiplin/$disiplinItems didefinisikan DI LUAR gate
+                // modulOn('disiplin') karena Pemanggilan Ortu/Siswa (di bawah) memakainya independen
+                // dari modul disiplin — kalau di dalam gate, saat modul off variabelnya undefined
+                // dan bikin seluruh layout (dipakai di semua halaman) crash.
                 $jenisAturan = \App\Models\Setting::get('jenis_aturan', 'p3');
+                $bolehKelolaDisiplin = $isAdmin || auth()->user()?->canAccess('manage_disiplin');
+                $bolehAjukanDisiplin = auth()->user()?->guru || (auth()->user()?->siswa && \App\Models\Sekretaris::where('id_siswa', auth()->user()->siswa->uuid)->exists());
+                $bolehLihatDisiplin = auth()->user()?->siswa || $access === 'orangtua';
+                $disiplinItems = [];
                 if ($modulOn('disiplin')) {
-                    $bolehKelolaDisiplin = $isAdmin || auth()->user()?->canAccess('manage_disiplin');
-                    $bolehAjukanDisiplin = auth()->user()?->guru || (auth()->user()?->siswa && \App\Models\Sekretaris::where('id_siswa', auth()->user()->siswa->uuid)->exists());
-                    $bolehLihatDisiplin = auth()->user()?->siswa || $access === 'orangtua';
-
-                    $disiplinItems = [];
                     if ($jenisAturan === 'poin') {
                         if ($bolehKelolaDisiplin) {
                             $disiplinItems[] = ['poin.index', ['poin.index', 'poin.create', 'poin.edit'], 'list-checks', 'Master Aturan'];

@@ -359,13 +359,9 @@ class QrAbsensiController extends Controller
             return response()->json(['ok' => false, 'message' => 'Lokasi sekolah belum diatur oleh admin.'], 422);
         }
 
-        if (!Geofence::accuracyAcceptable($accuracy)) {
-            return response()->json([
-                'ok'      => false,
-                'message' => 'Akurasi GPS terlalu rendah (~' . (int) round($accuracy) . ' m). Pindah ke tempat lebih terbuka, nyalakan GPS, lalu coba lagi.',
-            ], 422);
-        }
-
+        // Sengaja TIDAK menolak berdasar accuracy GPS lagi — yang menentukan boleh/tidaknya
+        // absen murni jarak ke titik sekolah (di bawah). Accuracy tetap disimpan untuk audit
+        // (lihat geoAuditPayload) tapi tidak lagi jadi gate penolakan.
         if (!$eval['ok']) {
             $bonusTxt = $eval['bonus'] > 0
                 ? ' (termasuk +' . (int) round($eval['bonus']) . ' m zona jam sibuk)'
