@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\ArenaJenjang;
+use App\Support\ArenaMechanics;
 use Database\Factories\MissionFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -90,6 +91,25 @@ class Mission extends Model
     public function isPublished(): bool
     {
         return $this->is_published || $this->status === 'published';
+    }
+
+    /** Misi siap dimainkan: sudah punya langkah (bukan cangkang metadata saja). */
+    public function isPlayable(): bool
+    {
+        if (array_key_exists('steps_count', $this->attributes)) {
+            return (int) $this->attributes['steps_count'] > 0;
+        }
+
+        if ($this->relationLoaded('steps')) {
+            return $this->steps->isNotEmpty();
+        }
+
+        return $this->steps()->exists();
+    }
+
+    public function mechanicLabel(): string
+    {
+        return ArenaMechanics::label($this->mechanic_type);
     }
 
     /** Kunci jenjang: sd | smp | sma | umum */

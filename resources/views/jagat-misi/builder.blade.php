@@ -23,9 +23,14 @@
         <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Daftar Misi
     </a>
     <div>
-        <p class="arena-eyebrow" style="color:var(--arena-teal)">Arena Belajar · Builder</p>
-        <h1 class="text-2xl font-black text-slate-800 dark:text-slate-100">{{ $mission ? 'Edit Misi' : 'Buat Misi Baru' }}</h1>
-        <p class="text-sm text-slate-500 mt-1">Tentukan jenjang pendidikan agar misi mudah difilter di Arena (SD, SMP, SMA/SMK).</p>
+        <p class="arena-eyebrow" style="color:var(--arena-teal)">Arena Belajar · Metadata misi</p>
+        <h1 class="text-2xl font-black text-slate-800 dark:text-slate-100">{{ $mission ? 'Edit metadata misi' : 'Buat metadata misi' }}</h1>
+        <p class="text-sm text-slate-500 mt-1">Form ini menyimpan judul/mapel/mekanik. Tanpa langkah permainan, misi belum bisa diterbitkan untuk siswa.</p>
+    </div>
+
+    <div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+        <strong>Catatan:</strong> Editor langkah belum tersedia. Untuk kelas, tugaskan misi berlabel <em>Siap main</em> dari katalog.
+        Ini berbeda dari <strong>Nalar Guru</strong> (chat AI di Asisten Guru).
     </div>
 
     @if($errors->any())
@@ -83,14 +88,7 @@
                 <label class="text-xs font-bold text-slate-500">Mekanik</label>
                 <select name="mechanic_type" class="mt-1 w-full border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-slate-900" required>
                     @php $mech = old('mechanic_type', $mission?->mechanic_type ?? 'recall_quiz_bundle'); @endphp
-                    @foreach([
-                        'nalar_bundle' => 'Nalar',
-                        'recall_quiz_bundle' => 'Kuis recall',
-                        'interactive_narrative' => 'Narasi',
-                        'strategic_decision' => 'Keputusan',
-                        'puzzle_sequencing' => 'Puzzle',
-                        'quiz_matching' => 'Mencocokkan',
-                    ] as $val => $lab)
+                    @foreach(\App\Support\ArenaMechanics::labels() as $val => $lab)
                     <option value="{{ $val }}" @selected($mech === $val)>{{ $lab }}</option>
                     @endforeach
                 </select>
@@ -108,12 +106,14 @@
         <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="visible_to_teachers" value="1" {{ old('visible_to_teachers', $mission?->visible_to_teachers) ? 'checked' : '' }}> Bagikan ke guru lain</label>
         <div class="flex flex-wrap items-center gap-3 pt-1">
             <button type="submit" class="arena-cta">Simpan</button>
-            @if($mission)
+            @if($mission && $mission->isPlayable())
             <a href="{{ route('jagat-misi.builder.publish', $mission) }}" onclick="event.preventDefault(); document.getElementById('publishForm').submit();" class="text-sm font-bold" style="color:var(--arena-teal)">Terbitkan</a>
+            @elseif($mission)
+            <span class="text-xs text-amber-700 dark:text-amber-300 font-semibold">Belum bisa diterbitkan (belum ada langkah permainan).</span>
             @endif
         </div>
     </form>
-    @if($mission)
+    @if($mission && $mission->isPlayable())
     <form id="publishForm" method="post" action="{{ route('jagat-misi.builder.publish', $mission) }}">@csrf</form>
     @endif
 </div>

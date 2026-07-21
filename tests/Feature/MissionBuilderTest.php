@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Guru;
 use App\Models\Mission;
+use App\Models\MissionStep;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,9 +63,43 @@ class MissionBuilderTest extends TestCase
             'status' => 'draft',
         ]);
 
+        MissionStep::create([
+            'mission_id' => $mission->uuid,
+            'module_key' => 'recall_quiz',
+            'title' => 'Langkah 1',
+            'prompt' => 'Jawab soal',
+            'body' => 'Soal uji',
+            'payload' => ['questions' => []],
+            'max_points' => 10,
+            'position' => 1,
+        ]);
+
         $response = $this->actingAs($guru)->post(route('jagat-misi.builder.publish', $mission));
         $response->assertRedirect();
         $this->assertTrue($mission->fresh()->is_published);
+    }
+
+    public function test_publish_ditolak_jika_misi_tanpa_langkah(): void
+    {
+        Setting::create(['key' => 'nama_sekolah', 'value' => 'Test School']);
+        $guru = User::create([
+            'username' => 'guru_pub_empty',
+            'password' => Hash::make('password'),
+            'access' => 'guru',
+        ]);
+
+        $mission = Mission::factory()->recallQuiz()->create([
+            'created_by' => $guru->uuid,
+            'is_published' => false,
+            'status' => 'draft',
+        ]);
+
+        $this->actingAs($guru)
+            ->post(route('jagat-misi.builder.publish', $mission))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertFalse($mission->fresh()->is_published);
     }
 
     public function test_guru_can_edit_shared_catalog_mission_without_owner(): void
@@ -121,6 +156,7 @@ class MissionBuilderTest extends TestCase
             'status' => 'published',
             'slug' => 'katalog-play-staff-ok',
         ]);
+        MissionStep::factory()->narrative()->create(['mission_id' => $mission->uuid]);
 
         foreach (['kurikulum', 'kepala', 'kesiswaan', 'walikelas', 'sapras', 'guru'] as $access) {
             $user = User::create([

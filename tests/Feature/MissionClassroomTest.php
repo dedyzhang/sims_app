@@ -127,6 +127,56 @@ class MissionClassroomTest extends TestCase
         ]);
     }
 
+    public function test_assign_ditolak_jika_misi_tanpa_langkah(): void
+    {
+        $empty = Mission::factory()->recallQuiz()->create([
+            'slug' => 'assign-empty-'.uniqid(),
+            'created_by' => $this->guruUser->uuid,
+            'is_published' => true,
+            'status' => 'published',
+            'visible_to_teachers' => true,
+        ]);
+
+        $this->actingAs($this->guruUser)
+            ->post(route('classroom.jagat.assign', $this->classroom), [
+                'mission_id' => $empty->uuid,
+            ])
+            ->assertRedirect(route('classroom.arena.index', [
+                'classroom' => $this->classroom,
+                'mode' => 'misi',
+            ]))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseMissing('mission_assignments', [
+            'mission_id' => $empty->uuid,
+            'classroom_id' => $this->classroom->uuid,
+        ]);
+    }
+
+    public function test_katalog_arena_hanya_misi_berlangkah(): void
+    {
+        $empty = Mission::factory()->recallQuiz()->create([
+            'slug' => 'misi-kosong-shell-'.uniqid(),
+            'created_by' => $this->guruUser->uuid,
+            'title' => 'Misi Kosong Shell',
+            'is_published' => true,
+            'status' => 'published',
+            'visible_to_teachers' => true,
+            'classroom_id' => null,
+        ]);
+
+        $this->actingAs($this->guruUser)
+            ->get(route('classroom.arena.index', [
+                'classroom' => $this->classroom,
+                'mode' => 'misi',
+            ]))
+            ->assertOk()
+            ->assertSee($this->mission->title)
+            ->assertDontSee('Misi Kosong Shell');
+
+        $this->assertFalse($empty->isPlayable());
+    }
+
     public function test_reassign_mission_updates_schedule_dates(): void
     {
         MissionAssignment::create([
@@ -170,13 +220,8 @@ class MissionClassroomTest extends TestCase
         $response->assertOk()
             ->assertSee($this->mission->title)
             ->assertSee('Arena Belajar')
-            ->assertSee('Menurut jenjang')
-            ->assertSee('Menjodohkan — Angka &amp; Operasi', false)
-            ->assertSee('Recall Quiz — Gaya &amp; Gerak', false)
-            ->assertSee('Keputusan — Modal Usaha Siswa', false)
-            ->assertSee('Tren 2025–2026')
-            ->assertSee('Kenalan dengan AI', false)
-            ->assertSee('Deepfake di Dunia Kerja', false);
+            ->assertSee('Misi petualangan')
+            ->assertSee('Masuk misi');
     }
 
     public function test_siswa_can_play_assigned_mission_from_classroom(): void
@@ -339,6 +384,6 @@ class MissionClassroomTest extends TestCase
         $this->actingAs($this->siswaUser)
             ->get(route('classroom.arena.index', ['classroom' => $this->classroom, 'mode' => 'misi']))
             ->assertOk()
-            ->assertSee('Clear 92%');
+            ->assertSee('Selesai 92%');
     }
 }

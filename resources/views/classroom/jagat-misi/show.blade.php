@@ -14,7 +14,7 @@
     <div class="card p-4 sm:p-5 space-y-3">
         <div class="flex flex-wrap gap-2 text-xs">
             <span class="px-2 py-1 rounded-lg bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 font-semibold">{{ $mission->subject }}</span>
-            <span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500">{{ $mission->mechanic_type }}</span>
+            <span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500">{{ $mission->mechanicLabel() }}</span>
             <span class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500">{{ $mission->duration_minutes }} menit</span>
             <span class="px-2 py-1 rounded-lg {{ $assignment->isOpen() ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700' }}">
                 {{ $assignment->isOpen() ? 'Misi aktif' : 'Misi tertutup' }}

@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\AiTeacherHistory;
+use App\Models\Setting;
 use App\Models\TeacherPresentation;
 use App\Models\User;
 use App\Services\GeminiService;
+use App\Support\SchoolLetterhead;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Mockery\MockInterface;
@@ -105,12 +107,51 @@ class AiTeacherPresentasiIntegrationTest extends TestCase
         $this->assertSame('Buatkan 5 soal pilihan ganda fotosintesis', $history->metadata['prompt'] ?? null);
     }
 
+    public function test_gemini_chat_umum_memakai_answer_style_kop_dan_prefix(): void
+    {
+        Setting::set('nama_sekolah', 'SMP Nalar Uji');
+        $guru = $this->guru();
+        $capturedOptions = [];
+
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedOptions) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt, array $options) use (&$capturedOptions) {
+                    $capturedOptions = $options;
+
+                    return true;
+                })
+                ->andReturn([
+                    'text' => "MATERI POKOK\n- Fotosintesis",
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 8,
+                    'completion_tokens' => 12,
+                ]);
+            $mock->shouldIgnoreMissing();
+        });
+
+        $response = $this->actingAs($guru)
+            ->postJson(route('ai.teacher.chat'), [
+                'message' => 'Jelaskan fotosintesis singkat untuk kelas 7',
+            ])
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+
+        $this->assertStringContainsString('KOP SURAT WAJIB', (string) ($capturedOptions['answer_style'] ?? ''));
+        $this->assertStringContainsString('JANGAN memakai Markdown', (string) ($capturedOptions['answer_style'] ?? ''));
+        $this->assertStringStartsWith('SMP Nalar Uji', (string) $response->json('answer'));
+        $this->assertStringContainsString('MATERI POKOK', (string) $response->json('answer'));
+        $this->assertSame('SMP Nalar Uji', SchoolLetterhead::schoolName());
+    }
+
     public function test_chat_system_prompt_omits_canva(): void
     {
         $chatPrompt = (string) config('ai.teacher.chat');
 
         $this->assertStringNotContainsString('Canva', $chatPrompt);
         $this->assertStringContainsString('Generator Soal SIMS', $chatPrompt);
+        $this->assertStringContainsString('FORMAT WAJIB SETIAP JAWABAN', $chatPrompt);
+        $this->assertStringContainsString('JANGAN memakai Markdown', $chatPrompt);
     }
 
     public function test_presentasi_from_chat_redirects_to_studio(): void

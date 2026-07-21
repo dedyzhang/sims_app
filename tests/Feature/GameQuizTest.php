@@ -350,6 +350,20 @@ TXT;
         $response->assertSessionHas('arena_ai_import.title', 'Kuis: Geografi');
     }
 
+    public function test_kirim_ke_arena_ditolak_jika_teks_bukan_soal(): void
+    {
+        $response = $this->actingAs($this->guruUser)
+            ->post(route('ai.teacher.quiz.send-arena'), [
+                'classroom_id' => $this->classroom->uuid,
+                'raw_text' => "RANGKUMAN MATERI\n- Fotosintesis adalah proses…",
+                'title' => 'Bukan soal',
+            ]);
+
+        $response->assertRedirect(route('ai.teacher.index', ['tab' => 'quiz']));
+        $response->assertSessionHas('error');
+        $response->assertSessionMissing('arena_ai_import');
+    }
+
     private function makePublishedQuiz(): GameQuiz
     {
         $quiz = GameQuiz::create([

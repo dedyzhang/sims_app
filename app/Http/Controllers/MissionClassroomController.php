@@ -37,8 +37,19 @@ class MissionClassroomController extends Controller
             'due_at' => ['nullable', 'date', 'after_or_equal:opens_at'],
         ]);
 
-        $mission = Mission::findOrFail($data['mission_id']);
-        abort_unless($mission->isPublished(), 422, 'Misi belum diterbitkan.');
+        $mission = Mission::withCount('steps')->findOrFail($data['mission_id']);
+
+        if (! $mission->isPublished()) {
+            return redirect()
+                ->route('classroom.arena.index', ['classroom' => $classroom, 'mode' => 'misi'])
+                ->with('error', 'Misi belum diterbitkan.');
+        }
+
+        if (! $mission->isPlayable()) {
+            return redirect()
+                ->route('classroom.arena.index', ['classroom' => $classroom, 'mode' => 'misi'])
+                ->with('error', 'Misi belum punya langkah permainan. Pilih misi dari katalog yang siap dimainkan.');
+        }
 
         MissionAssignment::updateOrCreate(
             ['mission_id' => $mission->uuid, 'classroom_id' => $classroom->uuid],
@@ -86,6 +97,7 @@ class MissionClassroomController extends Controller
         abort_unless($assignment, 404);
 
         $mission->load(['steps' => fn ($q) => $q->orderBy('position')]);
+        abort_unless($mission->isPlayable(), 404, 'Misi belum punya langkah permainan.');
 
         $isPlayer = str_contains($mission->mechanic_type, 'recall')
             || str_contains($mission->mechanic_type, 'quiz');

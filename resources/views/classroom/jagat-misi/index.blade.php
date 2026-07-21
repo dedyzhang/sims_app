@@ -61,7 +61,7 @@
                     <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300">
                         {{ $a->isOpen() ? 'Aktif' : 'Tertutup' }}
                     </span>
-                    <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">{{ $mission->mechanic_type }}</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">{{ $mission->mechanicLabel() }}</span>
                 </div>
                 <h3 class="font-black text-slate-800 dark:text-slate-100 truncate text-base">{{ $mission->title }}</h3>
                 <p class="text-xs text-slate-500 mt-1">
@@ -82,7 +82,7 @@
             <i data-lucide="compass" class="w-10 h-10 mx-auto mb-2 opacity-30"></i>
             <p>Belum ada misi ditugaskan ke kelas ini.</p>
             @if($canManage)
-            <p class="text-sm mt-1">Pilih misi dari katalog di atas atau buat di <a href="{{ route('jagat-misi.builder.index') }}" class="text-primary font-semibold">Builder Misi</a>.</p>
+            <p class="text-sm mt-1">Pilih misi siap main dari katalog, lalu tugaskan ke kelas. <a href="{{ route('jagat-misi.builder.index') }}" class="text-primary font-semibold">Kelola katalog</a>.</p>
             @endif
         </div>
         @endforelse

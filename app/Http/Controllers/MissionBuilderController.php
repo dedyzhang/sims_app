@@ -24,6 +24,7 @@ class MissionBuilderController extends Controller
         Gate::authorize('create', Mission::class);
 
         $missions = Mission::query()
+            ->withCount('steps')
             ->where(function ($q) {
                 $q->where('created_by', auth()->user()->uuid)
                     ->orWhere(function ($q2) {
@@ -81,6 +82,10 @@ class MissionBuilderController extends Controller
     public function publish(Mission $mission): RedirectResponse
     {
         Gate::authorize('manage', $mission);
+
+        if (! $mission->steps()->exists()) {
+            return back()->with('error', 'Misi belum punya langkah permainan. Saat ini tugaskan misi dari katalog yang sudah siap, atau isi langkah lewat seeder/admin.');
+        }
 
         $mission->forceFill([
             'status' => 'published',

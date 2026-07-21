@@ -20,6 +20,8 @@ class MissionNalarController extends Controller
     {
         $missions = Mission::query()
             ->where('is_published', true)
+            ->whereHas('steps')
+            ->withCount('steps')
             ->orderBy('title')
             ->get();
 
@@ -40,6 +42,7 @@ class MissionNalarController extends Controller
     {
         Gate::authorize('view', $mission);
         $mission->load(['steps' => fn ($q) => $q->orderBy('position')]);
+        abort_unless($mission->isPlayable(), 404, 'Misi belum punya langkah permainan.');
 
         return view('jagat-misi.nalar', compact('mission'));
     }

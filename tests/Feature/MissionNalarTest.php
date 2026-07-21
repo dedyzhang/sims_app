@@ -120,6 +120,29 @@ class MissionNalarTest extends TestCase
             ->assertSee($mission->title);
     }
 
+    public function test_katalog_menyembunyikan_misi_tanpa_langkah(): void
+    {
+        [$mission, $user] = $this->createMissionFixture();
+
+        $empty = Mission::factory()->recallQuiz()->create([
+            'slug' => 'shell-tanpa-langkah-'.uniqid(),
+            'title' => 'Shell Tanpa Langkah',
+            'is_published' => true,
+            'status' => 'published',
+            'visible_to_teachers' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('jagat-misi.index'))
+            ->assertOk()
+            ->assertSee($mission->title)
+            ->assertDontSee('Shell Tanpa Langkah');
+
+        $this->actingAs($user)
+            ->get(route('jagat-misi.play', $empty))
+            ->assertNotFound();
+    }
+
     private function createMissionFixture(bool $withAssignment = false): array
     {
         Setting::create(['key' => 'nama_sekolah', 'value' => 'Test School']);

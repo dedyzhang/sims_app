@@ -337,4 +337,20 @@ class GameQuizImporter
         }
         unset($opt);
     }
+
+    /** Heuristik: teks layak dikirim ke form impor Arena (bukan penjelasan biasa). */
+    public static function looksLikeImportableQuiz(string $raw): bool
+    {
+        $text = trim(str_replace(["\r\n", "\r"], "\n", $raw));
+        if ($text === '') {
+            return false;
+        }
+
+        if (preg_match('/SOAL EVALUASI|Kunci Jawaban|Bagian\s+[A-Z]\s*-/iu', $text) === 1) {
+            return true;
+        }
+
+        return preg_match('/^\s*\d+[\.\)]\s+\S/mu', $text) === 1
+            && preg_match('/^\s*[A-Da-d][\.\)]\s+\S/mu', $text) === 1;
+    }
 }

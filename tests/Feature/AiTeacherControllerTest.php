@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\AiTeacherHistory;
 use App\Models\AiUsageLog;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\GeminiService;
+use App\Support\SchoolLetterhead;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Mockery\MockInterface;
@@ -92,10 +94,9 @@ class AiTeacherControllerTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJson([
-                'ok' => true,
-                'answer' => "1. Contoh soal\n\nKUNCI JAWABAN: A",
-            ]);
+            ->assertJsonPath('ok', true);
+        $this->assertStringStartsWith(SchoolLetterhead::schoolName(), (string) $response->json('answer'));
+        $this->assertStringContainsString("1. Contoh soal\n\nKUNCI JAWABAN: A", (string) $response->json('answer'));
 
         $this->assertStringContainsString('MATERI FILE:', $capturedPrompt);
         $this->assertDatabaseHas('ai_usage_logs', [
@@ -500,7 +501,8 @@ class AiTeacherControllerTest extends TestCase
         $zip->close();
 
         $this->assertIsString($xml);
-        $this->assertStringContainsString('YAYASAN BUMI MAITRI', $xml);
+        $this->assertStringContainsString(SchoolLetterhead::schoolName(), $xml);
+        $this->assertStringNotContainsString('YAYASAN BUMI MAITRI', $xml);
         $this->assertStringContainsString('SOAL EVALUASI IPA', $xml);
         $this->assertStringContainsString('Petunjuk Pengerjaan', $xml);
         $this->assertStringContainsString('Apa itu evaporasi?', $xml);
@@ -522,6 +524,9 @@ class AiTeacherControllerTest extends TestCase
                 ->once()
                 ->withArgs(fn (string $prompt, array $options) => str_contains($prompt, 'Rangkum materi berikut')
                     && str_contains($prompt, 'Materi ekosistem')
+                    && str_contains($prompt, 'KOP SURAT WAJIB')
+                    && str_contains((string) ($options['answer_style'] ?? ''), 'KOP SURAT WAJIB')
+                    && ($options['thinking_level'] ?? null) === 'low'
                     && ! str_contains($prompt, 'PERENCANAAN PEMBELAJARAN MENDALAM'))
                 ->andReturn([
                     'text' => 'Ringkasan materi.',
@@ -535,10 +540,9 @@ class AiTeacherControllerTest extends TestCase
             'materi' => 'Materi ekosistem',
         ]);
 
-        $response->assertOk()->assertJson([
-            'ok' => true,
-            'answer' => 'Ringkasan materi.',
-        ]);
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringStartsWith(SchoolLetterhead::schoolName(), (string) $response->json('answer'));
+        $this->assertStringContainsString('Ringkasan materi.', (string) $response->json('answer'));
     }
 
     public function test_draft_feedback_tetap_memakai_prompt_feedback(): void
@@ -556,6 +560,9 @@ class AiTeacherControllerTest extends TestCase
                 ->withArgs(fn (string $prompt, array $options) => str_contains($prompt, 'Susun draf umpan balik')
                     && str_contains($prompt, 'untuk siswa bernama Budi')
                     && str_contains($prompt, 'Perlu lebih aktif berdiskusi')
+                    && str_contains($prompt, 'KOP SURAT WAJIB')
+                    && str_contains((string) ($options['answer_style'] ?? ''), 'KOP SURAT WAJIB')
+                    && ($options['thinking_level'] ?? null) === 'low'
                     && ! str_contains($prompt, 'PERENCANAAN PEMBELAJARAN MENDALAM'))
                 ->andReturn([
                     'text' => 'Draf feedback.',
@@ -570,14 +577,18 @@ class AiTeacherControllerTest extends TestCase
             'konteks' => 'Perlu lebih aktif berdiskusi',
         ]);
 
-        $response->assertOk()->assertJson([
-            'ok' => true,
-            'answer' => 'Draf feedback.',
-        ]);
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringStartsWith(SchoolLetterhead::schoolName(), (string) $response->json('answer'));
+        $this->assertStringContainsString('Draf feedback.', (string) $response->json('answer'));
     }
 
     public function test_generator_rpm_learning_memakai_8_komponen_wajib(): void
     {
+        Setting::set('nama_sekolah', 'SMP Uji Kop');
+        Setting::set('alamat_sekolah', 'Jl. Uji No. 1');
+        Setting::set('telp_sekolah', '0771-123');
+        Setting::set('npsn', '12345678');
+
         $user = User::create([
             'username' => 'guru-learning',
             'password' => 'password',
@@ -601,7 +612,10 @@ class AiTeacherControllerTest extends TestCase
                         && str_contains($prompt, 'ASESMEN PEMBELAJARAN')
                         && str_contains($prompt, 'LAMPIRAN 1')
                         && str_contains($prompt, 'Berkesadaran, Bermakna, dan Menggembirakan')
-                        && str_contains($prompt, 'YAYASAN BUMI MAITRI')
+                        && str_contains($prompt, 'KOP WAJIB')
+                        && str_contains($prompt, 'SMP Uji Kop')
+                        && str_contains($prompt, 'Jl. Uji No. 1')
+                        && ! str_contains($prompt, 'YAYASAN BUMI MAITRI')
                         && str_contains($prompt, 'Kompetensi | Baru Mulai | Berkembang | Cakap | Mahir')
                         // Dokumen RPM utuh butuh jatah token besar + porsi berpikir ditekan,
                         // kalau tidak keluaran terpotong di tengah (finishReason MAX_TOKENS).
@@ -629,6 +643,7 @@ class AiTeacherControllerTest extends TestCase
                 'ok' => true,
             ]);
 
+        $this->assertStringStartsWith('SMP Uji Kop', (string) $response->json('answer'));
         $this->assertStringContainsString('Mata pelajaran: IPAS', $capturedPrompt);
         $this->assertDatabaseHas('ai_usage_logs', [
             'user_uuid' => $user->uuid,
@@ -1075,7 +1090,8 @@ class AiTeacherControllerTest extends TestCase
 
         $html = $response->json('html');
         $this->assertStringContainsString('quiz-doc', $html);
-        $this->assertStringContainsString('YAYASAN BUMI MAITRI', $html);
+        $this->assertStringContainsString(SchoolLetterhead::schoolName(), $html);
+        $this->assertStringNotContainsString('YAYASAN BUMI MAITRI', $html);
         $this->assertStringContainsString('SOAL EVALUASI IPA', $html);
         $this->assertStringContainsString('<table class="identitas">', $html);
         $this->assertStringContainsString('Bagian A - Pilihan Ganda', $html);

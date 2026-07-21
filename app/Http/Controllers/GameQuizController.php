@@ -57,28 +57,36 @@ class GameQuizController extends Controller implements HasMiddleware
 
         $missionAssignments = MissionAssignment::query()
             ->where('classroom_id', $classroom->uuid)
-            ->with('mission')
+            ->with(['mission' => fn ($q) => $q->withCount('steps')])
             ->latest()
             ->get();
 
         if (auth()->user()->access === 'siswa') {
             $missionAssignments = $missionAssignments
-                ->filter(fn ($a) => $a->mission?->isPublished() && $a->isOpen())
+                ->filter(fn ($a) => $a->mission?->isPublished()
+                    && $a->mission->isPlayable()
+                    && $a->isOpen())
                 ->values();
         }
 
         $availableMissions = collect();
+        $katalogMisi = collect();
         if ($canManage) {
-            $availableMissions = Mission::query()
+            $katalogMisi = Mission::query()
                 ->where('is_published', true)
+                ->whereHas('steps')
                 ->where(function ($q) use ($classroom) {
                     $q->where('classroom_id', $classroom->uuid)
                         ->orWhere('visible_to_teachers', true)
                         ->orWhereNull('classroom_id');
                 })
+                ->withCount('steps')
                 ->orderBy('title')
-                ->get()
-                ->reject(fn ($m) => $missionAssignments->contains(fn ($a) => $a->mission_id === $m->uuid));
+                ->get();
+
+            $availableMissions = $katalogMisi
+                ->reject(fn ($m) => $missionAssignments->contains(fn ($a) => $a->mission_id === $m->uuid))
+                ->values();
         }
 
         $myMissionAttempts = [];
@@ -93,8 +101,8 @@ class GameQuizController extends Controller implements HasMiddleware
                 ->keyBy('assignment_id');
         }
 
-        $jenjangRekomendasi = \App\Support\ArenaJenjang::rekomendasi();
-        $trenRekomendasi = \App\Support\ArenaJenjang::trenRekomendasi();
+        $ideJenjang = \App\Support\ArenaJenjang::rekomendasi();
+        $ideTren = \App\Support\ArenaJenjang::trenRekomendasi();
 
         return view('arena-belajar.index', compact(
             'classroom',
@@ -102,9 +110,10 @@ class GameQuizController extends Controller implements HasMiddleware
             'canManage',
             'missionAssignments',
             'availableMissions',
+            'katalogMisi',
             'myMissionAttempts',
-            'jenjangRekomendasi',
-            'trenRekomendasi'
+            'ideJenjang',
+            'ideTren'
         ));
     }
 

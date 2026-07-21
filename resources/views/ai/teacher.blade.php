@@ -9,6 +9,12 @@
         -webkit-overflow-scrolling: touch;
         min-height: 0;
     }
+    /* Nalar Guru — teks polos berstruktur, nyaman dibaca & disalin */
+    .nalar-answer {
+        line-height: 1.7;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
     @media (orientation: landscape) and (max-height: 560px) and (max-width: 900px) {
         .ai-teacher-hasil {
             max-height: min(72vh, 640px);
@@ -22,6 +28,17 @@
     }
 </style>
 <div class="space-y-5 relative min-w-0 max-w-full" x-data="teacherAi()">
+
+    @if(session('error'))
+    <div class="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-900/30 dark:border-rose-800 px-4 py-3 text-sm font-semibold text-rose-800 dark:text-rose-200">
+        {{ session('error') }}
+    </div>
+    @endif
+    @if(session('success'))
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 dark:border-emerald-800 px-4 py-3 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+        {{ session('success') }}
+    </div>
+    @endif
 
     {{-- Gate: wajib API key Gemini pribadi --}}
     <template x-if="needsApiKeySetup">
@@ -297,7 +314,8 @@
                     </div>
                     <p class="text-lg font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Tanya Nalar Guru</p>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                        Minta soal, penjelasan materi, atau rubrik — generate langsung di SIMS dengan API key Anda.
+                        Minta soal, penjelasan materi, atau rubrik — generate langsung di SIMS.
+                        Soal siap dikirim ke Arena Belajar dari balasan chat.
                     </p>
                     <div class="mt-5 grid gap-2 text-left">
                         <template x-for="s in geminiSuggestions" :key="s">
@@ -326,9 +344,24 @@
                         <div x-show="m.role === 'assistant' && m.previewHtml" x-cloak
                              class="min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-contain"
                              x-html="m.previewHtml"></div>
-                        <div x-show="m.role === 'assistant' && !m.previewHtml" class="ai-answer break-words whitespace-pre-wrap" x-text="m.text"></div>
+                        <div x-show="m.role === 'assistant' && !m.previewHtml"
+                             class="ai-answer nalar-answer break-words whitespace-pre-wrap font-normal tracking-normal"
+                             x-text="m.text"></div>
                         <div x-show="m.role === 'user'" class="whitespace-pre-wrap" x-text="m.text"></div>
                         <div x-show="m.role === 'assistant'" class="mt-2.5 flex flex-wrap gap-2 border-t border-primary/10 pt-2">
+                            <button type="button" @click="copyGeminiMessage(m)"
+                                    class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                                <i :data-lucide="copiedMessageKey === geminiMessageKey(m) ? 'check' : 'copy'" class="w-3.5 h-3.5"></i>
+                                <span x-text="copiedMessageKey === geminiMessageKey(m) ? 'Tersalin' : 'Salin'"></span>
+                            </button>
+                            <button type="button"
+                                    x-show="arenaBelajarAktif && arenaClassrooms.length && looksLikeQuizDocument(m.text)"
+                                    @click="sendGeminiToArena(m)"
+                                    :disabled="sendingArena"
+                                    class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 disabled:opacity-50">
+                                <i :data-lucide="sendingArena ? 'loader-circle' : 'gamepad-2'" class="w-3.5 h-3.5" :class="sendingArena ? 'animate-spin' : ''"></i>
+                                <span x-text="sendingArena ? 'Mengirim…' : 'Kirim ke Arena'"></span>
+                            </button>
                             <button type="button" @click="useGeminiAsQuizResult(m)"
                                     class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10">
                                 <i data-lucide="file-question" class="w-3.5 h-3.5"></i> Buka di Generator Soal
@@ -738,7 +771,7 @@
                     <i data-lucide="gamepad-2" class="w-5 h-5 text-primary"></i>
                     Kirim ke Arena Belajar
                 </h3>
-                <p class="text-xs text-slate-500 mt-1">Pilih ruang kelas. Soal akan diimpor ke form buat kuis.</p>
+                <p class="text-xs text-slate-500 mt-1">Pilih ruang kelas. Soal dari Nalar Guru / Generator Soal akan diimpor ke form buat kuis Arena.</p>
             </div>
             <div>
                 <label class="form-label">Ruang kelas</label>
@@ -785,6 +818,9 @@
             arenaClassroomId: '',
             showArenaModal: false,
             sendingArena: false,
+            _arenaFromNalar: false,
+            copiedMessageKey: '',
+            copiedMessageTimer: null,
             launcherAktif: @js((bool) ($launcherAktif ?? true)),
             needsApiKeySetup: @js((bool) ($needsApiKeySetup ?? true)),
             external: {
@@ -926,7 +962,7 @@
                         this.geminiMessages.pop();
                         return;
                     }
-                    const answer = d.answer || '';
+                    const answer = this.tidyNalarAnswer(d.answer || '');
                     const msg = { role: 'assistant', text: answer, previewHtml: '' };
                     this.geminiMessages.push(msg);
                     if (d.history) this.histories.unshift(d.history);
@@ -997,7 +1033,7 @@
                         this.geminiError = this.error;
                         return;
                     }
-                    this.result = d.answer || answer;
+                    this.result = this.tidyNalarAnswer(d.answer || answer);
                     this.externalFlow = false;
                     this.externalPaste = '';
                     this.editing = false;
@@ -1029,7 +1065,7 @@
             async attachQuizPreviewToMessage(msg) {
                 if (!msg?.text || !this.urls.quizPreview) return;
                 // Hanya pratinjau bila teks tampak seperti dokumen soal (kop / SOAL EVALUASI / kunci).
-                if (!/SOAL EVALUASI|Kunci Jawaban|Bagian\s+[A-Z]\s*-/i.test(msg.text)) return;
+                if (!this.looksLikeQuizDocument(msg.text)) return;
                 try {
                     const r = await fetch(this.urls.quizPreview, {
                         method: 'POST',
@@ -1057,6 +1093,51 @@
                 this.error = '';
                 this.refreshPreview();
                 this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+
+            /** Rapikan jawaban Nalar agar siap disalin (teks polos, spasi konsisten). */
+            tidyNalarAnswer(raw) {
+                let text = String(raw || '').replace(/\r\n?/g, '\n').trim();
+                if (!text) return '';
+
+                // Lepas Markdown ringan yang sering bocor meski sudah diminta teks polos.
+                text = text
+                    .replace(/^#{1,6}\s+/gm, '')
+                    .replace(/\*\*(.*?)\*\*/g, '$1')
+                    .replace(/__(.*?)__/g, '$1')
+                    .replace(/\*([^*\n]+)\*/g, '$1')
+                    // Hanya _italic_ berbatas kata; jangan makan snake_case (nilai_rata_rata).
+                    .replace(/(^|[\s(])_([^_\s][^_\n]*)_(?=[\s).,]|$)/g, '$1$2')
+                    .replace(/`([^`\n]+)`/g, '$1')
+                    .replace(/^>\s?/gm, '')
+                    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```\w*\n?/g, '').trim());
+
+                // Rapikan spasi & baris kosong (maks 1 baris kosong antar blok).
+                text = text
+                    .replace(/[ \t]+\n/g, '\n')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
+
+                return text;
+            },
+
+            geminiMessageKey(msg) {
+                if (!msg) return '';
+                return String(msg.role || '') + ':' + String(msg.text || '').slice(0, 80);
+            },
+
+            copyGeminiMessage(msg) {
+                const text = this.tidyNalarAnswer(msg?.text || '');
+                if (!text) return;
+                navigator.clipboard.writeText(text).then(() => {
+                    if (this.copiedMessageTimer) clearTimeout(this.copiedMessageTimer);
+                    this.copiedMessageKey = this.geminiMessageKey(msg);
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                    this.copiedMessageTimer = setTimeout(() => {
+                        this.copiedMessageKey = '';
+                        this.$nextTick(() => window.lucide && lucide.createIcons());
+                    }, 2000);
+                });
             },
 
             async saveGeminiApiKey() {
@@ -1411,8 +1492,30 @@
                 };
             },
 
-            openSendToArena() {
-                if (!this.result || this.tab !== 'quiz' || !this.arenaClassrooms.length) return;
+            sendGeminiToArena(msg) {
+                if (!msg?.text || !this.arenaBelajarAktif || !this.arenaClassrooms.length || this.sendingArena) return;
+                if (!this.looksLikeQuizDocument(msg.text)) {
+                    this.error = 'Jawaban ini belum berbentuk soal. Minta Nalar membuat soal (SOAL EVALUASI), atau buka di Generator Soal dulu.';
+                    return;
+                }
+                this.result = msg.text;
+                this.openSendToArena({ fromNalar: true });
+            },
+
+            looksLikeQuizDocument(text) {
+                const t = String(text || '').trim();
+                if (!t) return false;
+                if (/SOAL EVALUASI|Kunci Jawaban|Bagian\s+[A-Z]\s*-/i.test(t)) return true;
+                return /^\s*\d+[\.\)]\s+\S/m.test(t) && /^\s*[A-Da-d][\.\)]\s+\S/m.test(t);
+            },
+
+            openSendToArena(opts = {}) {
+                if (!this.result || !this.arenaBelajarAktif || !this.arenaClassrooms.length) return;
+                if (!this.looksLikeQuizDocument(this.result)) {
+                    this.error = 'Teks hasil belum berbentuk soal yang bisa diimpor ke Arena.';
+                    return;
+                }
+                this._arenaFromNalar = !!opts.fromNalar || this.tab === 'gemini';
                 if (this.arenaClassrooms.length === 1) {
                     this.arenaClassroomId = this.arenaClassrooms[0].uuid;
                     this.sendToArena();
@@ -1434,10 +1537,18 @@
                 csrf.name = '_token';
                 csrf.value = document.querySelector('meta[name="csrf-token"]').content;
                 form.appendChild(csrf);
+                const fromNalar = this._arenaFromNalar || this.tab === 'gemini';
+                const defaultTitle = fromNalar
+                    ? 'Kuis dari Nalar Guru'
+                    : 'Kuis dari Asisten Guru';
+                // Jangan pakai quiz.topik Generator Soal saat kirim dari Nalar.
+                const title = (! fromNalar && this.quiz.topik)
+                    ? ('Kuis: ' + this.quiz.topik)
+                    : defaultTitle;
                 const fields = {
                     classroom_id: this.arenaClassroomId,
                     raw_text: this.result,
-                    title: this.quiz.topik ? ('Kuis: ' + this.quiz.topik) : 'Kuis dari Asisten Guru',
+                    title,
                 };
                 Object.entries(fields).forEach(([name, value]) => {
                     const input = document.createElement('input');
@@ -1570,10 +1681,14 @@
                 if (item.type === 'gemini_chat') {
                     this.tab = 'gemini';
                     const prompt = (item.metadata && item.metadata.prompt) || item.title || '';
-                    const answer = item.answer || '';
+                    const answer = this.tidyNalarAnswer(item.answer || '');
                     this.geminiMessages = [];
                     if (prompt) this.geminiMessages.push({ role: 'user', text: prompt });
-                    if (answer) this.geminiMessages.push({ role: 'assistant', text: answer });
+                    if (answer) {
+                        const msg = { role: 'assistant', text: answer, previewHtml: '' };
+                        this.geminiMessages.push(msg);
+                        this.attachQuizPreviewToMessage(msg);
+                    }
                     this.$nextTick(() => {
                         window.lucide && lucide.createIcons();
                         if (this.$refs.geminiScroll) this.$refs.geminiScroll.scrollTop = this.$refs.geminiScroll.scrollHeight;

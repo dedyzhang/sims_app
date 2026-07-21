@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AiTeacherHistory;
 use App\Models\User;
 use App\Services\GeminiService;
+use App\Support\SchoolLetterhead;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Mockery\MockInterface;
@@ -78,9 +79,15 @@ class AiTeacherExternalGeminiTest extends TestCase
     public function test_external_result_stores_history(): void
     {
         $guru = $this->guru();
-        $answer = "YAYASAN BUMI MAITRI\nSOAL EVALUASI\n1. Contoh?\nA. Satu\n\nKunci Jawaban & Pedoman Penilaian\n1. A";
+        $answer = "YAYASAN BUMI MAITRI
+SOAL EVALUASI
+1. Contoh?
+A. Satu
 
-        $this->actingAs($guru)
+Kunci Jawaban & Pedoman Penilaian
+1. A";
+
+        $response = $this->actingAs($guru)
             ->postJson(route('ai.teacher.external-result'), [
                 'tool' => 'quiz',
                 'title' => 'Fotosintesis',
@@ -88,9 +95,13 @@ class AiTeacherExternalGeminiTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('ok', true)
-            ->assertJsonPath('answer', $answer)
             ->assertJsonPath('history.type', 'quiz')
             ->assertJsonPath('history.type_label', 'Generator Soal');
+
+        $fixed = (string) $response->json('answer');
+        $this->assertStringStartsWith(SchoolLetterhead::schoolName(), $fixed);
+        $this->assertStringContainsString('SOAL EVALUASI', $fixed);
+        $this->assertStringNotContainsString('YAYASAN BUMI MAITRI', $fixed);
 
         $this->assertDatabaseHas('ai_teacher_histories', [
             'user_uuid' => $guru->uuid,

@@ -348,9 +348,9 @@
             </a>
             <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                 <div>
-                    <p class="arena-lobby-kicker mb-1">Experience builder · Studio</p>
+                    <p class="arena-lobby-kicker mb-1">Studio kuis · Arena Belajar</p>
                     <h1 class="text-2xl sm:text-3xl font-bold tracking-tight" style="text-shadow:0 3px 0 rgba(255,255,255,.5)">
-                        {{ $quiz ? 'Edit Experience' : 'Buat Experience' }}
+                        {{ $quiz ? 'Edit kuis' : 'Buat kuis' }}
                     </h1>
                     <p class="text-sm font-semibold mt-1.5 opacity-75">{{ $classroom->title }} · Susun soal, rebut podium</p>
                 </div>
@@ -379,11 +379,11 @@
         <div class="edu-section p-4 sm:p-5 space-y-4">
             <div class="edu-section-title">
                 <span class="edu-step">1</span>
-                Setting experience
+                Pengaturan kuis
             </div>
 
             <div>
-                <label class="edu-label">Judul experience</label>
+                <label class="edu-label">Judul kuis</label>
                 <input type="text" name="title" value="{{ old('title', $quiz->title ?? ($aiImportTitle ?? '')) }}" required maxlength="200"
                        class="edu-input" placeholder="Contoh: Latihan Pecahan — Pertemuan 3">
             </div>
@@ -639,7 +639,7 @@
         <div class="edu-sticky">
             <a href="{{ route('classroom.arena.index', $classroom) }}" class="arena-play-btn arena-play-btn-ghost edu-btn-ghost">Batal</a>
             <button type="submit" class="arena-play-btn edu-btn-primary">
-                <i data-lucide="save" class="w-4 h-4"></i> Simpan experience
+                <i data-lucide="save" class="w-4 h-4"></i> Simpan kuis
             </button>
         </div>
     </form>

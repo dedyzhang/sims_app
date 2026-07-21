@@ -7,6 +7,7 @@ use App\Models\AiTeacherHistory;
 use App\Models\Classroom;
 use App\Models\Setting;
 use App\Models\TeacherPresentation;
+use App\Services\GameQuizImporter;
 use App\Services\GeminiService;
 use App\Support\LearningDocument;
 use App\Support\LearningDocxBuilder;
@@ -15,6 +16,7 @@ use App\Support\PresentationSlides;
 use App\Support\QuizDocument;
 use App\Support\QuizDocxBuilder;
 use App\Support\QuizImageEnricher;
+use App\Support\SchoolLetterhead;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -150,7 +152,7 @@ class AiTeacherController extends Controller
         };
 
         $title = trim((string) ($data['title'] ?? '')) ?: $meta['type_label'];
-        $answer = trim($data['answer']);
+        $answer = SchoolLetterhead::ensurePrefix(trim($data['answer']));
 
         $history = $this->storeHistory($request->user()->uuid, [
             'type' => $meta['type'],
@@ -270,9 +272,19 @@ class AiTeacherController extends Controller
             .'(kop sekolah, SOAL EVALUASI, identitas, Petunjuk Pengerjaan, Bagian soal, '
             .'Kunci Jawaban & Pedoman Penilaian). Jangan pakai Markdown.';
 
+        $nalarAnswerStyle = SchoolLetterhead::asPromptBlock()."\n\n"
+            .'Setiap jawaban Nalar Guru WAJIB teks polos berstruktur, siap disalin '
+            .'ke Word/WhatsApp/Google Docs. Mulai SELALU dengan kop surat di atas. '
+            .'Langsung ke isi tanpa pembuka/penutup basa-basi. '
+            .'Judul bagian pakai HURUF KAPITAL di baris sendiri + baris kosong. '
+            .'Poin pakai "- " atau nomor "1. 2. 3." (satu per baris). '
+            .'Paragraf pendek, satu baris kosong antar bagian. '
+            .'JANGAN memakai Markdown (#, **, *, ```, tabel pipe) atau emoji berlebih.';
+
         return [
             'system' => (string) config('ai.teacher.chat').$quizFormatReminder,
             'prompt' => $message,
+            'answer_style' => $nalarAnswerStyle,
             'title' => Str::limit($message, 90),
             'history_turns' => $historyTurns,
             'history' => [
@@ -538,6 +550,12 @@ class AiTeacherController extends Controller
         $classroom = Classroom::where('uuid', $data['classroom_id'])->firstOrFail();
         $this->authorize('manage', $classroom);
 
+        if (! GameQuizImporter::looksLikeImportableQuiz($data['raw_text'])) {
+            return redirect()
+                ->route('ai.teacher.index', ['tab' => 'quiz'])
+                ->with('error', 'Teks belum berbentuk soal yang bisa diimpor. Buat soal lewat Nalar/Generator (ada nomor soal + opsi atau SOAL EVALUASI), lalu kirim lagi.');
+        }
+
         session([
             'arena_ai_import' => [
                 'raw_text' => $data['raw_text'],
@@ -615,14 +633,14 @@ class AiTeacherController extends Controller
             ], 502);
         }
 
-        $answer = $result['text'];
+        $answer = SchoolLetterhead::ensurePrefix($result['text']);
         $images = [];
         $imageMeta = null;
 
         if ($soalBergambar) {
             @set_time_limit((int) config('ai.image.timeout', 90) * ((int) config('ai.image.max_per_quiz', 5) + 1));
             $enriched = app(QuizImageEnricher::class)->enrich($answer, $apiKey, $userId);
-            $answer = $enriched['text'];
+            $answer = SchoolLetterhead::ensurePrefix($enriched['text']);
             $images = $enriched['images'];
             $imageMeta = [
                 'generated' => $enriched['generated'],
@@ -702,7 +720,7 @@ class AiTeacherController extends Controller
     public function previewQuiz(Request $request): JsonResponse
     {
         $data = $this->validatedQuizExport($request);
-        $doc = QuizDocument::parse($data['content']);
+        $doc = QuizDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
 
         return response()->json([
             'ok' => true,
@@ -729,7 +747,7 @@ class AiTeacherController extends Controller
         }
 
         // Dokumen soal berformat dirender sebagai dokumen Word formal; selain itu paragraf polos.
-        $doc = QuizDocument::parse($data['content']);
+        $doc = QuizDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
         $written = $doc['parsed']
             ? QuizDocxBuilder::write($path, $doc)
             : $this->writeDocx($path, $title, $doc['text'], false, false);
@@ -753,7 +771,7 @@ class AiTeacherController extends Controller
 
         // Konten berformat dirender lewat partial yang sama dengan pratinjau & Word;
         // konten bebas jatuh ke render teks polos.
-        $doc = QuizDocument::parse($data['content']);
+        $doc = QuizDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
 
         $pdf = Pdf::loadView('ai.teacher-quiz-pdf', [
             'title' => $title,
@@ -799,7 +817,7 @@ class AiTeacherController extends Controller
     public function previewLearning(Request $request): JsonResponse
     {
         $data = $this->validatedLearningExport($request);
-        $doc = LearningDocument::parse($data['content']);
+        $doc = LearningDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
 
         return response()->json([
             'ok' => true,
@@ -824,7 +842,7 @@ class AiTeacherController extends Controller
         }
 
         // Konten berformat RPM dirender sebagai tabel Word formal; selain itu paragraf polos.
-        $doc = LearningDocument::parse($data['content']);
+        $doc = LearningDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
         $written = $doc['parsed']
             ? LearningDocxBuilder::write($path, $doc)
             : $this->writeDocx($path, $title, $doc['text'], false, false);
@@ -845,7 +863,7 @@ class AiTeacherController extends Controller
         $title = $this->learningExportTitle($data);
         $fileName = ($this->safeFileBase($title) ?: 'perangkat-ajar-learning').'-'.now()->format('Ymd-His').'.pdf';
 
-        $doc = LearningDocument::parse($data['content']);
+        $doc = LearningDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
 
         $pdf = Pdf::loadView('ai.teacher-document-pdf', [
             'title' => $title,
@@ -864,7 +882,15 @@ class AiTeacherController extends Controller
             return $built;
         }
 
-        return $this->respond($request, 'teacher_summary', $built['system'], $built['prompt'], 2048, [], $built['history']);
+        return $this->respond(
+            $request,
+            'teacher_summary',
+            $built['system'],
+            $built['prompt'],
+            2048,
+            ['answer_style' => $built['answer_style'] ?? null, 'thinking_level' => 'low'],
+            $built['history'],
+        );
     }
 
     /** POST /ai/teacher/feedback - draft komentar/feedback siswa. */
@@ -875,7 +901,15 @@ class AiTeacherController extends Controller
             return $built;
         }
 
-        return $this->respond($request, 'teacher_feedback', $built['system'], $built['prompt'], 2048, [], $built['history']);
+        return $this->respond(
+            $request,
+            'teacher_feedback',
+            $built['system'],
+            $built['prompt'],
+            2048,
+            ['answer_style' => $built['answer_style'] ?? null, 'thinking_level' => 'low'],
+            $built['history'],
+        );
     }
 
     /**
@@ -1055,11 +1089,16 @@ class AiTeacherController extends Controller
             'materi' => ['required', 'string', 'max:'.config('ai.max_input_chars')],
         ]);
 
-        $prompt = "Rangkum materi berikut menjadi poin-poin ringkas untuk siswa:\n\n".$data['materi'];
+        $prompt = SchoolLetterhead::asPromptBlock()
+            ."\n\nRangkum materi berikut menjadi poin-poin ringkas untuk siswa. "
+            ."Mulai jawaban dengan kop surat di atas, lalu judul RANGKUMAN MATERI, lalu isi.\n\n"
+            .$data['materi'];
 
         return [
             'system' => (string) config('ai.teacher.summary'),
             'prompt' => $prompt,
+            'answer_style' => SchoolLetterhead::asPromptBlock()
+                ."\nTulis teks polos berstruktur. Mulai dengan kop, lalu RANGKUMAN MATERI, lalu poin-poin. Tanpa Markdown.",
             'title' => Str::limit($data['materi'], 90),
             'history' => [
                 'type' => 'summary',
@@ -1084,12 +1123,17 @@ class AiTeacherController extends Controller
         ]);
 
         $nama = $data['nama'] ? "untuk siswa bernama {$data['nama']}" : '';
-        $prompt = "Susun draf umpan balik {$nama} berdasarkan konteks berikut:\n\n".$data['konteks'];
+        $prompt = SchoolLetterhead::asPromptBlock()
+            ."\n\nSusun draf umpan balik {$nama} berdasarkan konteks berikut. "
+            ."Mulai jawaban dengan kop surat di atas, lalu judul DRAF UMPAN BALIK, lalu isi.\n\n"
+            .$data['konteks'];
         $title = ! empty($data['nama']) ? 'Feedback untuk '.$data['nama'] : Str::limit($data['konteks'], 90);
 
         return [
             'system' => (string) config('ai.teacher.feedback'),
             'prompt' => $prompt,
+            'answer_style' => SchoolLetterhead::asPromptBlock()
+                ."\nTulis teks polos. Mulai dengan kop, lalu DRAF UMPAN BALIK, lalu isi. Tanpa Markdown.",
             'title' => $title,
             'history' => [
                 'type' => 'feedback',
@@ -1143,13 +1187,15 @@ class AiTeacherController extends Controller
             'success',
         );
 
+        $answer = SchoolLetterhead::ensurePrefix($result['text']);
+
         $history = $historyData !== null
-            ? $this->storeHistory($userId, $historyData, $result['text'])
+            ? $this->storeHistory($userId, $historyData, $answer)
             : null;
 
         return response()->json([
             'ok' => true,
-            'answer' => $result['text'],
+            'answer' => $answer,
             'history' => $history,
             'quota' => $this->aiPublicQuotaUsage(),
         ]);
@@ -1292,13 +1338,12 @@ class AiTeacherController extends Controller
 GAMBAR
             : '- Jangan menyisipkan gambar, Markdown gambar, atau URL gambar.';
 
+        $kop = SchoolLetterhead::asPlainText();
+
         return <<<TXT
 FORMAT WAJIB mengikuti contoh file soal-agama-buddha.docx. Tulis teks polos dengan urutan ini, tanpa Markdown:
 
-YAYASAN BUMI MAITRI
-SMP MAITREYAWIRA TANJUNGPINANG
-TERAKREDITASI A
-Jl. Prof. Ir. Sutami No. 38  Telp (0771) 4505723  Email smpmai.tpi@gmail.com
+{$kop}
 SOAL EVALUASI [MATA PELAJARAN / TOPIK]
 {$kelas} - Tingkat Kesulitan {$tingkatLabel}
 
@@ -1324,30 +1369,31 @@ ATURAN:
 - Nomor soal berurutan dari Bagian A sampai bagian terakhir.
 {$typeRules}
 {$gambarRules}
-- Jika data mata pelajaran/kelas/semester tidak tersedia, gunakan placeholder jelas, jangan mengarang data sekolah selain kop contoh.
+- Salin PERSIS baris kop surat di atas (dari identitas sekolah di SIMS). Jangan mengarang yayasan/alamat/telp lain.
+- Jika data mata pelajaran/kelas/semester tidak tersedia, gunakan placeholder jelas.
 - Jangan menulis pengantar atau catatan di luar dokumen soal.
 TXT;
     }
 
     private function learningFormatInstruction(string $tool): string
     {
-        return <<<'TXT'
-Ikuti format RPM resmi SMP Maitreyawira PERSIS (hasil export Word/PDF harus sama bentuknya). Tulis teks polos tanpa Markdown (#, **, ```), tanpa pembuka/penutup di luar dokumen.
+        $kop = SchoolLetterhead::asPlainText();
+        $namaSekolah = SchoolLetterhead::schoolName();
+        $kepala = SchoolLetterhead::kepalaSekolah();
+        $nipKepala = SchoolLetterhead::nipKepala();
 
-KOP WAJIB (6 baris, salin persis bila sekolah Maitreyawira; jika sekolah lain ganti baris 1–6 sesuai data, jangan mengarang):
-YAYASAN BUMI MAITRI
-SMP MAITREYAWIRA TANJUNGPINANG
-TERAKREDITASI A
-Komp. Gedung Pendidikan dan Pelatihan Buddhis Bumi Maitreya
-Jl. Prof. Ir. Sutami No. 38  Telp (0771) 4505723  Email smpmai.tpi@gmail.com
-Website http://www.maitreyawira-tpi.sch.id/
+        return <<<TXT
+Ikuti format RPM resmi sekolah PERSIS (hasil export Word/PDF harus sama bentuknya). Tulis teks polos tanpa Markdown (#, **, ```), tanpa pembuka/penutup di luar dokumen.
+
+KOP WAJIB (salin PERSIS dari identitas sekolah di SIMS; jangan diganti atau dikarang):
+{$kop}
 
 JUDUL:
 PERENCANAAN PEMBELAJARAN MENDALAM
 "[JUDUL TOPIK HURUF KAPITAL DALAM TANDA KUTIP]"
 
 IDENTITAS (satu label per baris, spasi sebelum titik dua):
-SEKOLAH : [nama]
+SEKOLAH : {$namaSekolah}
 NAMA GURU : [nama]
 MATA PELAJARAN : [mapel]
 KELAS / SEMESTER : [kelas] / [semester]
@@ -1442,8 +1488,8 @@ TANDA TANGAN:
 [Tempat], [tanggal]
 Mengetahui, | Guru Mata Pelajaran
 Kepala Sekolah |
-[Nama Kepala Sekolah] | [Nama Guru]
-NIK. [nomor] | NIK. [nomor/titik-titik]
+{$kepala} | [Nama Guru]
+NIK. {$nipKepala} | NIK. [nomor/titik-titik]
 
 LAMPIRAN 1 : ASESMEN AWAL PEMBELAJARAN
 • Materi : ...
@@ -1482,7 +1528,7 @@ c. ...
 d. ...
 (minimal 10 soal)
 
-Isi harus sesuai topik/mapel/kelas yang diminta. Jangan mengarang identitas yang tidak diberikan — pakai placeholder [Nama Guru], [Nama Kepala Sekolah], NIK. ...................... bila belum ada.
+Isi harus sesuai topik/mapel/kelas yang diminta. Jangan mengarang identitas yang tidak diberikan — pakai placeholder [Nama Guru] bila belum ada. Kop surat dan nama kepala sekolah sudah diisi dari data SIMS.
 TXT;
     }
 
