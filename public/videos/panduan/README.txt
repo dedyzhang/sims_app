@@ -1,5 +1,11 @@
 Video storyboard panduan visual SIMS.
-Sumber: 2026-07-12-panduan-sims/video/
 URL publik: /videos/panduan/{id}.mp4
-Contoh: /videos/panduan/login.mp4
-Asisten Guru: /videos/panduan/ai.mp4 (render: python 2026-07-12-panduan-sims/_render_video_win.py ai)
+
+Arena Belajar & Asisten Guru (update Juli 2026):
+- /videos/panduan/arenabelajar.mp4
+- /videos/panduan/arenakuis.mp4
+- /videos/panduan/arenamisi.mp4
+- /videos/panduan/ai.mp4
+
+Render ulang:
+  python docs/panduan-render/render_arena_ai_videos.py
