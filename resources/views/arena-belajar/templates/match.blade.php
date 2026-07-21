@@ -1,14 +1,19 @@
 @extends('layouts.app')
 @section('title', 'Pasangkan — '.$quiz->title)
 
+@push('styles')
+@include('arena-belajar.partials.game-styles')
+@endpush
+
 @section('content')
 @php
     $matchQs = $quiz->questions->where('type', 'match');
 @endphp
-<div class="space-y-5 max-w-xl mx-auto" x-data="{ done: {} }">
+<div class="space-y-5 max-w-xl mx-auto arena-stage" x-data="{ done: {} }">
     <div>
-        <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="text-sm text-slate-500 inline-flex items-center gap-1 mb-1">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali
+        <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back mb-3">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            <span>Experience</span>
         </a>
         <h1 class="text-xl font-black text-slate-800 dark:text-slate-100">Mode Pasangkan</h1>
         <p class="text-sm text-slate-500">Latihan visual dari bank soal yang sama (tanpa menyimpan skor).</p>

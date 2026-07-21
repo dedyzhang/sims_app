@@ -1,11 +1,16 @@
 @extends('layouts.app')
 @section('title', $mission->title)
 
+@push('styles')
+@include('arena-belajar.partials.game-styles')
+@endpush
+
 @section('content')
-<div class="space-y-5 max-w-3xl mx-auto">
+<div class="space-y-5 max-w-3xl mx-auto arena-stage">
     <div>
-        <a href="{{ route('classroom.arena.index', $classroom) }}" class="text-sm text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 mb-1">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> Arena Belajar
+        <a href="{{ route('classroom.arena.index', ['classroom' => $classroom, 'mode' => 'misi']) }}" class="arena-hud-back mb-3">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            <span>Lobby Arena</span>
         </a>
         <h1 class="text-xl sm:text-2xl font-black text-slate-800 dark:text-slate-100">{{ $mission->title }}</h1>
         <p class="text-sm text-slate-500 mt-1">{{ $mission->summary }}</p>

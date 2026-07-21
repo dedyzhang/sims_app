@@ -225,6 +225,54 @@ class GameQuizTest extends TestCase
         $response->assertDontSee('"is_correct"', false);
         // Pastikan opsi teks tetap ada
         $response->assertSee('1');
+        $response->assertSee('Solo · soal acak', false);
+    }
+
+    public function test_solo_play_shuffles_questions_per_attempt_but_stable_on_refresh(): void
+    {
+        $quiz = $this->makePublishedQuiz();
+        foreach (['Q3', 'Q4', 'Q5', 'Q6'] as $i => $label) {
+            $q = GameQuestion::create([
+                'quiz_id' => $quiz->uuid, 'type' => 'mcq', 'question_text' => $label,
+                'points' => 1, 'sort_order' => $i + 2,
+            ]);
+            GameQuestionOption::create(['question_id' => $q->uuid, 'option_text' => 'A', 'is_correct' => true, 'sort_order' => 0]);
+            GameQuestionOption::create(['question_id' => $q->uuid, 'option_text' => 'B', 'is_correct' => false, 'sort_order' => 1]);
+        }
+
+        ClassroomMember::create([
+            'classroom_id' => $this->classroom->uuid, 'user_id' => $this->otherSiswa->uuid,
+            'role_in_class' => 'siswa', 'joined_at' => now(),
+        ]);
+
+        $this->actingAs($this->siswaUser)->post(route('classroom.arena.start', [$this->classroom, $quiz]));
+        $this->actingAs($this->otherSiswa)->post(route('classroom.arena.start', [$this->classroom, $quiz]));
+
+        $attemptA = GameAttempt::where('student_id', $this->siswaUser->uuid)->where('source', 'async')->firstOrFail();
+        $attemptB = GameAttempt::where('student_id', $this->otherSiswa->uuid)->where('source', 'async')->firstOrFail();
+
+        $rA1 = $this->actingAs($this->siswaUser)
+            ->get(route('classroom.arena.play', [$this->classroom, $quiz, $attemptA]))
+            ->assertOk()
+            ->assertSee('Solo · soal acak', false);
+        $orderA1 = collect($rA1->viewData('questionsPayload'))->pluck('uuid')->all();
+        $optsA1 = collect($rA1->viewData('questionsPayload')->first()['options'] ?? [])->pluck('uuid')->all();
+
+        $rA2 = $this->actingAs($this->siswaUser)
+            ->get(route('classroom.arena.play', [$this->classroom, $quiz, $attemptA]))
+            ->assertOk();
+        $orderA2 = collect($rA2->viewData('questionsPayload'))->pluck('uuid')->all();
+        $optsA2 = collect($rA2->viewData('questionsPayload')->first()['options'] ?? [])->pluck('uuid')->all();
+
+        $rB = $this->actingAs($this->otherSiswa)
+            ->get(route('classroom.arena.play', [$this->classroom, $quiz, $attemptB]))
+            ->assertOk();
+        $orderB = collect($rB->viewData('questionsPayload'))->pluck('uuid')->all();
+
+        $this->assertSame($orderA1, $orderA2, 'Refresh harus menjaga urutan soal');
+        $this->assertSame($optsA1, $optsA2, 'Refresh harus menjaga urutan opsi');
+        $this->assertNotSame($orderA1, $orderB, 'Siswa berbeda harus dapat urutan berbeda');
+        $this->assertEqualsCanonicalizing($orderA1, $orderB, 'Set soal harus sama, hanya urutannya beda');
     }
 
     public function test_importer_parses_numbered_mcq(): void
@@ -362,6 +410,119 @@ TXT;
         $response->assertRedirect(route('ai.teacher.index', ['tab' => 'quiz']));
         $response->assertSessionHas('error');
         $response->assertSessionMissing('arena_ai_import');
+    }
+
+    public function test_guru_can_copy_quiz_soal_to_other_classrooms(): void
+    {
+        $quiz = $this->makePublishedQuiz();
+        $kelasB = Kelas::create(['tingkat' => 7, 'kelas' => 'B']);
+        $kelasC = Kelas::create(['tingkat' => 7, 'kelas' => 'C']);
+        $pelajaranId = $this->classroom->id_pelajaran;
+
+        Ngajar::create([
+            'id_guru' => $this->guru->uuid,
+            'id_kelas' => $kelasB->uuid,
+            'id_pelajaran' => $pelajaranId,
+        ]);
+        Ngajar::create([
+            'id_guru' => $this->guru->uuid,
+            'id_kelas' => $kelasC->uuid,
+            'id_pelajaran' => $pelajaranId,
+        ]);
+
+        $classB = Classroom::create([
+            'id_semester' => $this->classroom->id_semester,
+            'id_kelas' => $kelasB->uuid,
+            'id_pelajaran' => $pelajaranId,
+            'title' => 'Matematika 7B',
+            'status' => 'published',
+            'class_code' => 'ARENA02',
+            'created_by' => $this->guruUser->uuid,
+            'cover_color' => '#2563eb',
+        ]);
+        $classC = Classroom::create([
+            'id_semester' => $this->classroom->id_semester,
+            'id_kelas' => $kelasC->uuid,
+            'id_pelajaran' => $pelajaranId,
+            'title' => 'Matematika 7C',
+            'status' => 'published',
+            'class_code' => 'ARENA03',
+            'created_by' => $this->guruUser->uuid,
+            'cover_color' => '#2563eb',
+        ]);
+
+        $this->actingAs($this->guruUser)
+            ->get(route('classroom.arena.show', [$this->classroom, $quiz]))
+            ->assertOk()
+            ->assertSee('Salin soal ke kelas lain', false)
+            ->assertSee('Matematika 7B', false);
+
+        $response = $this->actingAs($this->guruUser)
+            ->post(route('classroom.arena.copy', [$this->classroom, $quiz]), [
+                'classroom_ids' => [$classB->uuid, $classC->uuid],
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $copyB = GameQuiz::where('classroom_id', $classB->uuid)->where('title', 'Kuis Uji')->first();
+        $copyC = GameQuiz::where('classroom_id', $classC->uuid)->where('title', 'Kuis Uji')->first();
+        $this->assertNotNull($copyB);
+        $this->assertNotNull($copyC);
+        $this->assertSame('draft', $copyB->status);
+        $this->assertCount(2, $copyB->questions);
+        $this->assertCount(4, $copyB->questions->first()->options);
+        $this->assertNotSame($quiz->uuid, $copyB->uuid);
+        $this->assertNotSame($quiz->questions->first()->uuid, $copyB->questions->first()->uuid);
+
+        $srcQ = $quiz->questions()->orderBy('sort_order')->first();
+        $dstQ = $copyB->questions()->orderBy('sort_order')->first();
+        $this->assertSame($srcQ->question_text, $dstQ->question_text);
+        $this->assertSame(
+            $srcQ->options()->orderBy('sort_order')->pluck('is_correct')->map(fn ($v) => (bool) $v)->all(),
+            $dstQ->options()->orderBy('sort_order')->pluck('is_correct')->map(fn ($v) => (bool) $v)->all()
+        );
+    }
+
+    public function test_copy_rejects_different_mapel_classroom(): void
+    {
+        $quiz = $this->makePublishedQuiz();
+        $kelasB = Kelas::create(['tingkat' => 7, 'kelas' => 'B']);
+        $mapelLain = Pelajaran::create(['nama' => 'Fisika', 'ringkasan' => 'FIS', 'kkm' => 75]);
+        Ngajar::create([
+            'id_guru' => $this->guru->uuid,
+            'id_kelas' => $kelasB->uuid,
+            'id_pelajaran' => $mapelLain->uuid,
+        ]);
+        $classFisika = Classroom::create([
+            'id_semester' => $this->classroom->id_semester,
+            'id_kelas' => $kelasB->uuid,
+            'id_pelajaran' => $mapelLain->uuid,
+            'title' => 'Fisika 7B',
+            'status' => 'published',
+            'class_code' => 'ARENAFIS',
+            'created_by' => $this->guruUser->uuid,
+            'cover_color' => '#2563eb',
+        ]);
+
+        $this->actingAs($this->guruUser)
+            ->post(route('classroom.arena.copy', [$this->classroom, $quiz]), [
+                'classroom_ids' => [$classFisika->uuid],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertNull(GameQuiz::where('classroom_id', $classFisika->uuid)->first());
+    }
+
+    public function test_siswa_cannot_copy_quiz(): void
+    {
+        $quiz = $this->makePublishedQuiz();
+        $this->actingAs($this->siswaUser)
+            ->post(route('classroom.arena.copy', [$this->classroom, $quiz]), [
+                'classroom_ids' => [$this->classroom->uuid],
+            ])
+            ->assertStatus(403);
     }
 
     private function makePublishedQuiz(): GameQuiz

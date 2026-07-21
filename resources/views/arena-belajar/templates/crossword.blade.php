@@ -1,6 +1,10 @@
 @extends('layouts.app')
 @section('title', 'Crossword — '.$quiz->title)
 
+@push('styles')
+@include('arena-belajar.partials.game-styles')
+@endpush
+
 @section('content')
 @php
     $words = $quiz->questions->where('type', 'short_answer')
@@ -13,9 +17,10 @@
         ->take(8)
         ->values();
 @endphp
-<div class="space-y-4 max-w-xl mx-auto">
-    <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="text-sm text-slate-500 inline-flex items-center gap-1">
-        <i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali
+<div class="space-y-4 max-w-xl mx-auto arena-stage">
+    <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back">
+        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        <span>Experience</span>
     </a>
     <h1 class="text-xl font-black">Teka-teki kata</h1>
     <p class="text-sm text-slate-500">Versi sederhana dari bank isian singkat (bukan grid silang penuh).</p>

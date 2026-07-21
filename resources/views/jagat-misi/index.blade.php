@@ -20,7 +20,16 @@
 <div class="space-y-5 arena-stage">
     <div class="arena-hero p-5 sm:p-8 relative">
         <div class="arena-hero-stars" aria-hidden="true"></div>
-        <div class="relative z-[1] arena-intro">
+        <a href="{{ route('dashboard') }}" class="arena-hero-back">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            <span>Dashboard</span>
+        </a>
+        <div class="relative z-[1] arena-intro arena-intro-katalog">
+            <div class="arena-planet" aria-hidden="true">
+                <div class="arena-orbit arena-orbit-a"><span class="arena-orbit-dot"></span></div>
+                <div class="arena-orbit arena-orbit-b"></div>
+                <div class="arena-planet-core">AB</div>
+            </div>
             <div>
                 <p class="arena-eyebrow">Arena Belajar</p>
                 <h1 class="arena-title">Katalog Misi</h1>
@@ -40,11 +49,6 @@
                     <a href="{{ route('jagat-misi.analytics') }}" class="arena-cta arena-cta-ghost">Analitik</a>
                     @endcan
                 </div>
-            </div>
-            <div class="arena-planet" aria-hidden="true">
-                <div class="arena-orbit arena-orbit-a"><span class="arena-orbit-dot"></span></div>
-                <div class="arena-orbit arena-orbit-b"></div>
-                <div class="arena-planet-core">AB</div>
             </div>
         </div>
     </div>

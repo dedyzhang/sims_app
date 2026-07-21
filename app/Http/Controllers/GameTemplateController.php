@@ -39,13 +39,22 @@ class GameTemplateController extends Controller implements HasMiddleware
         $this->authorize('manage', $quiz);
 
         $data = $request->validate([
-            'template' => ['required', Rule::in(['quiz', 'match', 'flashcard', 'crossword', 'unjumble'])],
+            'template' => ['required', Rule::in(['quiz', 'match', 'flashcard', 'crossword', 'unjumble', 'ular_tangga'])],
         ]);
 
         $quiz->update(['template' => $data['template']]);
         Audit::log('arena_template_set', $quiz, $data);
 
-        return back()->with('success', 'Template diganti ke '.$data['template'].'.');
+        $labels = [
+            'quiz' => 'Quiz',
+            'match' => 'Pasangkan',
+            'flashcard' => 'Flashcard',
+            'crossword' => 'Teka-teki',
+            'unjumble' => 'Susun kata',
+            'ular_tangga' => 'Ular tangga',
+        ];
+
+        return back()->with('success', 'Template diganti ke '.($labels[$data['template']] ?? $data['template']).'.');
     }
 
     public function playTemplate(Classroom $classroom, GameQuiz $quiz)
@@ -55,7 +64,7 @@ class GameTemplateController extends Controller implements HasMiddleware
 
         $template = $quiz->template ?: 'quiz';
         // Template berisi kunci jawaban — hanya guru/manager
-        if (in_array($template, ['flashcard', 'crossword', 'unjumble'], true)) {
+        if (in_array($template, ['flashcard', 'crossword', 'unjumble', 'ular_tangga'], true)) {
             $this->authorize('manage', $quiz);
         }
 

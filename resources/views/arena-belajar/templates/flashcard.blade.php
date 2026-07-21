@@ -1,8 +1,12 @@
 @extends('layouts.app')
 @section('title', 'Flashcard — '.$quiz->title)
 
+@push('styles')
+@include('arena-belajar.partials.game-styles')
+@endpush
+
 @section('content')
-<div class="max-w-md mx-auto space-y-4"
+<div class="max-w-md mx-auto space-y-4 arena-stage"
      x-data="{
         cards: @js($quiz->questions->map(fn($q) => [
             'q' => $q->question_text,
@@ -12,8 +16,9 @@
         ])->values()),
         i: 0, flip: false
      }">
-    <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="text-sm text-slate-500 inline-flex items-center gap-1">
-        <i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali
+    <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back">
+        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        <span>Experience</span>
     </a>
     <h1 class="text-xl font-black">Flashcard</h1>
     <p class="text-xs text-slate-500" x-text="(i+1) + ' / ' + cards.length"></p>

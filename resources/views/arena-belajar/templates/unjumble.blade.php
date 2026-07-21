@@ -1,6 +1,10 @@
 @extends('layouts.app')
 @section('title', 'Susun Kata — '.$quiz->title)
 
+@push('styles')
+@include('arena-belajar.partials.game-styles')
+@endpush
+
 @section('content')
 @php
     $items = $quiz->questions->where('type', 'short_answer')
@@ -12,9 +16,10 @@
             return ['clue' => $q->question_text, 'scrambled' => implode(' ', $letters), 'answer' => mb_strtoupper(preg_replace('/\s+/', '', $ans) ?? '')];
         })->filter()->values();
 @endphp
-<div class="space-y-4 max-w-xl mx-auto" x-data="{ show: {} }">
-    <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="text-sm text-slate-500 inline-flex items-center gap-1">
-        <i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali
+<div class="space-y-4 max-w-xl mx-auto arena-stage" x-data="{ show: {} }">
+    <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back">
+        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        <span>Experience</span>
     </a>
     <h1 class="text-xl font-black">Susun Kata</h1>
     @forelse($items as $i => $item)

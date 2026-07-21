@@ -1,13 +1,19 @@
 @extends('layouts.app')
 @section('title', 'Arena Belajar — Misi — ' . $classroom->title)
 
+@push('styles')
+@include('arena-belajar.partials.game-styles')
+@endpush
+
 @section('content')
-<div class="space-y-5 max-w-4xl mx-auto">
+<div class="space-y-5 max-w-4xl mx-auto arena-stage">
     <div class="rounded-2xl p-5 sm:p-7 text-white relative overflow-hidden"
          style="background:radial-gradient(ellipse 70% 50% at 10% 0%,color-mix(in srgb,var(--cp) 50%,transparent),transparent 60%),linear-gradient(155deg,#0c1a24,#152836 55%,#0f2430)">
         <div class="relative z-[1]">
-            <a href="{{ route('classroom.arena.index', $classroom) }}" class="text-xs text-slate-300/90 hover:text-white inline-flex items-center gap-1 mb-3">
-                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Arena Belajar
+            <a href="{{ route('classroom.arena.index', ['classroom' => $classroom, 'mode' => 'misi']) }}"
+               class="arena-hud-back !bg-white/15 !border-white/20 !text-white !shadow-none hover:!bg-white/25 mb-3 inline-flex">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                <span>Lobby Arena</span>
             </a>
             <h1 class="text-2xl sm:text-3xl font-black tracking-tight">Misi</h1>
             <p class="text-sm text-slate-300 mt-1.5">Misi edukatif interaktif untuk kelas ini.</p>

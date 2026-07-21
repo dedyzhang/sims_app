@@ -342,9 +342,9 @@
             <span class="edu-hb-c"></span>
         </div>
         <div class="relative z-[1]">
-            <a href="{{ route('classroom.arena.index', $classroom) }}" class="arena-hud-back mb-3">
+            <a href="{{ $quiz ? route('classroom.arena.show', [$classroom, $quiz]) : route('classroom.arena.index', $classroom) }}" class="arena-hud-back mb-3">
                 <i data-lucide="chevron-left" class="w-4 h-4"></i>
-                <span>Lobby Arena</span>
+                <span>{{ $quiz ? 'Experience' : 'Lobby Arena' }}</span>
             </a>
             <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                 <div>

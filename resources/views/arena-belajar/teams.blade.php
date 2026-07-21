@@ -1,16 +1,21 @@
 @extends('layouts.app')
 @section('title', 'Tim — '.$quiz->title)
 
+@push('styles')
+@include('arena-belajar.partials.game-styles')
+@endpush
+
 @section('content')
-<div class="space-y-5 max-w-2xl mx-auto" x-data="teamBuilder(@js(
+<div class="space-y-5 max-w-2xl mx-auto arena-stage" x-data="teamBuilder(@js(
     $teams->map(fn($t) => [
         'name' => $t->name,
         'member_ids' => $t->members->pluck('user_id')->values(),
     ])->values()->all() ?: [['name' => 'Tim A', 'member_ids' => []], ['name' => 'Tim B', 'member_ids' => []]]
 ), @js($members->map(fn($m) => ['id' => $m->user_id, 'name' => $m->user?->displayName() ?? 'Siswa'])->values()))">
     <div>
-        <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="text-sm text-slate-500 inline-flex items-center gap-1 mb-1">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali
+        <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back mb-3">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            <span>Experience</span>
         </a>
         <h1 class="text-xl font-black">Mode Tim</h1>
         <p class="text-sm text-slate-500">Bagi siswa ke kelompok untuk podium agregat.</p>

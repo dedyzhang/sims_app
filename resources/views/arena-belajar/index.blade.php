@@ -29,7 +29,7 @@
     }
 @endphp
 <div class="arena-stage arena-lobby"
-     x-data="{ mode: '{{ $defaultMode }}', jenjang: 'semua', hanyaTren: false, entered: false }"
+     x-data="{ mode: '{{ $defaultMode }}', jenjang: 'semua', hanyaTren: false, entered: false, quizFilter: 'semua' }"
      x-init="setTimeout(() => entered = true, 80)">
 
     {{-- World backdrop --}}
@@ -46,9 +46,9 @@
 
     {{-- Top HUD --}}
     <header class="arena-lobby-hud arena-anim-in">
-        <a href="{{ route('jagat-misi.index') }}" class="arena-hud-back">
+        <a href="{{ route('classroom.show', $classroom) }}" class="arena-hud-back">
             <i data-lucide="chevron-left" class="w-4 h-4"></i>
-            <span class="truncate">Kembali</span>
+            <span class="truncate">Ruang Kelas</span>
         </a>
         <div class="arena-hud-player">
             <span class="arena-hud-avatar" aria-hidden="true">{{ $playerInitial }}</span>
@@ -148,53 +148,123 @@
         </button>
     </div>
 
-    {{-- ===== DISCOVER: KUIS ===== --}}
-    <section x-ref="discover" x-show="mode==='kuis'" x-cloak class="arena-discover space-y-4">
+    {{-- ===== DISCOVER: KUIS (Roblox-style experiences) ===== --}}
+    @php
+        $liveQuizIds = collect($liveQuizIds ?? []);
+        $templateIcons = [
+            'quiz' => 'gamepad-2',
+            'match' => 'puzzle',
+            'flashcard' => 'layers',
+            'crossword' => 'layout-grid',
+            'unjumble' => 'shuffle',
+            'ular_tangga' => 'waypoints',
+        ];
+        $liveNowQuizzes = $quizzes->filter(fn ($q) => $liveQuizIds->contains($q->uuid))->values();
+    @endphp
+    <section x-ref="discover" x-show="mode==='kuis'" x-cloak class="arena-discover arena-rx space-y-4">
         <div class="arena-discover-head">
             <div>
-                <p class="arena-lobby-kicker" style="color:var(--arena-teal)">Kuis</p>
-                <h2 class="arena-discover-title">Kuis di kelas ini</h2>
+                <p class="arena-lobby-kicker" style="color:var(--arena-teal)">Experiences</p>
+                <h2 class="arena-discover-title">Kuis &amp; Live per kelas</h2>
+                <p class="text-sm font-semibold text-slate-500 dark:text-slate-400 mt-1 m-0">Pilih world soal — main solo atau masuk arena live bareng kelas.</p>
             </div>
             @if($canManage)
             <a href="{{ route('classroom.arena.create', $classroom) }}" class="arena-mini-cta">
-                <i data-lucide="plus" class="w-4 h-4"></i> Baru
+                <i data-lucide="plus" class="w-4 h-4"></i> Buat experience
             </a>
             @endif
         </div>
 
-        <div class="arena-xp-grid">
+        <div class="arena-rx-filters" role="tablist" aria-label="Filter kuis">
+            <button type="button" class="arena-rx-chip" :class="{ active: quizFilter === 'semua' }" @click="quizFilter='semua'">Semua</button>
+            <button type="button" class="arena-rx-chip" :class="{ active: quizFilter === 'terbit' }" @click="quizFilter='terbit'">Siap main</button>
+            <button type="button" class="arena-rx-chip arena-rx-chip-live" :class="{ active: quizFilter === 'live' }" @click="quizFilter='live'">Live</button>
+        </div>
+
+        @if($liveNowQuizzes->isNotEmpty())
+        <div class="arena-rx-live-rail" x-show="quizFilter === 'semua' || quizFilter === 'live'">
+            <div class="arena-rx-live-head">
+                <span class="arena-rx-live-badge"><span class="arena-rx-live-dot"></span> Live now</span>
+                <p class="arena-rx-live-note">Sesi sedang jalan — join sebelum soal berakhir</p>
+            </div>
+            <div class="arena-rx-live-scroll">
+                @foreach($liveNowQuizzes as $lq)
+                @php [$la, $lb] = $artPairs[$loop->index % count($artPairs)]; @endphp
+                <a href="{{ route('classroom.arena.live', [$classroom, $lq]) }}"
+                   class="arena-rx-live-card"
+                   style="--art-a:{{ $la }};--art-b:{{ $lb }}">
+                    <span class="arena-rx-live-thumb" aria-hidden="true">
+                        <i data-lucide="radio" class="w-6 h-6"></i>
+                    </span>
+                    <span>
+                        <p class="arena-rx-live-title">{{ $lq->title }}</p>
+                        <p class="arena-rx-live-meta">{{ $lq->questions_count }} soal · masuk lobby</p>
+                    </span>
+                </a>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
+        <div class="arena-rx-grid">
             @forelse($quizzes as $q)
-            @php [$a, $b] = $artPairs[$loop->index % count($artPairs)]; @endphp
-            <a href="{{ route('classroom.arena.show', [$classroom, $q]) }}"
-               class="arena-xp-card arena-anim-in"
-               style="animation-delay: {{ $loop->index * 50 }}ms; --art-a:{{ $a }};--art-b:{{ $b }}">
-                <div class="arena-xp-thumb">
-                    <span class="arena-xp-blocks" aria-hidden="true"></span>
-                    <i data-lucide="gamepad-2" class="w-11 h-11"></i>
-                    <span class="arena-xp-play"><i data-lucide="play" class="w-4 h-4 fill-current"></i></span>
-                    <span class="arena-xp-status">{{ $q->statusLabel() }}</span>
+            @php
+                [$a, $b] = $artPairs[$loop->index % count($artPairs)];
+                $isLive = $liveQuizIds->contains($q->uuid);
+                $tpl = $q->template ?? 'quiz';
+                $icon = $templateIcons[$tpl] ?? 'gamepad-2';
+                $xpPct = min(100, max(12, (int) $q->questions_count * 8));
+                $filterKey = $isLive ? 'live' : ($q->status === 'published' ? 'terbit' : 'draf');
+            @endphp
+            <article class="arena-rx-card"
+                     style="animation-delay: {{ $loop->index * 55 }}ms; --art-a:{{ $a }};--art-b:{{ $b }}"
+                     x-show="quizFilter === 'semua' || (quizFilter === 'live' && {{ $isLive ? 'true' : 'false' }}) || (quizFilter === 'terbit' && {{ $q->status === 'published' ? 'true' : 'false' }})"
+                     x-cloak
+                     data-filter="{{ $filterKey }}">
+                <a href="{{ route('classroom.arena.show', [$classroom, $q]) }}" class="block text-inherit no-underline">
+                    <div class="arena-rx-thumb">
+                        <span class="arena-rx-thumb-grid" aria-hidden="true"></span>
+                        <span class="arena-rx-thumb-blocks" aria-hidden="true"><span></span><span></span><span></span></span>
+                        <span class="arena-rx-thumb-icon"><i data-lucide="{{ $icon }}" class="w-7 h-7"></i></span>
+                        <div class="arena-rx-flags">
+                            @if($isLive)
+                            <span class="arena-rx-flag arena-rx-flag-live">Live</span>
+                            @endif
+                            <span class="arena-rx-flag {{ $q->status === 'published' ? 'arena-rx-flag-ok' : ($q->status === 'closed' ? 'arena-rx-flag-closed' : 'arena-rx-flag-draft') }}">{{ $q->statusLabel() }}</span>
+                        </div>
+                        <span class="arena-rx-play"><i data-lucide="play" class="w-4 h-4 fill-current"></i> Play</span>
+                    </div>
+                    <div class="arena-rx-body">
+                        <h3 class="arena-rx-title">{{ $q->title }}</h3>
+                        <div class="arena-rx-stats">
+                            <span class="arena-rx-stat"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> {{ $q->questions_count }} soal</span>
+                            <span class="arena-rx-stat"><i data-lucide="zap" class="w-3.5 h-3.5"></i> {{ $q->max_score }} XP</span>
+                            <span class="arena-rx-stat"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> {{ $q->scoringModeLabel() }}</span>
+                            @if($q->due_at)
+                            <span class="arena-rx-stat"><i data-lucide="calendar" class="w-3.5 h-3.5"></i> {{ $q->due_at->locale('id')->translatedFormat('d M') }}</span>
+                            @endif
+                        </div>
+                        <div class="arena-rx-xp" title="Kekuatan soal"><span style="width: {{ $xpPct }}%"></span></div>
+                    </div>
+                </a>
+                <div class="arena-rx-actions px-4 pb-4">
+                    <a href="{{ route('classroom.arena.show', [$classroom, $q]) }}" class="arena-rx-btn arena-rx-btn-solo">
+                        <i data-lucide="play" class="w-3.5 h-3.5"></i> Solo
+                    </a>
+                    <a href="{{ route('classroom.arena.live', [$classroom, $q]) }}" class="arena-rx-btn arena-rx-btn-live">
+                        <i data-lucide="radio" class="w-3.5 h-3.5"></i> Live
+                    </a>
                 </div>
-                <div class="arena-xp-info">
-                    <h3 class="arena-xp-title">{{ $q->title }}</h3>
-                    <p class="arena-xp-meta">
-                        <span>{{ $q->questions_count }} soal</span>
-                        <span>·</span>
-                        <span>{{ $q->max_score }} XP</span>
-                        @if($q->due_at)
-                        <span>·</span>
-                        <span>{{ $q->due_at->locale('id')->translatedFormat('d M') }}</span>
-                        @endif
-                    </p>
-                    <span class="arena-xp-cta">Mainkan</span>
-                </div>
-            </a>
+            </article>
             @empty
-            <div class="arena-xp-empty">
-                <div class="arena-xp-empty-ico"><i data-lucide="gamepad-2" class="w-9 h-9"></i></div>
-                <p class="font-black text-lg text-slate-800 dark:text-slate-100">Belum ada kuis</p>
-                <p class="text-sm text-slate-500 mt-1">Buat kuis baru, atau impor dari Asisten Guru (Generator Soal / Nalar Guru).</p>
+            <div class="arena-rx-empty">
+                <div class="arena-rx-empty-ico"><i data-lucide="rocket" class="w-9 h-9"></i></div>
+                <p class="font-black text-xl text-slate-800 dark:text-slate-100 m-0">Belum ada experience</p>
+                <p class="text-sm text-slate-500 mt-2 max-w-md mx-auto">Bangun kuis pertama untuk kelas ini — seperti world baru di lobby. Impor soal dari Asisten Guru biar cepat.</p>
                 @if($canManage)
-                <a href="{{ route('classroom.arena.create', $classroom) }}" class="arena-play-btn mt-4 inline-flex">Buat kuis</a>
+                <a href="{{ route('classroom.arena.create', $classroom) }}" class="arena-play-btn mt-5 inline-flex">
+                    <i data-lucide="plus" class="w-5 h-5"></i> Buat kuis pertama
+                </a>
                 @endif
             </div>
             @endforelse

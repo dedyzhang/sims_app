@@ -94,6 +94,31 @@ class GameTemplateTest extends TestCase
         $this->assertSame($before, $this->quiz->questions()->count());
     }
 
+    public function test_guru_can_set_and_open_ular_tangga_template(): void
+    {
+        $this->actingAs($this->guruUser)
+            ->post(route('classroom.arena.template', [$this->classroom, $this->quiz]), ['template' => 'ular_tangga'])
+            ->assertRedirect();
+
+        $this->quiz->refresh();
+        $this->assertSame('ular_tangga', $this->quiz->template);
+
+        $this->actingAs($this->guruUser)
+            ->get(route('classroom.arena.template.play', [$this->classroom, $this->quiz]))
+            ->assertOk()
+            ->assertSee('Ular tangga', false)
+            ->assertSee('Lempar dadu', false);
+    }
+
+    public function test_siswa_cannot_open_ular_tangga_template_with_keys(): void
+    {
+        $this->quiz->update(['template' => 'ular_tangga']);
+
+        $this->actingAs($this->siswaUser)
+            ->get(route('classroom.arena.template.play', [$this->classroom, $this->quiz]))
+            ->assertStatus(403);
+    }
+
     public function test_pdf_ok_for_guru_and_key_forbidden_for_siswa(): void
     {
         $this->actingAs($this->guruUser)

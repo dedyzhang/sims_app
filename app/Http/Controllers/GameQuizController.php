@@ -104,6 +104,14 @@ class GameQuizController extends Controller implements HasMiddleware
         $ideJenjang = \App\Support\ArenaJenjang::rekomendasi();
         $ideTren = \App\Support\ArenaJenjang::trenRekomendasi();
 
+        $liveQuizIds = \App\Models\GameLiveSession::query()
+            ->where('classroom_id', $classroom->uuid)
+            ->whereIn('status', ['lobby', 'question', 'reveal'])
+            ->pluck('quiz_id')
+            ->unique()
+            ->values()
+            ->all();
+
         return view('arena-belajar.index', compact(
             'classroom',
             'quizzes',
@@ -113,7 +121,8 @@ class GameQuizController extends Controller implements HasMiddleware
             'katalogMisi',
             'myMissionAttempts',
             'ideJenjang',
-            'ideTren'
+            'ideTren',
+            'liveQuizIds'
         ));
     }
 
@@ -194,7 +203,26 @@ class GameQuizController extends Controller implements HasMiddleware
                 ->first();
         }
 
-        return view('arena-belajar.show', compact('classroom', 'quiz', 'assignment', 'canManage', 'myAttempt'));
+        $copyTargets = collect();
+        if ($canManage) {
+            $copyTargets = Classroom::query()
+                ->with(['rombel', 'pelajaran'])
+                ->where('uuid', '!=', $classroom->uuid)
+                ->when($classroom->id_pelajaran, fn ($q) => $q->where('id_pelajaran', $classroom->id_pelajaran))
+                ->orderBy('title')
+                ->get()
+                ->filter(fn (Classroom $c) => auth()->user()->can('manage', $c))
+                ->values();
+        }
+
+        return view('arena-belajar.show', compact(
+            'classroom',
+            'quiz',
+            'assignment',
+            'canManage',
+            'myAttempt',
+            'copyTargets'
+        ));
     }
 
     public function edit(Classroom $classroom, GameQuiz $quiz)
@@ -293,6 +321,135 @@ class GameQuizController extends Controller implements HasMiddleware
         Audit::log('arena_quiz_publish', $quiz);
 
         return back()->with('success', 'Kuis diterbitkan. Siswa dapat mengerjakan.');
+    }
+
+    /**
+     * Salin soal kuis ke ruang kelas lain yang bisa dikelola guru (mis. 8A → 8B/8C/8D).
+     */
+    public function copyToClassrooms(Request $request, Classroom $classroom, GameQuiz $quiz)
+    {
+        abort_unless($quiz->classroom_id === $classroom->uuid, 404);
+        $this->authorize('manage', $quiz);
+
+        if ($quiz->questions()->count() < 1) {
+            return back()->with('error', 'Kuis belum punya soal untuk disalin.');
+        }
+
+        $data = $request->validate([
+            'classroom_ids'   => ['required', 'array', 'min:1', 'max:20'],
+            'classroom_ids.*' => ['uuid', 'distinct', 'exists:classrooms,uuid'],
+            'publish_copies'  => ['nullable', 'boolean'],
+        ]);
+
+        $quiz->load(['questions.options']);
+        $publish = $request->boolean('publish_copies');
+        $copied = 0;
+        $skippedUnauthorized = 0;
+        $skippedMapel = 0;
+
+        DB::transaction(function () use ($request, $quiz, $classroom, $data, $publish, &$copied, &$skippedUnauthorized, &$skippedMapel) {
+            foreach ($data['classroom_ids'] as $targetId) {
+                if ($targetId === $classroom->uuid) {
+                    continue;
+                }
+
+                $target = Classroom::query()->findOrFail($targetId);
+                if (! $request->user()->can('manage', $target)) {
+                    $skippedUnauthorized++;
+
+                    continue;
+                }
+
+                // Samakan filter UI: hanya kelas dengan mapel yang sama.
+                if ($classroom->id_pelajaran && $target->id_pelajaran !== $classroom->id_pelajaran) {
+                    $skippedMapel++;
+
+                    continue;
+                }
+
+                $clone = GameQuiz::create([
+                    'classroom_id' => $target->uuid,
+                    'created_by' => $request->user()->uuid,
+                    'title' => $quiz->title,
+                    'instructions' => $quiz->instructions,
+                    'mode' => $quiz->mode ?? 'async',
+                    'template' => $quiz->template ?? 'quiz',
+                    'scoring_mode' => $quiz->scoring_mode,
+                    'max_score' => $quiz->max_score,
+                    'hide_scores' => $quiz->hide_scores,
+                    'show_leaderboard' => $quiz->show_leaderboard,
+                    'instant_feedback' => $quiz->instant_feedback,
+                    'opens_at' => null,
+                    'due_at' => null,
+                    'status' => $publish ? 'published' : 'draft',
+                ]);
+
+                foreach ($quiz->questions as $question) {
+                    $newQuestion = GameQuestion::create([
+                        'quiz_id' => $clone->uuid,
+                        'type' => $question->type,
+                        'question_text' => $question->question_text,
+                        'points' => $question->points,
+                        'sort_order' => $question->sort_order,
+                        'explanation' => $question->explanation,
+                        'meta' => $question->meta,
+                    ]);
+
+                    foreach ($question->options as $option) {
+                        GameQuestionOption::create([
+                            'question_id' => $newQuestion->uuid,
+                            'option_text' => $option->option_text,
+                            'is_correct' => $option->is_correct,
+                            'sort_order' => $option->sort_order,
+                        ]);
+                    }
+                }
+
+                if ($publish) {
+                    GameQuizAssignment::firstOrCreate(
+                        ['quiz_id' => $clone->uuid, 'classroom_id' => $target->uuid],
+                        ['status' => 'open']
+                    );
+                }
+
+                Audit::log('arena_quiz_copy', $clone, [
+                    'from_quiz' => $quiz->uuid,
+                    'from_classroom' => $classroom->uuid,
+                    'to_classroom' => $target->uuid,
+                ]);
+
+                $copied++;
+            }
+        });
+
+        if ($copied < 1) {
+            $parts = [];
+            if ($skippedUnauthorized > 0) {
+                $parts[] = "{$skippedUnauthorized} tanpa akses kelola";
+            }
+            if ($skippedMapel > 0) {
+                $parts[] = "{$skippedMapel} beda mapel";
+            }
+            $msg = $parts !== []
+                ? 'Tidak ada kelas yang disalin ('.implode(', ', $parts).').'
+                : 'Pilih minimal satu kelas tujuan.';
+
+            return back()->with('error', $msg);
+        }
+
+        $msg = "Soal disalin ke {$copied} kelas".($publish ? ' (langsung terbit).' : ' sebagai draf.');
+        if ($skippedUnauthorized > 0 || $skippedMapel > 0) {
+            $bits = [];
+            if ($skippedUnauthorized > 0) {
+                $bits[] = "{$skippedUnauthorized} tanpa akses";
+            }
+            if ($skippedMapel > 0) {
+                $bits[] = "{$skippedMapel} beda mapel";
+            }
+            $msg .= ' Dilewati: '.implode(', ', $bits).'.';
+        }
+
+        return back()->with('success', $msg);
     }
 
     public function destroy(Classroom $classroom, GameQuiz $quiz)

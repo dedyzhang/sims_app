@@ -418,6 +418,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/{classroom}/arena-belajar/{quiz}/edit', [GameQuizController::class, 'edit'])->name('arena.edit');
             Route::post('/{classroom}/arena-belajar/{quiz}/update', [GameQuizController::class, 'update'])->middleware('throttle:30,1')->name('arena.update');
             Route::post('/{classroom}/arena-belajar/{quiz}/terbit', [GameQuizController::class, 'publish'])->name('arena.publish');
+            Route::post('/{classroom}/arena-belajar/{quiz}/salin', [GameQuizController::class, 'copyToClassrooms'])->middleware('throttle:20,1')->name('arena.copy');
             Route::delete('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'destroy'])->name('arena.destroy');
             Route::get('/{classroom}/arena-belajar/{quiz}/hasil', [GameQuizController::class, 'results'])->name('arena.results');
             Route::post('/{classroom}/arena-belajar/{quiz}/transfer-nilai', [GameQuizController::class, 'transferGrades'])->name('arena.transfer');

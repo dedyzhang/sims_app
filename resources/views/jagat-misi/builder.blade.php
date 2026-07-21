@@ -19,8 +19,9 @@
 
 @section('content')
 <div class="max-w-3xl mx-auto space-y-4 arena-stage">
-    <a href="{{ route('jagat-misi.builder.index') }}" class="text-xs text-slate-500 inline-flex items-center gap-1">
-        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Daftar Misi
+    <a href="{{ route('jagat-misi.builder.index') }}" class="arena-hud-back">
+        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        <span>Kelola katalog</span>
     </a>
     <div>
         <p class="arena-eyebrow" style="color:var(--arena-teal)">Arena Belajar · Metadata misi</p>

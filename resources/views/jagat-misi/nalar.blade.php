@@ -4,14 +4,17 @@
 @push('styles')
 <link rel="stylesheet" href="{{ asset('assets/jagat-misi/styles.css') }}">
 <link rel="stylesheet" href="{{ asset('assets/jagat-misi/nalar.css') }}">
+@include('arena-belajar.partials.game-styles')
 @endpush
 
 @section('content')
-<div class="space-y-4">
+<div class="space-y-4 arena-stage">
     <div class="flex items-center justify-between gap-3">
         <div>
-            <a href="{{ isset($classroom) ? route('classroom.jagat.show', [$classroom, $mission]) : route('jagat-misi.index') }}" class="text-xs text-slate-500 hover:text-primary inline-flex items-center gap-1 mb-2">
-                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> {{ isset($classroom) ? $classroom->title : 'Katalog Misi' }}
+            <a href="{{ isset($classroom) ? route('classroom.jagat.show', [$classroom, $mission]) : route('jagat-misi.index') }}"
+               class="arena-hud-back mb-3">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                <span class="truncate max-w-[12rem] sm:max-w-xs">{{ isset($classroom) ? $classroom->title : 'Katalog Misi' }}</span>
             </a>
             <h1 class="text-xl sm:text-2xl font-black">{{ $mission->title }}</h1>
             <p class="text-sm text-slate-500">{{ $mission->summary }}</p>

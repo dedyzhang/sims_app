@@ -2,30 +2,12 @@
 @section('title', 'Live — '.$quiz->title)
 
 @push('styles')
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
 @include('arena-belajar.partials.game-styles')
-<style>
-.arena-live-stage {
-    background:
-        radial-gradient(ellipse 100% 80% at 50% -20%, color-mix(in srgb, var(--cp) 40%, transparent), transparent 55%),
-        linear-gradient(165deg, #071018 0%, #0f2430 45%, #0a1820 100%);
-    border-radius: 1.35rem;
-    color: #f8fafc;
-    min-height: min(62vh, 28rem);
-}
-.arena-podium-card {
-    background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--cp) 6%, white));
-    border-radius: 1.25rem;
-    border: 1px solid color-mix(in srgb, var(--cp) 20%, transparent);
-}
-.dark .arena-podium-card {
-    background: #0f172a;
-    border-color: color-mix(in srgb, var(--cp) 30%, transparent);
-}
-</style>
 @endpush
 
 @section('content')
-<div class="space-y-4 arena-stage"
+<div class="arena-stage arena-rx space-y-4"
      x-data="arenaLive({
         canHost: @js($canHost),
         isSiswa: @js(auth()->user()->access === 'siswa'),
@@ -38,27 +20,36 @@
      x-init="boot()"
      x-cloak>
 
-    <div class="flex items-center justify-between gap-3 flex-wrap">
+    <header class="arena-lobby-hud !mt-0">
+        <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            <span class="truncate">Experience</span>
+        </a>
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="arena-rx-flag arena-rx-flag-live">Live arena</span>
+            <span class="arena-rx-flag">{{ $quiz->scoringModeLabel() }}</span>
+        </div>
+    </header>
+
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 relative z-[2]">
         <div>
-            <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="text-xs text-slate-500 inline-flex items-center gap-1 mb-1">
-                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Kembali
-            </a>
-            <h1 class="text-xl font-black text-slate-800 dark:text-slate-100">{{ $quiz->title }}</h1>
-            <p class="text-xs text-slate-500 font-semibold uppercase tracking-wide mt-0.5">Live Arena · {{ $quiz->scoringModeLabel() }}</p>
+            <p class="arena-lobby-kicker m-0" style="color:var(--rx-live,#ff2d55)">Party mode</p>
+            <h1 class="m-0 text-2xl sm:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight" style="font-family:'Fredoka',sans-serif">{{ $quiz->title }}</h1>
+            <p class="m-0 mt-1 text-sm font-semibold text-slate-500">Host kontrol soal · pemain jawab real-time · podium langsung</p>
         </div>
         @if($canHost)
         <div class="flex gap-2 flex-wrap">
             @if(!$session || !$session->isActive())
             <form method="POST" action="{{ route('classroom.arena.live.start', [$classroom, $quiz]) }}">@csrf
-                <button class="arena-cta" style="background:linear-gradient(135deg,var(--cp),#0c1a24);color:#fff">
+                <button type="submit" class="arena-rx-cta-big live !min-h-[3rem] !w-auto !px-5">
                     <i data-lucide="radio" class="w-4 h-4"></i> Mulai Live
                 </button>
             </form>
             @else
-            <button type="button" @click="advance" class="arena-cta" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)"
+            <button type="button" @click="advance" class="arena-rx-cta-big solo !min-h-[3rem] !w-auto !px-5"
                     x-text="advanceLabel"></button>
             <form method="POST" action="{{ route('classroom.arena.live.end', [$classroom, $quiz]) }}">@csrf
-                <button class="px-4 py-3 rounded-xl text-sm font-bold border border-rose-200 text-rose-600 min-h-[48px]">Akhiri</button>
+                <button type="submit" class="arena-rx-manage-btn !border-rose-300 !text-rose-600">Akhiri</button>
             </form>
             @endif
         </div>
@@ -66,20 +57,20 @@
     </div>
 
     @if(session('success'))
-    <div class="rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm">{{ session('success') }}</div>
+    <div class="rounded-2xl bg-emerald-50 dark:bg-emerald-900/40 border-2 border-emerald-300 text-emerald-800 dark:text-emerald-200 px-4 py-3 text-sm font-bold">{{ session('success') }}</div>
     @endif
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="lg:col-span-2 arena-live-stage p-5 sm:p-8 flex flex-col justify-center relative overflow-hidden" x-ref="fsRoot">
-            <div class="absolute top-3 right-3 z-[2] flex items-center gap-2">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 relative z-[2]">
+        <div class="lg:col-span-2 arena-rx-live-stage p-5 sm:p-8 flex flex-col justify-center relative overflow-hidden" x-ref="fsRoot">
+            <div class="arena-rx-live-stage-grid" aria-hidden="true"></div>
+            <div class="absolute top-3 right-3 z-[2] flex items-center gap-2 flex-wrap justify-end">
                 @if($canHost)
                 <template x-if="session && (session.status === 'lobby' || session.status === 'question' || session.status === 'reveal')">
                     <div class="flex gap-2">
-                        <button type="button" @click="advance" class="arena-cta text-xs px-3 min-h-[2.5rem]"
-                                style="background:linear-gradient(135deg,#fbbf24,#f59e0b)"
+                        <button type="button" @click="advance" class="arena-rx-btn arena-rx-btn-solo !min-h-[2.5rem]"
                                 x-text="advanceLabel"></button>
                         <form method="POST" action="{{ route('classroom.arena.live.end', [$classroom, $quiz]) }}">@csrf
-                            <button class="px-3 py-2 rounded-xl text-xs font-bold border border-rose-300/50 text-rose-200 min-h-[2.5rem] bg-rose-500/10">Akhiri</button>
+                            <button type="submit" class="arena-rx-btn !bg-rose-500/20 !text-rose-100 !shadow-none border border-rose-300/40 !min-h-[2.5rem]">Akhiri</button>
                         </form>
                     </div>
                 </template>
@@ -92,34 +83,32 @@
                     <span class="hidden sm:inline" x-text="isFullscreen ? 'Keluar' : 'Layar penuh'"></span>
                 </button>
             </div>
-            <div class="absolute inset-0 opacity-30 pointer-events-none"
-                 style="background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:32px 32px"></div>
 
             <div class="relative z-[1] arena-fs-stack">
-                <p class="arena-chip mb-4" x-text="session?.status_label || 'Menunggu sesi'"></p>
+                <p class="arena-rx-flag arena-rx-flag-live mb-4 inline-flex" x-text="session?.status_label || 'Menunggu sesi'"></p>
 
                 <template x-if="!session || session.status === 'lobby' || session.status === 'idle'">
                     <div class="text-center space-y-4 arena-anim-pop py-8">
-                        <div class="w-20 h-20 mx-auto rounded-3xl grid place-items-center bg-white/10 border border-white/10">
-                            <i data-lucide="users" class="w-9 h-9"></i>
+                        <div class="w-24 h-24 mx-auto rounded-[1.4rem] grid place-items-center bg-white/10 border-2 border-white/20 shadow-[0_8px_0_rgba(0,0,0,.25)]">
+                            <i data-lucide="users" class="w-10 h-10"></i>
                         </div>
-                        <p class="text-4xl sm:text-5xl font-black tracking-tight">Lobi Arena</p>
-                        <p class="text-slate-300 text-sm max-w-sm mx-auto">Pemain sudah masuk. Guru akan memulai soal sebentar lagi.</p>
+                        <p class="text-4xl sm:text-5xl font-black tracking-tight" style="font-family:'Fredoka',sans-serif">Lobi Arena</p>
+                        <p class="text-slate-300 text-sm max-w-sm mx-auto font-semibold">Pemain sudah masuk. Host akan memulai soal sebentar lagi.</p>
                         <div class="flex justify-center gap-1.5 pt-2">
-                            <span class="w-2 h-2 rounded-full bg-white/40 animate-pulse"></span>
-                            <span class="w-2 h-2 rounded-full bg-white/40 animate-pulse" style="animation-delay:.2s"></span>
-                            <span class="w-2 h-2 rounded-full bg-white/40 animate-pulse" style="animation-delay:.4s"></span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#39ff14] animate-pulse"></span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#39ff14] animate-pulse" style="animation-delay:.2s"></span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-[#39ff14] animate-pulse" style="animation-delay:.4s"></span>
                         </div>
                     </div>
                 </template>
 
                 <template x-if="session && (session.status === 'question' || session.status === 'reveal') && session.question">
                     <div class="space-y-5 arena-anim-in" :key="session.current_question_id">
-                        <div class="flex items-center justify-between text-sm text-slate-400 font-bold">
-                            <span x-text="'SOAL ' + (session.question_index + 1)"></span>
+                        <div class="flex items-center justify-between text-sm font-black uppercase tracking-wide text-teal-200/90">
+                            <span x-text="'Soal ' + (session.question_index + 1)"></span>
                             <span x-text="session.question_index + 1 + ' / ' + session.question_total"></span>
                         </div>
-                        <p class="text-2xl sm:text-3xl font-black leading-snug" x-text="session.question.question_text"></p>
+                        <p class="text-2xl sm:text-3xl font-black leading-snug" style="font-family:'Fredoka',sans-serif" x-text="session.question.question_text"></p>
 
                         <div class="space-y-2.5" x-show="session.question.type === 'mcq' || session.question.type === 'true_false'">
                             <template x-for="(opt, oi) in session.question.options" :key="opt.uuid">
@@ -154,15 +143,15 @@
                             </template>
                             <button type="button" x-show="isSiswa && session.status==='question' && !answered"
                                     @click="answerComplex" :disabled="submitting || selectedMulti.length === 0"
-                                    class="arena-cta">Kirim jawaban</button>
+                                    class="arena-rx-cta-big solo !w-auto">Kirim jawaban</button>
                         </div>
 
                         <div x-show="session.question.type === 'short_answer'" class="space-y-2">
                             <input type="text" x-model="shortText" :disabled="!isSiswa || session.status!=='question' || answered || submitting"
-                                   class="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3.5 text-white min-h-[52px] font-semibold"
+                                   class="w-full rounded-2xl border-2 border-white/20 bg-white/10 px-4 py-3.5 text-white min-h-[52px] font-semibold"
                                    placeholder="Ketik jawaban…">
                             <button type="button" x-show="isSiswa && session.status==='question' && !answered" @click="answerShort"
-                                    :disabled="submitting" class="arena-cta">Kirim jawaban</button>
+                                    :disabled="submitting" class="arena-rx-cta-big solo !w-auto">Kirim jawaban</button>
                             <p x-show="session.status==='reveal' && session.question.correct_meta" class="text-sm text-emerald-300 font-semibold"
                                x-text="'Kunci: ' + (session.question.correct_meta?.answers || []).join(' / ')"></p>
                         </div>
@@ -172,7 +161,7 @@
                                 <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                                     <span class="sm:w-1/2 font-bold text-sm" x-text="left"></span>
                                     <select x-model="matchMap[left]" :disabled="!isSiswa || session.status!=='question' || answered || submitting"
-                                            class="sm:w-1/2 rounded-xl border border-white/15 bg-[#152836] px-3 py-3 text-sm min-h-[44px]">
+                                            class="sm:w-1/2 rounded-xl border-2 border-white/20 bg-[#152836] px-3 py-3 text-sm min-h-[44px]">
                                         <option value="">— pilih —</option>
                                         <template x-for="r in (session.question.meta?.rights || [])" :key="r">
                                             <option :value="r" x-text="r"></option>
@@ -181,41 +170,41 @@
                                 </div>
                             </template>
                             <button type="button" x-show="isSiswa && session.status==='question' && !answered" @click="answerMatch"
-                                    :disabled="submitting" class="arena-cta">Kirim pasangan</button>
+                                    :disabled="submitting" class="arena-rx-cta-big solo !w-auto">Kirim pasangan</button>
                         </div>
 
                         <div x-show="feedback" class="text-center font-black text-lg"
                              :class="feedbackOk === null ? 'text-slate-200' : (feedbackOk ? 'arena-feedback-ok' : 'arena-feedback-bad')" x-text="feedback"></div>
-                        <p x-show="session.status==='reveal' && session.question.explanation" class="text-sm text-slate-300 text-center" x-text="session.question.explanation"></p>
+                        <p x-show="session.status==='reveal' && session.question.explanation" class="text-sm text-slate-300 text-center font-semibold" x-text="session.question.explanation"></p>
                     </div>
                 </template>
 
                 <template x-if="session && session.status === 'ended'">
                     <div class="text-center py-10 arena-anim-pop">
-                        <p class="text-4xl font-black">Sesi selesai</p>
-                        <p class="text-slate-300 text-sm mt-2">Cek podium juara di samping.</p>
+                        <p class="text-4xl font-black" style="font-family:'Fredoka',sans-serif">Sesi selesai</p>
+                        <p class="text-slate-300 text-sm mt-2 font-semibold">Cek podium juara di samping.</p>
                     </div>
                 </template>
             </div>
         </div>
 
-        <div class="arena-podium-card p-4 space-y-3">
-            <h2 class="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <i data-lucide="trophy" class="w-4 h-4" style="color:var(--cp)"></i> Podium live
+        <div class="arena-rx-detail-panel space-y-3">
+            <h2 class="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 m-0">
+                <i data-lucide="trophy" class="w-5 h-5 text-amber-500"></i> Podium live
             </h2>
-            <ol class="space-y-2">
+            <ol class="space-y-2 m-0 p-0 list-none">
                 <template x-for="(row, i) in leaderboard" :key="row.student_id">
-                    <li class="flex items-center gap-2.5 text-sm rounded-xl px-2 py-2 transition"
-                        :class="i < 3 ? 'bg-primary/5' : ''">
+                    <li class="flex items-center gap-2.5 text-sm rounded-xl px-2 py-2.5 transition border-2 border-transparent"
+                        :class="i < 3 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200/60 dark:border-amber-700/40' : ''">
                         <span class="arena-rank" :class="i===0?'arena-rank-1':(i===1?'arena-rank-2':(i===2?'arena-rank-3':''))" x-text="i+1"></span>
-                        <span class="flex-1 truncate font-semibold text-slate-700 dark:text-slate-200" x-text="row.name"></span>
-                        <span class="font-black tabular-nums" style="color:var(--cp)" x-text="row.score"></span>
+                        <span class="flex-1 truncate font-bold text-slate-700 dark:text-slate-200" x-text="row.name"></span>
+                        <span class="font-black tabular-nums text-teal-600 dark:text-teal-300" x-text="row.score"></span>
                     </li>
                 </template>
             </ol>
-            <p x-show="!leaderboard.length" class="text-sm text-slate-400 text-center py-8 font-semibold">Menunggu skor pertama…</p>
-            <p x-show="me" class="text-xs font-bold text-slate-500 border-t border-slate-100 dark:border-slate-700 pt-3">
-                Skormu: <span style="color:var(--cp)" x-text="me?.score"></span>
+            <p x-show="!leaderboard.length" class="text-sm text-slate-400 text-center py-8 font-bold m-0">Menunggu skor pertama…</p>
+            <p x-show="me" class="text-xs font-bold text-slate-500 border-t-2 border-slate-100 dark:border-slate-700 pt-3 m-0">
+                Skormu: <span class="text-teal-600 dark:text-teal-300 text-sm" x-text="me?.score"></span>
             </p>
         </div>
     </div>

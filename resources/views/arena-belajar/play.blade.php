@@ -14,9 +14,17 @@
     <div class="arena-play-shell space-y-5" x-ref="fsRoot">
         <div class="arena-fs-stack space-y-5">
         <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-                <p class="arena-chip"><i data-lucide="swords" class="w-3 h-3"></i> Bertanding</p>
-                <p class="text-sm font-bold text-white/90 truncate mt-1.5">{{ $quiz->title }}</p>
+            <div class="min-w-0 flex items-start gap-2">
+                <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}"
+                   class="arena-hud-back !bg-white/10 !border-white/15 !text-white !shadow-none hover:!bg-white/20 shrink-0"
+                   onclick="return confirm('Keluar dari pertandingan? Jawaban tersimpan di perangkat, tapi skor belum dikumpulkan.')">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Experience</span>
+                </a>
+                <div class="min-w-0">
+                    <p class="arena-chip"><i data-lucide="swords" class="w-3 h-3"></i> Solo · soal acak</p>
+                    <p class="text-sm font-bold text-white/90 truncate mt-1.5">{{ $quiz->title }}</p>
+                </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
                 <button type="button" class="arena-fs-btn" @click="toggleFullscreen"

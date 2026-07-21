@@ -9,6 +9,7 @@ use App\Models\GameQuiz;
 use App\Models\GameQuizAssignment;
 use App\Policies\GameQuizPolicy;
 use App\Services\GameAnswerGrader;
+use App\Support\ArenaSoloShuffle;
 use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -76,25 +77,33 @@ class GameAttemptController extends Controller implements HasMiddleware
         abort_unless($assignment && $assignment->quiz_id === $quiz->uuid, 404);
         abort_unless($quiz->isOpenNow($assignment), 403, 'Kuis belum dibuka atau sudah ditutup.');
 
-        $quiz->load(['questions' => fn ($q) => $q->orderBy('sort_order')]);
-        $questionsPayload = $quiz->questions->map(function ($q) {
+        $quiz->load(['questions' => fn ($q) => $q->orderBy('sort_order'), 'questions.options']);
+
+        // Solo: acak soal + opsi per attempt (tetangga beda urutan; refresh tetap sama).
+        $seedBase = 'solo|'.$attempt->uuid;
+        $orderedQuestions = ArenaSoloShuffle::shuffle($quiz->questions, $seedBase.'|questions');
+
+        $questionsPayload = $orderedQuestions->map(function ($q) use ($seedBase) {
+            $options = ArenaSoloShuffle::shuffle($q->options, $seedBase.'|opts|'.$q->uuid);
             $payload = [
                 'uuid'          => $q->uuid,
                 'type'          => $q->type,
                 'question_text' => $q->question_text,
                 'points'        => $q->points,
-                'options'       => $q->options()->orderBy('sort_order')->get(['uuid', 'option_text', 'sort_order'])
-                    ->map(fn ($o) => [
-                        'uuid'        => $o->uuid,
-                        'option_text' => $o->option_text,
-                    ])->values(),
+                'options'       => $options->map(fn ($o) => [
+                    'uuid'        => $o->uuid,
+                    'option_text' => $o->option_text,
+                ])->values(),
                 'meta' => null,
             ];
             if ($q->type === 'match') {
                 $pairs = $q->meta['pairs'] ?? [];
                 $payload['meta'] = [
                     'lefts'  => collect($pairs)->pluck('left')->values(),
-                    'rights' => collect($pairs)->pluck('right')->shuffle()->values(),
+                    'rights' => ArenaSoloShuffle::shuffle(
+                        collect($pairs)->pluck('right')->values(),
+                        $seedBase.'|match|'.$q->uuid
+                    )->values(),
                 ];
             }
 
@@ -114,6 +123,7 @@ class GameAttemptController extends Controller implements HasMiddleware
             'attempt'          => $attempt,
             'questionsPayload' => $questionsPayload,
             'savedAnswers'     => $savedAnswers,
+            'soloShuffled'     => true,
         ]);
     }
 

@@ -1,12 +1,17 @@
 @extends('layouts.app')
 @section('title', 'Hasil — ' . $mission->title)
 
+@push('styles')
+@include('arena-belajar.partials.game-styles')
+@endpush
+
 @section('content')
-<div class="space-y-5 max-w-4xl mx-auto">
+<div class="space-y-5 max-w-4xl mx-auto arena-stage">
     <div class="flex items-start justify-between gap-3 flex-wrap">
         <div>
-            <a href="{{ route('classroom.jagat.show', [$classroom, $mission]) }}" class="text-sm text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 mb-1">
-                <i data-lucide="arrow-left" class="w-4 h-4"></i> {{ $mission->title }}
+            <a href="{{ route('classroom.jagat.show', [$classroom, $mission]) }}" class="arena-hud-back mb-3">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                <span class="truncate max-w-[14rem] sm:max-w-xs">{{ $mission->title }}</span>
             </a>
             <h1 class="text-xl font-black text-slate-800 dark:text-slate-100">Monitor hasil misi</h1>
             <p class="text-sm text-slate-500">{{ $doneCount }}/{{ $memberCount }} siswa selesai
