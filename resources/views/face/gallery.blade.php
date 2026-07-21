@@ -14,6 +14,9 @@
             <a href="{{ route('wajah.ganda') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/30 transition">
                 <i data-lucide="users" class="w-4 h-4"></i> Cek Wajah Ganda
             </a>
+            <a href="{{ route('wajah.takTerbaca') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-200 text-amber-600 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/30 transition">
+                <i data-lucide="scan-face" class="w-4 h-4"></i> Cek Wajah Tak Terdeteksi
+            </a>
             <a href="{{ route('absensi.wajah') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
                 <i data-lucide="user-plus" class="w-4 h-4"></i> Registrasi Wajah
             </a>

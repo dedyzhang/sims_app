@@ -710,6 +710,13 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/absensi/wajah', [AbsensiController::class, 'wajah'])->name('absensi.wajah');
         Route::post('/siswa/{uuid}/wajah', [SiswaController::class, 'storeFace'])->name('siswa.face.store');
         Route::delete('/siswa/{uuid}/wajah', [SiswaController::class, 'destroyFace'])->name('siswa.face.destroy');
+
+        // Validasi Wajah: admin (semua data) + wali kelas (kelasnya saja) — guard & scoping
+        // ditangani di FaceController::accessScope(), sama pola dgn di atas. JANGAN pasang
+        // middleware permission: di sini.
+        Route::get('/wajah-galeri', [FaceController::class, 'gallery'])->name('wajah.galeri');
+        Route::get('/wajah-ganda', [FaceController::class, 'duplicates'])->name('wajah.ganda');
+        Route::get('/wajah-tak-terbaca', [FaceController::class, 'unreadable'])->name('wajah.takTerbaca');
     });
 
     // ─── Wali Kelas: data siswa kelasnya, reset password, set sekretaris — guard peran
@@ -842,8 +849,6 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/presensi-guru/jam-pulang', [PresensiGuruController::class, 'jamPulangUpdate'])->name('presensi-guru.jamPulang.update');
         Route::post('/guru/{uuid}/wajah', [GuruController::class, 'storeFace'])->name('guru.face.store');
         Route::delete('/guru/{uuid}/wajah', [GuruController::class, 'destroyFace'])->name('guru.face.destroy');
-        Route::get('/wajah-galeri', [FaceController::class, 'gallery'])->name('wajah.galeri');
-        Route::get('/wajah-ganda', [FaceController::class, 'duplicates'])->name('wajah.ganda');
         Route::get('/qr-absensi/cetak', [QrAbsensiController::class, 'cetak'])->name('qr.cetak');
 
     });

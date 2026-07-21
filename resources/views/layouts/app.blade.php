@@ -636,6 +636,7 @@
                         // lewat tombol di dalam halaman absensi.index), pola sama dgn menu admin
                         // "Absensi Siswa" yang juga pakai wildcard absensi.*.
                         $walikelasItems[] = ['absensi.index', ['absensi.*'], 'clipboard-check', 'Absensi Kelas Saya'];
+                        $walikelasItems[] = ['wajah.galeri', ['wajah.*'], 'scan-face', 'Validasi Wajah Kelas'];
                         $walikelasItems[] = ['kaih.rekap', ['kaih.rekap', 'kaih.override.*'], 'list-checks', 'Rekap 7 KAIH Kelas'];
                         if (\App\Support\PantauLokasi::aktif()) {
                             $walikelasItems[] = ['pantau-lokasi.index', ['pantau-lokasi.*'], 'map-pinned', 'Pantau Lokasi Kelas'];

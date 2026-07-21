@@ -9,11 +9,37 @@ use Illuminate\Http\Request;
 
 class FaceController extends Controller
 {
+    /**
+     * Gate Validasi Wajah: admin/manage_absensi (semua data) ATAU wali kelas (kelasnya saja) —
+     * pola sama dgn SiswaController::bisaKelolaWajah(). Return [privileged, id_kelas milik
+     * walikelas (null bila privileged/bukan walikelas)].
+     */
+    private function accessScope(): array
+    {
+        $user = auth()->user();
+        $privileged = $user->canAccess('manage_absensi');
+        $idKelasWali = $user->guru?->walikelas?->id_kelas;
+
+        abort_unless($privileged || $idKelasWali, 403, 'AKSES TIDAK DIIZINKAN. Peran Anda belum diberi izin untuk fitur ini.');
+
+        return [$privileged, $privileged ? null : $idKelasWali];
+    }
+
     /** Galeri wajah terdaftar (siswa & guru) untuk validasi visual */
     public function gallery(Request $request)
     {
-        $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
-        $selectedKelas = $request->kelas ?: optional($kelasList->first())->uuid;
+        [$privileged, $idKelasWali] = $this->accessScope();
+
+        $kelasQuery = Kelas::orderBy('tingkat')->orderBy('kelas');
+        if (!$privileged) {
+            $kelasQuery->where('uuid', $idKelasWali);
+        }
+        $kelasList = $kelasQuery->get();
+
+        // Wali kelas cuma punya 1 kelas — abaikan pilihan ?kelas= di luar kelasnya sendiri.
+        $selectedKelas = $privileged
+            ? ($request->kelas ?: optional($kelasList->first())->uuid)
+            : $idKelasWali;
 
         $siswas = $selectedKelas
             ? Siswa::where('id_kelas', $selectedKelas)->whereNotNull('face_descriptor')->orderBy('nama')->get()
@@ -26,11 +52,39 @@ class FaceController extends Controller
     /** Laporan wajah ganda — pasangan wajah yang sangat mirip (kemungkinan orang sama) */
     public function duplicates(Request $request)
     {
+        [$privileged, $idKelasWali] = $this->accessScope();
+
         $min = (float) ($request->min ?: \App\Support\FaceMatch::THRESHOLD);
         $min = max(0.5, min(0.99, $min));
         $pairs = \App\Support\FaceMatch::duplicatePairs($min, 80);
 
+        if (!$privileged) {
+            // Wali kelas hanya lihat pasangan yg melibatkan siswa di kelasnya sendiri.
+            $pairs = array_values(array_filter($pairs, fn ($p) => $this->involvesKelas($p['a'], $idKelasWali) || $this->involvesKelas($p['b'], $idKelasWali)));
+        }
+
         return view('face.duplicates', compact('pairs', 'min'));
+    }
+
+    /** Laporan wajah berpotensi tidak terdeteksi saat scan — data rusak/kosong atau sampel tak konsisten */
+    public function unreadable()
+    {
+        [$privileged, $idKelasWali] = $this->accessScope();
+
+        $items = \App\Support\FaceMatch::unreadableFaces();
+
+        if (!$privileged) {
+            // Wali kelas hanya lihat siswa di kelasnya sendiri (guru tidak ditampilkan).
+            $items = array_values(array_filter($items, fn ($it) => $this->involvesKelas($it, $idKelasWali)));
+        }
+
+        return view('face.unreadable', compact('items'));
+    }
+
+    /** true bila $person adalah siswa di kelas $idKelas. */
+    private function involvesKelas(array $person, ?string $idKelas): bool
+    {
+        return $idKelas !== null && ($person['tipe'] ?? null) === 'siswa' && ($person['id_kelas'] ?? null) === $idKelas;
     }
 
     /** Halaman daftar wajah sendiri (siswa / guru) — wajib saat login / atau daftar ulang dari profil */

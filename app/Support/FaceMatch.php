@@ -13,6 +13,11 @@ class FaceMatch
     /** Ambang default "kemungkinan wajah sama" (cosine). Bisa disetel via ?min=. */
     public const THRESHOLD = 0.92;
 
+    /** Ambang "sampel wajah saling mendukung" — disamakan dgn supportThreshold di absensi/scan.blade.php
+     *  (JS) supaya audit ini memprediksi hasil scan sungguhan, bukan angka sembarang. Jaga selaras manual
+     *  kalau salah satu diubah. */
+    public const SUPPORT_THRESHOLD = 0.62;
+
     /** Kompresi foto wajah: lebar maksimum & kualitas WebP (lebih tinggi dari kompresi materi biasa — dipakai utk verifikasi visual). */
     private const PHOTO_MAX_WIDTH = 480;
     private const PHOTO_QUALITY = 88;
@@ -137,22 +142,38 @@ class FaceMatch
         return $dot;
     }
 
-    /** Semua orang terdaftar wajah: [{uuid,nama,tipe,centroid,foto?}]. */
+    /** Normalisasi satu vektor ke panjang 1 (dipakai sebelum cosine() bila vektor blm ternormalisasi). */
+    private static function normalizeVec(array $v): array
+    {
+        $norm = 0.0;
+        foreach ($v as $x) {
+            $norm += $x * $x;
+        }
+        $norm = sqrt($norm);
+        if ($norm <= 0) {
+            return $v;
+        }
+
+        return array_map(fn ($x) => $x / $norm, $v);
+    }
+
+    /** Semua orang terdaftar wajah: [{uuid,nama,tipe,centroid,foto?,id_kelas}] (id_kelas null utk guru). */
     public static function allRegistered(?string $excludeUuid = null, bool $withPhoto = false): array
     {
         $cols = ['uuid', 'nama', 'face_descriptor'];
         if ($withPhoto) {
             $cols[] = 'face_photo';
         }
+        $siswaCols = array_merge($cols, ['id_kelas']);
 
         $out = [];
-        foreach (Siswa::whereNotNull('face_descriptor')->get($cols) as $s) {
+        foreach (Siswa::whereNotNull('face_descriptor')->get($siswaCols) as $s) {
             if ($s->uuid === $excludeUuid) {
                 continue;
             }
             $c = self::centroid($s->face_descriptor);
             if ($c) {
-                $out[] = ['uuid' => $s->uuid, 'nama' => $s->nama, 'tipe' => 'siswa', 'centroid' => $c, 'foto' => $withPhoto ? self::photoUrl($s->face_photo, $s->uuid) : null];
+                $out[] = ['uuid' => $s->uuid, 'nama' => $s->nama, 'tipe' => 'siswa', 'centroid' => $c, 'foto' => $withPhoto ? self::photoUrl($s->face_photo, $s->uuid) : null, 'id_kelas' => $s->id_kelas];
             }
         }
         foreach (Guru::whereNotNull('face_descriptor')->get($cols) as $g) {
@@ -204,5 +225,96 @@ class FaceMatch
         usort($pairs, fn ($x, $y) => $y['similarity'] <=> $x['similarity']);
 
         return array_slice($pairs, 0, $limit);
+    }
+
+    /**
+     * Audit wajah yg berpotensi SULIT/TAK TERDETEKSI saat scan — beda dari duplicatePairs() yg
+     * mencari wajah ganda (mirip orang lain). Ini memeriksa data & KONSISTENSI internal sampel
+     * wajah milik satu orang: kalau sampelnya rusak/kosong, atau sampel2 miliknya sendiri tak
+     * saling mirip (di bawah SUPPORT_THRESHOLD — ambang "support" yg sama dipakai scan.blade.php),
+     * live scan besar kemungkinan gagal mengenalinya krn gate hasEnoughSampleAgreement() di JS
+     * tak akan terpenuhi. Return diurutkan: critical dulu, baru warning.
+     *
+     * @return array<int, array{uuid:string,nama:string,tipe:string,foto:?string,id_kelas:?string,level:string,issue:string,detail:string}>
+     */
+    public static function unreadableFaces(): array
+    {
+        $out = [];
+
+        $scan = function (string $modelClass, string $tipe) use (&$out): void {
+            // Tanpa daftar kolom eksplisit — Guru tak punya kolom id_kelas spt Siswa, jadi
+            // $p->id_kelas nanti aman bernilai null utk guru lewat magic getter Eloquent.
+            foreach ($modelClass::whereNotNull('face_descriptor')->get() as $p) {
+                $foto = self::photoUrl($p->face_photo, $p->uuid);
+                $idKelas = $p->id_kelas ?? null;
+                $samples = array_values(array_filter((array) $p->face_descriptor, fn ($s) => is_array($s) && count($s) >= 64));
+                $samples = array_map(fn ($s) => self::normalizeVec(array_map('floatval', $s)), $samples);
+                $n = count($samples);
+
+                if ($n === 0) {
+                    $out[] = [
+                        'uuid' => $p->uuid, 'nama' => $p->nama, 'tipe' => $tipe, 'foto' => $foto, 'id_kelas' => $idKelas,
+                        'level' => 'critical', 'issue' => 'Data wajah kosong/rusak',
+                        'detail' => 'Tidak ada sampel wajah yang valid tersimpan — wajah ini tidak akan pernah dikenali saat scan. Perlu daftar ulang wajah.',
+                    ];
+
+                    continue;
+                }
+
+                if ($n === 1) {
+                    $out[] = [
+                        'uuid' => $p->uuid, 'nama' => $p->nama, 'tipe' => $tipe, 'foto' => $foto, 'id_kelas' => $idKelas,
+                        'level' => 'warning', 'issue' => 'Hanya 1 sampel wajah',
+                        'detail' => 'Hanya ada 1 sudut wajah terdaftar — deteksi kurang stabil. Disarankan daftar ulang wajah (3 posisi).',
+                    ];
+
+                    continue;
+                }
+
+                // Berapa sampel yg didukung oleh minimal 1 sampel lain miliknya sendiri (skor
+                // tertinggi antar-sampel dipakai sbg indikator, bukan cuma pasangan pertama).
+                $agreeing = 0;
+                $bestPair = 0.0;
+                for ($i = 0; $i < $n; $i++) {
+                    $supported = false;
+                    for ($j = 0; $j < $n; $j++) {
+                        if ($i === $j) {
+                            continue;
+                        }
+                        $sim = self::cosine($samples[$i], $samples[$j]);
+                        if ($sim > $bestPair) {
+                            $bestPair = $sim;
+                        }
+                        if ($sim >= self::SUPPORT_THRESHOLD) {
+                            $supported = true;
+                        }
+                    }
+                    if ($supported) {
+                        $agreeing++;
+                    }
+                }
+
+                if ($agreeing === 0) {
+                    $out[] = [
+                        'uuid' => $p->uuid, 'nama' => $p->nama, 'tipe' => $tipe, 'foto' => $foto, 'id_kelas' => $idKelas,
+                        'level' => 'critical', 'issue' => 'Sampel wajah tidak konsisten',
+                        'detail' => 'Sampel wajah miliknya sendiri tidak saling mirip (kemiripan tertinggi antar-sampel hanya '.round($bestPair * 100).'%) — kemungkinan foto keliru/tercampur saat registrasi. Wajah kemungkinan besar TIDAK terdeteksi saat scan. Perlu daftar ulang wajah.',
+                    ];
+                } elseif ($agreeing < $n) {
+                    $out[] = [
+                        'uuid' => $p->uuid, 'nama' => $p->nama, 'tipe' => $tipe, 'foto' => $foto, 'id_kelas' => $idKelas,
+                        'level' => 'warning', 'issue' => 'Konsistensi sampel rendah',
+                        'detail' => ($n - $agreeing).' dari '.$n.' sampel wajah kurang konsisten dengan sampel lainnya — mungkin sulit terdeteksi di kondisi cahaya/sudut tertentu. Disarankan daftar ulang wajah.',
+                    ];
+                }
+            }
+        };
+
+        $scan(Siswa::class, 'siswa');
+        $scan(Guru::class, 'guru');
+
+        usort($out, fn ($a, $b) => ($a['level'] === 'critical' ? 0 : 1) <=> ($b['level'] === 'critical' ? 0 : 1));
+
+        return $out;
     }
 }

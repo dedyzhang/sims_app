@@ -55,30 +55,36 @@
                     </div>
                 </div>
 
-                {{-- HUD: status (kiri atas) --}}
-                <div x-show="camOn && loading" class="absolute top-3 left-3 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold">
-                    <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Memuat model AI...
-                </div>
-                <div x-show="scanning" class="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Memindai...
-                </div>
-                <div x-show="scanning && lowLight" x-cloak class="absolute top-12 left-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/85 backdrop-blur text-white text-xs font-semibold">
-                    <i data-lucide="sun" class="w-3.5 h-3.5"></i> Pencahayaan rendah — kecerahan otomatis aktif
-                </div>
+                {{-- HUD atas: status, mode, counter — satu baris flex yg boleh melipat (bukan 3 badge
+                     absolute terpisah) supaya di layar HP sempit tidak saling tumpuk/terpotong. --}}
+                <div class="absolute top-3 inset-x-3 flex flex-col gap-1.5 pointer-events-none">
+                    <div class="flex items-start justify-between gap-1.5 flex-wrap">
+                        <div class="flex flex-col gap-1.5 items-start pointer-events-auto min-w-0">
+                            <div x-show="camOn && loading" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold whitespace-nowrap">
+                                <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin flex-shrink-0"></i> Memuat model AI...
+                            </div>
+                            <div x-show="scanning" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold whitespace-nowrap">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span> Memindai...
+                            </div>
+                        </div>
 
-                {{-- HUD: mode aktif (Masuk/Pulang) --}}
-                <div x-show="camOn" class="absolute top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full backdrop-blur text-white text-xs font-bold" :class="scanMode==='pulang' ? 'bg-amber-600/85' : 'bg-emerald-600/85'">
-                    <span x-text="scanMode==='pulang' ? '🏠 Mode Pulang' : '🚪 Mode Masuk'"></span>
-                </div>
+                        <div x-show="camOn" class="px-3 py-1.5 rounded-full backdrop-blur text-white text-xs font-bold whitespace-nowrap pointer-events-auto" :class="scanMode==='pulang' ? 'bg-amber-600/85' : 'bg-emerald-600/85'">
+                            <span x-text="scanMode==='pulang' ? '🏠 Mode Pulang' : '🚪 Mode Masuk'"></span>
+                        </div>
 
-                {{-- HUD: counter + tombol layar penuh (kanan atas) --}}
-                <div class="absolute top-3 right-3 flex items-center gap-2">
-                    <div x-show="camOn" class="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold flex items-center gap-1">
-                        <i data-lucide="users" class="w-3.5 h-3.5"></i> <span x-text="totalHadir"></span>/<span x-text="totalEnrolled"></span> hadir
+                        <div class="flex items-center gap-2 pointer-events-auto">
+                            <div x-show="camOn" class="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold flex items-center gap-1 whitespace-nowrap">
+                                <i data-lucide="users" class="w-3.5 h-3.5 flex-shrink-0"></i> <span x-text="totalHadir"></span>/<span x-text="totalEnrolled"></span> hadir
+                            </div>
+                            <button @click="toggleFs()" class="p-2 rounded-full bg-black/55 backdrop-blur text-white hover:bg-black/70 transition flex-shrink-0" :title="fs?'Keluar layar penuh':'Layar penuh'">
+                                <i :data-lucide="fs?'minimize-2':'maximize-2'" class="w-4 h-4"></i>
+                            </button>
+                        </div>
                     </div>
-                    <button @click="toggleFs()" class="p-2 rounded-full bg-black/55 backdrop-blur text-white hover:bg-black/70 transition" :title="fs?'Keluar layar penuh':'Layar penuh'">
-                        <i :data-lucide="fs?'minimize-2':'maximize-2'" class="w-4 h-4"></i>
-                    </button>
+
+                    <div x-show="scanning && lowLight" x-cloak class="self-start flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/85 backdrop-blur text-white text-xs font-semibold pointer-events-auto max-w-full">
+                        <i data-lucide="sun" class="w-3.5 h-3.5 flex-shrink-0"></i> <span class="truncate">Pencahayaan rendah — kecerahan otomatis aktif</span>
+                    </div>
                 </div>
 
                 {{-- Flash nama besar saat dikenali --}}
@@ -332,7 +338,12 @@ function faceScan(data){
             const top1 = sims[0] || 0;
             const top2 = sims[1] || 0;
             const support = sims.filter(v => v >= this.supportThreshold).length;
-            const score = sims.length >= 2 ? (top1 * 0.58 + top2 * 0.42) : top1;
+            // Skor = sampel TERBAIK orang ini, bukan dirata-rata dgn sampel ke-2 (dulu top1*0.58+top2*0.42).
+            // Rata-rata itu bikin kecocokan kuat pada 1 sampel terdaftar "diseret turun" krn sampel lain
+            // beda sudut/cahaya — makin banyak wajah didaftarkan (3 posisi), makin sering nyangkut di
+            // "Perjelas wajah" walau top1 sudah sangat mirip. Korroborasi tetap dijaga lewat
+            // hasEnoughSampleAgreement() (support>=2 sampel ATAU top1 sangat tinggi) sbg gate terpisah.
+            const score = top1;
             return { score, top1, top2, support };
         },
 
