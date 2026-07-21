@@ -9,10 +9,15 @@ use App\Models\Ruang;
 use App\Models\Semester;
 use App\Models\Siswa;
 use App\Models\Walikelas;
+use App\Services\ClassroomService;
 use Illuminate\Http\Request;
 
 class KelasController extends Controller
 {
+    public function __construct(private ClassroomService $classroomService)
+    {
+    }
+
     public function index()
     {
         $kelas = Kelas::with(['walikelas.guru', 'siswa'])
@@ -111,6 +116,11 @@ class KelasController extends Controller
                 'id_kelas'  => $uuid,
                 'semester'  => $semesterStr,
             ]);
+
+            // Kalau kelas tujuan sudah punya ruang kelas (dibuat sebelum siswa ini
+            // dimasukkan), langsung daftarkan sbg anggota — kalau tidak, siswa ini
+            // kena 403 saat buka Ruang Kelas / Arena Belajar meski id_kelas-nya benar.
+            $this->classroomService->enrollStudentInKelasClassrooms($siswa);
         }
 
         return back()->with('success', 'Siswa berhasil dimasukkan ke kelas.');
