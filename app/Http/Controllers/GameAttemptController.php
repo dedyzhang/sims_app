@@ -34,6 +34,7 @@ class GameAttemptController extends Controller implements HasMiddleware
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('play', [$quiz, $classroom]);
+        abort_unless($quiz->allowsSolo(), 403, 'Kuis ini disetel "Live saja" — main solo tidak tersedia.');
         abort_unless(!$quiz->hasActiveLiveSession($classroom), 403, 'Sedang ada sesi live. Kerjakan lewat Live Arena.');
 
         $assignment = $this->resolveOpenAssignment($quiz, $classroom);
@@ -67,6 +68,7 @@ class GameAttemptController extends Controller implements HasMiddleware
         abort_unless($attempt->student_id === auth()->user()->uuid, 403);
         abort_unless(($attempt->source ?? GameAttempt::SOURCE_ASYNC) === GameAttempt::SOURCE_ASYNC, 403);
         $this->authorize('play', [$quiz, $classroom]);
+        abort_unless($quiz->allowsSolo(), 403, 'Kuis ini disetel "Live saja" — main solo tidak tersedia.');
         abort_unless(!$quiz->hasActiveLiveSession($classroom), 403, 'Sedang ada sesi live. Kerjakan lewat Live Arena.');
 
         if ($attempt->isSubmitted()) {
@@ -134,6 +136,7 @@ class GameAttemptController extends Controller implements HasMiddleware
         abort_unless(($attempt->source ?? GameAttempt::SOURCE_ASYNC) === GameAttempt::SOURCE_ASYNC, 403);
         abort_unless(!$attempt->isSubmitted(), 403, 'Attempt sudah dikumpulkan.');
         $this->authorize('play', [$quiz, $classroom]);
+        abort_unless($quiz->allowsSolo(), 403, 'Kuis ini disetel "Live saja" — main solo tidak tersedia.');
         abort_unless(!$quiz->hasActiveLiveSession($classroom), 403, 'Sedang ada sesi live.');
 
         $assignment = $attempt->assignment;
@@ -185,6 +188,7 @@ class GameAttemptController extends Controller implements HasMiddleware
         abort_unless(($attempt->source ?? GameAttempt::SOURCE_ASYNC) === GameAttempt::SOURCE_ASYNC, 403);
         abort_unless(!$attempt->isSubmitted(), 403, 'Attempt sudah dikumpulkan.');
         $this->authorize('play', [$quiz, $classroom]);
+        abort_unless($quiz->allowsSolo(), 403, 'Kuis ini disetel "Live saja" — main solo tidak tersedia.');
         abort_unless(!$quiz->hasActiveLiveSession($classroom), 403, 'Sedang ada sesi live.');
 
         $assignment = $attempt->assignment;

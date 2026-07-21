@@ -7,6 +7,7 @@ use App\Models\Nis;
 use App\Models\Orangtua;
 use App\Models\Siswa;
 use App\Models\User;
+use App\Services\ClassroomService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -16,6 +17,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SiswaController extends Controller
 {
+    public function __construct(private ClassroomService $classroomService)
+    {
+    }
+
     public function index(Request $request)
     {
         $kelas  = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
@@ -101,6 +106,10 @@ class SiswaController extends Controller
         ]);
         $data['id_login'] = $userSiswa->uuid;
         $siswa = Siswa::create($data);
+        // Kalau kelasnya sudah punya ruang kelas (mis. dibuat sblm siswa ini terdaftar),
+        // langsung daftarkan sbg anggota — kalau tidak, siswa ini akan kena 403 saat buka
+        // Ruang Kelas / Arena Belajar walau data siswa.id_kelas-nya sudah benar.
+        $this->classroomService->enrollStudentInKelasClassrooms($siswa);
 
         // Akun orang tua
         $usernameOrtu = 'P.' . $nis;
@@ -179,6 +188,9 @@ class SiswaController extends Controller
         }
 
         $siswa->update($data);
+        // Kelas bisa berubah di sini (pindah kelas) — pastikan langsung jadi anggota ruang
+        // kelas yg sudah ada utk kelas barunya (lihat catatan di store()).
+        $this->classroomService->enrollStudentInKelasClassrooms($siswa);
         return redirect()->route('siswa.show', $uuid)->with('success', 'Data siswa diperbarui.');
     }
 

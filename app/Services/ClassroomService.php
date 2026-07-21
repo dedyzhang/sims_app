@@ -191,6 +191,36 @@ class ClassroomService
         }
     }
 
+    /**
+     * Kebalikan dari enrollKelasStudents(): daftarkan SATU siswa ke semua ruang kelas yang
+     * SUDAH ADA untuk kelasnya. Wajib dipanggil tiap kali id_kelas siswa di-set/berubah (siswa
+     * baru, pindah kelas, atau "Set Kelas" massal) — kalau tidak, siswa yang masuk kelas SETELAH
+     * ruang kelasnya dibuat tidak pernah dapat baris classroom_members, sehingga ClassroomPolicy
+     * (dan turunannya, GameQuizPolicy Arena Belajar) selalu menolak dengan 403 karena isMember()
+     * gagal walau siswa itu memang anggota kelasnya secara data (siswa.id_kelas).
+     *
+     * Kelas terhubung ke ruang lewat DUA jalur: kolom classroom.id_kelas (ruang per-mapel
+     * otomatis via subjectRoom()) DAN pivot classroom_kelas (ruang multi-kelas via create()) —
+     * keduanya dicek.
+     */
+    public function enrollStudentInKelasClassrooms(Siswa $siswa): void
+    {
+        if (!$siswa->id_kelas || !$siswa->id_login) {
+            return;
+        }
+
+        $classroomIds = Classroom::where('id_kelas', $siswa->id_kelas)
+            ->orWhereHas('kelas', fn ($q) => $q->where('kelas.uuid', $siswa->id_kelas))
+            ->pluck('uuid');
+
+        foreach ($classroomIds as $classroomId) {
+            ClassroomMember::firstOrCreate(
+                ['classroom_id' => $classroomId, 'user_id' => $siswa->id_login],
+                ['role_in_class' => 'siswa', 'joined_at' => now()]
+            );
+        }
+    }
+
     /** @return array{0:string,1:?\Illuminate\Support\Carbon,2:?\Illuminate\Support\Carbon} [status, published_at, scheduled_at] */
     private function resolveStatus(array $data): array
     {

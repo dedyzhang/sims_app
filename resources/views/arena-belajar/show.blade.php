@@ -48,10 +48,12 @@
                         <a href="{{ route('classroom.arena.result', [$classroom, $quiz, $myAttempt]) }}" class="arena-rx-cta-big solo">
                             <i data-lucide="trophy" class="w-5 h-5"></i> Lihat skor
                         </a>
+                        @if($quiz->allowsLive())
                         <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
                             <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Gabung Live' : 'Lobby Live' }}
                         </a>
-                    @elseif($quiz->isPublished() && $quiz->isOpenNow($assignment))
+                        @endif
+                    @elseif($quiz->allowsSolo() && $quiz->isPublished() && $quiz->isOpenNow($assignment))
                         <form method="POST" action="{{ route('classroom.arena.start', [$classroom, $quiz]) }}" class="m-0 w-full">
                             @csrf
                             <button type="submit" class="arena-rx-cta-big solo">
@@ -59,18 +61,30 @@
                                 {{ $myAttempt ? 'Lanjut solo' : 'Main solo' }}
                             </button>
                         </form>
+                        @if($quiz->allowsLive())
                         <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
                             <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Masuk Live' : 'Gabung Live' }}
                         </a>
-                    @else
+                        @endif
+                    @elseif($quiz->allowsLive())
                         <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live sm:col-span-2">
                             <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Masuk Live sekarang' : 'Cek Lobby Live' }}
                         </a>
                         @unless($quiz->isPublished())
                         <p class="m-0 text-sm font-bold text-amber-200 sm:col-span-2">Kuis masih draft — tunggu guru menerbitkan.</p>
                         @else
-                        <p class="m-0 text-sm font-bold text-amber-200 sm:col-span-2">Jendela solo belum dibuka / sudah ditutup. Live tetap bisa dicoba jika host membuka sesi.</p>
+                        <p class="m-0 text-sm font-bold text-amber-200 sm:col-span-2">
+                            {{ $quiz->allowsSolo() ? 'Jendela solo belum dibuka / sudah ditutup. Live tetap bisa dicoba jika host membuka sesi.' : 'Kuis ini disetel live saja — tunggu host membuka sesi.' }}
+                        </p>
                         @endunless
+                    @else
+                        <p class="m-0 text-sm font-bold text-amber-200 sm:col-span-2">
+                            @unless($quiz->isPublished())
+                            Kuis masih draft — tunggu guru menerbitkan.
+                            @else
+                            Jendela solo belum dibuka / sudah ditutup.
+                            @endunless
+                        </p>
                     @endif
                 @elseif($canManage)
                     <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
@@ -81,6 +95,9 @@
                     </a>
                 @endif
             </div>
+            @if(auth()->user()->access === 'siswa')
+            <p class="m-0 text-xs font-semibold text-slate-400">Cara main: {{ $quiz->playModeLabel() }}</p>
+            @endif
         </div>
     </div>
 

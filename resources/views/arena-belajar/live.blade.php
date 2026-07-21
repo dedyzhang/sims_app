@@ -106,7 +106,16 @@
                     <div class="space-y-5 arena-anim-in" :key="session.current_question_id">
                         <div class="flex items-center justify-between text-sm font-black uppercase tracking-wide text-teal-200/90">
                             <span x-text="'Soal ' + (session.question_index + 1)"></span>
-                            <span x-text="session.question_index + 1 + ' / ' + session.question_total"></span>
+                            <span class="flex items-center gap-2">
+                                <span x-show="session.status==='question' && session.joined_count !== null" x-cloak
+                                      class="normal-case tracking-normal text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/10"
+                                      x-text="(session.answered_count ?? 0) + '/' + (session.joined_count ?? 0) + ' sudah jawab'"></span>
+                                <span x-show="session.status==='question' && countdown !== null" x-cloak
+                                      class="text-[11px] font-black px-2 py-0.5 rounded-full"
+                                      :class="countdown <= 5 ? 'bg-rose-500/80 text-white' : 'bg-white/10'"
+                                      x-text="countdown + ' dtk'"></span>
+                                <span x-text="session.question_index + 1 + ' / ' + session.question_total"></span>
+                            </span>
                         </div>
                         <p class="text-2xl sm:text-3xl font-black leading-snug" style="font-family:'Fredoka',sans-serif" x-text="session.question.question_text"></p>
 
@@ -179,6 +188,26 @@
                     </div>
                 </template>
 
+                <template x-if="session && session.status === 'standings'">
+                    <div class="text-center py-4 arena-anim-pop space-y-4">
+                        <p class="text-3xl sm:text-4xl font-black" style="font-family:'Fredoka',sans-serif">Papan Peringkat</p>
+                        <p class="text-slate-300 text-xs font-semibold">Lanjut ke soal berikutnya sebentar lagi…</p>
+                        <ol class="max-w-md mx-auto space-y-2 text-left">
+                            <template x-for="(row, i) in leaderboard.slice(0,10)" :key="row.student_id">
+                                <li class="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                                    :class="i < 3 ? 'bg-amber-400/20 border-2 border-amber-300/50' : 'bg-white/10'">
+                                    <span class="w-7 h-7 rounded-full grid place-items-center font-black text-sm flex-shrink-0"
+                                          :class="i===0?'bg-amber-400 text-amber-900':(i===1?'bg-slate-300 text-slate-800':(i===2?'bg-orange-400 text-orange-900':'bg-white/20 text-white'))"
+                                          x-text="i+1"></span>
+                                    <span class="flex-1 truncate font-bold text-white" x-text="row.name"></span>
+                                    <span class="font-black tabular-nums text-white" x-text="row.score"></span>
+                                </li>
+                            </template>
+                        </ol>
+                        <p x-show="!leaderboard.length" class="text-slate-400 text-sm font-bold">Belum ada skor.</p>
+                    </div>
+                </template>
+
                 <template x-if="session && session.status === 'ended'">
                     <div class="text-center py-10 arena-anim-pop">
                         <p class="text-4xl font-black" style="font-family:'Fredoka',sans-serif">Sesi selesai</p>
@@ -230,12 +259,15 @@ function arenaLive(cfg) {
         feedback: '',
         feedbackOk: null,
         timer: null,
+        countdownTimer: null,
+        countdown: null,
         pollSeq: 0,
         get advanceLabel() {
             if (!this.session) return 'Maju';
             if (this.session.status === 'lobby') return 'Mulai soal 1';
             if (this.session.status === 'question') return 'Tampilkan pembahasan';
-            if (this.session.status === 'reveal') {
+            if (this.session.status === 'reveal') return 'Tampilkan papan peringkat';
+            if (this.session.status === 'standings') {
                 return (this.session.question_index + 1 >= this.session.question_total) ? 'Selesai' : 'Soal berikutnya';
             }
             return 'Maju';
@@ -244,6 +276,9 @@ function arenaLive(cfg) {
             this.initFs();
             this.poll();
             this.timer = setInterval(() => this.poll(), 3000);
+            // Countdown kosmetik sisi klien (ticking tiap 1 detik) — keputusan maju sungguhan
+            // tetap di server (poll() tiap 3 detik memicu autoAdvanceIfNeeded()).
+            this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
         destroy() {
@@ -251,7 +286,19 @@ function arenaLive(cfg) {
                 clearInterval(this.timer);
                 this.timer = null;
             }
+            if (this.countdownTimer) {
+                clearInterval(this.countdownTimer);
+                this.countdownTimer = null;
+            }
             this.destroyFs();
+        },
+        tickCountdown() {
+            if (!this.session || this.session.status !== 'question' || !this.session.question_deadline_at) {
+                this.countdown = null;
+                return;
+            }
+            const remain = Math.ceil((new Date(this.session.question_deadline_at).getTime() - Date.now()) / 1000);
+            this.countdown = Math.max(0, remain);
         },
         async poll() {
             const seq = ++this.pollSeq;

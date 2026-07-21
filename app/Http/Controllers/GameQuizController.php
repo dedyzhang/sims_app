@@ -106,7 +106,7 @@ class GameQuizController extends Controller implements HasMiddleware
 
         $liveQuizIds = \App\Models\GameLiveSession::query()
             ->where('classroom_id', $classroom->uuid)
-            ->whereIn('status', ['lobby', 'question', 'reveal'])
+            ->whereIn('status', ['lobby', 'question', 'reveal', 'standings'])
             ->pluck('quiz_id')
             ->unique()
             ->values()
@@ -152,6 +152,7 @@ class GameQuizController extends Controller implements HasMiddleware
                 'title'             => $request->title,
                 'instructions'      => RichText::clean($request->instructions),
                 'mode'              => 'async',
+                'play_mode'         => $request->input('play_mode', 'bebas'),
                 'template'          => $request->input('template', 'quiz'),
                 'scoring_mode'      => $request->scoring_mode,
                 'max_score'         => $request->max_score,
@@ -253,6 +254,7 @@ class GameQuizController extends Controller implements HasMiddleware
                 'title'            => $request->title,
                 'instructions'     => RichText::clean($request->instructions),
                 'scoring_mode'     => $request->scoring_mode,
+                'play_mode'        => $request->input('play_mode', $quiz->play_mode ?? 'bebas'),
                 'template'         => $request->input('template', $quiz->template ?? 'quiz'),
                 'max_score'        => $request->max_score,
                 'hide_scores'      => $request->boolean('hide_scores'),
@@ -373,6 +375,7 @@ class GameQuizController extends Controller implements HasMiddleware
                     'title' => $quiz->title,
                     'instructions' => $quiz->instructions,
                     'mode' => $quiz->mode ?? 'async',
+                    'play_mode' => $quiz->play_mode ?? 'bebas',
                     'template' => $quiz->template ?? 'quiz',
                     'scoring_mode' => $quiz->scoring_mode,
                     'max_score' => $quiz->max_score,
@@ -391,6 +394,7 @@ class GameQuizController extends Controller implements HasMiddleware
                         'question_text' => $question->question_text,
                         'points' => $question->points,
                         'sort_order' => $question->sort_order,
+                        'time_limit_seconds' => $question->time_limit_seconds,
                         'explanation' => $question->explanation,
                         'meta' => $question->meta,
                     ]);
@@ -461,7 +465,7 @@ class GameQuizController extends Controller implements HasMiddleware
 
         DB::transaction(function () use ($quiz, $classroom) {
             \App\Models\GameLiveSession::where('quiz_id', $quiz->uuid)
-                ->whereIn('status', ['lobby', 'question', 'reveal'])
+                ->whereIn('status', ['lobby', 'question', 'reveal', 'standings'])
                 ->update(['status' => 'ended', 'ended_at' => now()]);
 
             GameQuizAssignment::where('quiz_id', $quiz->uuid)
@@ -636,13 +640,14 @@ class GameQuizController extends Controller implements HasMiddleware
         foreach ($questions as $i => $qData) {
             $points = max(1, (int) ($qData['points'] ?? 1));
             $question = GameQuestion::create([
-                'quiz_id'       => $quiz->uuid,
-                'type'          => $qData['type'],
-                'question_text' => $qData['question_text'],
-                'points'        => $points,
-                'sort_order'    => $i,
-                'explanation'   => $qData['explanation'] ?? null,
-                'meta'          => $this->normalizeQuestionMeta($qData),
+                'quiz_id'             => $quiz->uuid,
+                'type'                => $qData['type'],
+                'question_text'       => $qData['question_text'],
+                'points'              => $points,
+                'sort_order'          => $i,
+                'time_limit_seconds'  => $qData['time_limit_seconds'] ?? null,
+                'explanation'         => $qData['explanation'] ?? null,
+                'meta'                => $this->normalizeQuestionMeta($qData),
             ]);
 
             if (in_array($qData['type'], ['mcq', 'mcq_complex', 'true_false'], true)) {

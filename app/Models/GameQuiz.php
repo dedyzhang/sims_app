@@ -16,10 +16,11 @@ class GameQuiz extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
+    /** play_mode: 'bebas' (siswa pilih solo/live sendiri) | 'solo' (solo saja) | 'live' (live saja). */
     protected $fillable = [
         'classroom_id', 'created_by', 'title', 'instructions', 'mode', 'template', 'scoring_mode',
         'max_score', 'hide_scores', 'show_leaderboard', 'instant_feedback',
-        'is_locked', 'access_token', 'opens_at', 'due_at', 'status',
+        'is_locked', 'access_token', 'opens_at', 'due_at', 'status', 'play_mode',
     ];
 
     protected function casts(): array
@@ -108,7 +109,7 @@ class GameQuiz extends Model
 
         return GameLiveSession::where('quiz_id', $this->uuid)
             ->where('classroom_id', $classroom->uuid)
-            ->whereIn('status', ['lobby', 'question', 'reveal'])
+            ->whereIn('status', ['lobby', 'question', 'reveal', 'standings'])
             ->latest()
             ->first();
     }
@@ -116,5 +117,24 @@ class GameQuiz extends Model
     public function hasActiveLiveSession(?Classroom $classroom = null): bool
     {
         return (bool) $this->activeLiveSession($classroom);
+    }
+
+    public function allowsSolo(): bool
+    {
+        return ($this->play_mode ?? 'bebas') !== 'live';
+    }
+
+    public function allowsLive(): bool
+    {
+        return ($this->play_mode ?? 'bebas') !== 'solo';
+    }
+
+    public function playModeLabel(): string
+    {
+        return match ($this->play_mode ?? 'bebas') {
+            'solo' => 'Solo saja',
+            'live' => 'Live saja',
+            default => 'Bebas (solo & live)',
+        };
     }
 }

@@ -286,6 +286,7 @@
                 'type' => $q->type,
                 'question_text' => $q->question_text,
                 'points' => $q->points,
+                'time_limit_seconds' => $q->time_limit_seconds,
                 'explanation' => $q->explanation,
                 'options' => $q->options->map(fn ($o) => [
                     'option_text' => $o->option_text,
@@ -306,6 +307,7 @@
             'type' => 'mcq',
             'question_text' => '',
             'points' => 1,
+            'time_limit_seconds' => null,
             'explanation' => '',
             'options' => [
                 ['option_text' => '', 'is_correct' => true],
@@ -398,6 +400,14 @@
                     <select name="scoring_mode" class="edu-input">
                         <option value="accuracy" @selected(old('scoring_mode', $quiz->scoring_mode ?? 'accuracy')==='accuracy')>Akurasi (disarankan untuk nilai rapor)</option>
                         <option value="competitive" @selected(old('scoring_mode', $quiz->scoring_mode ?? '')==='competitive')>Kompetitif (bonus kecepatan)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="edu-label">Cara main</label>
+                    <select name="play_mode" class="edu-input">
+                        <option value="bebas" @selected(old('play_mode', $quiz->play_mode ?? 'bebas')==='bebas')>Bebas (siswa pilih solo/live)</option>
+                        <option value="solo" @selected(old('play_mode', $quiz->play_mode ?? '')==='solo')>Solo saja</option>
+                        <option value="live" @selected(old('play_mode', $quiz->play_mode ?? '')==='live')>Live saja</option>
                     </select>
                 </div>
                 <div>
@@ -575,9 +585,15 @@
                             </div>
                         </div>
 
-                        <div class="w-28">
-                            <label class="edu-label">Bobot</label>
-                            <input type="number" min="1" max="100" x-model.number="q.points" :name="'questions['+qi+'][points]'" class="edu-input">
+                        <div class="flex gap-3">
+                            <div class="w-28">
+                                <label class="edu-label">Bobot</label>
+                                <input type="number" min="1" max="100" x-model.number="q.points" :name="'questions['+qi+'][points]'" class="edu-input">
+                            </div>
+                            <div class="w-36">
+                                <label class="edu-label">Batas waktu (detik)</label>
+                                <input type="number" min="5" max="600" x-model="q.time_limit_seconds" :name="'questions['+qi+'][time_limit_seconds]'" class="edu-input" placeholder="Tak terbatas">
+                            </div>
                         </div>
 
                         <div class="space-y-2" x-show="q.type === 'mcq' || q.type === 'mcq_complex' || q.type === 'true_false'">
@@ -692,6 +708,7 @@ function arenaBuilder(initial, opts = {}) {
                 type: 'mcq',
                 question_text: '',
                 points: 1,
+                time_limit_seconds: null,
                 explanation: '',
                 options: [
                     { option_text: '', is_correct: true },
@@ -757,6 +774,7 @@ function arenaBuilder(initial, opts = {}) {
                 type: q.type,
                 question_text: q.question_text,
                 points: 1,
+                time_limit_seconds: null,
                 explanation: q.explanation || '',
                 options: q.options || [],
                 meta: {

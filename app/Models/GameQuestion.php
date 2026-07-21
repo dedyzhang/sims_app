@@ -16,14 +16,16 @@ class GameQuestion extends Model
 
     protected $fillable = [
         'quiz_id', 'type', 'question_text', 'points', 'sort_order', 'meta', 'explanation',
+        'time_limit_seconds',
     ];
 
     protected function casts(): array
     {
         return [
-            'points'     => 'integer',
-            'sort_order' => 'integer',
-            'meta'       => 'array',
+            'points'              => 'integer',
+            'sort_order'          => 'integer',
+            'meta'                => 'array',
+            'time_limit_seconds'  => 'integer',
         ];
     }
 

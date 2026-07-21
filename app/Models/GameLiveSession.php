@@ -18,15 +18,18 @@ class GameLiveSession extends Model
         'quiz_id', 'classroom_id', 'hosted_by', 'status',
         'current_question_id', 'question_index',
         'started_at', 'question_started_at', 'ended_at',
+        'question_deadline_at', 'phase_started_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'question_index'      => 'integer',
-            'started_at'          => 'datetime',
-            'question_started_at' => 'datetime',
-            'ended_at'            => 'datetime',
+            'question_index'       => 'integer',
+            'started_at'           => 'datetime',
+            'question_started_at'  => 'datetime',
+            'ended_at'             => 'datetime',
+            'question_deadline_at' => 'datetime',
+            'phase_started_at'     => 'datetime',
         ];
     }
 
@@ -50,19 +53,25 @@ class GameLiveSession extends Model
         return $this->belongsTo(GameQuestion::class, 'current_question_id', 'uuid');
     }
 
+    public function participants()
+    {
+        return $this->hasMany(GameLiveParticipant::class, 'session_id', 'uuid');
+    }
+
     public function isActive(): bool
     {
-        return in_array($this->status, ['lobby', 'question', 'reveal'], true);
+        return in_array($this->status, ['lobby', 'question', 'reveal', 'standings'], true);
     }
 
     public function statusLabel(): string
     {
         return match ($this->status) {
-            'lobby'    => 'Lobi',
-            'question' => 'Soal aktif',
-            'reveal'   => 'Pembahasan',
-            'ended'    => 'Selesai',
-            default    => 'Idle',
+            'lobby'     => 'Lobi',
+            'question'  => 'Soal aktif',
+            'reveal'    => 'Pembahasan',
+            'standings' => 'Papan peringkat',
+            'ended'     => 'Selesai',
+            default     => 'Idle',
         };
     }
 }

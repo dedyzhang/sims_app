@@ -114,7 +114,8 @@ class GameAnswerGrader
         }
 
         if ($points > 0 && $quiz->scoring_mode === 'competitive') {
-            $budget = 30000;
+            // Budget bonus kecepatan ikut batas waktu soal (kalau diset guru); default 30 detik.
+            $budget = $question->time_limit_seconds ? $question->time_limit_seconds * 1000 : 30000;
             $used = min($budget, max(0, $elapsedMs));
             $speedRatio = max(0, ($budget - $used) / $budget);
             $points += (int) floor($base * 0.2 * $speedRatio);
