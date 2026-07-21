@@ -252,7 +252,7 @@ function izinPulangQr(cfg){
             try {
                 const fix = await SimsGeo.getBestLocation({
                     watchMs: 10000,
-                    targetAccuracy: 40,
+                    targetAccuracy: 75,
                     onProgress: (msg)=> { this.status = msg; },
                 });
                 this.applyFix(fix);
@@ -293,7 +293,7 @@ function izinPulangQr(cfg){
                 // Fresh GPS saat submit — jangan pakai koordinat lama dari locate().
                 const fix = await SimsGeo.getBestLocation({
                     watchMs: 8000,
-                    targetAccuracy: 35,
+                    targetAccuracy: 75,
                     onProgress: (msg)=> { this.msg = msg; this.msgErr = false; },
                 });
                 this.applyFix(fix);

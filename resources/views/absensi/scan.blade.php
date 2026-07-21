@@ -284,7 +284,7 @@ function faceScan(data){
         margin:0.08,           // kandidat terbaik harus unggul jelas dari kandidat kedua
         minFaceFrac:0.14,      // wajah harus cukup besar di frame agar embedding stabil
         minFaceScore:0.55,     // buang deteksi ragu/blur/pencahayaan buruk
-        confirmFrames:4,       // wajib stabil beberapa frame beruntun sebelum absen ditandai
+        confirmFrames:2,       // wajib stabil beberapa frame beruntun sebelum absen ditandai
         _streak:{},            // penghitung frame beruntun per uuid
         recent:[], lastMatch:null, _seq:0, audioCtx:null,
         scanMode:'masuk',
@@ -547,8 +547,10 @@ function faceScan(data){
                 this._streak[uuid] = (this._streak[uuid]||0) + 1;
                 if(this._streak[uuid] >= this.confirmFrames) this.onMatch(uuid);
             });
-            // reset streak untuk yang tidak terlihat frame ini → false positive sekejap tak menumpuk
-            for(const uuid in this._streak){ if(!seenThisFrame.has(uuid)) this._streak[uuid]=0; }
+            // Luruh (bukan reset total) untuk yang tidak lolos gate frame ini — satu frame buram/silau
+            // tak boleh menghapus progres streak yang sudah bagus (itu yang bikin "kedetect lalu
+            // Perjelas wajah lagi" terasa lama). False positif sekejap tetap tak menumpuk krn meluruh turun.
+            for(const uuid in this._streak){ if(!seenThisFrame.has(uuid)) this._streak[uuid] = Math.max(0, (this._streak[uuid]||0) - 1); }
         },
 
         onMatch(uuid){

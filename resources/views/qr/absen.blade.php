@@ -220,7 +220,7 @@ function qrAbsen(cfg){
                 await this.refreshGeoConfig(true);
                 const fix = await SimsGeo.getBestLocation({
                     watchMs: 16000,
-                    targetAccuracy: 35,
+                    targetAccuracy: 75,
                     onProgress: (msg)=> { this.status = msg; },
                 });
                 this.applyFix(fix);
@@ -304,7 +304,7 @@ function qrAbsen(cfg){
                 await this.refreshGeoConfig(true);
                 const fix = await SimsGeo.getBestLocation({
                     watchMs: 12000,
-                    targetAccuracy: 35,
+                    targetAccuracy: 75,
                     onProgress: (msg)=> { this.status = msg; },
                 });
                 this.applyFix(fix);
