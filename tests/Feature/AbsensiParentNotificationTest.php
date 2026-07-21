@@ -273,8 +273,12 @@ class AbsensiParentNotificationTest extends TestCase
         ])->assertStatus(422)->assertJsonPath('ok', false);
     }
 
-    public function test_qr_geolocation_menolak_akurasi_terlalu_rendah(): void
+    public function test_qr_geolocation_akurasi_rendah_tidak_lagi_menolak_selama_dalam_radius(): void
     {
+        // Sengaja diubah: akurasi GPS TIDAK lagi jadi alasan penolakan (lihat
+        // QrAbsensiController::assertWithinSchool) — yang menentukan hanya jarak ke
+        // titik sekolah. Titik di bawah persis di titik sekolah (jarak 0 m), jadi
+        // walau accuracy dilaporkan sangat rendah (250 m), absen tetap harus lolos.
         Carbon::setTestNow(Carbon::parse('2026-07-13 07:20:00'));
         [, , , $siswaUser] = $this->siswaDenganOrangtua();
         $token = $this->aktifkanQrGeolocation();
@@ -284,7 +288,7 @@ class AbsensiParentNotificationTest extends TestCase
             'lat' => '-6.200000',
             'lng' => '106.816666',
             'accuracy' => 250,
-        ])->assertStatus(422)->assertJsonPath('ok', false);
+        ])->assertJsonPath('ok', true);
     }
 
     public function test_qr_geolocation_menolak_tanpa_accuracy(): void

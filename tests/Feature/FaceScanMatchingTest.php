@@ -15,7 +15,7 @@ class FaceScanMatchingTest extends TestCase
         $this->assertStringContainsString('supportThreshold:0.62', $source);
         $this->assertStringContainsString('minSampleSupport:2', $source);
         $this->assertStringContainsString('margin:0.08', $source);
-        $this->assertStringContainsString('confirmFrames:4', $source);
+        $this->assertStringContainsString('confirmFrames:2', $source);
         $this->assertStringContainsString('robustPersonSimilarity(faceEmbedding, descriptors)', $source);
         $this->assertStringContainsString('hasEnoughSampleAgreement(match)', $source);
         $this->assertStringContainsString('match.top1 >= this.threshold', $source);

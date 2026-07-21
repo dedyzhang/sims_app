@@ -50,9 +50,8 @@ class SettingController extends Controller
 
         $settings = Setting::pluck('value', 'key');
         $aturans = Aturan::orderBy('kode')->get();
-        $modulFitur = ModulAktif::semua();
 
-        return view('setting.index', compact('semester', 'semesterAktif', 'kelas', 'pelajarans', 'settings', 'aturans', 'modulFitur'));
+        return view('setting.index', compact('semester', 'semesterAktif', 'kelas', 'pelajarans', 'settings', 'aturans'));
     }
 
     public function updateSemester(Request $request)
@@ -547,7 +546,10 @@ class SettingController extends Controller
             return $items->pluck('permission')->toArray();
         })->toArray();
 
-        return view('settings.roles', compact('roles', 'permissions', 'granted'));
+        $settings = Setting::pluck('value', 'key');
+        $modulFitur = ModulAktif::semua();
+
+        return view('settings.roles', compact('roles', 'permissions', 'granted', 'settings', 'modulFitur'));
     }
 
     public function rolesSave(Request $request)
