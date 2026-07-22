@@ -32,10 +32,16 @@ class FaceScanMatchingTest extends TestCase
         $this->assertStringContainsString('recordDiag', $source);
         $this->assertStringContainsString('submitBarcode', $source);
         $this->assertStringContainsString('_scanGen', $source);
-        $this->assertStringContainsString('getVideoConstraints', $source);
         $this->assertStringContainsString('applyAutoExposure', $source);
-        $this->assertStringContainsString('previewBrightness', $source);
-        $this->assertStringContainsString('maybeAdjustHardwareExposure', $source);
+        $this->assertStringContainsString('enhanceFrame', $source);
+        // Auto exposure/kecerahan dikembalikan ke versi sederhana 21 Juli malam (hardware
+        // exposureCompensation statis ke max + software brightness via enhanceFrame saja) —
+        // sesi 22 Juli sempat menambah exposure adaptif per-frame (getVideoConstraints,
+        // previewBrightness, maybeAdjustHardwareExposure) yg lalu diminta dikembalikan normal.
+        $this->assertStringNotContainsString('getVideoConstraints', $source);
+        $this->assertStringNotContainsString('previewBrightness', $source);
+        $this->assertStringNotContainsString('maybeAdjustHardwareExposure', $source);
+        $this->assertStringNotContainsString('autoExposureOn', $source);
         $this->assertStringNotContainsString('threshold:0.58', $source);
         $this->assertStringNotContainsString('threshold:0.70', $source);
         $this->assertStringNotContainsString('confirmFrames:1,', $source);
