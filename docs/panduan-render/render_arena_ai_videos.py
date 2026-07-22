@@ -1,135 +1,23 @@
 """
-Render video storyboard panduan: Arena Belajar + Asisten Guru.
-Output: public/videos/panduan/*.mp4 dan public/images/panduan/*-sN.png
+Legacy entry — gunakan render_sims_panduan_all.py untuk seluruh fitur @ 1920×1080.
 
 Jalankan:
-  python docs/panduan-render/render_arena_ai_videos.py
+  python docs/panduan-render/render_sims_panduan_all.py
 """
 
 from __future__ import annotations
 
-import math
 import subprocess
 import tempfile
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
+
+from panduan_slide import FPS, W, H, make_slide
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT_VID = ROOT / "public" / "videos" / "panduan"
 OUT_IMG = ROOT / "public" / "images" / "panduan"
-W, H = 1280, 720
-FPS = 30
-
-
-def font(size: int, bold: bool = False):
-    candidates = [
-        "C:/Windows/Fonts/segoeuib.ttf" if bold else "C:/Windows/Fonts/segoeui.ttf",
-        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/calibrib.ttf" if bold else "C:/Windows/Fonts/calibri.ttf",
-    ]
-    for p in candidates:
-        if Path(p).exists():
-            return ImageFont.truetype(p, size)
-    return ImageFont.load_default()
-
-
-def wrap(draw: ImageDraw.ImageDraw, text: str, fnt, max_w: int) -> list[str]:
-    words = text.split()
-    lines, cur = [], ""
-    for w in words:
-        trial = (cur + " " + w).strip()
-        if draw.textlength(trial, font=fnt) <= max_w:
-            cur = trial
-        else:
-            if cur:
-                lines.append(cur)
-            cur = w
-    if cur:
-        lines.append(cur)
-    return lines or [""]
-
-
-def gradient_bg(c1=(12, 74, 110), c2=(15, 118, 110)) -> Image.Image:
-    img = Image.new("RGB", (W, H))
-    px = img.load()
-    for y in range(H):
-        t = y / (H - 1)
-        r = int(c1[0] * (1 - t) + c2[0] * t)
-        g = int(c1[1] * (1 - t) + c2[1] * t)
-        b = int(c1[2] * (1 - t) + c2[2] * t)
-        for x in range(W):
-            # soft radial vignette
-            dx = (x - W / 2) / (W / 2)
-            dy = (y - H / 2) / (H / 2)
-            v = 1 - 0.12 * (dx * dx + dy * dy)
-            px[x, y] = (
-                max(0, min(255, int(r * v))),
-                max(0, min(255, int(g * v))),
-                max(0, min(255, int(b * v))),
-            )
-    return img
-
-
-def draw_card(draw: ImageDraw.ImageDraw, xy, wh, radius=28, fill=(255, 255, 255, 235)):
-    x, y = xy
-    w, h = wh
-    # pillow rounded_rectangle supports RGBA overlay via separate layer
-    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-    od.rounded_rectangle([x, y, x + w, y + h], radius=radius, fill=fill)
-    return overlay
-
-
-def make_slide(
-    brand: str,
-    title: str,
-    subtitle: str,
-    bullets: list[str],
-    shot_no: int,
-    total: int,
-    accent=(20, 184, 166),
-    tip: str | None = None,
-) -> Image.Image:
-    base = gradient_bg()
-    card = draw_card(ImageDraw.Draw(base), (72, 88), (W - 144, H - 176), radius=32, fill=(255, 255, 255, 242))
-    img = Image.alpha_composite(base.convert("RGBA"), card).convert("RGB")
-    d = ImageDraw.Draw(img)
-
-    f_brand = font(22, True)
-    f_title = font(42, True)
-    f_sub = font(22, False)
-    f_bullet = font(26, False)
-    f_meta = font(18, True)
-    f_tip = font(20, False)
-
-    # brand chip
-    d.rounded_rectangle([96, 112, 96 + 260, 112 + 40], radius=20, fill=accent)
-    d.text((116, 120), brand, font=f_brand, fill=(255, 255, 255))
-
-    # progress
-    meta = f"Shot {shot_no}/{total}"
-    tw = d.textlength(meta, font=f_meta)
-    d.text((W - 96 - tw, 120), meta, font=f_meta, fill=(71, 85, 105))
-
-    d.text((96, 180), title, font=f_title, fill=(15, 23, 42))
-    for i, line in enumerate(wrap(d, subtitle, f_sub, W - 240)):
-        d.text((96, 240 + i * 30), line, font=f_sub, fill=(71, 85, 105))
-
-    y0 = 320
-    for b in bullets:
-        d.ellipse([104, y0 + 8, 120, y0 + 24], fill=accent)
-        for j, line in enumerate(wrap(d, b, f_bullet, W - 280)):
-            d.text((140, y0 + j * 34), line, font=f_bullet, fill=(30, 41, 59))
-        y0 += 34 * max(1, len(wrap(d, b, f_bullet, W - 280))) + 14
-
-    if tip:
-        d.rounded_rectangle([96, H - 150, W - 96, H - 110], radius=14, fill=(241, 245, 249))
-        d.text((116, H - 142), tip, font=f_tip, fill=(51, 65, 85))
-
-    # footer
-    d.text((96, H - 56), "SIMS · Panduan Visual", font=f_meta, fill=(148, 163, 184))
-    return img
 
 
 VIDEOS = {
@@ -378,7 +266,7 @@ def render_mp4(vid_id: str, slides: list[Image.Image], seconds_per_shot: float):
 
 
 def main():
-    print("Rendering Arena Belajar + Asisten Guru panduan videos…")
+    print("Rendering Arena Belajar + Asisten Guru panduan videos @ 1920×1080…")
     for vid_id, cfg in VIDEOS.items():
         shots = cfg["shots"]
         slides = []

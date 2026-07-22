@@ -25,6 +25,9 @@
     if (!e.data || e.data.type !== 'sims-theme') return;
     apply(e.data.mode === 'dark' ? 'dark' : 'light');
   });
+  if (window.self !== window.top) {
+    document.documentElement.classList.add('is-embed');
+  }
 })();
 </script>
 <style>
@@ -48,18 +51,29 @@ html.dark{
  --role-tag-bg:#422006;--role-tag-border:#854d0e;--role-tag-ink:#fbbf24;
  color-scheme:dark;
 }
-*{box-sizing:border-box}
-html{scroll-behavior:smooth;overflow-x:hidden;max-width:100%}
-body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden;max-width:100%;word-wrap:break-word;overflow-wrap:anywhere}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth;overflow-x:hidden;max-width:100%;scroll-padding-top:5.5rem;height:100%}
+html.is-embed{height:100%;overflow:hidden}
+html.is-embed body{height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
+body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden;max-width:100%;word-wrap:break-word;overflow-wrap:anywhere;text-size-adjust:100%;min-height:100%}
 img,video,svg,canvas{max-width:100%;height:auto}
+button,input,select,textarea{font:inherit;touch-action:manipulation}
 .wrap{max-width:1240px;margin:0 auto;padding:0 22px;width:100%;min-width:0}
 code{word-break:break-all}
 a{color:var(--brand);text-decoration:none}
-.hero{background:radial-gradient(1200px 420px at 82% -25%,#3b82f6 0,transparent 60%),linear-gradient(135deg,#12275a,#1e40af 60%,#0ea472);color:#fff;padding:52px 0 0}
-.badge{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:1px}
-.hero h1{margin:16px 0 10px;font-size:38px;line-height:1.15;font-weight:800}
-.hero p{margin:0;max-width:730px;font-size:16.5px;opacity:.95}
-.hero-body{padding-bottom:28px}
+.hero{background:radial-gradient(900px 380px at 100% -20%,rgba(59,130,246,.45) 0,transparent 55%),radial-gradient(600px 320px at 0% 100%,rgba(14,164,116,.35) 0,transparent 50%),linear-gradient(135deg,#0f1f45 0%,#1e3a8a 52%,#0d6e5f 100%);color:#fff;padding:44px 0 0;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;inset:auto -80px -120px auto;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.06);pointer-events:none}
+.badge{display:inline-block;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.26);padding:6px 14px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.hero-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:22px}
+.hero-ta{font-size:12px;font-weight:700;letter-spacing:.04em;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.95)}
+.hero-brand{display:grid;grid-template-columns:auto 1fr;gap:12px 20px;align-items:center;margin-bottom:6px}
+.hero-mark{grid-row:span 2;font-size:clamp(2.75rem,7vw,4.25rem);font-weight:900;line-height:.95;letter-spacing:-.04em;color:#fff;text-shadow:0 8px 32px rgba(0,0,0,.25)}
+.hero-title{margin:0;font-size:clamp(1.05rem,2.8vw,1.55rem);font-weight:650;line-height:1.35;color:rgba(255,255,255,.94);align-self:end}
+.hero-sub{margin:0;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.65);align-self:start}
+.hero-lead{margin:14px 0 0;font-size:14.5px;line-height:1.5;color:rgba(255,255,255,.78);max-width:420px}
+.hero-body{padding-bottom:26px;position:relative;z-index:1}
+.hero h1{margin:0}
+.hero p{margin:0}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0;padding:0 0 22px;position:relative;z-index:2}
 .stat{display:flex;flex-direction:column;gap:4px;background:var(--card);color:var(--ink);border:1px solid rgba(255,255,255,.7);border-radius:16px;padding:14px 16px;box-shadow:0 12px 28px rgba(16,32,64,.16);text-decoration:none;min-height:78px;transition:transform .15s ease,box-shadow .15s ease}
 html.dark .stat{border-color:var(--line);box-shadow:0 12px 28px rgba(0,0,0,.35)}
@@ -68,7 +82,7 @@ html.dark .stat:hover{box-shadow:0 16px 32px rgba(0,0,0,.45)}
 .stat b{display:block;font-size:22px;font-weight:800;line-height:1.15;color:var(--stat-ink)}
 .stat span{font-size:12px;font-weight:600;color:var(--sub);line-height:1.35}
 .stat small{font-size:11px;color:var(--brand);font-weight:700}
-.cat-jump{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px;scroll-margin-top:88px}
+.cat-jump{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px;scroll-margin-top:5.5rem}
 .cat-jump a{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--ink);font-size:12.5px;font-weight:650;box-shadow:var(--sh)}
 .cat-jump a:hover{border-color:var(--brand);color:var(--brand);background:var(--soft)}
 .cat-jump a em{font-style:normal;font-size:11px;color:var(--sub);background:var(--muted-surface-3);border-radius:999px;padding:1px 7px}
@@ -85,13 +99,24 @@ html.dark .stat:hover{box-shadow:0 16px 32px rgba(0,0,0,.45)}
 .role-checks label:has(input:checked){border-color:var(--brand);background:var(--soft);color:var(--brand)}
 .role-checks input{accent-color:var(--brand);width:14px;height:14px;margin:0}
 .role-empty{display:none;padding:28px 18px;text-align:center;color:var(--sub);border:1px dashed var(--line);border-radius:14px;background:var(--muted-surface-2);margin-bottom:18px}
-.feature[data-role-hide="1"],.cat-title[data-role-hide="1"],#manifest tr[data-role-hide="1"]{display:none!important}
+.feature[data-role-hide="1"],.cat-title[data-role-hide="1"]{display:none!important}
 @media(max-width:720px){
   .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-.layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:30px;padding:30px 0 70px}
+.layout{display:grid;grid-template-columns:270px minmax(0,1fr);gap:30px;padding:30px 0 70px;width:100%;min-width:0}
 .layout > main{min-width:0;max-width:100%}
-nav.toc{position:sticky;top:18px;align-self:start;max-height:calc(100vh - 36px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
+nav.toc{position:sticky;top:18px;align-self:start;max-height:calc(100dvh - 36px);overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
+html.is-embed nav.toc{max-height:calc(100% - 36px)}
+/* Kanan bawah, di atas FAB AI SIMS di parent (bottom-11 + h-12 + jarak) */
+html.is-embed{
+  --fab-clearance:6.75rem;
+}
+html.is-embed .float-tools{
+  right:max(16px, env(safe-area-inset-right));
+  left:auto;
+  bottom:calc(var(--fab-clearance) + env(safe-area-inset-bottom));
+}
+html.is-embed .topbar{z-index:45}
 nav.toc h4{margin:12px 10px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--sub)}
 nav.toc a{display:block;padding:8px 12px;border-radius:10px;color:var(--ink);font-size:14px;font-weight:500;border-left:3px solid transparent}
 nav.toc a:hover{background:var(--soft)}
@@ -100,8 +125,8 @@ nav.toc a.active{background:var(--soft);border-left-color:var(--brand);color:var
 .callout.warn{border-left-color:var(--accent)}
 .callout h3{margin:0 0 4px;font-size:16px}
 .callout p{margin:0;color:var(--sub);font-size:14.5px}
-.cat-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--sub);font-weight:800;margin:40px 4px 16px;padding-bottom:8px;border-bottom:2px solid var(--line);scroll-margin-top:88px}
-.feature{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:26px;overflow:hidden;scroll-margin-top:88px;max-width:100%;min-width:0}
+.cat-title{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--sub);font-weight:800;margin:40px 4px 16px;padding-bottom:8px;border-bottom:2px solid var(--line);scroll-margin-top:5.5rem}
+.feature{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:26px;overflow:hidden;scroll-margin-top:5.5rem;max-width:100%;min-width:0}
 .fhead{display:flex;align-items:flex-start;gap:16px;padding:20px 26px;background:linear-gradient(180deg,var(--muted-surface-2),var(--card));border-bottom:1px solid var(--line);min-width:0}
 .num{flex:none;width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--brand),#4f7cff);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(47,95,239,.3)}
 .feature.role .num{background:linear-gradient(135deg,var(--accent),#fbbf24);box-shadow:0 6px 16px rgba(245,158,11,.3)}
@@ -147,17 +172,13 @@ table.shots th{background:var(--muted-surface-3);font-size:11px;text-transform:u
 table.shots td:first-child{width:44px;text-align:center;font-weight:800;color:var(--brand)}
 .narr{margin-top:12px;padding:12px 14px;background:var(--narr-bg);border:1px solid var(--narr-border);border-radius:10px;color:var(--narr-ink);font-size:13.5px;overflow-wrap:anywhere}
 .vid{margin-top:20px;max-width:100%}
-.vid video{width:100%;max-width:100%;border-radius:14px;border:1px solid var(--line);background:#000;display:block;box-shadow:0 8px 24px rgba(16,32,64,.1)}
+.vid video{width:100%;max-width:100%;border-radius:14px;border:1px solid var(--line);background:#000;display:block;box-shadow:0 8px 24px rgba(16,32,64,.1);aspect-ratio:16/9;object-fit:contain}
 .vcap{font-size:12.5px;color:var(--sub);text-align:center;margin-top:8px;font-weight:600}
 footer{background:#0d1a30;color:#c7d2e2;padding:34px 0;font-size:13.5px;margin-top:30px}
 footer a{color:#93c5fd}
-.manifest{width:100%;min-width:420px;border-collapse:collapse;font-size:13.5px;background:var(--card);border-radius:12px;box-shadow:var(--sh)}
-.manifest th,.manifest td{border-bottom:1px solid var(--line);padding:10px 14px;text-align:left;color:var(--ink)}
-.manifest th{background:var(--muted-surface-3);font-size:11px;text-transform:uppercase;color:var(--sub)}
-.manifest td code{font-size:12.5px;word-break:break-all}
-#lb{display:none;position:fixed;inset:0;background:rgba(6,12,24,.92);z-index:99;align-items:center;justify-content:center;cursor:zoom-out;padding:24px}
-#lb img{max-width:96%;max-height:96%;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.topbar{position:fixed;left:12px;right:12px;top:12px;z-index:40;max-width:1240px;margin:0 auto;background:var(--topbar-bg);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 28px rgba(16,32,64,.12);opacity:0;pointer-events:none;transform:translateY(-8px);transition:opacity .18s ease,transform .18s ease}
+#lb{display:none;position:fixed;inset:0;background:rgba(6,12,24,.92);z-index:99;align-items:center;justify-content:center;cursor:zoom-out;padding:max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))}
+#lb img{max-width:min(96%, 100vw);max-height:min(96%, 100dvh);border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.topbar{position:fixed;left:max(12px, env(safe-area-inset-left));right:max(12px, env(safe-area-inset-right));top:max(12px, env(safe-area-inset-top));z-index:40;max-width:1240px;margin:0 auto;background:var(--topbar-bg);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 28px rgba(16,32,64,.12);opacity:0;pointer-events:none;transform:translateY(-8px);transition:opacity .18s ease,transform .18s ease}
 html.dark .topbar{box-shadow:0 10px 28px rgba(0,0,0,.4)}
 .topbar.show{opacity:1;pointer-events:auto;transform:translateY(0)}
 .topbar .inner{max-width:none;margin:0;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-width:0}
@@ -176,14 +197,15 @@ html.dark .topbar{box-shadow:0 10px 28px rgba(0,0,0,.4)}
 .fnav a b{font-size:14px;font-weight:700;line-height:1.3}
 .fnav a.next{text-align:right;align-items:flex-end}
 .fnav a.disabled{opacity:.35;pointer-events:none}
-.float-tools{position:fixed;right:18px;bottom:18px;z-index:50;display:flex;flex-direction:column;gap:10px}
-.float-btn{width:48px;height:48px;border:0;border-radius:16px;background:var(--brand);color:#fff;font-weight:800;font-size:18px;box-shadow:0 10px 28px rgba(47,95,239,.35);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.float-tools{position:fixed;right:max(18px, env(safe-area-inset-right));bottom:max(18px, env(safe-area-inset-bottom));z-index:50;display:flex;flex-direction:column;gap:10px}
+.float-btn{width:48px;height:48px;min-width:48px;min-height:48px;border:0;border-radius:16px;background:var(--brand);color:#fff;font-weight:800;font-size:18px;box-shadow:0 10px 28px rgba(47,95,239,.35);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.toc-mobile-only{display:none}
 .float-btn.secondary{background:#0f1e35}
 html.dark .float-btn.secondary{background:#334155}
 .float-btn:hover{filter:brightness(1.08)}
 .drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(6,12,24,.45);z-index:60}
 .drawer-backdrop.open{display:block}
-.drawer{position:fixed;top:0;right:0;width:min(360px,92vw);height:100%;background:var(--card);z-index:70;transform:translateX(100%);transition:transform .22s ease;box-shadow:-12px 0 40px rgba(16,32,64,.18);display:flex;flex-direction:column}
+.drawer{position:fixed;top:0;right:0;width:min(360px,92vw);height:100%;height:100dvh;background:var(--card);z-index:70;transform:translateX(100%);transition:transform .22s ease;box-shadow:-12px 0 40px rgba(16,32,64,.18);display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
 .drawer.open{transform:translateX(0)}
 .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px 16px 10px;border-bottom:1px solid var(--line)}
 .drawer-head b{font-size:15px;color:var(--ink)}
@@ -193,38 +215,49 @@ html.dark .float-btn.secondary{background:#334155}
 .drawer .toc-pane a{display:block;padding:8px 12px;border-radius:10px;color:var(--ink);font-size:14px;font-weight:500;border-left:3px solid transparent}
 .drawer .toc-pane a:hover,.drawer .toc-pane a.active{background:var(--soft);border-left-color:var(--brand);color:var(--brand);font-weight:700}
 @media(max-width:920px){
+  html{scroll-padding-top:4.75rem}
+  .cat-title,.feature,.cat-jump{scroll-margin-top:4.75rem}
   .wrap{padding:0 14px}
-  .layout{grid-template-columns:minmax(0,1fr);gap:18px;padding:18px 0 88px}
+  .layout{grid-template-columns:minmax(0,1fr);gap:18px;padding:18px 0 calc(88px + env(safe-area-inset-bottom))}
   nav.toc{display:none}
-  .hero{padding:36px 0 0}
-  .hero h1{font-size:clamp(1.45rem,5.5vw,1.9rem)}
-  .hero p{font-size:15px}
+  .hero{padding:max(24px, env(safe-area-inset-top)) 0 0}
+  .hero-brand{grid-template-columns:1fr;gap:6px}
+  .hero-mark{grid-row:auto;font-size:clamp(2.5rem,12vw,3.25rem)}
+  .hero-title{font-size:clamp(1.1rem,4.5vw,1.35rem)}
+  .hero-lead{font-size:14px;max-width:100%}
   .fhead{padding:16px 16px;gap:12px}
   .body{padding:16px}
   .fhtxt h2{font-size:18px}
   .num{width:40px;height:40px;font-size:16px;border-radius:12px}
   .callout{padding:14px 16px}
-  .float-tools{right:12px;bottom:12px}
+  .float-tools{right:max(12px, env(safe-area-inset-right));bottom:max(12px, env(safe-area-inset-bottom))}
   .toc-mobile-only{display:flex}
-  .topbar{left:8px;right:8px;top:8px;border-radius:14px}
+  .topbar{left:max(8px, env(safe-area-inset-left));right:max(8px, env(safe-area-inset-right));top:max(8px, env(safe-area-inset-top));border-radius:14px}
   .topbar .brand{display:none}
+  .topbar .inner{flex-direction:column;align-items:stretch}
+  .topbar input,.topbar select{flex:1 1 auto;width:100%;max-width:100%;font-size:16px}
   .sb{padding:12px 12px 14px}
   details.story>summary{padding:12px 14px}
+  footer{padding:28px 0 max(28px, env(safe-area-inset-bottom))}
 }
 @media(max-width:560px){
   .stats{grid-template-columns:1fr 1fr;gap:8px}
   .stat{padding:12px;min-height:68px}
   .stat b{font-size:18px}
-  .who{border-radius:12px}
+  .who{display:flex;width:100%}
   .who-label,.who-val{padding:6px 12px}
+  .fnav{flex-direction:column}
   .fnav a{min-width:100%;flex:1 1 100%}
+  .fnav a.next{text-align:left;align-items:flex-start}
   .gallery{grid-template-columns:1fr 1fr;gap:8px}
-  .gshot img{height:100px}
+  .gshot img{height:min(100px, 28vw)}
   .steps li{padding-left:38px;font-size:14.5px}
-  table.shots, .manifest{min-width:360px;font-size:12.5px}
-  .manifest th,.manifest td,table.shots th,table.shots td{padding:7px 8px}
-  #lb{padding:12px}
+  table.shots{min-width:min(360px, 100%)}
+  table.shots th,table.shots td{padding:7px 8px}
+  #lb{padding:max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))}
   #lb img{max-width:100%;max-height:100%;border-radius:8px}
+  .role-checks label{flex:1 1 calc(50% - 8px);justify-content:center}
+  .cat-jump a{font-size:12px;padding:7px 10px}
 }
 @media(max-width:380px){
   .wrap{padding:0 10px}
@@ -243,15 +276,22 @@ html.dark .float-btn.secondary{background:#334155}
 <header class="hero">
   <div class="wrap">
     <div class="hero-body">
-      <span class="badge">PANDUAN PENGGUNAAN</span>
-      <h1>SIMS - Sistem Informasi Manajemen Sekolah</h1>
-      <p>Panduan lengkap tiap fitur SIMS: penjelasan, langkah pakai, screenshot, dan storyboard video. Klik kartu di bawah untuk lompat cepat. <strong>Update Juli 2026:</strong> Arena Belajar (template Ular tangga, salin soal, solo acak) &amp; Asisten Guru (folder Nalar &amp; Kuota, Kirim ke Arena) sudah dilengkapi video baru.</p>
+      <div class="hero-top">
+        <span class="badge">Panduan Penggunaan</span>
+        <span class="hero-ta">TA 2026/2027</span>
+      </div>
+      <div class="hero-brand">
+        <div class="hero-mark" aria-hidden="true">SIMS</div>
+        <p class="hero-sub">Sistem Informasi</p>
+        <h1 class="hero-title">Manajemen Sekolah</h1>
+      </div>
+      <p class="hero-lead">Jelajahi panduan tiap fitur lewat kartu ringkasan di bawah.</p>
     </div>
     <div class="stats" id="heroStats" aria-label="Ringkasan panduan">
       <a class="stat" href="#content"><b id="statFitur">—</b><span>Fitur terdokumentasi</span><small>Ke daftar fitur ↓</small></a>
       <a class="stat" href="#cat-jump"><b id="statKategori">—</b><span>Kategori</span><small>Pilih kategori ↓</small></a>
       <a class="stat" href="#login"><b id="statStory">—</b><span>Storyboard video</span><small>Mulai dari Login ↓</small></a>
-      <a class="stat" href="#settings"><b>TA 26/27</b><span>Siap pelatihan</span><small>Ke pengaturan ↓</small></a>
+      <a class="stat" href="#settings"><b>TA 2026/2027</b><span>Siap pelatihan</span><small>Ke pengaturan ↓</small></a>
     </div>
   </div>
 </header>
@@ -288,20 +328,7 @@ html.dark .float-btn.secondary{background:#334155}
     </div>
     <div class="role-empty" id="roleEmpty">Tidak ada fitur untuk role yang dipilih. Centang minimal satu role.</div>
     <div class="cat-jump" id="cat-jump" aria-label="Lompat ke kategori"></div>
-    <div class="callout warn">
-      <h3>Mengisi screenshot &amp; video</h3>
-      <p>Gambar diambil dari kotak putus-putus otomatis hilang begitu file gambar tersedia. File PNG ada di <code>/images/panduan/</code>. Video storyboard ada di <code>/videos/panduan/{id}.mp4</code> (mis. <code>login.mp4</code>). Fitur tanpa file video akan menyembunyikan pemutar otomatis.</p>
-    </div>
     <div id="content"></div>
-
-    <div class="cat-title">Lampiran</div>
-    <div class="feature"><div class="body" style="padding:20px 22px">
-      <h2 style="margin:0 0 12px;font-size:19px">Daftar Nama File Screenshot (Manifest)</h2>
-      <p class="desc">Ringkasan seluruh nama file gambar yang dipakai panduan. Simpan semua di folder <code>img/</code>.</p>
-      <div class="table-scroll">
-        <table class="manifest" id="manifest"><thead><tr><th>#</th><th>Fitur</th><th>Nama File</th></tr></thead><tbody></tbody></table>
-      </div>
-    </div></div>
   </main>
 </div>
 
@@ -452,18 +479,18 @@ const F = [
 {cat:"Akademik", role:false, id:"arenabelajar", title:"Arena Belajar (Kuis & Misi)", path:"/ruang-kelas/{kode}/arena-belajar", img:"arena-belajar.png",
  users:"Guru (buat, host, tugaskan), Siswa (main & kumpulkan)",
  cap:"Arena Belajar: hub Ruang Kelas — Kuis (async/live/template) + Misi; skor bisa masuk rapor.",
- desc:"Modul permainan edukatif di Ruang Kelas. Guru membuat kuis (PG, benar/salah, isian, pasangkan), menjalankan Live, memakai skin template (Quiz, Pasangkan, Flashcard, Teka-teki, Susun kata, Ular tangga), menyalin soal ke kelas lain (mapel sama), atau menugaskan misi. Mode solo mengacak soal & opsi per attempt. Skor dapat ditransfer ke nilai formatif/sumatif. Aktifkan di Pengaturan Sistem → Fitur → Arena Belajar.",
- steps:["Buka Akademik → Ruang Kelas → pilih ruang mapel → tab Arena Belajar.","Pilih mode Kuis atau Misi.","Guru (kuis): Buat Kuis → isi soal → Terbitkan (ikuti petunjuk jari bila masih draf).","Guru: pakai panel aksi cepat (hasil, live, template, tim, PDF) dan Salin soal ke kelas lain bila perlu.","Siswa (solo): Mulai → chip Solo · soal acak → jawab → Kumpulkan.","Guru (live): Mulai Live → maju soal → Akhiri → podium.","Guru (misi): tab Misi → Tugaskan → Monitor → Transfer Nilai."],
- sb:{dur:"~75 detik", shots:[["1","Masuk Arena","Ruang Kelas → tab Arena"],["2","Buat & Terbitkan","Petunjuk jari ke Terbitkan"],["3","Template & solo acak","Skin + chip Solo"],["4","Salin / Live / nilai","Kelas lain, podium, transfer"]], narr:"'Arena Belajar menyatukan kuis, template permainan, misi, dan live di satu tempat. Terbitkan dulu, main solo atau live, salin soal ke kelas lain, lalu transfer skor ke buku nilai.'"},
- gallery:["arenabelajar-s1.png","arenabelajar-s2.png","arenabelajar-s3.png","arenabelajar-s4.png"]},
+ desc:"Modul permainan edukatif di Ruang Kelas. Guru membuat kuis (PG, benar/salah, isian, pasangkan), menjalankan Live dengan token/QR gabung, memakai skin template (Quiz, Pasangkan, Flashcard, Teka-teki, Susun kata, Ular tangga), menyalin soal ke kelas lain (mapel sama), atau menugaskan misi. Experience terkunci memakai kode masuk arena (token otomatis saat diterbitkan). Mode solo mengacak soal & opsi per attempt. Skor dapat ditransfer ke nilai formatif/sumatif. Aktifkan di Pengaturan Sistem → Fitur → Arena Belajar.",
+ steps:["Buka Akademik → Ruang Kelas → pilih ruang mapel → tab Arena Belajar.","Pilih mode Kuis atau Misi.","Guru (kuis): Buat Kuis → isi soal → Terbitkan (token arena terisi otomatis).","Guru: salin token atau tampilkan QR/barcode gabung di panel Kode masuk arena.","Guru: panel aksi cepat (hasil, live, template, tim, PDF) dan Salin soal ke kelas lain bila perlu.","Siswa (solo/live): masukkan token atau scan QR/barcode → Mulai → jawab → Kumpulkan.","Guru (live): Mulai Live → maju soal → Akhiri → podium.","Guru (misi): tab Misi → Tugaskan → Monitor → Transfer Nilai."],
+ sb:{dur:"~80 detik", shots:[["1","Masuk Arena","Ruang Kelas → tab Arena"],["2","Kode masuk & QR","Panel token + barcode gabung"],["3","Buat & Terbitkan","Petunjuk jari ke Terbitkan"],["4","Template & solo acak","Skin + chip Solo"],["5","Salin / Live / nilai","Kelas lain, podium, transfer"]], narr:"'Arena Belajar menyatukan kuis, template, misi, dan live. Terbitkan dulu, bagikan token atau QR gabung, main solo atau live, salin soal ke kelas lain, lalu transfer skor ke buku nilai.'"},
+ gallery:["arenabelajar-s1.png","arenabelajar-s2.png","arenabelajar-s3.png","arenabelajar-s4.png","arenabelajar-s5.png"]},
 
 {cat:"Akademik", role:false, id:"arenakuis", title:"Arena Belajar — Kuis, Template & Live", path:"/ruang-kelas/{kode}/arena-belajar", img:"arena-kuis.png",
  users:"Guru (kelola), Siswa (main)",
  cap:"Update kuis: ubin aksi cepat, Terbitkan, skin Ular tangga, salin antar kelas, solo acak.",
- desc:"Panduan fokus mode Kuis. Experience punya panel kelola berwarna (aksi cepat + mode/ekspor). Draf wajib diterbitkan agar siswa melihat. Skin template termasuk Ular tangga. Mode solo mengacak urutan soal & opsi per UUID attempt; Live tetap urutan host. Salin soal hanya ke ruang mapel yang sama.",
- steps:["Buat atau sunting experience → simpan soal.","Klik Terbitkan agar siswa bisa main.","Pilih skin template (opsional) termasuk Ular tangga.","Untuk rombel lain: Salin soal ke kelas lain (mapel sama).","Siswa solo: Mulai → jawab (urutan acak) → Kumpulkan.","Atau Mulai Live → host maju soal → Akhiri → lihat hasil/transfer nilai."],
- sb:{dur:"~65 detik", shots:[["1","Alur buat → main","Form sampai kumpulkan"],["2","Panel kelola baru","Ubin aksi berwarna"],["3","Salin ke kelas lain","Centang rombel mapel sama"],["4","Solo acak","Chip Solo · soal acak"]], narr:"'Di mode Kuis, guru membuat soal, menerbitkan, memilih template, menyalin ke kelas lain, lalu siswa main solo (acak) atau live bersama.'"},
- gallery:["arenakuis-s1.png","arenakuis-s2.png","arenakuis-s3.png","arenakuis-s4.png"],
+ desc:"Panduan fokus mode Kuis. Experience punya panel kelola berwarna (aksi cepat + mode/ekspor). Draf wajib diterbitkan agar siswa melihat; token arena terisi otomatis. Panel Kode masuk arena menampilkan token, QR, dan barcode untuk gabung solo/live. Skin template termasuk Ular tangga. Mode solo mengacak urutan soal & opsi per UUID attempt; Live tetap urutan host. Salin soal hanya ke ruang mapel yang sama.",
+ steps:["Buat atau sunting experience → simpan soal.","Klik Terbitkan agar siswa bisa main (token terisi otomatis).","Salin token atau tampilkan QR/barcode di panel Kode masuk arena.","Pilih skin template (opsional) termasuk Ular tangga.","Untuk rombel lain: Salin soal ke kelas lain (mapel sama).","Siswa: masukkan token / scan QR → Mulai → jawab → Kumpulkan.","Atau Mulai Live → bagikan token/QR → host maju soal → Akhiri → hasil/transfer nilai."],
+ sb:{dur:"~70 detik", shots:[["1","Alur buat → main","Form sampai kumpulkan"],["2","Token & QR gabung","Panel Kode masuk arena"],["3","Panel kelola baru","Ubin aksi berwarna"],["4","Salin ke kelas lain","Centang rombel mapel sama"],["5","Solo acak / Live","Chip Solo · soal acak atau live"]], narr:"'Di mode Kuis, guru membuat soal, menerbitkan, membagikan token/QR gabung, memilih template, menyalin ke kelas lain, lalu siswa main solo (acak) atau live bersama.'"},
+ gallery:["arenakuis-s1.png","arenakuis-s2.png","arenakuis-s3.png","arenakuis-s4.png","arenakuis-s5.png"],
  note:"Salinan tidak menampilkan judul experience yang tidak berhak diakses. Solo acak tidak mengubah kunci jawaban."},
 
 {cat:"Akademik", role:false, id:"arenamisi", title:"Arena Belajar — Misi Edukatif", path:"/ruang-kelas/{kode}/arena-belajar?mode=misi", img:"arena-misi.png",
@@ -474,7 +501,7 @@ const F = [
  sb:{dur:"~55 detik", shots:[["1","Hub Arena tab Misi","Panel rekomendasi"],["2","Guru tugaskan","Form + jadwal"],["3","Siswa main","Narasi / quiz / puzzle"],["4","Debrief & nilai","Diskusi + transfer"]], narr:"'Misi di Arena ditandai per jenjang dan tren. Guru menugaskan, siswa bermain, lalu diskusi singkat dan transfer nilai bila perlu.'"},
  gallery:["arenamisi-s1.png","arenamisi-s2.png","arenamisi-s3.png","arenamisi-s4.png"]},
 
-{cat:"Akademik", role:false, id:"arenatren", title:"Arena Belajar — Tren 2025–2026", path:"/ruang-kelas/{kode}/arena-belajar?mode=misi", img:"arena-misi.png",
+{cat:"Akademik", role:false, id:"arenatren", title:"Arena Belajar — Tren 2025–2026", path:"/ruang-kelas/{kode}/arena-belajar?mode=misi", img:"arena-tren.png",
  users:"Guru (tugaskan), Siswa (main)",
  cap:"Katalog misi tren: literasi AI, cek fakta/deepfake, iklim, green computing, dan digital wellbeing — ditandai per jenjang SD/SMP/SMA-SMK.",
  desc:"Koleksi permainan edukatif yang mengikuti tren pembelajaran 2025–2026: AI-enhanced literacy, critical media (anti-hoaks/deepfake), climate literacy, green computing, dan digital wellbeing. Setiap misi punya badge Tren 25–26 + mark jenjang. Cocok untuk pengayaan Informatika, PPKn, IPA/IPS, dan PJOK tanpa platform eksternal.",
@@ -716,7 +743,6 @@ const statStory=document.getElementById('statStory');
 const catJump=document.getElementById('cat-jump');
 const content=document.getElementById('content');
 const toc=document.getElementById('toc');
-const manifest=document.querySelector('#manifest tbody');
 const drawerToc=document.getElementById('drawerToc');
 const jumpSelect=document.getElementById('jumpSelect');
 const roleEmpty=document.getElementById('roleEmpty');
@@ -771,14 +797,13 @@ catOrder.forEach(cat=>{
           </div>
         </details>
         <div class="vid">
-          <video controls preload="metadata" src="/videos/panduan/${f.id}.mp4" onerror="this.closest('.vid').style.display='none'"></video>
+          <video controls playsinline webkit-playsinline preload="metadata" src="/videos/panduan/${f.id}.mp4" onerror="this.closest('.vid').style.display='none'"></video>
           <div class="vcap">Video storyboard - durasi ${f.sb.dur}</div>
         </div>
         ${f.note?`<div class="callout warn" style="margin:16px 0 0"><p><b>Catatan:</b> ${f.note}</p></div>`:''}
         <div class="fnav" data-fid="${f.id}"></div>
       </div>`;
     content.appendChild(card);
-    const tr=document.createElement('tr');tr.dataset.fid=f.id;tr.innerHTML=`<td>${n}</td><td>${f.title}</td><td><code>/images/panduan/${f.img}</code></td>`;manifest.appendChild(tr);
   });
 });
 
@@ -801,7 +826,7 @@ function applyRoleFilter(){
     const hide=visIds.has(f.id)?'0':'1';
     const card=document.getElementById(f.id);
     if(card) card.dataset.roleHide=hide;
-    document.querySelectorAll('a[data-fid="'+f.id+'"], #manifest tr[data-fid="'+f.id+'"]').forEach(el=>{ el.dataset.roleHide=hide; if(el.tagName==='A'){ el.style.display=hide==='1'?'none':''; }});
+    document.querySelectorAll('a[data-fid="'+f.id+'"]').forEach(el=>{ el.dataset.roleHide=hide; if(el.tagName==='A'){ el.style.display=hide==='1'?'none':''; }});
     const opt=[...jumpSelect.options].find(o=>o.value===f.id);
     if(opt) opt.hidden=hide==='1';
   });
@@ -943,13 +968,27 @@ jumpSearch.addEventListener('keydown', function(e){
 var topbar=document.getElementById('topbar');
 var btnTop=document.getElementById('btnTop');
 var heroEl=document.querySelector('.hero');
-window.addEventListener('scroll', function(){
-  var y=window.scrollY||document.documentElement.scrollTop;
+function scrollEl(){
+  return document.documentElement.classList.contains('is-embed')
+    ? document.body
+    : (document.scrollingElement || document.documentElement);
+}
+function pageScrollY(){
+  var el=scrollEl();
+  return el===document.body ? el.scrollTop : (window.scrollY||el.scrollTop||0);
+}
+function scrollPageTo(top, smooth){
+  scrollEl().scrollTo({top:top, behavior:smooth?'smooth':'auto'});
+}
+function onPageScroll(){
+  var y=pageScrollY();
   var showAfter=heroEl ? Math.max(180, heroEl.offsetHeight - 40) : 280;
   topbar.classList.toggle('show', y>showAfter);
   btnTop.style.opacity=y>400?'1':'0.55';
-},{passive:true});
-btnTop.addEventListener('click', function(){ window.scrollTo({top:0,behavior:'smooth'}); });
+}
+scrollEl().addEventListener('scroll', onPageScroll, {passive:true});
+onPageScroll();
+btnTop.addEventListener('click', function(){ scrollPageTo(0, true); });
 
 var drawer=document.getElementById('drawer');
 var backdrop=document.getElementById('drawerBackdrop');
