@@ -215,9 +215,16 @@ class AbsensiController extends Controller
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
         $selectedKelas = $request->kelas ?: '';
 
-        // Semua siswa yang SUDAH daftar wajah (filter kelas di UI JS untuk scope matching)
+        // Apa yang dibaca kamera kiosk: wajah saja, QR kartu saja, atau keduanya (default).
+        $scanKioskMode = \App\Models\Setting::get('scan_kiosk_mode', 'keduanya');
+        if (! in_array($scanKioskMode, ['wajah', 'qr', 'keduanya'], true)) {
+            $scanKioskMode = 'keduanya';
+        }
+
+        // Mode wajah saja: hanya siswa yang sudah daftar wajah (filter kelas di UI JS).
+        // Mode dengan QR: SEMUA siswa — kartu pelajar berlaku juga untuk yang belum daftar wajah.
         $siswas = Siswa::with('kelas')
-            ->whereNotNull('face_descriptor')
+            ->when($scanKioskMode === 'wajah', fn ($q) => $q->whereNotNull('face_descriptor'))
             ->orderBy('nama')
             ->get()
             ->sortBy(fn ($s) => sprintf('%s%s %s', $s->kelas?->tingkat, $s->kelas?->kelas, $s->nama))
@@ -244,7 +251,8 @@ class AbsensiController extends Controller
             'jk'       => $s->jk,
             'kelas'    => $s->kelas ? $s->kelas->tingkat.$s->kelas->kelas : '-',
             'id_kelas' => $s->id_kelas,
-            'desc'     => $s->face_descriptor,
+            // Mode QR saja: descriptor tidak dipakai — jangan kirim (payload jauh lebih ringan).
+            'desc'     => $scanKioskMode === 'qr' ? [] : $s->face_descriptor,
             'status'   => $existingSiswa->get($s->uuid)?->status,
             'jam_masuk'=> substr($existingSiswa->get($s->uuid)?->jam_masuk, 0, 5),
         ]);
@@ -254,7 +262,8 @@ class AbsensiController extends Controller
             'type'       => 'guru',
             'nama'       => $g->nama,
             'jk'         => $g->jk,
-            'desc'       => $g->face_descriptor,
+            // QR kartu hanya untuk siswa — di mode QR saja, guru tidak bisa scan di halaman ini.
+            'desc'       => $scanKioskMode === 'qr' ? [] : $g->face_descriptor,
             'nip'        => $g->nip ?: $g->nik,
             'status'     => $existingGuru->get($g->uuid)?->status,
             'pulangDone' => (bool) ($existingGuru->get($g->uuid)?->jam_pulang),
@@ -274,7 +283,7 @@ class AbsensiController extends Controller
 
         return view('absensi.scan', compact(
             'tanggal', 'siswas', 'gurus', 'payload', 'existingSiswa', 'existingGuru',
-            'isKiosk', 'kioskToken', 'kelasList', 'selectedKelas', 'kelasOptions'
+            'isKiosk', 'kioskToken', 'kelasList', 'selectedKelas', 'kelasOptions', 'scanKioskMode'
         ));
     }
 
@@ -374,10 +383,22 @@ class AbsensiController extends Controller
             '_via'     => 'nullable|in:face,barcode',
         ]);
 
-        if (! \App\Support\AbsensiGuru::bolehWajah()) {
+        // Gate metode per-via — dulu semua yang lewat halaman scan dianggap "metode wajah",
+        // sehingga kartu QR ikut tertolak saat cara_absensi_guru = barcode. Sekarang:
+        // via wajah butuh metode wajah aktif + kamera kiosk tidak disetel QR-saja;
+        // via kartu (barcode/QR) sah selama metode wajah aktif ATAU kamera kiosk membaca QR.
+        $viaBarcode = ($data['_via'] ?? 'face') === 'barcode';
+        $scanKioskMode = \App\Models\Setting::get('scan_kiosk_mode', 'keduanya');
+        $qrKameraAktif = in_array($scanKioskMode, ['qr', 'keduanya'], true);
+        $bolehVia = $viaBarcode
+            ? (\App\Support\AbsensiGuru::bolehWajah() || $qrKameraAktif)
+            : (\App\Support\AbsensiGuru::bolehWajah() && $scanKioskMode !== 'qr');
+        if (! $bolehVia) {
             return response()->json([
                 'success' => false,
-                'message' => \App\Support\AbsensiGuru::pesanKunci('Scan Wajah'),
+                'message' => $viaBarcode
+                    ? 'Absensi via kartu QR sedang dikunci. Ubah mode kamera di Pengaturan → Absensi.'
+                    : \App\Support\AbsensiGuru::pesanKunci('Scan Wajah'),
             ]);
         }
 

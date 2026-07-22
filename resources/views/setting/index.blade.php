@@ -397,6 +397,31 @@
             <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
         </form>
 
+        {{-- Mode kamera halaman Scan Absensi --}}
+        <form method="POST" action="{{ route('setting.scanKioskMode') }}" class="card p-6 space-y-4">
+            @csrf
+            <h2 class="font-bold text-slate-800 dark:text-slate-100">Kamera Halaman Scan Absensi</h2>
+            <p class="text-xs text-slate-400 -mt-1">Tentukan apa yang dibaca kamera di halaman Scan Absensi: wajah, QR kartu pelajar, atau keduanya sekaligus dalam satu kamera.</p>
+            @php $scanKioskNow = in_array($settings['scan_kiosk_mode'] ?? 'keduanya', ['wajah','qr','keduanya']) ? ($settings['scan_kiosk_mode'] ?? 'keduanya') : 'keduanya'; @endphp
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                @foreach([
+                    'wajah'    => ['Wajah saja', 'Kamera hanya mengenali wajah', 'scan-face'],
+                    'qr'       => ['QR kartu saja', 'Kamera hanya membaca QR kartu pelajar', 'qr-code'],
+                    'keduanya' => ['Wajah + QR', 'Satu kamera membaca wajah dan QR kartu', 'scan-eye'],
+                ] as $val => [$lbl,$desc,$icon])
+                <label class="cursor-pointer">
+                    <input type="radio" name="scan_kiosk_mode" value="{{ $val }}" @checked($scanKioskNow===$val) class="hidden peer">
+                    <div class="border-2 rounded-xl p-4 transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600 h-full">
+                        <i data-lucide="{{ $icon }}" class="w-5 h-5 text-slate-400 peer-checked:text-primary mb-1.5"></i>
+                        <p class="font-bold text-sm text-slate-700 dark:text-slate-200">{{ $lbl }}</p>
+                        <p class="text-xs text-slate-400 mt-0.5">{{ $desc }}</p>
+                    </div>
+                </label>
+                @endforeach
+            </div>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
+        </form>
+
         {{-- Link Kiosk Absensi --}}
         <div class="card p-6 space-y-3" x-data="{ copied:false, url:'{{ $settings['kiosk_token'] ?? '' ? url('/kiosk-absensi/'.$settings['kiosk_token']) : '' }}',
             copy(){ navigator.clipboard.writeText(this.url); this.copied=true; setTimeout(()=>this.copied=false,1800); } }">

@@ -264,6 +264,15 @@ class SettingController extends Controller
         return back()->with('success', 'Cara absensi disimpan.');
     }
 
+    /** Apa yang dibaca kamera halaman Scan Absensi: wajah saja, QR kartu saja, atau keduanya. */
+    public function setScanKioskMode(Request $request)
+    {
+        $request->validate(['scan_kiosk_mode' => 'required|in:wajah,qr,keduanya']);
+        Setting::set('scan_kiosk_mode', $request->scan_kiosk_mode);
+
+        return back()->with('success', 'Mode kamera scan disimpan.');
+    }
+
     /** Buat/ganti token link kiosk absensi publik. Mengganti token otomatis mematikan link lama. */
     public function regenerateKioskToken()
     {

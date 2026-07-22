@@ -26,13 +26,22 @@
     'kioskToken' => $kioskToken ?? null,
     'isKiosk' => $isKiosk ?? false,
     'hasGuru' => ($gurus ?? collect())->isNotEmpty(),
+    'scanKioskMode' => $scanKioskMode ?? 'keduanya',
 ]))" x-init="init()">
 
     {{-- Header --}}
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
             <h1 class="page-title">Absensi Hadir</h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Hadap kamera — absen otomatis. Tidak terbaca? pakai kartu pelajar di bawah.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                @if(($scanKioskMode ?? 'keduanya') === 'qr')
+                    Arahkan QR kartu pelajar ke kamera — absen otomatis.
+                @elseif(($scanKioskMode ?? 'keduanya') === 'wajah')
+                    Hadap kamera — absen otomatis. Tidak terbaca? pakai kartu pelajar di bawah.
+                @else
+                    Hadap kamera atau tunjukkan QR kartu pelajar — satu kamera membaca keduanya.
+                @endif
+            </p>
         </div>
         @unless($isKiosk ?? false)
         <div class="flex items-center gap-2 flex-wrap">
@@ -73,11 +82,15 @@
     @else
     <div class="grid lg:grid-cols-5 gap-5">
         {{-- Kamera --}}
-        <div class="lg:col-span-3 space-y-3">
-            <div x-ref="stage" class="scan-stage card overflow-hidden relative bg-slate-900 aspect-video">
+        {{-- min-w-0: tanpa ini, lebar intrinsik video (mis. 1280px) memaksa kolom grid melebar
+             melewati viewport di HP (frame kamera "keluar layar"). Video juga diposisikan absolute
+             supaya ukuran aslinya tidak pernah memengaruhi layout — tinggi stage dari aspect-video. --}}
+        <div class="lg:col-span-3 space-y-3 min-w-0">
+            <div x-ref="stage" class="scan-stage card overflow-hidden relative bg-slate-900 aspect-video w-full max-w-full">
                 <video x-ref="video" autoplay muted playsinline
+                    class="absolute inset-0 w-full h-full object-cover"
                     :class="camOn?'':'opacity-0'"
-                    :style="(camOn && previewBrightness > 1 ? `filter: brightness(${previewBrightness.toFixed(2)});` : '') + 'width:100%;height:100%;object-fit:cover;transition:filter .35s ease'"></video>
+                    :style="(camOn && previewBrightness > 1 ? `filter: brightness(${previewBrightness.toFixed(2)});` : '') + 'transition:filter .35s ease'"></video>
                 <canvas x-ref="canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
 
                 {{-- placeholder saat kamera mati --}}
@@ -98,7 +111,8 @@
                                 <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin flex-shrink-0"></i> Memuat model AI...
                             </div>
                             <div x-show="scanning" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold whitespace-nowrap">
-                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span> Memindai...
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
+                                <span x-text="faceEnabled ? (qrEnabled ? 'Wajah + QR' : 'Memindai...') : 'Scan QR kartu'"></span>
                             </div>
                         </div>
 
@@ -158,7 +172,8 @@
                         &bull; {{ \Carbon\Carbon::parse($tanggal)->isoFormat('dddd, D MMM') }}
                     </p>
                     <div class="flex items-center gap-2 flex-wrap">
-                        <div x-show="hasGuru" class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800" title="Absen pulang guru — aturan agenda & jam tetap berlaku">
+                        {{-- Mode pulang hanya berlaku utk guru via wajah — di mode QR saja tidak relevan --}}
+                        <div x-show="hasGuru && faceEnabled" class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800" title="Absen pulang guru — aturan agenda & jam tetap berlaku">
                             <button @click="scanMode='masuk'" :class="scanMode==='masuk' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Masuk</button>
                             <button @click="scanMode='pulang'" :class="scanMode==='pulang' ? 'bg-white dark:bg-slate-700 text-amber-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Pulang</button>
                         </div>
@@ -178,16 +193,19 @@
                             class="form-input w-full pl-9 py-2 text-sm" placeholder="Kartu tidak terbaca? tempelkan di scanner…" autocomplete="off"
                             :disabled="barcodeBusy">
                     </div>
+                    @if(($scanKioskMode ?? 'keduanya') === 'wajah')
+                    {{-- Saat QR sudah dibaca kamera utama, modal terpisah ini tidak diperlukan lagi --}}
                     <button type="button" @click="openBarcodeModal()" title="Scan QR kartu" class="px-3 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 shrink-0">
                         <i data-lucide="qr-code" class="w-4 h-4"></i> QR
                     </button>
+                    @endif
                 </div>
                 <p class="text-xs text-rose-500" x-show="barcodeError" x-text="barcodeError"></p>
             </div>
         </div>
 
         {{-- Daftar hadir (Tabs Siswa & Guru) --}}
-        <div class="lg:col-span-2">
+        <div class="lg:col-span-2 min-w-0">
             <div class="card flex flex-col h-full" style="max-height:72vh">
                 {{-- Tab Navs --}}
                 <div class="flex border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 rounded-t-xl overflow-hidden">
@@ -305,8 +323,14 @@
 </div>
 
 @push('scripts')
+@if(($scanKioskMode ?? 'keduanya') !== 'qr')
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+@endif
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+@if(($scanKioskMode ?? 'keduanya') !== 'wajah')
+{{-- Fallback decode QR di browser tanpa BarcodeDetector (mis. Chrome desktop) --}}
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+@endif
 <script>
 // ===== Human (WebGPU) — pengenalan wajah modern, asinkron, UI tak freeze =====
 let human=null, humanReady=false, humanBackend='';
@@ -348,16 +372,20 @@ function faceScan(data, opts={}){
         status:'Menyiapkan kamera…',
         attendees: data.map(s=>({ ...s, marked: s.status==='hadir', justMarked:false, pulangMarked: !!s.pulangDone, jam_masuk: s.jam_masuk, jam_pulang: s.jam_pulang })),
         enrolled:[], stream:null, timer:null,
-        // ===== Ambang pencocokan: longgar sedikit vs anti-FP lama (gallery besar) =====
-        threshold:0.66,
-        confidentThreshold:0.80,
+        // ===== Ambang pencocokan =====
+        // DIPERKETAT lagi setelah laporan lapangan: dengan galeri >200 wajah, kalibrasi longgar
+        // (threshold 0.66 + konfirmasi 1 frame + margin 0.05) sempat MENGABSENKAN ORANG LAIN
+        // (salah identitas). Ambang dinaikkan + wajib cocok 2 frame pada ORANG YANG SAMA sebelum
+        // absen tercatat — false positive sekejap 1 frame tidak lagi langsung mengunci nama.
+        threshold:0.70,
+        confidentThreshold:0.85,
         supportThreshold:0.62,
         minSampleSupport:2,
-        singleSampleTop1:0.72, // 1 sampel cukup bila top1 sangat yakin
-        margin:0.05,
+        singleSampleTop1:0.78, // 1 sampel cukup bila top1 sangat yakin
+        margin:0.07,           // jarak minimal ke kandidat kedua — nama mirip tidak boleh menang tipis
         minFaceFrac:0.14,
         minFaceScore:0.55,
-        confirmFrames:1,
+        confirmFrames:2,
         _streak:{},
         _faceLocked:{},
         _scanPauseUntil:0,
@@ -376,18 +404,25 @@ function faceScan(data, opts={}){
         hasGuru: !!opts.hasGuru,
         showBarcodeModal:false, barcodeInput:'', barcodeError:'', barcodeBusy:false,
         barcodeScanning:false, barcodeScanner:null, _faceWasOn:false, _scanGen:0,
+        // Mode kamera kiosk (dari Pengaturan → Absensi): 'wajah' | 'qr' | 'keduanya'
+        scanKioskMode: opts.scanKioskMode || 'keduanya',
+        _lastQrTryAt:0, _lastQrCode:'', _lastQrCodeAt:0, _qrDetector:undefined,
         failStreak:0,
         diag:{ low_score:0, small_margin:0, low_support:0, small_face:0, low_face_score:0 },
         _lastDiagAt:0,
 
+        get faceEnabled(){ return this.scanKioskMode !== 'qr'; },
+        get qrEnabled(){ return this.scanKioskMode !== 'wajah'; },
         get diagTotal(){ return Object.values(this.diag).reduce((a,b)=>a+b,0); },
-        get enrolledSiswaCount(){ return this.enrolled.filter(s=>s.type==='siswa').length; },
+        get enrolledSiswaCount(){ return this.enrolledCountSiswa; },
         get hadirCountSiswa(){ return this.attendees.filter(s=>s.type==='siswa' && s.marked && this.inKelasScope(s)).length; },
-        get enrolledCountSiswa(){ return this.attendees.filter(s=>s.type==='siswa' && s.desc && s.desc.length && this.inKelasScope(s)).length; },
+        // Saat QR aktif, semua siswa bisa absen (via kartu) — bukan cuma yang punya wajah terdaftar.
+        get enrolledCountSiswa(){ return this.attendees.filter(s=>s.type==='siswa' && (this.qrEnabled || (s.desc && s.desc.length)) && this.inKelasScope(s)).length; },
         get hadirCountGuru(){ return this.attendees.filter(s=>s.type==='guru' && s.marked).length; },
-        get enrolledCountGuru(){ return this.attendees.filter(s=>s.type==='guru' && s.desc && s.desc.length).length; },
+        // Mode QR saja: desc guru tidak dikirim server — tampilkan total guru di daftar, bukan 0.
+        get enrolledCountGuru(){ return this.attendees.filter(s=>s.type==='guru' && (!this.faceEnabled || (s.desc && s.desc.length))).length; },
         get totalHadir(){ return this.attendees.filter(s=>s.marked && (s.type==='guru' || this.inKelasScope(s))).length; },
-        get totalEnrolled(){ return this.enrolled.length; },
+        get totalEnrolled(){ return this.qrEnabled ? this.enrolledCountSiswa + this.enrolledCountGuru : this.enrolled.length; },
 
         inKelasScope(s){
             if(s.type==='guru') return true;
@@ -410,8 +445,9 @@ function faceScan(data, opts={}){
                 this.fs = !!document.fullscreenElement;
                 setTimeout(()=> window.lucide && lucide.createIcons(), 60);
             });
-            // Buka kamera otomatis — pengguna tidak perlu klik tombol dulu
-            if(this.enrolled.length > 0){
+            // Buka kamera otomatis — pengguna tidak perlu klik tombol dulu.
+            // Mode dengan QR: kamera tetap berguna walau belum ada wajah terdaftar.
+            if(this.enrolled.length > 0 || this.qrEnabled){
                 this.$nextTick(()=> setTimeout(()=> this.start(), this.isKiosk ? 150 : 500));
             } else {
                 this.status = 'Belum ada wajah terdaftar.';
@@ -560,7 +596,8 @@ function faceScan(data, opts={}){
             try { this.audioCtx = this.audioCtx || new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
             try { if('speechSynthesis' in window){ speechSynthesis.getVoices(); speechSynthesis.speak(new SpeechSynthesisUtterance(' ')); } } catch(e){} // buka izin suara (gesture)
             this.rebuildEnrolled();
-            if(this.enrolled.length===0){ this.status='Belum ada wajah terdaftar.'; return; }
+            const faceActive = this.faceEnabled && this.enrolled.length > 0;
+            if(!faceActive && !this.qrEnabled){ this.status='Belum ada wajah terdaftar.'; return; }
             if(this.camOn || this.loading) return;
             this.loading=true; this.status='Mengaktifkan kamera...';
             try {
@@ -569,10 +606,14 @@ function faceScan(data, opts={}){
                 await new Promise(r=> v.onloadedmetadata = r); v.play();
                 this.camOn=true;
                 this.applyAutoExposure(); // exposure/WB kontinu + kompensasi awal bila didukung hardware
-                this.status='Memuat model AI (pertama kali agak lama, lalu tersimpan)...';
-                await loadHuman();
+                if(faceActive){
+                    this.status='Memuat model AI (pertama kali agak lama, lalu tersimpan)...';
+                    await loadHuman();
+                }
                 this.loading=false; this.scanning=true;
-                this.status='Hadap kamera';
+                this.status = faceActive
+                    ? (this.qrEnabled ? 'Hadap kamera atau tunjukkan QR kartu' : 'Hadap kamera')
+                    : 'Tunjukkan QR kartu pelajar ke kamera';
                 this.tick();
             } catch(e){
                 this.loading=false; this.camOn=false;
@@ -701,11 +742,22 @@ function faceScan(data, opts={}){
             if(!v || !v.videoWidth){ if(this.scanning && gen === this._scanGen) this.timer=setTimeout(()=>this.tick(), 300); return; }
             this.busy=true;
             const t0=performance.now();
+            const faceActive = this.faceEnabled && humanReady && this.enrolled.length > 0;
             try {
-                const frame = this.enhanceFrame(v);
-                const res = await human.detect(frame);
-                if(gen !== this._scanGen || !this.scanning) return;
-                this.render(res);
+                if(faceActive){
+                    const frame = this.enhanceFrame(v);
+                    const res = await human.detect(frame);
+                    if(gen !== this._scanGen || !this.scanning) return;
+                    this.render(res);
+                }
+                // QR kartu dibaca dari kamera yang SAMA — throttle terpisah supaya deteksi wajah
+                // tidak melambat, dan tidak menumpuk submit saat satu kartu masih diproses.
+                if(this.qrEnabled && !this.barcodeBusy && Date.now() - this._lastQrTryAt >= 350){
+                    this._lastQrTryAt = Date.now();
+                    const code = await this.detectQrFromVideo(v);
+                    if(gen !== this._scanGen || !this.scanning) return;
+                    if(code) this.onCameraQr(code);
+                }
             } catch(e){ /* skip frame */ }
             finally {
                 if(gen === this._scanGen) this.busy = false;
@@ -713,8 +765,59 @@ function faceScan(data, opts={}){
             if(gen !== this._scanGen || !this.scanning) return;
             const dt = performance.now()-t0;
             const allDone = this.enrolled.every(s=>s.marked);
-            const delay = allDone ? 1500 : Math.min(1200, Math.max(200, Math.round(dt*0.7)));
+            const delay = faceActive
+                ? ((allDone && !this.qrEnabled) ? 1500 : Math.min(1200, Math.max(200, Math.round(dt*0.7))))
+                : 300; // mode QR saja: decode ringan, poll lebih rapat biar responsif
             this.timer=setTimeout(()=>this.tick(), delay);
+        },
+
+        // ===== QR kartu langsung dari kamera wajah (tanpa modal terpisah) =====
+        // BarcodeDetector (native, cepat) bila browser mendukung; fallback jsQR (murni JS).
+        async detectQrFromVideo(v){
+            try {
+                if(!v || !v.videoWidth) return null;
+                if(!this._qcv){ this._qcv = document.createElement('canvas'); this._qctx = this._qcv.getContext('2d', { willReadFrequently:true }); }
+                const scale = Math.min(1, 640 / v.videoWidth);
+                const w = Math.max(1, Math.round(v.videoWidth * scale));
+                const h = Math.max(1, Math.round(v.videoHeight * scale));
+                this._qcv.width = w; this._qcv.height = h;
+                this._qctx.drawImage(v, 0, 0, w, h);
+
+                if(this._qrDetector === undefined){
+                    this._qrDetector = null;
+                    if('BarcodeDetector' in window){
+                        try { this._qrDetector = new BarcodeDetector({ formats:['qr_code'] }); } catch(e){}
+                    }
+                }
+                if(this._qrDetector){
+                    const codes = await this._qrDetector.detect(this._qcv);
+                    return (codes && codes.length) ? codes[0].rawValue : null;
+                }
+                if(typeof jsQR === 'function'){
+                    const img = this._qctx.getImageData(0, 0, w, h);
+                    const q = jsQR(img.data, w, h, { inversionAttempts:'dontInvert' });
+                    return q ? q.data : null;
+                }
+            } catch(e){}
+            return null;
+        },
+
+        onCameraQr(code){
+            const c = String(code || '').trim();
+            if(!c || this.barcodeBusy) return;
+            // Debounce "selama masih terlihat": kartu yang sama TIDAK di-submit ulang selama terus
+            // berada di depan kamera (tiap deteksi memperpanjang jedanya), tapi begitu kartu
+            // disingkirkan ±2 detik, scan ulang langsung diproses lagi. Dulu pakai blokir datar
+            // 5 detik tanpa perpanjangan — scan kedua kartu yang sama tertelan diam-diam dan
+            // kiosk terasa "mati" (dilaporkan: "tidak bisa scan untuk kedua kali").
+            const now = Date.now();
+            if(this._lastQrCode === c && now - this._lastQrCodeAt < 2000){
+                this._lastQrCodeAt = now; // masih di depan kamera — perpanjang, jangan submit ulang
+                return;
+            }
+            this._lastQrCode = c; this._lastQrCodeAt = now;
+            this.barcodeBusy = true;
+            this.submitBarcode(c);
         },
 
         render(res){
@@ -1060,6 +1163,8 @@ function faceScan(data, opts={}){
                 const d = await res.json();
                 if(!d || d.success===false){
                     this.barcodeError = (d && d.message) ? d.message : 'Gagal menandai hadir.';
+                    this.playError();
+                    showToast(this.barcodeError, 'error');
                     this.barcodeBusy = false;
                     if(this.showBarcodeModal && !this.barcodeScanner) this.startBarcodeScan();
                     return;

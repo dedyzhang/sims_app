@@ -10,16 +10,19 @@ class FaceScanMatchingTest extends TestCase
     {
         $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
 
-        $this->assertStringContainsString('threshold:0.66', $source);
-        $this->assertStringContainsString('confidentThreshold:0.80', $source);
+        // Kalibrasi anti-salah-orang (Jul 2026): galeri >200 wajah + threshold 0.66 +
+        // konfirmasi 1 frame sempat mengabsenkan ORANG LAIN — ambang diperketat dan
+        // wajib cocok 2 frame pada orang yang sama sebelum absen dikunci.
+        $this->assertStringContainsString('threshold:0.70', $source);
+        $this->assertStringContainsString('confidentThreshold:0.85', $source);
         $this->assertStringContainsString('supportThreshold:0.62', $source);
         $this->assertStringContainsString('minSampleSupport:2', $source);
-        $this->assertStringContainsString('margin:0.05', $source);
-        $this->assertStringContainsString('confirmFrames:1', $source);
+        $this->assertStringContainsString('margin:0.07', $source);
+        $this->assertStringContainsString('confirmFrames:2', $source);
         $this->assertStringContainsString('_faceLocked', $source);
         $this->assertStringContainsString('isKiosk', $source);
         $this->assertStringContainsString('afterFaceMarkSuccess', $source);
-        $this->assertStringContainsString('singleSampleTop1:0.72', $source);
+        $this->assertStringContainsString('singleSampleTop1:0.78', $source);
         $this->assertStringContainsString('robustPersonSimilarity(faceEmbedding, descriptors)', $source);
         $this->assertStringContainsString('hasEnoughSampleAgreement(match)', $source);
         $this->assertStringContainsString('rebuildEnrolled', $source);
@@ -31,8 +34,23 @@ class FaceScanMatchingTest extends TestCase
         $this->assertStringContainsString('previewBrightness', $source);
         $this->assertStringContainsString('maybeAdjustHardwareExposure', $source);
         $this->assertStringNotContainsString('threshold:0.58', $source);
-        $this->assertStringNotContainsString('margin:0.08', $source);
+        $this->assertStringNotContainsString('threshold:0.66', $source);
+        $this->assertStringNotContainsString('confirmFrames:1,', $source);
         $this->assertStringNotContainsString('confirmFrames:4', $source);
+    }
+
+    public function test_kamera_wajah_juga_membaca_qr_kartu(): void
+    {
+        // Satu kamera = dua pembaca: deteksi wajah + decode QR kartu pelajar
+        // (BarcodeDetector native, fallback jsQR), diatur setting scan_kiosk_mode.
+        $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
+
+        $this->assertStringContainsString('detectQrFromVideo', $source);
+        $this->assertStringContainsString('onCameraQr', $source);
+        $this->assertStringContainsString('BarcodeDetector', $source);
+        $this->assertStringContainsString('scanKioskMode', $source);
+        $this->assertStringContainsString('get faceEnabled()', $source);
+        $this->assertStringContainsString('get qrEnabled()', $source);
     }
 
     public function test_skor_kecocokan_pakai_top1_bukan_dirata_rata_dgn_top2(): void
