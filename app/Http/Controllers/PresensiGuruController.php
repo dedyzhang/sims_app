@@ -204,16 +204,18 @@ class PresensiGuruController extends Controller
         $today = PresensiGuru::where('id_guru', $guru->uuid)->whereDate('tanggal', now())->first();
         $belumAgenda = \App\Support\AgendaGuru::belumDiisi($guru);
 
-        // Izin pulang awal menyesuaikan metode absensi aktif sekolah: QR scan
-        // (dilengkapi lokasi) atau verifikasi kamera wajah — bukan keduanya sekaligus.
+        // Izin pulang awal menyesuaikan metode absensi aktif sekolah: QR scan (dilengkapi
+        // lokasi) dan/atau verifikasi kamera wajah — kalau cara_absensi_guru = 'keduanya',
+        // KEDUA jalur tersedia dan guru bisa pilih (lihat toggle di presensi_guru/self.blade.php).
         $bolehQr = \App\Support\AbsensiGuru::bolehQr();
+        $bolehWajahMandiri = \App\Support\AbsensiGuru::bolehWajah();
         $qrLat    = Setting::get('sekolah_lat');
         $qrLng    = Setting::get('sekolah_lng');
         $qrRadius = (float) Setting::get('absen_radius', 200);
 
         return view('presensi_guru.self', compact(
             'guru', 'riwayat', 'batas', 'dari', 'sampai', 'today', 'belumAgenda',
-            'bolehQr', 'qrLat', 'qrLng', 'qrRadius'
+            'bolehQr', 'bolehWajahMandiri', 'qrLat', 'qrLng', 'qrRadius'
         ));
     }
 

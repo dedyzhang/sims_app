@@ -380,10 +380,10 @@
         <form method="POST" action="{{ route('setting.caraAbsensi') }}" class="card p-6 space-y-4">
             @csrf
             <h2 class="font-bold text-slate-800 dark:text-slate-100">Cara Absensi (Guru &amp; Siswa)</h2>
-            <p class="text-xs text-slate-400 -mt-1">Pilih metode absen mandiri. Metode yang tidak dipilih <span class="font-semibold">dikunci</span> untuk guru &amp; siswa. Admin tetap bisa <span class="font-semibold">mengoreksi manual</span> kapan saja.</p>
-            @php $caraNow = in_array($settings['cara_absensi_guru'] ?? 'wajah', ['wajah','barcode']) ? ($settings['cara_absensi_guru'] ?? 'wajah') : 'wajah'; @endphp
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                @foreach(['wajah'=>['Scan Wajah','Pengenalan wajah (kiosk)','scan-face'],'barcode'=>['Barcode / QR','Scan QR Code','qr-code']] as $val => [$lbl,$desc,$icon])
+            <p class="text-xs text-slate-400 -mt-1">Pilih metode absen mandiri. Metode yang tidak dipilih <span class="font-semibold">dikunci</span> untuk guru &amp; siswa — kecuali "Wajah + Barcode/QR" dipilih, keduanya aktif bersamaan. Admin tetap bisa <span class="font-semibold">mengoreksi manual</span> kapan saja.</p>
+            @php $caraNow = in_array($settings['cara_absensi_guru'] ?? 'wajah', ['wajah','barcode','keduanya']) ? ($settings['cara_absensi_guru'] ?? 'wajah') : 'wajah'; @endphp
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                @foreach(['wajah'=>['Scan Wajah','Pengenalan wajah (kiosk)','scan-face'],'barcode'=>['Barcode / QR','Scan QR Code','qr-code'],'keduanya'=>['Wajah + Barcode/QR','Kedua metode aktif sekaligus','scan-eye']] as $val => [$lbl,$desc,$icon])
                 <label class="cursor-pointer">
                     <input type="radio" name="cara_absensi" value="{{ $val }}" @checked($caraNow===$val) class="hidden peer">
                     <div class="border-2 rounded-xl p-4 transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600 h-full">

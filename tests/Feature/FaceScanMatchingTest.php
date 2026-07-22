@@ -10,23 +10,22 @@ class FaceScanMatchingTest extends TestCase
     {
         $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
 
-        // Kalibrasi (Jul 2026, ronde ke-4): riwayat commit menunjukkan threshold/margin/
-        // confirmFrames sudah bolak-balik dinaikkan-diturunkan berkali-kali (0.5→0.62→0.58→
-        // 0.66→0.58→0.66→0.70→0.66) — pola ping-pong yg tak pernah stabil menandakan angka
-        // BUKAN akar masalah "susah terdeteksi". Skor kecocokan dikembalikan ke titik longgar
-        // yang historis terbukti mudah mendeteksi (0.66), sementara confirmFrames:2 (bukan 1)
-        // dipertahankan sbg penahan utama anti-salah-orang: match yg salah tidak stabil antar
-        // frame, match yg benar stabil — jauh lebih efektif drpd menaikkan ambang skor.
+        // Kalibrasi dikembalikan PERSIS ke commit 21 Juli 2026 malam ("Perbaikan Face
+        // Recognation dan validasi wajah", 10db675) atas permintaan eksplisit user — sesi
+        // 22 Juli sempat menambah/mengubah lagi (confidentThreshold 0.82, margin 0.06,
+        // minFaceFrac 0.12, singleSampleTop1) tanpa laporan membaik, jadi ditarik balik ke
+        // titik yg diketahui stabil semalam sebelumnya.
         $this->assertStringContainsString('threshold:0.66', $source);
-        $this->assertStringContainsString('confidentThreshold:0.82', $source);
+        $this->assertStringContainsString('confidentThreshold:0.80', $source);
         $this->assertStringContainsString('supportThreshold:0.62', $source);
         $this->assertStringContainsString('minSampleSupport:2', $source);
-        $this->assertStringContainsString('margin:0.06', $source);
+        $this->assertStringContainsString('margin:0.08', $source);
+        $this->assertStringContainsString('minFaceFrac:0.14', $source);
         $this->assertStringContainsString('confirmFrames:2', $source);
         $this->assertStringContainsString('_faceLocked', $source);
         $this->assertStringContainsString('isKiosk', $source);
         $this->assertStringContainsString('afterFaceMarkSuccess', $source);
-        $this->assertStringContainsString('singleSampleTop1:0.72', $source);
+        $this->assertStringNotContainsString('singleSampleTop1', $source);
         $this->assertStringContainsString('robustPersonSimilarity(faceEmbedding, descriptors)', $source);
         $this->assertStringContainsString('hasEnoughSampleAgreement(match)', $source);
         $this->assertStringContainsString('rebuildEnrolled', $source);

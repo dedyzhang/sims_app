@@ -33,7 +33,9 @@ class AbsensiController extends Controller
         $real = Setting::get('kiosk_token');
         abort_unless($real && hash_equals((string) $real, $token), 404);
 
-        $target = AbsensiGuru::bolehQr() ? route('qr.absensi') : route('absensi.scan');
+        // Khusus mode 'keduanya', kiosk tetap arahkan ke kamera scan (bisa baca wajah & kartu QR
+        // sekaligus) — bukan cek bolehQr() saja, krn itu juga true saat 'keduanya' dipilih.
+        $target = AbsensiGuru::cara() === 'barcode' ? route('qr.absensi') : route('absensi.scan');
 
         return redirect($target . '?_kiosk=' . urlencode($token));
     }

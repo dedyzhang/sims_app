@@ -3,8 +3,14 @@
 
 @section('content')
 @php $hasFace = !empty($guru->face_descriptor); @endphp
-<div class="max-w-4xl mx-auto space-y-5"
-     x-data="{{ $bolehQr ? 'izinPulangQr(' . json_encode(['lat' => $qrLat, 'lng' => $qrLng, 'radius' => $qrRadius]) . ')' : 'izinPulang(' . json_encode($hasFace) . ')' }}">
+@php
+    // Metode default saat KEDUA jalur tersedia (cara_absensi_guru = 'keduanya'): utamakan
+    // wajah kalau sudah terdaftar (lebih cepat, tak perlu GPS), kalau belum fallback ke QR.
+    $metodeIzinDefault = $bolehQr && $bolehWajahMandiri
+        ? ($hasFace ? 'wajah' : 'qr')
+        : ($bolehQr ? 'qr' : 'wajah');
+@endphp
+<div class="max-w-4xl mx-auto space-y-5">
     <div>
         <h1 class="page-title">Presensi Saya</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Riwayat jam masuk &amp; pulang, form keterlambatan, dan izin pulang awal.</p>
@@ -57,7 +63,7 @@
 
         {{-- ===== Izin Pulang Awal ===== --}}
         @if($today && $today->jam_masuk && !$today->jam_pulang)
-        <div class="card p-5 space-y-3">
+        <div class="card p-5 space-y-3" x-data="{ metodeIzin: '{{ $metodeIzinDefault }}' }">
             <div class="flex items-center gap-2">
                 <i data-lucide="door-open" class="w-4 h-4 text-amber-500"></i>
                 <h2 class="font-bold text-slate-800 dark:text-slate-100">Izin Pulang Awal</h2>
@@ -69,8 +75,21 @@
             </div>
             @endif
 
+            @if($bolehQr && $bolehWajahMandiri)
+            {{-- Metode absensi sekolah = 'keduanya' — guru bebas pilih jalur verifikasi. --}}
+            <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 w-fit">
+                <button type="button" @click="metodeIzin='wajah'" :class="metodeIzin==='wajah' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                    <i data-lucide="scan-face" class="w-3.5 h-3.5"></i> Wajah
+                </button>
+                <button type="button" @click="metodeIzin='qr'" :class="metodeIzin==='qr' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                    <i data-lucide="qr-code" class="w-3.5 h-3.5"></i> QR
+                </button>
+            </div>
+            @endif
+
             @if($bolehQr)
-                {{-- ===== Jalur QR (metode absensi aktif = Barcode/QR) ===== --}}
+            <div x-show="metodeIzin==='qr'" x-data="izinPulangQr({{ json_encode(['lat' => $qrLat, 'lng' => $qrLng, 'radius' => $qrRadius]) }})" class="space-y-3">
+                {{-- ===== Jalur QR (metode absensi aktif = Barcode/QR / keduanya) ===== --}}
                 @if(!$qrLat || !$qrLng)
                 <p class="text-sm text-slate-500 dark:text-slate-400">Lokasi sekolah belum diatur admin, jadi izin pulang via QR belum bisa dipakai. Hubungi admin.</p>
                 @else
@@ -103,8 +122,12 @@
                     </div>
                 </template>
                 @endif
-            @else
-                {{-- ===== Jalur Wajah (metode absensi aktif = Scan Wajah) ===== --}}
+            </div>
+            @endif
+
+            @if($bolehWajahMandiri)
+            <div x-show="metodeIzin==='wajah'" x-data="izinPulang({{ json_encode($hasFace) }})" class="space-y-3">
+                {{-- ===== Jalur Wajah (metode absensi aktif = Scan Wajah / keduanya) ===== --}}
                 @if(!$hasFace)
                 <p class="text-sm text-slate-500 dark:text-slate-400">Wajah Anda belum terdaftar, jadi izin pulang lewat kamera belum bisa dipakai. <a href="{{ route('face.self', ['ulang' => 1]) }}" class="text-primary font-semibold hover:underline">Daftarkan wajah</a> dulu.</p>
                 @else
@@ -143,6 +166,7 @@
                     </div>
                 </template>
                 @endif
+            </div>
             @endif
         </div>
         @endif
@@ -321,7 +345,8 @@ function izinPulangQr(cfg){
     }
 }
 </script>
-@else
+@endif
+@if($bolehWajahMandiri)
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
 <script>
 let humanIzin=null, humanIzinReady=false;

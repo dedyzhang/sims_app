@@ -58,8 +58,12 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {{-- Catatan: jam khusus (istirahat/dll) yg di-scope ke kelas TERTENTU diasumsikan
+                         sama cakupannya sepanjang minggu (baris ini gabungan semua hari) — kalau
+                         sekolah butuh cakupan berbeda per hari utk jam nominal yg sama, gunakan
+                         Editor Jadwal (per-hari) sbg acuan yg presisi. --}}
                     @foreach($rows as $jam)
-                        @if($jam->jenis!=='pelajaran')
+                        @if($jam->isKhususUntukKelas($selectedKelas))
                         <tr>
                             <td class="px-3 py-1.5 text-xs font-bold text-amber-600">{{ $jam->nama_khusus }}</td>
                             <td colspan="6" class="px-3 py-1.5 text-center text-xs text-amber-600 font-semibold bg-amber-50/50 dark:bg-amber-900/10">

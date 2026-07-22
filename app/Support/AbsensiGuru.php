@@ -6,15 +6,16 @@ use App\Models\Setting;
 
 /**
  * Metode absensi sekolah yang sedang aktif (berlaku untuk GURU & SISWA).
- * Hanya satu metode self-service aktif: wajah ATAU barcode/QR — metode lain dikunci.
- * Input MANUAL oleh admin selalu diperbolehkan (tidak terikat pilihan ini).
+ * Tiga pilihan: wajah saja, barcode/QR saja, atau 'keduanya' (kedua metode self-service
+ * aktif bersamaan). Input MANUAL oleh admin selalu diperbolehkan (tidak terikat pilihan ini).
  * Key setting: cara_absensi_guru.
  */
 class AbsensiGuru
 {
     public const LABEL = [
-        'wajah'   => 'Scan Wajah',
-        'barcode' => 'Barcode / QR',
+        'wajah'    => 'Scan Wajah',
+        'barcode'  => 'Barcode / QR',
+        'keduanya' => 'Wajah + Barcode/QR',
     ];
 
     public static function cara(): string
@@ -29,8 +30,8 @@ class AbsensiGuru
         return self::LABEL[$c] ?? ucfirst($c);
     }
 
-    public static function bolehWajah(): bool { return self::cara() === 'wajah'; }
-    public static function bolehQr(): bool    { return self::cara() === 'barcode'; }
+    public static function bolehWajah(): bool { return in_array(self::cara(), ['wajah', 'keduanya'], true); }
+    public static function bolehQr(): bool    { return in_array(self::cara(), ['barcode', 'keduanya'], true); }
 
     /** Pesan standar saat sebuah metode dikunci. */
     public static function pesanKunci(string $metode): string

@@ -76,15 +76,25 @@ class JadwalController extends Controller
 
         $jam = JamPelajaran::find($data['id_jam']);
 
+        // Kelas yg sedang istirahat/khusus pada jam ini tidak boleh diisi pelajaran — pengaman
+        // di server krn grid front-end memang sudah tidak merender input utk sel semacam ini,
+        // tapi endpoint ini tetap harus menolak kalau dipanggil langsung.
+        if ($jam && $jam->isKhususUntukKelas($data['id_kelas'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kelas ini sedang ' . strtolower($jam->nama_khusus) . ' pada jam ini.',
+            ], 422);
+        }
+
         Jadwal::updateOrCreate(
             ['id_kelas' => $data['id_kelas'], 'hari' => $data['hari'], 'id_jam' => $data['id_jam']],
             [
                 'jam_ke'       => $jam?->jam_ke,
                 'jam_mulai'    => $jam?->jam_mulai,
                 'jam_selesai'  => $jam?->jam_selesai,
-                'id_pelajaran' => $data['id_pelajaran'] ?: null,
-                'id_guru'      => $data['id_guru'] ?: null,
-                'keterangan'   => $data['keterangan'] ?: null,
+                'id_pelajaran' => $data['id_pelajaran'] ?? null,
+                'id_guru'      => $data['id_guru'] ?? null,
+                'keterangan'   => $data['keterangan'] ?? null,
             ]
         );
 
@@ -165,13 +175,14 @@ class JadwalController extends Controller
         $hariList  = array_keys(Jadwal::HARI);
         $jpMap     = Pelajaran::pluck('jp', 'uuid');
 
-        // Slot pelajaran PER HARI (urut) — tiap hari bisa beda jumlah/jam
-        $slotsByDay = [];
+        // Semua jam PER HARI (urut) — termasuk jenis!=pelajaran, krn jam khusus yg di-scope ke
+        // kelas TERTENTU (istirahat bergilir) tetap jadi slot pelajaran biasa bagi kelas lain
+        // yg tidak termasuk cakupannya. Filter per-jenis "pelajaran" dilakukan PER KELAS di bawah.
+        $allByDay = [];
         foreach ($hariList as $h) {
-            $slotsByDay[$h] = JamPelajaran::where('hari', $h)->where('jenis', 'pelajaran')
-                ->orderBy('urutan')->orderBy('jam_mulai')->get()->values();
+            $allByDay[$h] = JamPelajaran::where('hari', $h)->orderBy('urutan')->orderBy('jam_mulai')->get()->values();
         }
-        $totalSlots = array_sum(array_map(fn($c) => $c->count(), $slotsByDay));
+        $totalSlots = array_sum(array_map(fn($c) => $c->where('jenis', 'pelajaran')->count(), $allByDay));
 
         // Penugasan mengajar per kelas: [kelas => [['p','g','jp'], ...]]
         $ngajars = Ngajar::whereNotNull('id_guru')->whereNotNull('id_pelajaran')->get();
@@ -193,7 +204,7 @@ class JadwalController extends Controller
             return back()->with('error', 'Belum ada jam pelajaran. Klik "Atur Jam" untuk menambah jam dulu.');
         }
 
-        DB::transaction(function () use ($mode, $kelasList, $slotsByDay, $hariList, $byKelas) {
+        DB::transaction(function () use ($mode, $kelasList, $allByDay, $hariList, $byKelas) {
             if ($mode === 'timpa') Jadwal::truncate();
 
             // busy berbasis uuid jam (uuid sudah unik per hari)
@@ -219,6 +230,14 @@ class JadwalController extends Controller
             foreach ($kelasList as $k) {
                 $subjects = $byKelas[$k->uuid] ?? [];
                 if (empty($subjects)) { $kelasIdx++; continue; }
+
+                // Slot yg boleh diisi pelajaran UTK KELAS INI: jenis pelajaran, atau jam khusus
+                // yg cakupannya tidak menyertakan kelas ini (istirahat kelas lain, bukan kelas ini).
+                $slotsByDay = [];
+                foreach ($hariList as $h) {
+                    $slotsByDay[$h] = $allByDay[$h]->filter(fn($jam) => !$jam->isKhususUntukKelas($k->uuid))->values();
+                }
+
                 usort($subjects, fn($a, $b) => $b['jp'] <=> $a['jp']); // mapel JP besar dulu
                 $dayStart = $kelasIdx % count($hariList);
 
@@ -288,15 +307,22 @@ class JadwalController extends Controller
     public function jamStore(Request $request)
     {
         $data = $request->validate([
-            'hari'        => 'required|integer|between:1,6',
-            'jam_ke'      => 'nullable|integer|min:0',
-            'jam_mulai'   => 'required|date_format:H:i',
-            'jam_selesai' => 'required|date_format:H:i|after:jam_mulai',
-            'jenis'       => 'required|in:' . implode(',', array_keys(JamPelajaran::JENIS)),
-            'label'       => 'nullable|string|max:30',
+            'hari'          => 'required|integer|between:1,6',
+            'jam_ke'        => 'nullable|integer|min:0',
+            'jam_mulai'     => 'required|date_format:H:i',
+            'jam_selesai'   => 'required|date_format:H:i|after:jam_mulai',
+            'jenis'         => 'required|in:' . implode(',', array_keys(JamPelajaran::JENIS)),
+            'label'         => 'nullable|string|max:30',
+            'kelas_scope'   => 'nullable|array',
+            'kelas_scope.*' => 'string|exists:kelas,uuid',
         ]);
         if ($data['jenis'] !== 'pelajaran') {
             $data['jam_ke'] = null; // jam khusus tak punya "jam ke-"
+        } else {
+            $data['kelas_scope'] = null; // cakupan kelas cuma relevan utk jam khusus, bukan pelajaran
+        }
+        if (empty($data['kelas_scope'])) {
+            $data['kelas_scope'] = null; // kosong = berlaku semua kelas
         }
         // urutan otomatis: berdasarkan jam mulai dalam hari tsb
         $data['urutan'] = (JamPelajaran::where('hari', $data['hari'])->max('urutan') ?? 0) + 1;
@@ -342,6 +368,7 @@ class JadwalController extends Controller
                         'hari' => $hari, 'jam_ke' => $s->jam_ke,
                         'jam_mulai' => $s->jam_mulai, 'jam_selesai' => $s->jam_selesai,
                         'jenis' => $s->jenis, 'label' => $s->label, 'urutan' => $s->urutan,
+                        'kelas_scope' => $s->kelas_scope,
                     ]);
                 }
             }
