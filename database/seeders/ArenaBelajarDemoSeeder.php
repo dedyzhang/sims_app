@@ -54,6 +54,8 @@ class ArenaBelajarDemoSeeder extends Seeder
             'instant_feedback' => true,
             'show_leaderboard' => true,
             'status' => 'published',
+            'is_locked' => true,
+            'access_token' => 'DEMO',
         ]);
 
         $sort = 0;
@@ -137,6 +139,8 @@ class ArenaBelajarDemoSeeder extends Seeder
             'instant_feedback' => true,
             'show_leaderboard' => true,
             'status' => 'published',
+            'is_locked' => true,
+            'access_token' => 'DEMO',
         ]);
 
         $sort = 0;

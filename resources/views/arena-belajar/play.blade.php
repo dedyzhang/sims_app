@@ -13,12 +13,17 @@
     :attempt-id="$attempt->uuid"
     :enabled="auth()->user()->access === 'siswa'"
 >
-<div class="max-w-lg mx-auto arena-stage"
+<div class="max-w-lg mx-auto arena-stage arena-stage-play"
      x-data="arenaPlay(@js($questionsPayload), @js($savedAnswers), @js($quiz->instant_feedback))"
      x-cloak
      data-arena-focus-target>
 
-    <div class="arena-play-shell space-y-5" x-ref="fsRoot">
+    <div class="arena-play-bg" aria-hidden="true">
+        <div class="arena-play-bg-grid"></div>
+        <div class="arena-play-bg-glow"></div>
+    </div>
+
+    <div class="arena-play-shell space-y-5 relative z-[1]" x-ref="fsRoot">
         <div class="arena-fs-stack space-y-5">
         <div class="flex items-center justify-between gap-3">
             <div class="min-w-0 flex items-start gap-2">

@@ -159,6 +159,70 @@ class GameQuizTest extends TestCase
         );
     }
 
+    public function test_publish_draft_generates_access_token(): void
+    {
+        $quiz = GameQuiz::create([
+            'classroom_id' => $this->classroom->uuid,
+            'created_by' => $this->guruUser->uuid,
+            'title' => 'Draft Token Test',
+            'scoring_mode' => 'accuracy',
+            'max_score' => 100,
+            'status' => 'draft',
+        ]);
+        $q = GameQuestion::create([
+            'quiz_id' => $quiz->uuid,
+            'type' => 'mcq',
+            'question_text' => '1+1?',
+            'points' => 1,
+            'sort_order' => 0,
+        ]);
+        GameQuestionOption::create(['question_id' => $q->uuid, 'option_text' => '2', 'is_correct' => true, 'sort_order' => 0]);
+
+        $this->actingAs($this->guruUser)
+            ->post(route('classroom.arena.publish', [$this->classroom, $quiz]))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $quiz->refresh();
+        $this->assertSame('published', $quiz->status);
+        $this->assertTrue($quiz->is_locked);
+        $this->assertNotEmpty($quiz->access_token);
+        $this->assertMatchesRegularExpression('/^[A-Z0-9]{4}$/', $quiz->access_token);
+    }
+
+    public function test_live_only_published_quiz_backfills_token_on_show(): void
+    {
+        $quiz = GameQuiz::create([
+            'classroom_id' => $this->classroom->uuid,
+            'created_by' => $this->guruUser->uuid,
+            'title' => 'Live Only Token',
+            'scoring_mode' => 'accuracy',
+            'max_score' => 100,
+            'play_mode' => 'live',
+            'status' => 'published',
+        ]);
+        $q = GameQuestion::create([
+            'quiz_id' => $quiz->uuid,
+            'type' => 'true_false',
+            'question_text' => 'Bumi bulat?',
+            'points' => 1,
+            'sort_order' => 0,
+        ]);
+        GameQuestionOption::create(['question_id' => $q->uuid, 'option_text' => 'Benar', 'is_correct' => true, 'sort_order' => 0]);
+        GameQuestionOption::create(['question_id' => $q->uuid, 'option_text' => 'Salah', 'is_correct' => false, 'sort_order' => 1]);
+
+        $this->assertNull($quiz->access_token);
+
+        $this->actingAs($this->guruUser)
+            ->get(route('classroom.arena.show', [$this->classroom, $quiz]))
+            ->assertOk()
+            ->assertSee('Kode masuk arena', false);
+
+        $quiz->refresh();
+        $this->assertNotEmpty($quiz->access_token);
+        $this->assertTrue($quiz->is_locked);
+    }
+
     public function test_siswa_can_attempt_and_get_score(): void
     {
         $quiz = $this->makePublishedQuiz();

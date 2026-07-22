@@ -85,9 +85,8 @@ class ArenaBelajarDemoFlowTest extends TestCase
         $math = GameQuiz::where('title', '[DEMO] Matematika Dasar — Arena')->firstOrFail();
         $ipa = GameQuiz::where('title', '[DEMO] IPA — Rantai Makanan')->firstOrFail();
 
-        // Kontrak baru Arena: main solo selalu butuh token dari guru — set token dulu
-        // lalu kirim solo_token saat start (seperti siswa memasukkan token di UI).
-        $math->update(['access_token' => 'DEMO']);
+        $this->assertSame('DEMO', $math->access_token);
+        $this->assertSame('DEMO', $ipa->access_token);
 
         $this->assertGreaterThanOrEqual(7, $math->questions()->count());
         $this->assertGreaterThanOrEqual(5, $ipa->questions()->count());
@@ -200,8 +199,7 @@ class ArenaBelajarDemoFlowTest extends TestCase
 
         $ipa = GameQuiz::where('title', '[DEMO] IPA — Rantai Makanan')->firstOrFail()->load('questions.options');
 
-        // Kontrak baru Arena: solo wajib token — set token guru lalu kirim saat start.
-        $ipa->update(['access_token' => 'DEMO']);
+        $this->assertSame('DEMO', $ipa->access_token);
 
         $this->actingAs($siswaUser)->post(route('classroom.arena.start', [$classroom, $ipa]), ['solo_token' => 'DEMO']);
         $attempt = GameAttempt::where('student_id', $siswaUser->uuid)->firstOrFail();

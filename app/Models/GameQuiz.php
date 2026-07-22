@@ -93,6 +93,25 @@ class GameQuiz extends Model
             ?: ($this->access_token ?: static::generateAccessToken());
     }
 
+    /** Kuis terbit/tertutup wajib punya token arena bila mode solo/live aktif. */
+    public function ensureAccessTokenForPublished(): void
+    {
+        if (! in_array($this->status, ['published', 'closed'], true)) {
+            return;
+        }
+        if (! $this->allowsSolo() && ! $this->allowsLive()) {
+            return;
+        }
+        if (trim((string) ($this->access_token ?? '')) !== '') {
+            return;
+        }
+
+        $this->forceFill([
+            'is_locked'     => true,
+            'access_token'  => static::generateAccessToken(),
+        ])->save();
+    }
+
     public function isOpenNow(?GameQuizAssignment $assignment = null): bool
     {
         if (!$this->isPublished()) {
