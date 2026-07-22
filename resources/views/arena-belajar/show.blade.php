@@ -42,23 +42,45 @@
                 @endif
             </p>
 
-            <div class="arena-rx-cta-row pt-1">
+            <div class="arena-rx-cta-row pt-1"
+                 @if(auth()->user()->access === 'siswa')
+                 x-data="arenaSoloJoin({
+                    prefillToken: @js($prefillSoloToken ?? ''),
+                    autoOpen: @js(($prefillSoloToken ?? '') !== ''),
+                    prefillLiveToken: @js($prefillLiveToken ?? ''),
+                    autoOpenLive: @js(($prefillLiveToken ?? '') !== ''),
+                    liveUrl: @js($liveJoinUrl ?? ''),
+                    joinTokenUrl: @js(route('classroom.arena.join-token', [$classroom, $quiz])),
+                    liveRedirect: @js(route('classroom.arena.live', [$classroom, $quiz])),
+                 })"
+                 x-init="init()"
+                 @endif>
                 @if(auth()->user()->access === 'siswa')
                     @if($myAttempt && $myAttempt->isSubmitted())
                         <a href="{{ route('classroom.arena.result', [$classroom, $quiz, $myAttempt]) }}" class="arena-rx-cta-big solo">
                             <i data-lucide="trophy" class="w-5 h-5"></i> Lihat skor
                         </a>
                         @if($quiz->allowsLive())
-                        <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
-                            <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Gabung Live' : 'Lobby Live' }}
-                        </a>
+                            @if($requiresJoinToken && !$hasJoinUnlock)
+                            <button type="button" class="arena-rx-cta-big live" @click="showLiveToken = true">
+                                <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Gabung Live' : 'Lobby Live' }}
+                            </button>
+                            @else
+                            <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
+                                <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Gabung Live' : 'Lobby Live' }}
+                            </a>
+                            @endif
                         @endif
                     @elseif($quiz->allowsSolo() && $quiz->isPublished() && $quiz->isOpenNow($assignment))
-                        <div class="w-full" x-data="{ showToken: false, soloToken: '' }">
+                        <div class="w-full">
                             @if($quiz->requiresSoloToken())
                             <button type="button" class="arena-rx-cta-big solo" @click="showToken = true">
                                 <i data-lucide="play" class="w-5 h-5"></i>
                                 {{ $myAttempt ? 'Lanjut solo' : 'Main solo' }}
+                            </button>
+                            <button type="button" class="arena-rx-btn arena-rx-btn-ghost w-full mt-2 !min-h-[2.75rem]"
+                                    @click="openScan()">
+                                <i data-lucide="qr-code" class="w-4 h-4"></i> Pindai QR dari guru
                             </button>
                             <div x-show="showToken" x-cloak
                                  class="fixed inset-0 z-50 grid place-items-center bg-slate-900/55 p-4"
@@ -67,7 +89,7 @@
                                      @click.outside="showToken = false">
                                     <div>
                                         <h3 class="m-0 text-lg font-black text-slate-800 dark:text-slate-100">Token solo</h3>
-                                        <p class="m-0 mt-1 text-xs font-semibold text-slate-500">Masukkan kode 4 huruf dari guru mapel.</p>
+                                        <p class="m-0 mt-1 text-xs font-semibold text-slate-500">Ketik, pindai QR, atau scan barcode kode dari guru mapel.</p>
                                     </div>
                                     <form method="POST" action="{{ route('classroom.arena.start', [$classroom, $quiz]) }}" class="space-y-3">
                                         @csrf
@@ -77,12 +99,17 @@
                                                placeholder="ABCD" required autofocus>
                                         <div class="flex gap-2">
                                             <button type="button" class="btn-secondary flex-1 rounded-xl py-2.5 text-sm font-bold"
+                                                    @click="openScan()">
+                                                <i data-lucide="qr-code" class="w-4 h-4 inline"></i> Pindai
+                                            </button>
+                                            <button type="button" class="btn-secondary rounded-xl py-2.5 px-3 text-sm font-bold"
                                                     @click="showToken = false">Batal</button>
                                             <button type="submit" class="btn-primary flex-1 rounded-xl py-2.5 text-sm font-bold">
                                                 {{ $myAttempt ? 'Lanjut' : 'Mulai' }}
                                             </button>
                                         </div>
                                     </form>
+                                    @include('arena-belajar.partials.join-barcode-wedge')
                                 </div>
                             </div>
                             @else
@@ -96,14 +123,32 @@
                             @endif
                         </div>
                         @if($quiz->allowsLive())
-                        <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
-                            <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Masuk Live' : 'Gabung Live' }}
-                        </a>
+                            @if($requiresJoinToken && !$hasJoinUnlock)
+                            <button type="button" class="arena-rx-cta-big live" @click="showLiveToken = true">
+                                <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Masuk Live' : 'Gabung Live' }}
+                            </button>
+                            @else
+                            <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
+                                <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Masuk Live' : 'Gabung Live' }}
+                            </a>
+                            @endif
                         @endif
                     @elseif($quiz->allowsLive())
-                        <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live sm:col-span-2">
+                        <div class="w-full sm:col-span-2 space-y-2">
+                        @if($requiresJoinToken && !$hasJoinUnlock)
+                        <button type="button" class="arena-rx-cta-big live w-full" @click="showLiveToken = true">
+                            <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Masuk Live sekarang' : 'Cek Lobby Live' }}
+                        </button>
+                        @else
+                        <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
                             <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Masuk Live sekarang' : 'Cek Lobby Live' }}
                         </a>
+                        @endif
+                        <button type="button" class="arena-rx-btn arena-rx-btn-ghost w-full !min-h-[2.75rem]"
+                                @click="openScan()">
+                            <i data-lucide="qr-code" class="w-4 h-4"></i> Pindai QR Live dari guru
+                        </button>
+                        </div>
                         @unless($quiz->isPublished())
                         <p class="m-0 text-sm font-bold text-amber-200 sm:col-span-2">Kuis masih draft — tunggu guru menerbitkan.</p>
                         @else
@@ -122,6 +167,8 @@
                             @endunless
                         </p>
                     @endif
+                    @include('arena-belajar.partials.live-token-modal')
+                    @include('arena-belajar.partials.join-qr-scanner')
                 @elseif($canManage)
                     <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
                         <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Lanjut host Live' : 'Buka Live Arena' }}
@@ -261,13 +308,13 @@
             </div>
         </div>
 
-        @if(in_array($quiz->status, ['published', 'closed'], true) && $quiz->allowsSolo())
+        @if(in_array($quiz->status, ['published', 'closed'], true) && ($quiz->allowsSolo() || $quiz->allowsLive()))
         <div class="arena-rx-manage-section">
-            <p class="arena-rx-manage-label">Kode masuk solo</p>
+            <p class="arena-rx-manage-label">Kode masuk arena</p>
             <div class="arena-rx-token-card">
                 <div class="min-w-0">
                     <p class="m-0 text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                        Wajib token · cegah bocor soal
+                        Wajib token · solo &amp; live
                     </p>
                     <p class="m-0 mt-1 font-mono text-3xl font-black tracking-[0.35em] text-slate-800 dark:text-slate-100">
                         {{ $quiz->access_token ?: '————' }}
@@ -291,6 +338,8 @@
             </div>
         </div>
         @endif
+
+        @includeWhen($canManage, 'arena-belajar.partials.join-qr-guru')
 
         @if(in_array($quiz->status, ['published', 'closed'], true))
         <div class="arena-rx-manage-section">

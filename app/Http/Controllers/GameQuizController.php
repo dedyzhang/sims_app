@@ -20,6 +20,8 @@ use App\Models\NilaiSumatif;
 use App\Models\RaporKonfirmasi;
 use App\Models\TujuanPembelajaran;
 use App\Services\GameQuizImporter;
+use App\Support\ArenaAccessToken;
+use App\Support\ArenaJoinQr;
 use App\Support\Audit;
 use App\Support\RichText;
 use Illuminate\Http\Request;
@@ -205,6 +207,11 @@ class GameQuizController extends Controller implements HasMiddleware
         $assignment = $quiz->assignmentFor($classroom);
         $canManage = auth()->user()->can('manage', $quiz);
 
+        if ($canManage) {
+            $quiz->ensureAccessTokenForPublished();
+            $quiz->refresh();
+        }
+
         $myAttempt = null;
         if (auth()->user()->access === 'siswa' && $assignment) {
             $myAttempt = $assignment->attempts()
@@ -225,14 +232,66 @@ class GameQuizController extends Controller implements HasMiddleware
                 ->values();
         }
 
+        $soloJoinUrl = ($canManage && $quiz->allowsSolo() && $quiz->access_token)
+            ? ArenaJoinQr::soloJoinUrl($classroom, $quiz)
+            : null;
+        $liveJoinUrl = ArenaJoinQr::liveJoinUrl($classroom, $quiz);
+        $soloJoinQrSvg = $soloJoinUrl ? ArenaJoinQr::svg($soloJoinUrl) : null;
+        $liveJoinQrSvg = ($canManage && $quiz->allowsLive() && $quiz->access_token)
+            ? ArenaJoinQr::svg($liveJoinUrl)
+            : null;
+        $soloBarcodePayload = ($canManage && $quiz->allowsSolo() && $quiz->access_token)
+            ? ArenaJoinQr::soloBarcodePayload($quiz)
+            : null;
+        $liveBarcodePayload = ($canManage && $quiz->allowsLive() && $quiz->access_token)
+            ? ArenaJoinQr::liveBarcodePayload($quiz)
+            : null;
+        $prefillSoloToken = request('join') === 'solo'
+            ? strtoupper(substr((string) request('t', ''), 0, 8))
+            : '';
+
+        $requiresJoinToken = ArenaAccessToken::requiresToken($quiz);
+        $hasJoinUnlock = ArenaAccessToken::hasUnlock($quiz);
+        $prefillLiveToken = request('join') === 'live'
+            ? strtoupper(substr((string) request('t', ''), 0, 8))
+            : '';
+
         return view('arena-belajar.show', compact(
             'classroom',
             'quiz',
             'assignment',
             'canManage',
             'myAttempt',
-            'copyTargets'
+            'copyTargets',
+            'soloJoinUrl',
+            'liveJoinUrl',
+            'soloJoinQrSvg',
+            'liveJoinQrSvg',
+            'soloBarcodePayload',
+            'liveBarcodePayload',
+            'prefillSoloToken',
+            'requiresJoinToken',
+            'hasJoinUnlock',
+            'prefillLiveToken'
         ));
+    }
+
+    /** Validasi token gabung (solo/live) lalu redirect kembali. */
+    public function unlockJoinToken(Request $request, Classroom $classroom, GameQuiz $quiz)
+    {
+        abort_unless($quiz->classroom_id === $classroom->uuid, 404);
+        $this->authorize('play', [$quiz, $classroom]);
+
+        if ($message = ArenaAccessToken::validateAndGrant($request, $quiz)) {
+            return back()->with('error', $message);
+        }
+
+        $redirect = $request->input('redirect');
+        if (! is_string($redirect) || ! str_starts_with($redirect, url('/'))) {
+            $redirect = route('classroom.arena.show', [$classroom, $quiz]);
+        }
+
+        return redirect($redirect)->with('success', 'Token diterima. Selamat bermain!');
     }
 
     public function edit(Classroom $classroom, GameQuiz $quiz)
