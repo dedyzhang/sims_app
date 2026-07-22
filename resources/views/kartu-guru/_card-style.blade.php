@@ -60,13 +60,29 @@
     }
     .kg-underline { position: absolute; top: 74.4mm; left: 20mm; width: 14mm; height: 0.9mm; background: #f59e0b; border-radius: 0.45mm; }
 
-    /* Baris bawah: jabatan + nomor (kiri), QR (kanan) */
-    .kg-meta { position: absolute; top: 76.2mm; left: 3.5mm; width: 36mm; }
+    /* Baris bawah sisi depan: jabatan + nomor, dipusatkan (QR sekarang di sisi belakang) */
+    .kg-meta { position: absolute; top: 76.2mm; left: 3mm; right: 3mm; text-align: center; }
     .kg-jb { color: #2d5fa8; font-size: 4.9pt; font-weight: bold; letter-spacing: 0.4pt; text-transform: uppercase; line-height: 1.25; }
     .kg-no { color: #64748b; font-size: 4.5pt; margin-top: 0.8mm; }
-    .kg-qr {
-        position: absolute; top: 74.6mm; right: 3mm; width: 9.6mm; height: 9.6mm;
-        background: #ffffff; border: 0.5pt solid #cbd5e1; border-radius: 1.2mm; text-align: center;
+
+    /* ===== Sisi BELAKANG kartu (_card-back.blade.php) — header sederhana + QR besar ===== */
+    .kg-back-header { position: absolute; top: 6mm; left: 3mm; right: 3mm; text-align: center; }
+    .kg-back-logo {
+        width: 11mm; height: 11mm; margin: 0 auto; background: #ffffff;
+        border: 0.4pt solid #cbd5e1; border-radius: 5.5mm; text-align: center;
     }
-    .kg-qr img { width: 8.2mm; height: 8.2mm; margin-top: 0.65mm; }
+    .kg-back-logo img { width: 8.6mm; height: 8.6mm; margin-top: 1.15mm; }
+    .kg-back-sch { margin-top: 1.8mm; font-weight: bold; font-size: 5.6pt; color: #1e3f7a; line-height: 1.2; }
+
+    .kg-back-qr-wrap { position: absolute; top: 26mm; left: 0; right: 0; text-align: center; }
+    .kg-back-qr {
+        width: 30mm; height: 30mm; margin: 0 auto; background: #ffffff;
+        border: 0.6pt solid #cbd5e1; border-radius: 2mm; text-align: center;
+    }
+    .kg-back-qr img { width: 27mm; height: 27mm; margin-top: 1.5mm; }
+
+    .kg-back-name { position: absolute; top: 59.5mm; left: 3mm; right: 3mm; text-align: center; font-weight: bold; font-size: 7.2pt; color: #1e3f7a; }
+    .kg-back-jb { position: absolute; top: 64mm; left: 3mm; right: 3mm; text-align: center; font-size: 4.9pt; font-weight: bold; letter-spacing: 0.4pt; text-transform: uppercase; color: #2d5fa8; }
+    .kg-back-no { position: absolute; top: 67.6mm; left: 3mm; right: 3mm; text-align: center; font-size: 4.5pt; color: #64748b; }
+    .kg-back-note { position: absolute; top: 76mm; left: 4mm; right: 4mm; text-align: center; font-size: 4pt; color: #94a3b8; line-height: 1.4; }
 </style>

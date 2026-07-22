@@ -93,6 +93,64 @@ class KartuGuruTest extends TestCase
         Storage::disk('public')->assertMissing($path);
     }
 
+    public function test_unggah_foto_besar_otomatis_dikompres_dan_diresize(): void
+    {
+        // Simulasi foto langsung dari kamera ponsel (resolusi besar) — HARUS diresize ke
+        // FotoKartu::MAX_DIM utk mencegah "Cetak Semua" lambat saat banyak guru sekaligus.
+        Storage::fake('public');
+
+        $this->actingAs($this->admin)
+            ->post(route('kartu-guru.foto', $this->guru->uuid), [
+                'foto' => UploadedFile::fake()->image('kamera-hp.jpg', 3000, 4000),
+            ])
+            ->assertRedirect();
+
+        $this->guru->refresh();
+        $stored = Storage::disk('public')->get($this->guru->foto);
+        [$w, $h] = getimagesizefromstring($stored);
+
+        $this->assertLessThanOrEqual(\App\Support\FotoKartu::MAX_DIM, max($w, $h));
+        // Rasio 3000:4000 (3:4) harus tetap terjaga (bukan dipotong/diregang).
+        $this->assertEqualsWithDelta(3 / 4, $w / $h, 0.01);
+    }
+
+    public function test_unggah_foto_png_mempertahankan_transparansi(): void
+    {
+        Storage::fake('public');
+
+        // Bikin PNG transparan asli (spt cutout admin) — fake()->image() Laravel selalu
+        // menghasilkan JPEG solid, jadi bangun manual via GD utk uji alpha sungguhan.
+        $im = imagecreatetruecolor(500, 600);
+        imagesavealpha($im, true);
+        imagealphablending($im, false);
+        $transparent = imagecolorallocatealpha($im, 0, 0, 0, 127);
+        imagefill($im, 0, 0, $transparent);
+        imagealphablending($im, true);
+        $opaque = imagecolorallocate($im, 200, 50, 50);
+        imagefilledellipse($im, 250, 200, 200, 200, $opaque);
+        ob_start();
+        imagepng($im);
+        $pngBinary = ob_get_clean();
+        imagedestroy($im);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'kg').'.png';
+        file_put_contents($tmp, $pngBinary);
+        $uploaded = new UploadedFile($tmp, 'cutout.png', 'image/png', null, true);
+
+        $this->actingAs($this->admin)
+            ->post(route('kartu-guru.foto', $this->guru->uuid), ['foto' => $uploaded])
+            ->assertRedirect();
+
+        $this->guru->refresh();
+        $this->assertStringEndsWith('.png', $this->guru->foto);
+        $stored = Storage::disk('public')->get($this->guru->foto);
+        $img = imagecreatefromstring($stored);
+        $rgba = imagecolorsforindex($img, imagecolorat($img, 5, 5)); // sudut = area transparan
+        $this->assertSame(127, $rgba['alpha'], 'sudut PNG harus tetap transparan (alpha 127) setelah diresize');
+        imagedestroy($img);
+        @unlink($tmp);
+    }
+
     public function test_unggah_menolak_file_bukan_gambar(): void
     {
         $this->actingAs($this->admin)
@@ -108,9 +166,38 @@ class KartuGuruTest extends TestCase
         $res->assertOk();
         $this->assertSame('application/pdf', $res->headers->get('content-type'));
 
+        // "Cetak Semua" langsung diunduh (attachment), bukan ditampilkan inline — dokumen bisa
+        // berhalaman banyak dgn foto (walau sudah dikompres), lebih nyaman diunduh & di-print
+        // offline drpd menunggu browser merender PDF besar.
         $res = $this->actingAs($this->admin)->get(route('kartu-guru.cetak'));
         $res->assertOk();
         $this->assertSame('application/pdf', $res->headers->get('content-type'));
+        $this->assertStringContainsString('attachment', $res->headers->get('content-disposition'));
+    }
+
+    public function test_qr_dipindah_ke_sisi_belakang_kartu_utk_cetak_bolak_balik(): void
+    {
+        // Sisi depan TIDAK boleh lagi merender badge QR-nya sendiri (dipindah ke _card-back).
+        // (Nama variabel $card['qrUri'] boleh tetap disebut di komentar dok bagian atas file.)
+        $front = file_get_contents(resource_path('views/kartu-guru/_card.blade.php'));
+        $this->assertStringNotContainsString("\$card['qrUri']", $front);
+        $this->assertStringNotContainsString('kg-qr"', $front);
+
+        // Sisi belakang berisi QR besar + instruksi.
+        $back = file_get_contents(resource_path('views/kartu-guru/_card-back.blade.php'));
+        $this->assertStringContainsString("qrUri", $back);
+        $this->assertStringContainsString('kg-back-qr', $back);
+
+        // PDF individual: 2 halaman (depan lalu belakang) via page-break-after.
+        $pdfView = file_get_contents(resource_path('views/kartu-guru/pdf.blade.php'));
+        $this->assertStringContainsString('page-break-after', $pdfView);
+        $this->assertStringContainsString("_card-back", $pdfView);
+
+        // Cetak massal: halaman depan semua dulu, baru halaman belakang dgn urutan slot dibalik
+        // (array_reverse) per baris — supaya sejajar dgn depannya stlh duplex "flip on long edge".
+        $massal = file_get_contents(resource_path('views/kartu-guru/cetak-massal.blade.php'));
+        $this->assertStringContainsString('_card-back', $massal);
+        $this->assertStringContainsString('array_reverse', $massal);
     }
 
     public function test_jabatan_kepala_sekolah_dan_walikelas_ikut_role(): void

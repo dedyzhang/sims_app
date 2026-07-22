@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Guru;
 use App\Models\Setting;
-use App\Support\Uploads;
+use App\Support\FotoKartu;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -19,8 +19,6 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 */
 class KartuGuruController extends Controller
 {
-    private const FOTO_EXT = ['jpg', 'jpeg', 'png', 'webp'];
-
     /** Daftar guru + status foto, pencarian, tombol lihat/cetak. */
     public function kelola(Request $request)
     {
@@ -43,21 +41,34 @@ class KartuGuruController extends Controller
         return view('kartu-guru.kelola', compact('gurus', 'q', 'jabatans'));
     }
 
-    /** Unggah / ganti foto kartu seorang guru (tersimpan di kolom guru.foto). */
+    /**
+     * Unggah / ganti foto kartu seorang guru (tersimpan di kolom guru.foto).
+     * Foto SELALU dikompres+diresize dulu (lihat FotoKartu) — foto ponsel mentah bisa 3-8MB;
+     * disematkan mentah utk puluhan guru sekaligus di "Cetak Semua" bikin render PDF sangat
+     * lambat. Sebagai efek samping ini juga lebih aman: file DIBANGUN ULANG dari piksel via GD
+     * (bukan cuma disalin), jadi payload apa pun yang menumpang di file asli ikut hilang.
+     */
     public function fotoStore(Request $request, Guru $guru)
     {
         abort_unless(auth()->user()->canAccess('manage_users'), 403);
 
         $request->validate([
-            'foto' => 'required|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'foto' => 'required|image|mimes:jpg,jpeg,png,webp|max:8192',
         ], [], ['foto' => 'foto guru']);
 
         if ($guru->foto && Storage::disk('public')->exists($guru->foto)) {
             Storage::disk('public')->delete($guru->foto);
         }
 
-        $ext = Uploads::safeExtension($request->file('foto'), self::FOTO_EXT, 'jpg');
-        $path = $request->file('foto')->storeAs('guru-foto', $guru->uuid.'_'.now()->format('YmdHis').'.'.$ext, 'public');
+        $file = $request->file('foto');
+        // PNG/WEBP diasumsikan foto cutout transparan (disimpan sbg PNG); JPEG foto biasa (lebih
+        // kecil sbg JPEG). Ditentukan dari validasi MIME Laravel, BUKAN ekstensi klaim klien.
+        $preserveAlpha = in_array(strtolower($file->getClientOriginalExtension()), ['png', 'webp'], true);
+        $ext = $preserveAlpha ? 'png' : 'jpg';
+
+        $binary = FotoKartu::resize(file_get_contents($file->getRealPath()), $preserveAlpha);
+        $path = 'guru-foto/'.$guru->uuid.'_'.now()->format('YmdHis').'.'.$ext;
+        Storage::disk('public')->put($path, $binary);
         $guru->update(['foto' => $path]);
 
         return back()->with('success', 'Foto '.$guru->nama.' disimpan.');
@@ -102,7 +113,12 @@ class KartuGuruController extends Controller
         return view('kartu-guru.self', ['card' => $this->cardData($guru)] + $this->sharedData());
     }
 
-    /** Cetak massal semua guru: A4 potret, 9 kartu (3×3) per halaman. */
+    /**
+     * Cetak massal semua guru: A4 potret, 9 kartu (3×3) per halaman, depan lalu belakang.
+     * Langsung DIUNDUH (bukan ditampilkan inline) — dokumen bisa puluhan halaman dgn banyak
+     * foto sekalipun sudah dikompres, jadi lebih nyaman diunduh lalu dibuka/print offline drpd
+     * menunggu browser merender PDF besar inline.
+     */
     public function cetakSemua()
     {
         abort_unless(auth()->user()->canAccess('manage_users'), 403);
@@ -117,7 +133,7 @@ class KartuGuruController extends Controller
             'total' => $gurus->count(),
         ] + $this->sharedData())
             ->setPaper('a4', 'portrait')
-            ->stream('kartu-id-guru.pdf');
+            ->download('kartu-id-guru.pdf');
     }
 
     // ── Data kartu ────────────────────────────────────────────────────────

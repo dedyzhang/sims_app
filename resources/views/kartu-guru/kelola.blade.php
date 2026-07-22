@@ -6,10 +6,11 @@
     <div class="mb-6 flex items-start justify-between gap-3 flex-wrap">
         <div>
             <h1 class="page-title">Kartu ID Guru</h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Kartu identitas dibuat <b>otomatis</b> dari data guru: logo & nama sekolah, foto, nama, <b>jabatan sesuai role akun</b> (jadi teks berulang di background kartu), dan QR berisi NIP/NIK. Unggah foto berupa <b>PNG transparan yang sudah di-cutout</b> (setengah badan) supaya tampil besar menyatu dengan desain kartu.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Kartu identitas dibuat <b>otomatis</b> dari data guru: logo & nama sekolah, foto, nama, <b>jabatan sesuai role akun</b> (jadi teks berulang di background kartu). Unggah foto berupa <b>PNG transparan yang sudah di-cutout</b> (setengah badan) supaya tampil besar menyatu dengan desain kartu.</p>
+            <p class="text-xs text-slate-400 mt-1.5"><i data-lucide="scan-line" class="w-3.5 h-3.5 inline -mt-0.5"></i> QR absensi ada di <b>sisi belakang</b> kartu — PDF-nya 2 halaman (depan lalu belakang) supaya bisa dicetak <b>bolak-balik</b>, baik satu-satu maupun massal. Untuk cetak massal, atur duplex printer ke <b>"flip on long edge"</b> (paling umum) agar tiap kartu tetap sejajar dgn baliknya.</p>
         </div>
-        <a href="{{ route('kartu-guru.cetak') }}" target="_blank" rel="noopener" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
-            <i data-lucide="printer" class="w-4 h-4"></i> Cetak Semua (PDF)
+        <a href="{{ route('kartu-guru.cetak') }}" rel="noopener" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
+            <i data-lucide="download" class="w-4 h-4"></i> Unduh Semua (Depan+Belakang)
         </a>
     </div>
 

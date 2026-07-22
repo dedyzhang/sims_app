@@ -14,6 +14,13 @@
     </style>
 </head>
 <body>
-    @include('kartu-guru._card')
+    {{-- Halaman 1 = sisi depan, halaman 2 = sisi belakang (QR) — kertas ukuran sama persis
+         supaya bisa dicetak bolak-balik (duplex) langsung dari dialog print. --}}
+    <div style="page-break-after: always;">
+        @include('kartu-guru._card')
+    </div>
+    <div>
+        @include('kartu-guru._card-back')
+    </div>
 </body>
 </html>
