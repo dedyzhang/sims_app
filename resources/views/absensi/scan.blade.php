@@ -1148,6 +1148,18 @@ function faceScan(data, opts={}){
             this.barcodeError = '';
             if(!barcode){ this.barcodeError = 'Kode kartu kosong.'; this.barcodeBusy = false; return; }
             if(!this.markBarcodeUrl){ this.barcodeError = 'Endpoint kartu pelajar tidak tersedia.'; this.barcodeBusy = false; return; }
+            // Kartu hanya berlaku sekali — kalau siswanya sudah tercatat hadir di daftar,
+            // tolak langsung tanpa ke server (server tetap punya guard yang sama utk kartu
+            // yang tidak ada di daftar, mis. payload NISN).
+            const known = this.attendees.find(x => x.type==='siswa' && (x.uuid === barcode || String(x.nis) === barcode));
+            if(known && known.marked){
+                this.barcodeError = known.nama + ' sudah absen' + (known.jam_masuk ? ' ' + known.jam_masuk : '') + ' — kartu hanya berlaku sekali.';
+                this.playError();
+                showToast(this.barcodeError, 'error');
+                this.barcodeBusy = false;
+                if(this.showBarcodeModal && !this.barcodeScanner) this.startBarcodeScan();
+                return;
+            }
             if(!this.barcodeBusy) this.barcodeBusy = true;
             try {
                 const res = await fetch(this.markBarcodeUrl, {
@@ -1165,6 +1177,12 @@ function faceScan(data, opts={}){
                     this.barcodeError = (d && d.message) ? d.message : 'Gagal menandai hadir.';
                     this.playError();
                     showToast(this.barcodeError, 'error');
+                    // Server bilang duplikat → sinkronkan daftar lokal (mis. scan pakai NISN yang
+                    // tidak cocok dgn NIS di daftar) supaya cek lokal ikut menolak scan berikutnya.
+                    if(d && d.duplicate && d.uuid){
+                        const dup = this.attendees.find(x => x.uuid === d.uuid);
+                        if(dup){ dup.marked = true; if(d.jam) dup.jam_masuk = d.jam; }
+                    }
                     this.barcodeBusy = false;
                     if(this.showBarcodeModal && !this.barcodeScanner) this.startBarcodeScan();
                     return;

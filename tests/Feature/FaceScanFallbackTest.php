@@ -98,6 +98,34 @@ class FaceScanFallbackTest extends TestCase
             ->assertJsonPath('kelas', '7A');
     }
 
+    public function test_mark_by_barcode_kedua_kali_ditolak_sekali_saja_per_hari(): void
+    {
+        // Kartu hanya berlaku SEKALI per hari — dulu scan ulang jatuh ke mark() yang
+        // meng-update baris lama dan tetap membalas sukses (bisa "absen" berkali-kali).
+        $payload = [
+            'barcode' => '123456',
+            'tanggal' => now()->toDateString(),
+        ];
+
+        $this->actingAs($this->admin)->postJson(route('absensi.markBarcode'), $payload)
+            ->assertOk()->assertJsonPath('success', true);
+
+        $this->actingAs($this->admin)->postJson(route('absensi.markBarcode'), $payload)
+            ->assertOk()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('duplicate', true)
+            ->assertJsonPath('uuid', $this->siswa->uuid);
+
+        // Setelah admin membatalkan absensinya, kartu boleh dipakai lagi.
+        $this->actingAs($this->admin)->postJson(route('absensi.cancel'), [
+            'id_siswa' => $this->siswa->uuid,
+            'tanggal'  => now()->toDateString(),
+        ])->assertOk();
+
+        $this->actingAs($this->admin)->postJson(route('absensi.markBarcode'), $payload)
+            ->assertOk()->assertJsonPath('success', true);
+    }
+
     public function test_mark_by_barcode_rejects_when_siswa_sudah_izin(): void
     {
         \App\Models\Absensi::create([

@@ -337,6 +337,19 @@ class AbsensiController extends Controller
             ]);
         }
 
+        // Kartu hanya berlaku SEKALI per hari — tanpa guard ini, scan ulang jatuh ke mark()
+        // yang cuma meng-update baris lama dan tetap membalas sukses (flash "Selamat datang"
+        // berulang, seolah bisa absen berkali-kali).
+        if ($existing && $existing->status === 'hadir' && $existing->jam_masuk) {
+            return response()->json([
+                'success'   => false,
+                'duplicate' => true,
+                'uuid'      => $siswa->uuid,
+                'jam'       => substr($existing->jam_masuk, 0, 5),
+                'message'   => $siswa->nama.' sudah absen '.substr($existing->jam_masuk, 0, 5).' — kartu hanya berlaku sekali.',
+            ]);
+        }
+
         $request->merge([
             'id_siswa' => $siswa->uuid,
             'id_kelas' => $siswa->id_kelas,
