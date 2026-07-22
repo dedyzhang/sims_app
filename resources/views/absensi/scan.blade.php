@@ -91,6 +91,7 @@
         <p class="text-slate-400">Kalau angka "Wajah kecil/jauh" paling tinggi → suruh piket mendekat ke kamera. Kalau "Kualitas/cahaya" tinggi → tambah pencahayaan. Kalau "Skor rendah" tinggi terus-menerus utk orang yang SAMA → kemungkinan wajah perlu didaftar ulang (foto lebih jelas, 3 posisi).</p>
     </div>
     @endunless
+    <div class="flex items-center gap-4 flex-wrap">
         <div class="min-w-44 flex-1 max-w-xs">
             <label class="form-label">Kelas</label>
             <select x-model="kelasFilter" @change="onKelasChange()" class="form-select">
@@ -433,11 +434,11 @@ function faceScan(data, opts={}){
         // yang sama (match salah tidak stabil antar frame, match benar stabil) + margin ke
         // kandidat kedua — BUKAN ambang skor tinggi. Maka ambang skor dikembalikan ke level
         // yang terbukti mudah mendeteksi, sementara confirmFrames:2 dipertahankan.
-        threshold:0.66,
-        confidentThreshold:0.82,
-        supportThreshold:0.62,
+        threshold:0.64,
+        confidentThreshold:0.80,
+        supportThreshold:0.60,
         minSampleSupport:2,
-        singleSampleTop1:0.72, // 1 sampel cukup bila top1 sangat yakin
+        singleSampleTop1:0.70, // 1 sampel cukup bila top1 sangat yakin
         margin:0.06,           // jarak minimal ke kandidat kedua — nama mirip tidak boleh menang tipis
         minFaceFrac:0.12,      // wajah boleh sedikit lebih jauh dari kamera (dulu 0.14)
         minFaceScore:0.55,
@@ -948,9 +949,8 @@ function faceScan(data, opts={}){
                         label='Perjelas wajah'; color='#f59e0b';
                     } else if(top1Val >= 0.45){
                         // Skor sedang (0.45–0.62) — kemungkinan besar orang yg SAMA tapi sudut/
-                        // cahaya kurang pas, BUKAN "tidak dikenali sama sekali". Dulu kasus ini
-                        // ikut jatuh ke '—' polos, tak beda dgn wajah yg benar2 tak dikenal.
-                        label='Coba lagi, hadap lurus'; color='#f59e0b';
+                        // cahaya kurang pas, atau pakai kacamata/masker, BUKAN "tidak dikenali".
+                        label='Lepas kacamata/masker, hadap lurus'; color='#f59e0b';
                     } else {
                         label='—'; color='#94a3b8';
                     }
