@@ -347,7 +347,7 @@ function izinPulangQr(cfg){
 </script>
 @endif
 @if($bolehWajahMandiri)
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/dist/human.js"></script>
 <script>
 let humanIzin=null, humanIzinReady=false;
 async function loadHumanIzin(){

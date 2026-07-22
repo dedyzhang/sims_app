@@ -217,8 +217,8 @@
                     <div class="flex items-center gap-2 flex-wrap">
                         {{-- Mode pulang hanya berlaku utk guru via wajah — di mode QR saja tidak relevan --}}
                         <div x-show="hasGuru && faceEnabled" class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800" title="Absen pulang guru — aturan agenda & jam tetap berlaku">
-                            <button @click="scanMode='masuk'" :class="scanMode==='masuk' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Masuk</button>
-                            <button @click="scanMode='pulang'" :class="scanMode==='pulang' ? 'bg-white dark:bg-slate-700 text-amber-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Pulang</button>
+                            <button @click="scanMode='masuk'; _streak={}" :class="scanMode==='masuk' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Masuk</button>
+                            <button @click="scanMode='pulang'; _streak={}" :class="scanMode==='pulang' ? 'bg-white dark:bg-slate-700 text-amber-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Pulang</button>
                         </div>
                         <button x-show="!camOn" @click="start()" :disabled="loading" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 disabled:opacity-50">
                             <i data-lucide="play" class="w-4 h-4"></i> <span x-text="loading ? 'Menyiapkan…' : 'Buka kamera'"></span>
@@ -367,7 +367,7 @@
 
 @push('scripts')
 @if(($scanKioskMode ?? 'keduanya') !== 'qr')
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/dist/human.js"></script>
 @endif
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 @if(($scanKioskMode ?? 'keduanya') !== 'wajah')
@@ -510,7 +510,15 @@ function faceScan(data, opts={}){
         },
         isFaceLocked(uuid){
             const s = this.attendees.find(x=>x.uuid===uuid);
-            return !!(this._faceLocked[uuid] || s?.marked || s?.pulangMarked);
+            if(!s) return false;
+            if(this._faceLocked[uuid]) return true;
+            // Mode Pulang (guru): JANGAN kunci berdasar status masuk — guru yg sudah absen masuk
+            // harus tetap bisa dikenali lagi utk absen pulang. Kunci hanya kalau pulang-nya sendiri
+            // sudah tercatat (atau bukan guru sama sekali, krn mode pulang khusus guru). Dulu di sini
+            // ikut mengecek s.marked tanpa peduli mode — begitu guru absen masuk, wajahnya terkunci
+            // permanen dan tak pernah terbaca lagi meski kiosk sudah dipindah ke mode Pulang.
+            if(this.scanMode==='pulang') return s.type!=='guru' || !!s.pulangMarked;
+            return !!(s.marked || s.pulangMarked);
         },
         afterFaceMarkSuccess(){
             this._scanPauseUntil = Date.now() + 900;
@@ -908,7 +916,11 @@ function faceScan(data, opts={}){
         onMatch(uuid){
             const s=this.attendees.find(x=>x.uuid===uuid);
             if(!s) return;
-            if(this.isFaceLocked(uuid) && (s.marked || s.pulangMarked || s._masukBusy || s._pulangBusy)) return;
+            // Pengaman hanya utk request yg masih diproses (cegah double-submit) — status
+            // marked/pulangMarked SUDAH ditangani per-mode di bawah (jangan dicek lagi di sini
+            // tanpa peduli mode, itu yg dulu bikin absen pulang guru tak pernah kepanggil sama
+            // sekali begitu s.marked=true dari absen masuk).
+            if(s._masukBusy || s._pulangBusy) return;
             this._faceLocked[uuid] = true;
 
             // ===== Mode PULANG (khusus guru) =====

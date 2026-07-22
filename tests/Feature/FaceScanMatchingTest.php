@@ -135,4 +135,23 @@ class FaceScanMatchingTest extends TestCase
         $this->assertStringContainsString('flex items-start justify-between gap-1.5 flex-wrap', $source);
         $this->assertStringNotContainsString('absolute top-3 left-1/2 -translate-x-1/2', $source);
     }
+
+    public function test_guru_tetap_bisa_dikenali_utk_pulang_setelah_absen_masuk(): void
+    {
+        // Regresi konkret dilaporkan user: guru yg sudah absen MASUK (s.marked=true) jadi tak
+        // pernah dikenali kamera LAGI walau kiosk sudah dipindah ke mode Pulang — krn isFaceLocked()
+        // dan awal onMatch() dulu sama2 mengunci berdasar s.marked TANPA peduli scanMode saat ini.
+        // Alur yg benar: guru dikenali SEKALI utk masuk, lalu (setelah kiosk pindah mode) dikenali
+        // SEKALI LAGI utk pulang — dikunci lagi hanya setelah pulangMarked true.
+        $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
+
+        $this->assertStringContainsString("if(this.scanMode==='pulang') return s.type!=='guru' || !!s.pulangMarked;", $source);
+        $this->assertStringContainsString('return !!(s.marked || s.pulangMarked);', $source);
+        // onMatch() tak lagi mengecek s.marked/s.pulangMarked tanpa peduli mode di gerbang paling atas.
+        $this->assertStringContainsString('if(s._masukBusy || s._pulangBusy) return;', $source);
+        $this->assertStringNotContainsString('if(this.isFaceLocked(uuid) && (s.marked || s.pulangMarked || s._masukBusy || s._pulangBusy)) return;', $source);
+        // Ganti mode mereset streak supaya deteksi ulang (grup yg baru terbuka kuncinya) responsif.
+        $this->assertStringContainsString("@click=\"scanMode='masuk'; _streak={}\"", $source);
+        $this->assertStringContainsString("@click=\"scanMode='pulang'; _streak={}\"", $source);
+    }
 }
