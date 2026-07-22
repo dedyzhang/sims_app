@@ -75,7 +75,9 @@
         {{-- Kamera --}}
         <div class="lg:col-span-3 space-y-3">
             <div x-ref="stage" class="scan-stage card overflow-hidden relative bg-slate-900 aspect-video">
-                <video x-ref="video" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover" :class="camOn?'':'opacity-0'"></video>
+                <video x-ref="video" autoplay muted playsinline
+                    :class="camOn?'':'opacity-0'"
+                    :style="(camOn && previewBrightness > 1 ? `filter: brightness(${previewBrightness.toFixed(2)});` : '') + 'width:100%;height:100%;object-fit:cover;transition:filter .35s ease'"></video>
                 <canvas x-ref="canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
 
                 {{-- placeholder saat kamera mati --}}
@@ -115,7 +117,8 @@
                     </div>
 
                     <div x-show="scanning && lowLight" x-cloak class="self-start flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/85 backdrop-blur text-white text-xs font-semibold pointer-events-auto max-w-full">
-                        <i data-lucide="sun" class="w-3.5 h-3.5 flex-shrink-0"></i> <span class="truncate">Pencahayaan rendah — kecerahan otomatis aktif</span>
+                        <i data-lucide="sun" class="w-3.5 h-3.5 flex-shrink-0"></i>
+                        <span class="truncate" x-text="autoExposureOn ? 'Pencahayaan rendah — auto exposure & kecerahan aktif' : 'Pencahayaan rendah — kecerahan otomatis aktif'"></span>
                     </div>
                 </div>
 
@@ -340,6 +343,8 @@ function normalizeFaceDescriptors(desc){
 function faceScan(data, opts={}){
     return {
         loading:false, camOn:false, scanning:false, busy:false, fs:false, lowLight:false,
+        previewBrightness:1, autoExposureOn:false,
+        _lastExposureAdjustAt:0, _lastAvgLuma:128,
         status:'Menyiapkan kamera…',
         attendees: data.map(s=>({ ...s, marked: s.status==='hadir', justMarked:false, pulangMarked: !!s.pulangDone, jam_masuk: s.jam_masuk, jam_pulang: s.jam_pulang })),
         enrolled:[], stream:null, timer:null,
@@ -559,11 +564,11 @@ function faceScan(data, opts={}){
             if(this.camOn || this.loading) return;
             this.loading=true; this.status='Mengaktifkan kamera...';
             try {
-                this.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} } });
+                this.stream = await navigator.mediaDevices.getUserMedia(this.getVideoConstraints());
                 const v=this.$refs.video; v.srcObject=this.stream;
                 await new Promise(r=> v.onloadedmetadata = r); v.play();
                 this.camOn=true;
-                this.applyAutoExposure(); // aktifkan exposure/white-balance kontinu di kamera bila didukung perangkat
+                this.applyAutoExposure(); // exposure/WB kontinu + kompensasi awal bila didukung hardware
                 this.status='Memuat model AI (pertama kali agak lama, lalu tersimpan)...';
                 await loadHuman();
                 this.loading=false; this.scanning=true;
@@ -575,30 +580,93 @@ function faceScan(data, opts={}){
             }
         },
 
-        // Coba nyalakan exposure/white-balance/focus KONTINU di kamera (bila hardware & browser mendukung).
-        // Tak semua webcam/HP mendukung — dibungkus try/catch, gagal diam-diam & tetap fallback ke enhanceFrame().
-        applyAutoExposure(){
+        // Constraint kamera: minta exposure/WB/focus kontinu sejak awal (browser boleh abaikan yg tak didukung).
+        getVideoConstraints(){
+            return {
+                video: {
+                    facingMode: 'user',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    exposureMode: { ideal: 'continuous' },
+                    whiteBalanceMode: { ideal: 'continuous' },
+                    focusMode: { ideal: 'continuous' },
+                },
+            };
+        },
+
+        // Estimasi kecerahan rata-rata frame (luma) — sampling jarang utk hemat CPU.
+        sampleAvgLuma(imageData, w, h){
+            const px = imageData.data;
+            let sum=0, n=0;
+            const stride = Math.max(160, Math.floor((w * h * 4) / 4000) * 4);
+            for(let i=0; i<px.length; i+=stride){ sum += 0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]; n++; }
+            return n ? sum/n : 128;
+        },
+
+        softwareBrightnessBoost(avgLuma){
+            if(avgLuma >= 90) return 1;
+            return Math.min(2.8, 1 + (90 - avgLuma) / 50);
+        },
+
+        // Hardware auto exposure: mode kontinu + kompensasi/ISO/brightness adaptif saat gelap.
+        applyAutoExposure(avgLuma){
             try {
                 const track = this.stream?.getVideoTracks()?.[0];
-                if(!track || !track.getCapabilities) return;
+                if(!track?.getCapabilities) return Promise.resolve();
                 const caps = track.getCapabilities();
                 const adv = {};
+                const luma = avgLuma ?? this._lastAvgLuma ?? 128;
+                const dark = luma < 90;
+                const darkT = dark ? Math.max(0, Math.min(1, (90 - luma) / 90)) : 0;
+
                 if(caps.exposureMode?.includes('continuous')) adv.exposureMode = 'continuous';
                 if(caps.whiteBalanceMode?.includes('continuous')) adv.whiteBalanceMode = 'continuous';
                 if(caps.focusMode?.includes('continuous')) adv.focusMode = 'continuous';
-                // Kalau kamera cuma dukung exposure manual (tak ada mode continuous), dorong exposureTime/ISO ke arah lebih terang.
-                if(!adv.exposureMode && caps.exposureCompensation && caps.exposureCompensation.max > 0){
-                    adv.exposureCompensation = caps.exposureCompensation.max;
+
+                if(caps.exposureCompensation && (dark || adv.exposureMode)){
+                    const { min, max, step } = caps.exposureCompensation;
+                    const span = max - min;
+                    const target = dark
+                        ? min + span * darkT
+                        : min + span * 0.35;
+                    const stepVal = step || 0.1;
+                    adv.exposureCompensation = Math.round(target / stepVal) * stepVal;
                 }
-                if(Object.keys(adv).length) track.applyConstraints({ advanced:[adv] }).catch(()=>{});
-            } catch(e){ /* browser/kamera tak dukung getCapabilities — abaikan, pakai enhanceFrame() saja */ }
+
+                if(dark && caps.brightness){
+                    const { min, max } = caps.brightness;
+                    adv.brightness = min + (max - min) * darkT * 0.75;
+                }
+
+                if(dark && !adv.exposureMode && caps.iso){
+                    const { min, max } = caps.iso;
+                    adv.iso = Math.round(min + (max - min) * (0.35 + darkT * 0.55));
+                }
+
+                if(!Object.keys(adv).length) return Promise.resolve();
+                return track.applyConstraints({ advanced:[adv] }).then(()=>{ this.autoExposureOn = true; }).catch(()=>{});
+            } catch(e){
+                return Promise.resolve();
+            }
+        },
+
+        // Sesuaikan ulang exposure hardware tiap beberapa detik selama masih gelap.
+        maybeAdjustHardwareExposure(avgLuma){
+            this._lastAvgLuma = avgLuma;
+            const now = Date.now();
+            if(avgLuma >= 95){
+                if(this.lowLight) this.applyAutoExposure(avgLuma);
+                return;
+            }
+            if(avgLuma >= 90 || now - this._lastExposureAdjustAt < 2500) return;
+            this._lastExposureAdjustAt = now;
+            this.applyAutoExposure(avgLuma);
         },
 
         // Pencerahan otomatis berbasis software (jalan di semua kamera/browser, tak tergantung dukungan hardware).
         // Sampling cepat kecerahan rata-rata frame → kalau gelap, naikkan brightness sebelum deteksi wajah.
         // CATATAN: sengaja TIDAK dicampur dgn contrast() — contrast linear di sekitar titik tengah 128 justru
-        // menekan piksel gelap balik ke bawah, melawan efek brightness yg baru dinaikkan (percobaan menunjukkan
-        // kombinasi brightness+contrast hanya menghasilkan ~28 dari basis ~20, brightness murni ~2x lebih efektif).
+        // menekan piksel gelap balik ke bawah, melawan efek brightness yg baru dinaikkan.
         enhanceFrame(video){
             const w = video.videoWidth, h = video.videoHeight;
             if(!w || !h) return video;
@@ -608,16 +676,13 @@ function faceScan(data, opts={}){
             ctx.filter = 'none';
             ctx.drawImage(video, 0, 0, w, h);
 
-            // Sampling jarang (tiap ~40px) — cukup akurat utk estimasi kecerahan, murah utk CPU tiap tick.
-            const px = ctx.getImageData(0, 0, w, h).data;
-            let sum=0, n=0;
-            for(let i=0; i<px.length; i+=160){ sum += 0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]; n++; }
-            const avgLuma = n ? sum/n : 128;
+            const avgLuma = this.sampleAvgLuma(ctx.getImageData(0, 0, w, h), w, h);
             this.lowLight = avgLuma < 90;
+            this.previewBrightness = this.softwareBrightnessBoost(avgLuma);
+            this.maybeAdjustHardwareExposure(avgLuma);
 
             if(this.lowLight){
-                const boost = Math.min(2.8, 1 + (90-avgLuma)/50).toFixed(2);
-                ctx.filter = `brightness(${boost})`;
+                ctx.filter = `brightness(${this.previewBrightness.toFixed(2)})`;
                 ctx.drawImage(video, 0, 0, w, h);
                 ctx.filter = 'none';
             }
@@ -836,6 +901,7 @@ function faceScan(data, opts={}){
 
         stop(){
             this.scanning=false; this.camOn=false;
+            this.lowLight=false; this.previewBrightness=1; this.autoExposureOn=false;
             if(this.timer) clearTimeout(this.timer);
             if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
             if(document.fullscreenElement){ document.exitFullscreen?.(); }
@@ -913,7 +979,7 @@ function faceScan(data, opts={}){
                 return;
             }
             try {
-                this.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} } });
+                this.stream = await navigator.mediaDevices.getUserMedia(this.getVideoConstraints());
                 const v=this.$refs.video; v.srcObject=this.stream;
                 await new Promise(r=> v.onloadedmetadata = r); v.play();
                 this.camOn = true;

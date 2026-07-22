@@ -26,6 +26,10 @@ class FaceScanMatchingTest extends TestCase
         $this->assertStringContainsString('recordDiag', $source);
         $this->assertStringContainsString('submitBarcode', $source);
         $this->assertStringContainsString('_scanGen', $source);
+        $this->assertStringContainsString('getVideoConstraints', $source);
+        $this->assertStringContainsString('applyAutoExposure', $source);
+        $this->assertStringContainsString('previewBrightness', $source);
+        $this->assertStringContainsString('maybeAdjustHardwareExposure', $source);
         $this->assertStringNotContainsString('threshold:0.58', $source);
         $this->assertStringNotContainsString('margin:0.08', $source);
         $this->assertStringNotContainsString('confirmFrames:4', $source);
