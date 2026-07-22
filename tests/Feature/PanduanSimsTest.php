@@ -55,6 +55,9 @@ class PanduanSimsTest extends TestCase
             ->assertSee('Prompt Cerdas', false)
             ->assertSee('arenatren', false)
             ->assertSee('arenakuis', false)
+            ->assertSee('Kode masuk arena', false)
+            ->assertSee('QR/barcode', false)
+            ->assertSee('1920×1080', false)
             ->assertSee('Ular tangga', false)
             ->assertSee('Solo · soal acak', false)
             ->assertSee('Salin soal ke kelas lain', false)
@@ -100,8 +103,17 @@ class PanduanSimsTest extends TestCase
 
     public function test_video_panduan_tersedia_di_public(): void
     {
-        $this->assertFileExists(public_path('videos/panduan/login.mp4'));
-        $this->assertFileExists(public_path('videos/panduan/dashboard.mp4'));
-        $this->assertFileExists(public_path('videos/panduan/ai.mp4'));
+        $videos = [
+            'login.mp4',
+            'dashboard.mp4',
+            'arenabelajar.mp4',
+            'arenakuis.mp4',
+            'ai.mp4',
+        ];
+        foreach ($videos as $file) {
+            $this->assertFileExists(public_path('videos/panduan/'.$file), "Missing panduan video: {$file}");
+        }
+        $this->assertFileExists(public_path('images/panduan/login.png'));
+        $this->assertFileExists(public_path('images/panduan/arena-belajar.png'));
     }
 }

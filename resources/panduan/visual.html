@@ -245,7 +245,7 @@ html.dark .float-btn.secondary{background:#334155}
     <div class="hero-body">
       <span class="badge">PANDUAN PENGGUNAAN</span>
       <h1>SIMS - Sistem Informasi Manajemen Sekolah</h1>
-      <p>Panduan lengkap tiap fitur SIMS: penjelasan, langkah pakai, screenshot, dan storyboard video. Klik kartu di bawah untuk lompat cepat. <strong>Update Juli 2026:</strong> Arena Belajar (template Ular tangga, salin soal, solo acak) &amp; Asisten Guru (folder Nalar &amp; Kuota, Kirim ke Arena) sudah dilengkapi video baru.</p>
+      <p>Panduan lengkap tiap fitur SIMS: penjelasan, langkah pakai, screenshot hero, dan video storyboard <strong>1920×1080</strong>. Klik kartu di bawah untuk lompat cepat. <strong>Update Juli 2026:</strong> seluruh fitur punya video &amp; gambar baru; Arena Belajar ditambah <strong>kode masuk arena</strong>, <strong>QR/barcode gabung</strong> (solo &amp; live), plus template Ular tangga &amp; salin soal.</p>
     </div>
     <div class="stats" id="heroStats" aria-label="Ringkasan panduan">
       <a class="stat" href="#content"><b id="statFitur">—</b><span>Fitur terdokumentasi</span><small>Ke daftar fitur ↓</small></a>
@@ -290,7 +290,7 @@ html.dark .float-btn.secondary{background:#334155}
     <div class="cat-jump" id="cat-jump" aria-label="Lompat ke kategori"></div>
     <div class="callout warn">
       <h3>Mengisi screenshot &amp; video</h3>
-      <p>Gambar diambil dari kotak putus-putus otomatis hilang begitu file gambar tersedia. File PNG ada di <code>/images/panduan/</code>. Video storyboard ada di <code>/videos/panduan/{id}.mp4</code> (mis. <code>login.mp4</code>). Fitur tanpa file video akan menyembunyikan pemutar otomatis.</p>
+      <p>Gambar hero &amp; galeri storyboard ada di <code>/images/panduan/</code>. Video storyboard <strong>1920×1080</strong> ada di <code>/videos/panduan/{id}.mp4</code> (mis. <code>login.mp4</code>, <code>arenabelajar.mp4</code>). Kotak placeholder otomatis hilang begitu file tersedia.</p>
     </div>
     <div id="content"></div>
 
@@ -452,18 +452,18 @@ const F = [
 {cat:"Akademik", role:false, id:"arenabelajar", title:"Arena Belajar (Kuis & Misi)", path:"/ruang-kelas/{kode}/arena-belajar", img:"arena-belajar.png",
  users:"Guru (buat, host, tugaskan), Siswa (main & kumpulkan)",
  cap:"Arena Belajar: hub Ruang Kelas — Kuis (async/live/template) + Misi; skor bisa masuk rapor.",
- desc:"Modul permainan edukatif di Ruang Kelas. Guru membuat kuis (PG, benar/salah, isian, pasangkan), menjalankan Live, memakai skin template (Quiz, Pasangkan, Flashcard, Teka-teki, Susun kata, Ular tangga), menyalin soal ke kelas lain (mapel sama), atau menugaskan misi. Mode solo mengacak soal & opsi per attempt. Skor dapat ditransfer ke nilai formatif/sumatif. Aktifkan di Pengaturan Sistem → Fitur → Arena Belajar.",
- steps:["Buka Akademik → Ruang Kelas → pilih ruang mapel → tab Arena Belajar.","Pilih mode Kuis atau Misi.","Guru (kuis): Buat Kuis → isi soal → Terbitkan (ikuti petunjuk jari bila masih draf).","Guru: pakai panel aksi cepat (hasil, live, template, tim, PDF) dan Salin soal ke kelas lain bila perlu.","Siswa (solo): Mulai → chip Solo · soal acak → jawab → Kumpulkan.","Guru (live): Mulai Live → maju soal → Akhiri → podium.","Guru (misi): tab Misi → Tugaskan → Monitor → Transfer Nilai."],
- sb:{dur:"~75 detik", shots:[["1","Masuk Arena","Ruang Kelas → tab Arena"],["2","Buat & Terbitkan","Petunjuk jari ke Terbitkan"],["3","Template & solo acak","Skin + chip Solo"],["4","Salin / Live / nilai","Kelas lain, podium, transfer"]], narr:"'Arena Belajar menyatukan kuis, template permainan, misi, dan live di satu tempat. Terbitkan dulu, main solo atau live, salin soal ke kelas lain, lalu transfer skor ke buku nilai.'"},
- gallery:["arenabelajar-s1.png","arenabelajar-s2.png","arenabelajar-s3.png","arenabelajar-s4.png"]},
+ desc:"Modul permainan edukatif di Ruang Kelas. Guru membuat kuis (PG, benar/salah, isian, pasangkan), menjalankan Live dengan token/QR gabung, memakai skin template (Quiz, Pasangkan, Flashcard, Teka-teki, Susun kata, Ular tangga), menyalin soal ke kelas lain (mapel sama), atau menugaskan misi. Experience terkunci memakai kode masuk arena (token otomatis saat diterbitkan). Mode solo mengacak soal & opsi per attempt. Skor dapat ditransfer ke nilai formatif/sumatif. Aktifkan di Pengaturan Sistem → Fitur → Arena Belajar.",
+ steps:["Buka Akademik → Ruang Kelas → pilih ruang mapel → tab Arena Belajar.","Pilih mode Kuis atau Misi.","Guru (kuis): Buat Kuis → isi soal → Terbitkan (token arena terisi otomatis).","Guru: salin token atau tampilkan QR/barcode gabung di panel Kode masuk arena.","Guru: panel aksi cepat (hasil, live, template, tim, PDF) dan Salin soal ke kelas lain bila perlu.","Siswa (solo/live): masukkan token atau scan QR/barcode → Mulai → jawab → Kumpulkan.","Guru (live): Mulai Live → maju soal → Akhiri → podium.","Guru (misi): tab Misi → Tugaskan → Monitor → Transfer Nilai."],
+ sb:{dur:"~80 detik", shots:[["1","Masuk Arena","Ruang Kelas → tab Arena"],["2","Kode masuk & QR","Panel token + barcode gabung"],["3","Buat & Terbitkan","Petunjuk jari ke Terbitkan"],["4","Template & solo acak","Skin + chip Solo"],["5","Salin / Live / nilai","Kelas lain, podium, transfer"]], narr:"'Arena Belajar menyatukan kuis, template, misi, dan live. Terbitkan dulu, bagikan token atau QR gabung, main solo atau live, salin soal ke kelas lain, lalu transfer skor ke buku nilai.'"},
+ gallery:["arenabelajar-s1.png","arenabelajar-s2.png","arenabelajar-s3.png","arenabelajar-s4.png","arenabelajar-s5.png"]},
 
 {cat:"Akademik", role:false, id:"arenakuis", title:"Arena Belajar — Kuis, Template & Live", path:"/ruang-kelas/{kode}/arena-belajar", img:"arena-kuis.png",
  users:"Guru (kelola), Siswa (main)",
  cap:"Update kuis: ubin aksi cepat, Terbitkan, skin Ular tangga, salin antar kelas, solo acak.",
- desc:"Panduan fokus mode Kuis. Experience punya panel kelola berwarna (aksi cepat + mode/ekspor). Draf wajib diterbitkan agar siswa melihat. Skin template termasuk Ular tangga. Mode solo mengacak urutan soal & opsi per UUID attempt; Live tetap urutan host. Salin soal hanya ke ruang mapel yang sama.",
- steps:["Buat atau sunting experience → simpan soal.","Klik Terbitkan agar siswa bisa main.","Pilih skin template (opsional) termasuk Ular tangga.","Untuk rombel lain: Salin soal ke kelas lain (mapel sama).","Siswa solo: Mulai → jawab (urutan acak) → Kumpulkan.","Atau Mulai Live → host maju soal → Akhiri → lihat hasil/transfer nilai."],
- sb:{dur:"~65 detik", shots:[["1","Alur buat → main","Form sampai kumpulkan"],["2","Panel kelola baru","Ubin aksi berwarna"],["3","Salin ke kelas lain","Centang rombel mapel sama"],["4","Solo acak","Chip Solo · soal acak"]], narr:"'Di mode Kuis, guru membuat soal, menerbitkan, memilih template, menyalin ke kelas lain, lalu siswa main solo (acak) atau live bersama.'"},
- gallery:["arenakuis-s1.png","arenakuis-s2.png","arenakuis-s3.png","arenakuis-s4.png"],
+ desc:"Panduan fokus mode Kuis. Experience punya panel kelola berwarna (aksi cepat + mode/ekspor). Draf wajib diterbitkan agar siswa melihat; token arena terisi otomatis. Panel Kode masuk arena menampilkan token, QR, dan barcode untuk gabung solo/live. Skin template termasuk Ular tangga. Mode solo mengacak urutan soal & opsi per UUID attempt; Live tetap urutan host. Salin soal hanya ke ruang mapel yang sama.",
+ steps:["Buat atau sunting experience → simpan soal.","Klik Terbitkan agar siswa bisa main (token terisi otomatis).","Salin token atau tampilkan QR/barcode di panel Kode masuk arena.","Pilih skin template (opsional) termasuk Ular tangga.","Untuk rombel lain: Salin soal ke kelas lain (mapel sama).","Siswa: masukkan token / scan QR → Mulai → jawab → Kumpulkan.","Atau Mulai Live → bagikan token/QR → host maju soal → Akhiri → hasil/transfer nilai."],
+ sb:{dur:"~70 detik", shots:[["1","Alur buat → main","Form sampai kumpulkan"],["2","Token & QR gabung","Panel Kode masuk arena"],["3","Panel kelola baru","Ubin aksi berwarna"],["4","Salin ke kelas lain","Centang rombel mapel sama"],["5","Solo acak / Live","Chip Solo · soal acak atau live"]], narr:"'Di mode Kuis, guru membuat soal, menerbitkan, membagikan token/QR gabung, memilih template, menyalin ke kelas lain, lalu siswa main solo (acak) atau live bersama.'"},
+ gallery:["arenakuis-s1.png","arenakuis-s2.png","arenakuis-s3.png","arenakuis-s4.png","arenakuis-s5.png"],
  note:"Salinan tidak menampilkan judul experience yang tidak berhak diakses. Solo acak tidak mengubah kunci jawaban."},
 
 {cat:"Akademik", role:false, id:"arenamisi", title:"Arena Belajar — Misi Edukatif", path:"/ruang-kelas/{kode}/arena-belajar?mode=misi", img:"arena-misi.png",
@@ -474,7 +474,7 @@ const F = [
  sb:{dur:"~55 detik", shots:[["1","Hub Arena tab Misi","Panel rekomendasi"],["2","Guru tugaskan","Form + jadwal"],["3","Siswa main","Narasi / quiz / puzzle"],["4","Debrief & nilai","Diskusi + transfer"]], narr:"'Misi di Arena ditandai per jenjang dan tren. Guru menugaskan, siswa bermain, lalu diskusi singkat dan transfer nilai bila perlu.'"},
  gallery:["arenamisi-s1.png","arenamisi-s2.png","arenamisi-s3.png","arenamisi-s4.png"]},
 
-{cat:"Akademik", role:false, id:"arenatren", title:"Arena Belajar — Tren 2025–2026", path:"/ruang-kelas/{kode}/arena-belajar?mode=misi", img:"arena-misi.png",
+{cat:"Akademik", role:false, id:"arenatren", title:"Arena Belajar — Tren 2025–2026", path:"/ruang-kelas/{kode}/arena-belajar?mode=misi", img:"arena-tren.png",
  users:"Guru (tugaskan), Siswa (main)",
  cap:"Katalog misi tren: literasi AI, cek fakta/deepfake, iklim, green computing, dan digital wellbeing — ditandai per jenjang SD/SMP/SMA-SMK.",
  desc:"Koleksi permainan edukatif yang mengikuti tren pembelajaran 2025–2026: AI-enhanced literacy, critical media (anti-hoaks/deepfake), climate literacy, green computing, dan digital wellbeing. Setiap misi punya badge Tren 25–26 + mark jenjang. Cocok untuk pengayaan Informatika, PPKn, IPA/IPS, dan PJOK tanpa platform eksternal.",
