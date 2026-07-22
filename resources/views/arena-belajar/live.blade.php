@@ -7,10 +7,20 @@
 @endpush
 
 @section('content')
+@php
+    $isSiswaLive = auth()->user()->access === 'siswa';
+@endphp
+<x-arena-focus-lock
+    :exit-url="route('classroom.arena.focus-exit', [$classroom, $quiz])"
+    context="live"
+    :session-id="optional($session)->uuid"
+    :enabled="$isSiswaLive"
+>
 <div class="arena-stage arena-rx space-y-4"
+     data-arena-focus-target
      x-data="arenaLive({
         canHost: @js($canHost),
-        isSiswa: @js(auth()->user()->access === 'siswa'),
+        isSiswa: @js($isSiswaLive),
         stateUrl: @js(route('classroom.arena.live.state', [$classroom, $quiz])),
         boardUrl: @js(route('classroom.arena.live.leaderboard', [$classroom, $quiz])),
         advanceUrl: @js(route('classroom.arena.live.advance', [$classroom, $quiz])),
@@ -21,7 +31,8 @@
      x-cloak>
 
     <header class="arena-lobby-hud !mt-0">
-        <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back">
+        <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back" data-arena-focus-safe
+           onclick="window.arenaFocusMarkSafe && window.arenaFocusMarkSafe()">
             <i data-lucide="chevron-left" class="w-4 h-4"></i>
             <span class="truncate">Experience</span>
         </a>
@@ -93,12 +104,30 @@
                             <i data-lucide="users" class="w-10 h-10"></i>
                         </div>
                         <p class="text-4xl sm:text-5xl font-black tracking-tight" style="font-family:'Fredoka',sans-serif">Lobi Arena</p>
-                        <p class="text-slate-300 text-sm max-w-sm mx-auto font-semibold">Pemain sudah masuk. Host akan memulai soal sebentar lagi.</p>
-                        <div class="flex justify-center gap-1.5 pt-2">
+                        <p class="text-slate-300 text-sm max-w-sm mx-auto font-semibold">
+                            <span x-text="(session?.online_count ?? 0) + ' pemain online'"></span>
+                            · Host akan memulai soal sebentar lagi.
+                        </p>
+                        <div class="flex justify-center gap-1.5 pt-1">
                             <span class="w-2.5 h-2.5 rounded-full bg-[#39ff14] animate-pulse"></span>
                             <span class="w-2.5 h-2.5 rounded-full bg-[#39ff14] animate-pulse" style="animation-delay:.2s"></span>
                             <span class="w-2.5 h-2.5 rounded-full bg-[#39ff14] animate-pulse" style="animation-delay:.4s"></span>
                         </div>
+                        <ul class="max-w-md mx-auto mt-4 space-y-2 text-left list-none m-0 p-0"
+                            x-show="(session?.participants || []).length">
+                            <template x-for="p in (session?.participants || [])" :key="p.user_id">
+                                <li class="flex items-center gap-2.5 rounded-xl px-3 py-2.5 bg-white/10 border border-white/10">
+                                    <span class="arena-online-dot" :class="p.online ? 'is-on' : 'is-off'"
+                                          :title="p.online ? 'Online' : 'Offline'"></span>
+                                    <span class="flex-1 truncate font-bold text-white text-sm" x-text="p.name"></span>
+                                    <span class="text-[10px] font-black uppercase tracking-wide"
+                                          :class="p.online ? 'text-[#39ff14]' : 'text-slate-400'"
+                                          x-text="p.online ? 'Online' : 'Offline'"></span>
+                                </li>
+                            </template>
+                        </ul>
+                        <p x-show="session && session.status === 'lobby' && !(session.participants || []).length"
+                           class="text-xs font-semibold text-slate-400 m-0">Menunggu siswa membuka halaman Live…</p>
                     </div>
                 </template>
 
@@ -199,6 +228,7 @@
                                     <span class="w-7 h-7 rounded-full grid place-items-center font-black text-sm flex-shrink-0"
                                           :class="i===0?'bg-amber-400 text-amber-900':(i===1?'bg-slate-300 text-slate-800':(i===2?'bg-orange-400 text-orange-900':'bg-white/20 text-white'))"
                                           x-text="i+1"></span>
+                                    <span class="arena-online-dot shrink-0" :class="isOnline(row.student_id) ? 'is-on' : 'is-off'"></span>
                                     <span class="flex-1 truncate font-bold text-white" x-text="row.name"></span>
                                     <span class="font-black tabular-nums text-white" x-text="row.score"></span>
                                 </li>
@@ -218,7 +248,31 @@
         </div>
 
         <div class="arena-rx-detail-panel space-y-3">
-            <h2 class="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 m-0">
+            <div class="flex items-center justify-between gap-2">
+                <h2 class="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 m-0">
+                    <span class="arena-online-dot is-on !w-2.5 !h-2.5"></span>
+                    Pemain online
+                </h2>
+                <span class="text-xs font-black tabular-nums text-emerald-600 dark:text-emerald-400"
+                      x-text="(session?.online_count ?? 0) + ' online'"></span>
+            </div>
+            <ul class="space-y-1.5 m-0 p-0 list-none max-h-40 overflow-y-auto">
+                <template x-for="p in (session?.participants || [])" :key="'side-'+p.user_id">
+                    <li class="flex items-center gap-2 text-sm rounded-lg px-2 py-1.5"
+                        :class="p.online ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'opacity-60'">
+                        <span class="arena-online-dot" :class="p.online ? 'is-on' : 'is-off'"></span>
+                        <span class="flex-1 truncate font-bold text-slate-700 dark:text-slate-200" x-text="p.name"></span>
+                        <span class="text-[10px] font-black uppercase tracking-wide"
+                              :class="p.online ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'"
+                              x-text="p.online ? 'Online' : 'Away'"></span>
+                    </li>
+                </template>
+            </ul>
+            <p x-show="!(session?.participants || []).length" class="text-xs font-bold text-slate-400 text-center py-3 m-0">
+                Belum ada siswa di sesi Live.
+            </p>
+
+            <h2 class="font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 m-0 pt-2 border-t-2 border-slate-100 dark:border-slate-700">
                 <i data-lucide="trophy" class="w-5 h-5 text-amber-500"></i> Podium live
             </h2>
             <ol class="space-y-2 m-0 p-0 list-none">
@@ -226,6 +280,7 @@
                     <li class="flex items-center gap-2.5 text-sm rounded-xl px-2 py-2.5 transition border-2 border-transparent"
                         :class="i < 3 ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200/60 dark:border-amber-700/40' : ''">
                         <span class="arena-rank" :class="i===0?'arena-rank-1':(i===1?'arena-rank-2':(i===2?'arena-rank-3':''))" x-text="i+1"></span>
+                        <span class="arena-online-dot shrink-0" :class="isOnline(row.student_id) ? 'is-on' : 'is-off'"></span>
                         <span class="flex-1 truncate font-bold text-slate-700 dark:text-slate-200" x-text="row.name"></span>
                         <span class="font-black tabular-nums text-teal-600 dark:text-teal-300" x-text="row.score"></span>
                     </li>
@@ -238,6 +293,7 @@
         </div>
     </div>
 </div>
+</x-arena-focus-lock>
 @endsection
 
 @push('scripts')
@@ -271,6 +327,11 @@ function arenaLive(cfg) {
                 return (this.session.question_index + 1 >= this.session.question_total) ? 'Selesai' : 'Soal berikutnya';
             }
             return 'Maju';
+        },
+        isOnline(userId) {
+            const list = this.session?.participants || [];
+            const hit = list.find(p => p.user_id === userId);
+            return !!(hit && hit.online);
         },
         boot() {
             this.initFs();
@@ -326,6 +387,10 @@ function arenaLive(cfg) {
                 }
                 this.leaderboard = bData.leaderboard || [];
                 this.me = bData.me;
+                const focusRoot = document.getElementById('arena-focus-root');
+                if (focusRoot && this.session?.uuid) {
+                    focusRoot.dataset.sessionId = this.session.uuid;
+                }
             } catch (e) {}
         },
         async advance() {

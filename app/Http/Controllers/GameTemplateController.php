@@ -212,7 +212,13 @@ class GameTemplateController extends Controller implements HasMiddleware
         $this->authorize('play', [$quiz, $classroom]);
         abort_unless(! $quiz->hasActiveLiveSession($classroom), 403, 'Sedang ada sesi live.');
 
-        if ($quiz->is_locked) {
+        if ($quiz->requiresSoloToken()) {
+            $expected = trim((string) ($quiz->access_token ?? ''));
+            $stored = session('arena_solo_unlock.'.$quiz->uuid);
+            if ($expected === '' || ! is_string($stored) || $stored === '' || ! hash_equals($expected, $stored)) {
+                return response()->json(['ok' => false, 'message' => 'Token solo wajib. Buka ulang halaman main dan masukkan token.'], 403);
+            }
+        } elseif ($quiz->is_locked) {
             return response()->json(['ok' => false, 'message' => 'Kuis terkunci — offline sync dinonaktifkan.'], 422);
         }
 

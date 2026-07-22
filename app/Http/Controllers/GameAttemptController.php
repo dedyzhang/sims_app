@@ -14,6 +14,7 @@ use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class GameAttemptController extends Controller implements HasMiddleware
 {
@@ -30,12 +31,16 @@ class GameAttemptController extends Controller implements HasMiddleware
         ];
     }
 
-    public function start(Classroom $classroom, GameQuiz $quiz)
+    public function start(Request $request, Classroom $classroom, GameQuiz $quiz)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('play', [$quiz, $classroom]);
         abort_unless($quiz->allowsSolo(), 403, 'Kuis ini disetel "Live saja" — main solo tidak tersedia.');
         abort_unless(!$quiz->hasActiveLiveSession($classroom), 403, 'Sedang ada sesi live. Kerjakan lewat Live Arena.');
+
+        if ($denied = $this->assertSoloTokenOrUnlock($request, $quiz)) {
+            return $denied;
+        }
 
         $assignment = $this->resolveOpenAssignment($quiz, $classroom);
 
@@ -70,6 +75,12 @@ class GameAttemptController extends Controller implements HasMiddleware
         $this->authorize('play', [$quiz, $classroom]);
         abort_unless($quiz->allowsSolo(), 403, 'Kuis ini disetel "Live saja" — main solo tidak tersedia.');
         abort_unless(!$quiz->hasActiveLiveSession($classroom), 403, 'Sedang ada sesi live. Kerjakan lewat Live Arena.');
+
+        if ($quiz->requiresSoloToken() && !$this->hasValidSoloUnlock($quiz)) {
+            return redirect()
+                ->route('classroom.arena.show', [$classroom, $quiz])
+                ->with('error', 'Masukkan token solo dari guru mapel untuk melanjutkan.');
+        }
 
         if ($attempt->isSubmitted()) {
             return redirect()->route('classroom.arena.result', [$classroom, $quiz, $attempt]);
@@ -138,6 +149,7 @@ class GameAttemptController extends Controller implements HasMiddleware
         $this->authorize('play', [$quiz, $classroom]);
         abort_unless($quiz->allowsSolo(), 403, 'Kuis ini disetel "Live saja" — main solo tidak tersedia.');
         abort_unless(!$quiz->hasActiveLiveSession($classroom), 403, 'Sedang ada sesi live.');
+        abort_unless($this->hasValidSoloUnlock($quiz), 403, 'Token solo wajib. Buka ulang halaman main dan masukkan token.');
 
         $assignment = $attempt->assignment;
         abort_unless($assignment && $assignment->quiz_id === $quiz->uuid, 404);
@@ -190,6 +202,7 @@ class GameAttemptController extends Controller implements HasMiddleware
         $this->authorize('play', [$quiz, $classroom]);
         abort_unless($quiz->allowsSolo(), 403, 'Kuis ini disetel "Live saja" — main solo tidak tersedia.');
         abort_unless(!$quiz->hasActiveLiveSession($classroom), 403, 'Sedang ada sesi live.');
+        abort_unless($this->hasValidSoloUnlock($quiz), 403, 'Token solo wajib. Buka ulang halaman main dan masukkan token.');
 
         $assignment = $attempt->assignment;
         abort_unless($assignment && $assignment->quiz_id === $quiz->uuid, 404);
@@ -294,5 +307,60 @@ class GameAttemptController extends Controller implements HasMiddleware
         abort_unless($quiz->isOpenNow($assignment), 403, 'Kuis belum dibuka atau sudah ditutup.');
 
         return $assignment;
+    }
+
+    private function soloUnlockSessionKey(GameQuiz $quiz): string
+    {
+        return 'arena_solo_unlock.'.$quiz->uuid;
+    }
+
+    private function hasValidSoloUnlock(GameQuiz $quiz): bool
+    {
+        if (! $quiz->requiresSoloToken()) {
+            return true;
+        }
+
+        $expected = trim((string) ($quiz->access_token ?? ''));
+        if ($expected === '') {
+            return false;
+        }
+
+        $stored = session($this->soloUnlockSessionKey($quiz));
+
+        return is_string($stored)
+            && $stored !== ''
+            && hash_equals($expected, $stored);
+    }
+
+    private function grantSoloUnlock(GameQuiz $quiz): void
+    {
+        session([$this->soloUnlockSessionKey($quiz) => (string) $quiz->access_token]);
+    }
+
+    /** Validasi token solo; return redirect error atau null jika OK. */
+    private function assertSoloTokenOrUnlock(Request $request, GameQuiz $quiz)
+    {
+        if (! $quiz->requiresSoloToken()) {
+            return null;
+        }
+
+        if ($this->hasValidSoloUnlock($quiz)) {
+            return null;
+        }
+
+        $token = Str::upper(trim((string) $request->input('solo_token', '')));
+        $expected = Str::upper(trim((string) ($quiz->access_token ?? '')));
+        if ($expected === '' || $token === '' || ! hash_equals($expected, $token)) {
+            return back()->with(
+                'error',
+                $expected === ''
+                    ? 'Token solo belum diset guru. Minta guru generate token di panel experience.'
+                    : 'Token solo salah atau belum diisi. Minta token ke guru mapel.'
+            );
+        }
+
+        $this->grantSoloUnlock($quiz);
+
+        return null;
     }
 }

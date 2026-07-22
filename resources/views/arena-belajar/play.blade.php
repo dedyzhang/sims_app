@@ -7,9 +7,16 @@
 
 @section('content')
 @php $letters = ['A','B','C','D','E','F']; @endphp
+<x-arena-focus-lock
+    :exit-url="route('classroom.arena.focus-exit', [$classroom, $quiz])"
+    context="solo"
+    :attempt-id="$attempt->uuid"
+    :enabled="auth()->user()->access === 'siswa'"
+>
 <div class="max-w-lg mx-auto arena-stage"
      x-data="arenaPlay(@js($questionsPayload), @js($savedAnswers), @js($quiz->instant_feedback))"
-     x-cloak>
+     x-cloak
+     data-arena-focus-target>
 
     <div class="arena-play-shell space-y-5" x-ref="fsRoot">
         <div class="arena-fs-stack space-y-5">
@@ -17,23 +24,16 @@
             <div class="min-w-0 flex items-start gap-2">
                 <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}"
                    class="arena-hud-back !bg-white/10 !border-white/15 !text-white !shadow-none hover:!bg-white/20 shrink-0"
-                   onclick="return confirm('Keluar dari pertandingan? Jawaban tersimpan di perangkat, tapi skor belum dikumpulkan.')">
+                   onclick="if (!confirm('Keluar dari pertandingan? Jawaban tersimpan di perangkat, tapi skor belum dikumpulkan.')) return false; window.arenaFocusMarkSafe && window.arenaFocusMarkSafe(); return true;">
                     <i data-lucide="chevron-left" class="w-4 h-4"></i>
                     <span class="hidden sm:inline">Experience</span>
                 </a>
                 <div class="min-w-0">
-                    <p class="arena-chip"><i data-lucide="swords" class="w-3 h-3"></i> Solo · soal acak</p>
+                    <p class="arena-chip"><i data-lucide="swords" class="w-3 h-3"></i> Solo · soal acak · fokus</p>
                     <p class="text-sm font-bold text-white/90 truncate mt-1.5">{{ $quiz->title }}</p>
                 </div>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-                <button type="button" class="arena-fs-btn" @click="toggleFullscreen"
-                        :title="isFullscreen ? 'Keluar layar penuh' : 'Layar penuh'"
-                        :aria-pressed="isFullscreen.toString()">
-                    <i data-lucide="maximize" x-show="!isFullscreen"></i>
-                    <i data-lucide="minimize" x-show="isFullscreen" x-cloak></i>
-                    <span class="hidden sm:inline" x-text="isFullscreen ? 'Keluar' : 'Layar penuh'"></span>
-                </button>
                 <div class="text-right">
                     <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Soal</p>
                     <p class="text-lg font-black tabular-nums" x-text="(current+1) + '/' + questions.length"></p>
@@ -125,7 +125,8 @@
         </div>
     </div>
 
-    <form id="arena-submit-form" method="POST" action="{{ route('classroom.arena.submit', [$classroom, $quiz, $attempt]) }}" class="hidden">
+    <form id="arena-submit-form" method="POST" action="{{ route('classroom.arena.submit', [$classroom, $quiz, $attempt]) }}" class="hidden" data-arena-focus-safe
+          onsubmit="window.arenaFocusMarkSafe && window.arenaFocusMarkSafe()">
         @csrf
         <input type="hidden" name="duration_ms" :value="Date.now() - startedAt">
         <template x-for="(q, idx) in questions" :key="q.uuid">
@@ -140,6 +141,7 @@
         </template>
     </form>
 </div>
+</x-arena-focus-lock>
 @endsection
 
 @push('scripts')
@@ -298,6 +300,7 @@ function arenaPlay(questions, saved, instantFeedback) {
             if (this.submitting) return;
             if (!confirm('Kumpulkan jawaban dan lihat skor?')) return;
             this.submitting = true;
+            window.arenaFocusMarkSafe && window.arenaFocusMarkSafe();
             this.questions.forEach(q => {
                 if (!(q.uuid in this.answers)) this.answers[q.uuid] = null;
                 if (q.type === 'match') {

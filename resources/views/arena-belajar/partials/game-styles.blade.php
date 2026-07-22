@@ -1405,6 +1405,34 @@
 
 .arena-rx-tool.tone-publish { border-color: rgba(0, 169, 157, .35); background: linear-gradient(180deg, #ecfffc, #dffaf6); }
 .arena-rx-tool.tone-publish .arena-rx-tool-ico { background: linear-gradient(160deg, #2dd4bf, #0f766e); }
+.arena-rx-tool.tone-close { border-color: rgba(225, 29, 72, .35); background: linear-gradient(180deg, #fff1f2, #ffe4e6); }
+.arena-rx-tool.tone-close .arena-rx-tool-ico { background: linear-gradient(160deg, #fb7185, #be123c); }
+.arena-rx-tool.tone-token { border-color: rgba(245, 158, 11, .4); background: linear-gradient(180deg, #fffbeb, #fef3c7); }
+.arena-rx-tool.tone-token .arena-rx-tool-ico { background: linear-gradient(160deg, #fbbf24, #d97706); }
+.arena-rx-tool.tone-unlock { border-color: rgba(100, 116, 139, .35); background: linear-gradient(180deg, #f8fafc, #e2e8f0); }
+.arena-rx-tool.tone-unlock .arena-rx-tool-ico { background: linear-gradient(160deg, #94a3b8, #475569); }
+.arena-rx-tool.tone-draft { border-color: rgba(99, 102, 241, .35); background: linear-gradient(180deg, #eef2ff, #e0e7ff); }
+.arena-rx-tool.tone-draft .arena-rx-tool-ico { background: linear-gradient(160deg, #818cf8, #4f46e5); }
+.arena-rx-token-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.1rem;
+    border-radius: 1.1rem;
+    border: 1.5px solid rgba(245, 158, 11, .35);
+    background: linear-gradient(135deg, #fffbeb, #fff7ed);
+}
+.arena-rx-token-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+}
+.dark .arena-rx-token-card {
+    background: linear-gradient(135deg, #422006, #0f172a);
+    border-color: rgba(245, 158, 11, .25);
+}
 
 /* Coach: jari menunjuk Terbitkan */
 .arena-rx-publish-spot {
@@ -1554,6 +1582,10 @@
 .arena-rx-tool.tone-key .arena-rx-tool-ico { background: linear-gradient(160deg, #facc15, #ca8a04); }
 
 .dark .arena-rx-tool.tone-publish { background: linear-gradient(180deg, #134e4a, #0f172a); }
+.dark .arena-rx-tool.tone-close { background: linear-gradient(180deg, #4c0519, #0f172a); }
+.dark .arena-rx-tool.tone-token { background: linear-gradient(180deg, #78350f, #0f172a); }
+.dark .arena-rx-tool.tone-unlock { background: linear-gradient(180deg, #334155, #0f172a); }
+.dark .arena-rx-tool.tone-draft { background: linear-gradient(180deg, #312e81, #0f172a); }
 .dark .arena-rx-tool.tone-live { background: linear-gradient(180deg, #4c0519, #0f172a); }
 .dark .arena-rx-tool.tone-hasil { background: linear-gradient(180deg, #451a03, #0f172a); }
 .dark .arena-rx-tool.tone-edit { background: linear-gradient(180deg, #1e3a8a, #0f172a); }
@@ -2849,6 +2881,28 @@
 .arena-rank-2 { background: linear-gradient(135deg, #cbd5e1, #94a3b8); color: #0f172a; }
 .arena-rank-3 { background: linear-gradient(135deg, #fdba74, #ea580c); color: #431407; }
 
+.arena-online-dot {
+    width: .65rem;
+    height: .65rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+    display: inline-block;
+    box-shadow: 0 0 0 2px rgba(255,255,255,.35);
+}
+.arena-online-dot.is-on {
+    background: #39ff14;
+    box-shadow: 0 0 0 2px rgba(57,255,20,.25), 0 0 8px rgba(57,255,20,.65);
+    animation: arena-online-pulse 1.6s ease-in-out infinite;
+}
+.arena-online-dot.is-off {
+    background: #94a3b8;
+    box-shadow: none;
+}
+@keyframes arena-online-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: .85; }
+}
+
 .arena-score-orb {
     width: 8.5rem;
     height: 8.5rem;
@@ -2891,7 +2945,8 @@
 .arena-live-stage:fullscreen,
 .arena-live-stage:-webkit-full-screen,
 .arena-play-shell.arena-is-fullscreen,
-.arena-live-stage.arena-is-fullscreen {
+.arena-live-stage.arena-is-fullscreen,
+[data-arena-focus-target].arena-is-fullscreen {
     border-radius: 0 !important;
     width: 100%;
     height: 100%;
@@ -2901,16 +2956,29 @@
     padding: 1.5rem clamp(1rem, 4vw, 3rem);
     box-sizing: border-box;
 }
+/* CSS immersive — andalan Android WebView (Fullscreen API sering tidak tersedia) */
 .arena-play-shell.arena-is-fullscreen,
-.arena-live-stage.arena-is-fullscreen {
+.arena-live-stage.arena-is-fullscreen,
+[data-arena-focus-target].arena-is-fullscreen {
     position: fixed;
     inset: 0;
     z-index: 9999;
+    background: inherit;
+}
+body.arena-focus-active {
+    overflow: hidden;
+}
+body.arena-focus-active #sidebar,
+body.arena-focus-active aside.sidebar,
+body.arena-focus-active .sidebar {
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 .arena-play-shell:fullscreen .arena-fs-stack,
 .arena-play-shell.arena-is-fullscreen .arena-fs-stack,
 .arena-live-stage:fullscreen .arena-fs-stack,
-.arena-live-stage.arena-is-fullscreen .arena-fs-stack {
+.arena-live-stage.arena-is-fullscreen .arena-fs-stack,
+[data-arena-focus-target].arena-is-fullscreen .arena-fs-stack {
     max-width: 42rem;
     margin-inline: auto;
 }

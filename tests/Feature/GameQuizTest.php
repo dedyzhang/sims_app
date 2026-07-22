@@ -150,6 +150,8 @@ class GameQuizTest extends TestCase
         $response->assertRedirect(route('classroom.arena.show', [$this->classroom, $quiz]));
         $this->assertSame('published', $quiz->status);
         $this->assertCount(2, $quiz->questions);
+        $this->assertTrue($quiz->is_locked);
+        $this->assertNotEmpty($quiz->access_token);
         $this->assertTrue(
             GameQuizAssignment::where('quiz_id', $quiz->uuid)
                 ->where('classroom_id', $this->classroom->uuid)
@@ -163,7 +165,9 @@ class GameQuizTest extends TestCase
         $correctOpt = $quiz->questions->first()->options->firstWhere('is_correct', true);
 
         $start = $this->actingAs($this->siswaUser)
-            ->post(route('classroom.arena.start', [$this->classroom, $quiz]));
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]), [
+                'solo_token' => 'SOLO',
+            ]);
         $start->assertRedirect();
 
         $attempt = GameAttempt::where('student_id', $this->siswaUser->uuid)->first();
@@ -191,12 +195,131 @@ class GameQuizTest extends TestCase
         $this->assertSame(2, $attempt->correct_count);
     }
 
+    public function test_siswa_solo_requires_token(): void
+    {
+        $quiz = $this->makePublishedQuiz();
+
+        $this->actingAs($this->siswaUser)
+            ->from(route('classroom.arena.show', [$this->classroom, $quiz]))
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]))
+            ->assertRedirect(route('classroom.arena.show', [$this->classroom, $quiz]))
+            ->assertSessionHas('error');
+
+        $this->assertNull(GameAttempt::where('student_id', $this->siswaUser->uuid)->first());
+
+        $this->actingAs($this->siswaUser)
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]), [
+                'solo_token' => 'SALAH',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->actingAs($this->siswaUser)
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]), [
+                'solo_token' => 'solo',
+            ])
+            ->assertRedirect(route('classroom.arena.play', [
+                $this->classroom,
+                $quiz,
+                GameAttempt::where('student_id', $this->siswaUser->uuid)->first(),
+            ]));
+    }
+
+    public function test_guru_can_close_and_reopen_quiz(): void
+    {
+        $quiz = $this->makePublishedQuiz();
+
+        $this->actingAs($this->guruUser)
+            ->post(route('classroom.arena.close', [$this->classroom, $quiz]))
+            ->assertRedirect();
+
+        $quiz->refresh();
+        $this->assertSame('closed', $quiz->status);
+        $this->assertSame(
+            'closed',
+            GameQuizAssignment::where('quiz_id', $quiz->uuid)->value('status')
+        );
+
+        $this->actingAs($this->siswaUser)
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]), ['solo_token' => 'SOLO'])
+            ->assertStatus(403);
+
+        // Hub experience tetap bisa dibuka (read-only) saat ditutup
+        $this->actingAs($this->siswaUser)
+            ->get(route('classroom.arena.show', [$this->classroom, $quiz]))
+            ->assertOk();
+
+        $this->actingAs($this->guruUser)
+            ->post(route('classroom.arena.reopen', [$this->classroom, $quiz]))
+            ->assertRedirect();
+
+        $quiz->refresh();
+        $this->assertSame('published', $quiz->status);
+        $this->assertTrue($quiz->is_locked);
+        $this->assertSame('SOLO', $quiz->access_token);
+        $this->assertSame(
+            'open',
+            GameQuizAssignment::where('quiz_id', $quiz->uuid)->value('status')
+        );
+
+        $this->actingAs($this->siswaUser)
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]), ['solo_token' => 'SOLO'])
+            ->assertRedirect();
+    }
+
+    public function test_close_ends_active_live_session(): void
+    {
+        $quiz = $this->makePublishedQuiz();
+        $session = \App\Models\GameLiveSession::create([
+            'quiz_id' => $quiz->uuid,
+            'classroom_id' => $this->classroom->uuid,
+            'hosted_by' => $this->guruUser->uuid,
+            'status' => 'lobby',
+            'started_at' => now(),
+            'question_index' => 0,
+        ]);
+
+        $this->actingAs($this->guruUser)
+            ->post(route('classroom.arena.close', [$this->classroom, $quiz]))
+            ->assertRedirect();
+
+        $session->refresh();
+        $this->assertSame('ended', $session->status);
+        $this->assertNotNull($session->ended_at);
+    }
+
+    public function test_unpublish_to_draft_blocked_when_answers_exist(): void
+    {
+        $quiz = $this->makePublishedQuiz();
+        $this->actingAs($this->siswaUser)
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]), ['solo_token' => 'SOLO']);
+        $attempt = GameAttempt::where('student_id', $this->siswaUser->uuid)->first();
+        $q = $quiz->questions->first();
+        $opt = $q->options->firstWhere('is_correct', true);
+        \App\Models\GameAnswer::create([
+            'attempt_id' => $attempt->uuid,
+            'question_id' => $q->uuid,
+            'selected_option_id' => $opt->uuid,
+            'answered_at' => now(),
+        ]);
+
+        $this->actingAs($this->guruUser)
+            ->from(route('classroom.arena.show', [$this->classroom, $quiz]))
+            ->post(route('classroom.arena.draft', [$this->classroom, $quiz]))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame('published', $quiz->fresh()->status);
+    }
+
     public function test_siswa_luar_cannot_play(): void
     {
         $quiz = $this->makePublishedQuiz();
 
         $response = $this->actingAs($this->otherSiswa)
-            ->post(route('classroom.arena.start', [$this->classroom, $quiz]));
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]), [
+                'solo_token' => 'SOLO',
+            ]);
 
         $response->assertStatus(403);
     }
@@ -207,7 +330,9 @@ class GameQuizTest extends TestCase
         $quiz->update(['status' => 'closed']);
 
         $this->actingAs($this->siswaUser)
-            ->post(route('classroom.arena.start', [$this->classroom, $quiz]))
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]), [
+                'solo_token' => 'SOLO',
+            ])
             ->assertStatus(403);
     }
 
@@ -215,7 +340,9 @@ class GameQuizTest extends TestCase
     {
         $quiz = $this->makePublishedQuiz();
         $this->actingAs($this->siswaUser)
-            ->post(route('classroom.arena.start', [$this->classroom, $quiz]));
+            ->post(route('classroom.arena.start', [$this->classroom, $quiz]), [
+                'solo_token' => 'SOLO',
+            ]);
         $attempt = GameAttempt::where('student_id', $this->siswaUser->uuid)->first();
 
         $response = $this->actingAs($this->siswaUser)
@@ -245,8 +372,12 @@ class GameQuizTest extends TestCase
             'role_in_class' => 'siswa', 'joined_at' => now(),
         ]);
 
-        $this->actingAs($this->siswaUser)->post(route('classroom.arena.start', [$this->classroom, $quiz]));
-        $this->actingAs($this->otherSiswa)->post(route('classroom.arena.start', [$this->classroom, $quiz]));
+        $this->actingAs($this->siswaUser)->post(route('classroom.arena.start', [$this->classroom, $quiz]), [
+            'solo_token' => 'SOLO',
+        ]);
+        $this->actingAs($this->otherSiswa)->post(route('classroom.arena.start', [$this->classroom, $quiz]), [
+            'solo_token' => 'SOLO',
+        ]);
 
         $attemptA = GameAttempt::where('student_id', $this->siswaUser->uuid)->where('source', 'async')->firstOrFail();
         $attemptB = GameAttempt::where('student_id', $this->otherSiswa->uuid)->where('source', 'async')->firstOrFail();
@@ -536,6 +667,8 @@ TXT;
             'max_score'        => 100,
             'instant_feedback' => true,
             'status'           => 'published',
+            'is_locked'        => true,
+            'access_token'     => 'SOLO',
         ]);
 
         $q1 = GameQuestion::create([

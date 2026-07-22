@@ -26,6 +26,9 @@ class GameLiveController extends Controller implements HasMiddleware
     private const REVEAL_SECONDS = 4;
     private const STANDINGS_SECONDS = 6;
 
+    /** Siswa dianggap online jika last_seen dalam window ini (poll live ~3 detik). */
+    private const ONLINE_SECONDS = 12;
+
     private const ACTIVE_STATUSES = ['lobby', 'question', 'reveal', 'standings'];
 
     public static function middleware(): array
@@ -553,6 +556,28 @@ class GameLiveController extends Controller implements HasMiddleware
                 : 0;
         }
 
+        $onlineCutoff = now()->subSeconds(self::ONLINE_SECONDS);
+        $participants = $session->isActive()
+            ? GameLiveParticipant::where('session_id', $session->uuid)
+                ->with('user')
+                ->orderBy('joined_at')
+                ->get()
+                ->map(function (GameLiveParticipant $p) use ($onlineCutoff) {
+                    $online = $p->last_seen_at && $p->last_seen_at->gte($onlineCutoff);
+
+                    return [
+                        'user_id' => $p->user_id,
+                        'name' => $p->user?->displayName() ?? 'Siswa',
+                        'online' => $online,
+                        'joined_at' => optional($p->joined_at)?->toIso8601String(),
+                    ];
+                })
+                ->values()
+                ->all()
+            : [];
+
+        $onlineCount = collect($participants)->where('online', true)->count();
+
         return [
             'uuid'                 => $session->uuid,
             'status'               => $session->status,
@@ -566,6 +591,8 @@ class GameLiveController extends Controller implements HasMiddleware
             'phase_ends_at'        => optional($phaseEndsAt)?->toIso8601String(),
             'joined_count'         => $joinedCount,
             'answered_count'       => $answeredCount,
+            'participants'         => $participants,
+            'online_count'         => $onlineCount,
             'can_answer'           => $session->status === 'question' && $user && $user->access === 'siswa',
         ];
     }

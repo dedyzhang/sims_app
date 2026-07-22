@@ -23,8 +23,8 @@ class GameQuizPolicy
         if (!app(ClassroomPolicy::class)->view($user, $classroom)) {
             return false;
         }
-        // Draf hanya untuk yang bisa manage
-        if (!$quiz->isPublished() && !$this->manage($user, $quiz)) {
+        // Draf hanya untuk yang bisa manage; published + closed boleh dilihat anggota
+        if (! $quiz->isPublished() && ! $quiz->isClosed() && ! $this->manage($user, $quiz)) {
             return false;
         }
 

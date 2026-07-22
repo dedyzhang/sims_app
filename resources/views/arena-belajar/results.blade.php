@@ -44,20 +44,25 @@
                     <th class="p-3 font-black uppercase text-[11px] tracking-wide">Status</th>
                     <th class="p-3 font-black uppercase text-[11px] tracking-wide">Skor</th>
                     <th class="p-3 font-black uppercase text-[11px] tracking-wide">Benar</th>
+                    <th class="p-3 font-black uppercase text-[11px] tracking-wide">Keluar fokus</th>
                     <th class="p-3 font-black uppercase text-[11px] tracking-wide">Dikumpulkan</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($attempts as $a)
+                @php $exitCount = (int) (($focusExitCounts[$a->student_id] ?? 0)); @endphp
                 <tr class="border-b border-slate-50 dark:border-slate-800">
                     <td class="p-3 font-bold text-slate-800 dark:text-slate-100">{{ $a->student?->displayName() ?? '—' }}</td>
                     <td class="p-3 capitalize text-slate-500 font-semibold">{{ $a->status === 'graded' ? 'dinilai' : ($a->status === 'submitted' ? 'dikumpulkan' : 'berjalan') }}</td>
                     <td class="p-3 font-black text-teal-600">{{ $a->isSubmitted() ? $a->total_score : '—' }}</td>
                     <td class="p-3 text-slate-500 font-semibold">{{ $a->isSubmitted() ? $a->correct_count.'/'.$quiz->questions->count() : '—' }}</td>
+                    <td class="p-3 font-black {{ $exitCount > 0 ? 'text-rose-600' : 'text-slate-400' }}">
+                        {{ $exitCount > 0 ? $exitCount.'×' : '—' }}
+                    </td>
                     <td class="p-3 text-slate-400 font-semibold">{{ $a->submitted_at?->locale('id')->translatedFormat('d M H:i') ?? '—' }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="5" class="p-10 text-center text-slate-400 font-bold">Belum ada attempt siswa.</td></tr>
+                <tr><td colspan="6" class="p-10 text-center text-slate-400 font-bold">Belum ada attempt siswa.</td></tr>
                 @endforelse
             </tbody>
         </table>

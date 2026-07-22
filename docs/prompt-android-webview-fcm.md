@@ -227,3 +227,41 @@ UJI:
 [ ] Terbitkan Pengumuman dari web → device Android berbunyi nada notif_sims (bukan default).
 [ ] Web: badge bertambah → nada terdengar; toggle 🔇 di dropdown notifikasi mematikannya.
 ```
+
+## FASE 12 — Mode fokus Arena Belajar (anti keluar sesi)
+
+> **APK DITAHAN** — jangan implement native dulu. Spec disimpan untuk nanti.
+>
+> Spec lengkap + cuplikan Kotlin: `docs/android-arena-focus-bridge.md`.  
+> Sisi **website** sudah aktif (`$holdArenaFocusLock = false`).
+
+```
+FASE 12 — Mode fokus Arena (WebView Android).
+[APK DITAHAN] Web sudah punya gate fokus + log keluar (visibilitychange / CSS immersive).
+Tambah di JavascriptInterface yang SAMA dengan FCM (AndroidFcm):
+
+1) @JavascriptInterface fun enterArenaFocus()
+   - Immersive sticky: hide status + navigation bars
+   - Set flag arenaFocusActive = true
+
+2) @JavascriptInterface fun exitArenaFocus()
+   - Show system bars lagi
+   - arenaFocusActive = false
+
+3) (Opsional) setArenaFocusActive(Boolean) / isArenaFocusActive(): Boolean
+
+4) MainActivity onBackPressed / OnBackPressedCallback:
+   - Jika arenaFocusActive (atau evaluateJavascript window.__arenaFocusActive):
+     panggil window.arenaFocusAndroidBack()
+     bila return true → JANGAN webView.goBack()
+   - Else: perilaku back biasa (canGoBack / keluar app)
+
+5) ProGuard: keep method interface di atas (sama seperti getToken FCM).
+
+UJI di APK release:
+[ ] Solo / live siswa: gate "Mulai mode fokus" muncul & bisa mulai tanpa Fullscreen API browser.
+[ ] Home / pindah app → kembali: overlay meninggalkan sesi; guru lihat kolom Keluar fokus.
+[ ] Tombol Back saat fokus: overlay, BUKAN navigasi mundur.
+[ ] Kumpul / keluar Experience: system bars normal; tidak spam log pelanggaran.
+[ ] APK tanpa method baru tetap tidak crash (web fallback CSS saja).
+```

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class GameQuiz extends Model
 {
@@ -65,6 +66,31 @@ class GameQuiz extends Model
     public function isPublished(): bool
     {
         return $this->status === 'published';
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->status === 'closed';
+    }
+
+    /** Token 4 huruf untuk kunci solo (pola sama materi/tugas Ruang Kelas). */
+    public static function generateAccessToken(): string
+    {
+        return Str::upper(Str::random(4));
+    }
+
+    /** Solo selalu wajib token (cegah kebocoran soal). */
+    public function requiresSoloToken(): bool
+    {
+        return $this->allowsSolo();
+    }
+
+    /** Kunci solo + pastikan ada token (generate bila kosong). */
+    public function enableSoloLock(?string $token = null): void
+    {
+        $this->is_locked = true;
+        $this->access_token = $token
+            ?: ($this->access_token ?: static::generateAccessToken());
     }
 
     public function isOpenNow(?GameQuizAssignment $assignment = null): bool

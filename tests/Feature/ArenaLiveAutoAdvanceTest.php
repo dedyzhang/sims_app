@@ -294,4 +294,33 @@ class ArenaLiveAutoAdvanceTest extends TestCase
         $firstQuestion = $copied->questions()->orderBy('sort_order')->first();
         $this->assertSame(20, $firstQuestion->time_limit_seconds);
     }
+
+    public function test_siswa_yang_poll_muncul_online_di_state(): void
+    {
+        $quiz = $this->makeQuiz();
+        $this->actingAs($this->guruUser)->post(route('classroom.arena.live.start', [$this->classroom, $quiz]));
+
+        $lobbyGuru = $this->actingAs($this->guruUser)
+            ->getJson(route('classroom.arena.live.state', [$this->classroom, $quiz]))
+            ->assertOk()
+            ->json('session');
+        $this->assertSame('lobby', $lobbyGuru['status']);
+        $this->assertSame(0, $lobbyGuru['online_count']);
+        $this->assertSame([], $lobbyGuru['participants']);
+
+        $this->actingAs($this->siswaA)
+            ->getJson(route('classroom.arena.live.state', [$this->classroom, $quiz]))
+            ->assertOk();
+
+        $state = $this->actingAs($this->guruUser)
+            ->getJson(route('classroom.arena.live.state', [$this->classroom, $quiz]))
+            ->assertOk()
+            ->json('session');
+
+        $this->assertSame(1, $state['online_count']);
+        $this->assertCount(1, $state['participants']);
+        $this->assertSame($this->siswaA->uuid, $state['participants'][0]['user_id']);
+        $this->assertTrue($state['participants'][0]['online']);
+        $this->assertSame('Siswa A', $state['participants'][0]['name']);
+    }
 }

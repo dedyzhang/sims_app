@@ -7,16 +7,23 @@
 
 @section('content')
 @php
+    $focusSiswa = auth()->user()->access === 'siswa';
     $matchQs = $quiz->questions->where('type', 'match');
 @endphp
-<div class="space-y-5 max-w-xl mx-auto arena-stage" x-data="{ done: {} }">
+<x-arena-focus-lock
+    :exit-url="route('classroom.arena.focus-exit', [$classroom, $quiz])"
+    context="template"
+    :enabled="$focusSiswa"
+>
+<div class="space-y-5 max-w-xl mx-auto arena-stage" x-data="{ done: {} }" data-arena-focus-target>
     <div>
-        <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back mb-3">
+        <a href="{{ route('classroom.arena.show', [$classroom, $quiz]) }}" class="arena-hud-back mb-3" data-arena-focus-safe
+           onclick="window.arenaFocusMarkSafe && window.arenaFocusMarkSafe()">
             <i data-lucide="chevron-left" class="w-4 h-4"></i>
             <span>Experience</span>
         </a>
         <h1 class="text-xl font-black text-slate-800 dark:text-slate-100">Mode Pasangkan</h1>
-        <p class="text-sm text-slate-500">Latihan visual dari bank soal yang sama (tanpa menyimpan skor).</p>
+        <p class="text-sm text-slate-500">Latihan visual dari bank soal yang sama (tanpa menyimpan skor). Mode fokus aktif.</p>
     </div>
 
     @forelse($matchQs as $q)
@@ -39,4 +46,5 @@
     <div class="card p-8 text-center text-slate-400">Belum ada soal tipe Pasangkan. Ubah soal di builder.</div>
     @endforelse
 </div>
+</x-arena-focus-lock>
 @endsection

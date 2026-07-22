@@ -54,13 +54,47 @@
                         </a>
                         @endif
                     @elseif($quiz->allowsSolo() && $quiz->isPublished() && $quiz->isOpenNow($assignment))
-                        <form method="POST" action="{{ route('classroom.arena.start', [$classroom, $quiz]) }}" class="m-0 w-full">
-                            @csrf
-                            <button type="submit" class="arena-rx-cta-big solo">
+                        <div class="w-full" x-data="{ showToken: false, soloToken: '' }">
+                            @if($quiz->requiresSoloToken())
+                            <button type="button" class="arena-rx-cta-big solo" @click="showToken = true">
                                 <i data-lucide="play" class="w-5 h-5"></i>
                                 {{ $myAttempt ? 'Lanjut solo' : 'Main solo' }}
                             </button>
-                        </form>
+                            <div x-show="showToken" x-cloak
+                                 class="fixed inset-0 z-50 grid place-items-center bg-slate-900/55 p-4"
+                                 @keydown.escape.window="showToken = false">
+                                <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-slate-200 dark:ring-slate-700 p-5 space-y-4"
+                                     @click.outside="showToken = false">
+                                    <div>
+                                        <h3 class="m-0 text-lg font-black text-slate-800 dark:text-slate-100">Token solo</h3>
+                                        <p class="m-0 mt-1 text-xs font-semibold text-slate-500">Masukkan kode 4 huruf dari guru mapel.</p>
+                                    </div>
+                                    <form method="POST" action="{{ route('classroom.arena.start', [$classroom, $quiz]) }}" class="space-y-3">
+                                        @csrf
+                                        <input type="text" name="solo_token" x-model="soloToken"
+                                               maxlength="8" autocomplete="off"
+                                               class="form-input font-mono text-center text-xl tracking-[0.35em] uppercase"
+                                               placeholder="ABCD" required autofocus>
+                                        <div class="flex gap-2">
+                                            <button type="button" class="btn-secondary flex-1 rounded-xl py-2.5 text-sm font-bold"
+                                                    @click="showToken = false">Batal</button>
+                                            <button type="submit" class="btn-primary flex-1 rounded-xl py-2.5 text-sm font-bold">
+                                                {{ $myAttempt ? 'Lanjut' : 'Mulai' }}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            @else
+                            <form method="POST" action="{{ route('classroom.arena.start', [$classroom, $quiz]) }}" class="m-0 w-full">
+                                @csrf
+                                <button type="submit" class="arena-rx-cta-big solo">
+                                    <i data-lucide="play" class="w-5 h-5"></i>
+                                    {{ $myAttempt ? 'Lanjut solo' : 'Main solo' }}
+                                </button>
+                            </form>
+                            @endif
+                        </div>
                         @if($quiz->allowsLive())
                         <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-cta-big live">
                             <i data-lucide="radio" class="w-5 h-5"></i> {{ $isLive ? 'Masuk Live' : 'Gabung Live' }}
@@ -81,6 +115,8 @@
                         <p class="m-0 text-sm font-bold text-amber-200 sm:col-span-2">
                             @unless($quiz->isPublished())
                             Kuis masih draft — tunggu guru menerbitkan.
+                            @elseif($quiz->isClosed())
+                            Kuis ditutup guru — main solo tidak tersedia.
                             @else
                             Jendela solo belum dibuka / sudah ditutup.
                             @endunless
@@ -119,7 +155,7 @@
 
     @if($canManage)
     <div class="arena-rx-detail-panel arena-rx-host-deck space-y-5"
-         @if($quiz->status !== 'published')
+         @if($quiz->status === 'draft')
          x-data="{ showPublishCoach: true }"
          x-init="
             $nextTick(() => {
@@ -140,20 +176,19 @@
             </span>
         </div>
 
-        <div class="arena-rx-manage-section" @if($quiz->status !== 'published') style="padding-top: 5.5rem" @endif>
+        <div class="arena-rx-manage-section" @if($quiz->status === 'draft') style="padding-top: 5.5rem" @endif>
             <p class="arena-rx-manage-label">Aksi cepat</p>
             <div class="arena-rx-manage-grid">
-                @if($quiz->status !== 'published')
+                @if($quiz->status === 'draft')
                 <div class="arena-rx-publish-spot" id="arena-publish-spot" :class="{ 'is-coaching': showPublishCoach }">
                     <div class="arena-rx-point-coach" x-show="showPublishCoach" x-cloak aria-hidden="true">
                         <div class="arena-rx-point-bubble">
                             <strong>Langkah berikutnya</strong>
-                            <span>Klik <em>Terbitkan</em> agar siswa bisa main</span>
+                            <span>Klik <em>Terbitkan</em> agar siswa bisa main (token solo otomatis dibuat)</span>
                             <button type="button" class="arena-rx-point-dismiss" @click="showPublishCoach = false" aria-label="Tutup petunjuk">×</button>
                         </div>
                         <div class="arena-rx-point-finger" title="Klik Terbitkan">
                             <svg viewBox="0 0 64 96" width="48" height="72" aria-hidden="true">
-                                {{-- Jari menunjuk ke bawah --}}
                                 <g transform="rotate(180 32 48)">
                                     <path fill="#ffe0b8" stroke="#c47a3a" stroke-width="2.2" stroke-linejoin="round"
                                           d="M28 6c-3.2 0-5.8 2.6-5.8 5.8V42l-7.2-4.2c-2.8-1.6-6.4-.6-7.8 2.1-1.4 2.7-.3 6 2.4 7.4L28 58v30h18V52.5c0-2.2 1.2-4.2 3.1-5.2l6.4-3.4c2.2-1.2 3-3.9 1.8-6.1-1.2-2.2-3.9-3-6.1-1.8l-4.2 2.2V11.8C47 8.6 44.4 6 41.2 6H28z"/>
@@ -166,16 +201,40 @@
                         @csrf
                         <button type="submit" class="arena-rx-tool tone-publish is-spotlight"
                                 @click="showPublishCoach = false"
-                                onclick="return confirm('Terbitkan experience ini? Siswa akan bisa mulai bermain.')">
+                                onclick="return confirm('Terbitkan experience ini? Siswa akan bisa main (solo butuh token).')">
                             <span class="arena-rx-tool-ico"><i data-lucide="rocket"></i></span>
                             <span class="arena-rx-tool-copy">
                                 <strong>Terbitkan</strong>
-                                <small>Buka untuk siswa</small>
+                                <small>Buka + buat token solo</small>
                             </span>
                             <span class="arena-rx-publish-glow" aria-hidden="true"></span>
                         </button>
                     </form>
                 </div>
+                @elseif($quiz->status === 'closed')
+                <form method="POST" action="{{ route('classroom.arena.reopen', [$classroom, $quiz]) }}" class="m-0">
+                    @csrf
+                    <button type="submit" class="arena-rx-tool tone-publish"
+                            onclick="return confirm('Buka lagi untuk siswa? Solo tetap wajib token.')">
+                        <span class="arena-rx-tool-ico"><i data-lucide="rocket"></i></span>
+                        <span class="arena-rx-tool-copy">
+                            <strong>Buka lagi</strong>
+                            <small>Siswa bisa main lagi</small>
+                        </span>
+                    </button>
+                </form>
+                @elseif($quiz->isPublished())
+                <form method="POST" action="{{ route('classroom.arena.close', [$classroom, $quiz]) }}" class="m-0">
+                    @csrf
+                    <button type="submit" class="arena-rx-tool tone-close"
+                            onclick="return confirm('Tutup kuis? Siswa tidak bisa main lagi. Hasil lama tetap tersimpan.')">
+                        <span class="arena-rx-tool-ico"><i data-lucide="circle-x"></i></span>
+                        <span class="arena-rx-tool-copy">
+                            <strong>Tutup kuis</strong>
+                            <small>Siswa tidak bisa main lagi</small>
+                        </span>
+                    </button>
+                </form>
                 @endif
                 <a href="{{ route('classroom.arena.live', [$classroom, $quiz]) }}" class="arena-rx-tool tone-live">
                     <span class="arena-rx-tool-ico"><i data-lucide="radio"></i></span>
@@ -201,6 +260,56 @@
                 </a>
             </div>
         </div>
+
+        @if(in_array($quiz->status, ['published', 'closed'], true) && $quiz->allowsSolo())
+        <div class="arena-rx-manage-section">
+            <p class="arena-rx-manage-label">Kode masuk solo</p>
+            <div class="arena-rx-token-card">
+                <div class="min-w-0">
+                    <p class="m-0 text-[11px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                        Wajib token · cegah bocor soal
+                    </p>
+                    <p class="m-0 mt-1 font-mono text-3xl font-black tracking-[0.35em] text-slate-800 dark:text-slate-100">
+                        {{ $quiz->access_token ?: '————' }}
+                    </p>
+                    <p class="m-0 mt-1 text-xs font-semibold text-slate-500">
+                        Berikan kode ini ke siswa di kelas. Generate ulang membatalkan token lama.
+                    </p>
+                </div>
+                <div class="arena-rx-token-actions">
+                    <form method="POST" action="{{ route('classroom.arena.solo-token', [$classroom, $quiz]) }}" class="m-0">
+                        @csrf
+                        <button type="submit" class="arena-rx-tool tone-token">
+                            <span class="arena-rx-tool-ico"><i data-lucide="refresh-cw"></i></span>
+                            <span class="arena-rx-tool-copy">
+                                <strong>Generate ulang</strong>
+                                <small>Token baru</small>
+                            </span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        @if(in_array($quiz->status, ['published', 'closed'], true))
+        <div class="arena-rx-manage-section">
+            <p class="arena-rx-manage-label">Status akses</p>
+            <div class="arena-rx-manage-grid">
+                <form method="POST" action="{{ route('classroom.arena.draft', [$classroom, $quiz]) }}" class="m-0">
+                    @csrf
+                    <button type="submit" class="arena-rx-tool tone-draft"
+                            onclick="return confirm('Kembalikan ke draf? Hanya boleh jika belum ada jawaban siswa.')">
+                        <span class="arena-rx-tool-ico"><i data-lucide="file-pen"></i></span>
+                        <span class="arena-rx-tool-copy">
+                            <strong>Ke draf</strong>
+                            <small>Hanya jika belum ada jawaban</small>
+                        </span>
+                    </button>
+                </form>
+            </div>
+        </div>
+        @endif
 
         <div class="arena-rx-manage-section">
             <p class="arena-rx-manage-label">Mode &amp; ekspor</p>

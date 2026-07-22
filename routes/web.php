@@ -418,11 +418,16 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/{classroom}/arena-belajar/{quiz}/edit', [GameQuizController::class, 'edit'])->name('arena.edit');
             Route::post('/{classroom}/arena-belajar/{quiz}/update', [GameQuizController::class, 'update'])->middleware('throttle:30,1')->name('arena.update');
             Route::post('/{classroom}/arena-belajar/{quiz}/terbit', [GameQuizController::class, 'publish'])->name('arena.publish');
+            Route::post('/{classroom}/arena-belajar/{quiz}/tutup', [GameQuizController::class, 'close'])->name('arena.close');
+            Route::post('/{classroom}/arena-belajar/{quiz}/terbit-ulang', [GameQuizController::class, 'reopen'])->name('arena.reopen');
+            Route::post('/{classroom}/arena-belajar/{quiz}/ke-draf', [GameQuizController::class, 'unpublishToDraft'])->name('arena.draft');
+            Route::post('/{classroom}/arena-belajar/{quiz}/token-solo', [GameQuizController::class, 'regenerateSoloToken'])->name('arena.solo-token');
             Route::post('/{classroom}/arena-belajar/{quiz}/salin', [GameQuizController::class, 'copyToClassrooms'])->middleware('throttle:20,1')->name('arena.copy');
             Route::delete('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'destroy'])->name('arena.destroy');
             Route::get('/{classroom}/arena-belajar/{quiz}/hasil', [GameQuizController::class, 'results'])->name('arena.results');
             Route::post('/{classroom}/arena-belajar/{quiz}/transfer-nilai', [GameQuizController::class, 'transferGrades'])->name('arena.transfer');
             Route::post('/{classroom}/arena-belajar/{quiz}/mulai', [GameAttemptController::class, 'start'])->middleware('throttle:30,1')->name('arena.start');
+            Route::post('/{classroom}/arena-belajar/{quiz}/fokus-keluar', [GameQuizController::class, 'focusExit'])->middleware('throttle:60,1')->name('arena.focus-exit');
             Route::get('/{classroom}/arena-belajar/{quiz}/main/{attempt}', [GameAttemptController::class, 'play'])->name('arena.play');
             Route::post('/{classroom}/arena-belajar/{quiz}/main/{attempt}/jawab', [GameAttemptController::class, 'saveAnswer'])->middleware('throttle:60,1')->name('arena.answer');
             Route::post('/{classroom}/arena-belajar/{quiz}/main/{attempt}/kumpul', [GameAttemptController::class, 'submit'])->middleware('throttle:20,1')->name('arena.submit');

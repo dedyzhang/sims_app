@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreGameQuizRequest;
 use App\Models\Classroom;
+use App\Models\GameFocusEvent;
 use App\Models\GameQuestion;
 use App\Models\GameQuestionOption;
 use App\Models\GameQuiz;
 use App\Models\GameQuizAssignment;
+use App\Models\GameLiveSession;
 use App\Models\Kelas;
 use App\Models\Materi;
 use App\Models\Mission;
@@ -48,9 +50,9 @@ class GameQuizController extends Controller implements HasMiddleware
             ->latest()
             ->get();
 
-        // Siswa hanya lihat published
+        // Siswa lihat terbit + ditutup (hasil/hub); draf hanya guru
         if (auth()->user()->access === 'siswa') {
-            $quizzes = $quizzes->where('status', 'published')->values();
+            $quizzes = $quizzes->whereIn('status', ['published', 'closed'])->values();
         }
 
         $canManage = auth()->user()->can('manage', $classroom);
@@ -146,7 +148,8 @@ class GameQuizController extends Controller implements HasMiddleware
         $this->authorize('manage', $classroom);
 
         $quiz = DB::transaction(function () use ($request, $classroom) {
-            $quiz = GameQuiz::create([
+            $publishNow = $request->boolean('publish_now');
+            $attrs = [
                 'classroom_id'      => $classroom->uuid,
                 'created_by'        => $request->user()->uuid,
                 'title'             => $request->title,
@@ -161,12 +164,18 @@ class GameQuizController extends Controller implements HasMiddleware
                 'instant_feedback'  => $request->boolean('instant_feedback'),
                 'opens_at'          => $request->opens_at,
                 'due_at'            => $request->due_at,
-                'status'            => $request->boolean('publish_now') ? 'published' : 'draft',
-            ]);
+                'status'            => $publishNow ? 'published' : 'draft',
+            ];
+            if ($publishNow) {
+                $attrs['is_locked'] = true;
+                $attrs['access_token'] = GameQuiz::generateAccessToken();
+            }
+
+            $quiz = GameQuiz::create($attrs);
 
             $this->syncQuestions($quiz, $request->input('questions', []));
 
-            if ($request->boolean('assign_self', true) || $request->boolean('publish_now')) {
+            if ($request->boolean('assign_self', true) || $publishNow) {
                 GameQuizAssignment::firstOrCreate(
                     ['quiz_id' => $quiz->uuid, 'classroom_id' => $classroom->uuid],
                     [
@@ -250,7 +259,8 @@ class GameQuizController extends Controller implements HasMiddleware
         $questionsLocked = false;
 
         DB::transaction(function () use ($request, $quiz, $classroom, &$questionsLocked) {
-            $quiz->update([
+            $publishNow = $request->boolean('publish_now');
+            $attrs = [
                 'title'            => $request->title,
                 'instructions'     => RichText::clean($request->instructions),
                 'scoring_mode'     => $request->scoring_mode,
@@ -262,8 +272,14 @@ class GameQuizController extends Controller implements HasMiddleware
                 'instant_feedback' => $request->boolean('instant_feedback'),
                 'opens_at'         => $request->opens_at,
                 'due_at'           => $request->due_at,
-                'status'           => $request->boolean('publish_now') ? 'published' : $quiz->status,
-            ]);
+                'status'           => $publishNow ? 'published' : $quiz->status,
+            ];
+            if ($publishNow && $quiz->status !== 'published') {
+                $attrs['is_locked'] = true;
+                $attrs['access_token'] = $quiz->access_token ?: GameQuiz::generateAccessToken();
+            }
+
+            $quiz->update($attrs);
 
             $questionIds = $quiz->questions()->pluck('uuid');
             $questionsLocked = $questionIds->isNotEmpty()
@@ -309,8 +325,13 @@ class GameQuizController extends Controller implements HasMiddleware
         }
 
         DB::transaction(function () use ($quiz, $classroom) {
-            $quiz->update(['status' => 'published']);
-            GameQuizAssignment::firstOrCreate(
+            $token = $quiz->access_token ?: GameQuiz::generateAccessToken();
+            $quiz->update([
+                'status' => 'published',
+                'is_locked' => true,
+                'access_token' => $token,
+            ]);
+            $assignment = GameQuizAssignment::firstOrCreate(
                 ['quiz_id' => $quiz->uuid, 'classroom_id' => $classroom->uuid],
                 [
                     'opens_at' => $quiz->opens_at,
@@ -318,11 +339,133 @@ class GameQuizController extends Controller implements HasMiddleware
                     'status'   => 'open',
                 ]
             );
+            if ($assignment->status !== 'open') {
+                $assignment->update(['status' => 'open']);
+            }
         });
 
         Audit::log('arena_quiz_publish', $quiz);
 
-        return back()->with('success', 'Kuis diterbitkan. Siswa dapat mengerjakan.');
+        $quiz->refresh();
+
+        return back()->with(
+            'success',
+            'Kuis diterbitkan. Token solo: '.$quiz->access_token.' — berikan ke siswa sebelum main solo.'
+        );
+    }
+
+    /** Tutup kuis untuk siswa (published → closed). Hasil lama tetap ada. */
+    public function close(Classroom $classroom, GameQuiz $quiz)
+    {
+        abort_unless($quiz->classroom_id === $classroom->uuid, 404);
+        $this->authorize('manage', $quiz);
+        abort_unless($quiz->isPublished(), 422, 'Hanya kuis terbit yang bisa ditutup.');
+
+        DB::transaction(function () use ($quiz, $classroom) {
+            $quiz->update(['status' => 'closed']);
+            GameQuizAssignment::where('quiz_id', $quiz->uuid)
+                ->where('classroom_id', $classroom->uuid)
+                ->update(['status' => 'closed']);
+
+            // Tutup sesi live aktif agar poll/jawab siswa tidak 403 di tengah party
+            GameLiveSession::where('quiz_id', $quiz->uuid)
+                ->where('classroom_id', $classroom->uuid)
+                ->whereIn('status', ['lobby', 'question', 'reveal', 'standings'])
+                ->update(['status' => 'ended', 'ended_at' => now()]);
+        });
+
+        Audit::log('arena_quiz_close', $quiz);
+
+        return back()->with('success', 'Kuis ditutup. Siswa tidak bisa main lagi. Hasil lama tetap tersimpan.');
+    }
+
+    /** Buka lagi untuk siswa (closed → published). Solo tetap wajib token. */
+    public function reopen(Classroom $classroom, GameQuiz $quiz)
+    {
+        abort_unless($quiz->classroom_id === $classroom->uuid, 404);
+        $this->authorize('manage', $quiz);
+        abort_unless($quiz->isClosed(), 422, 'Hanya kuis ditutup yang bisa dibuka lagi.');
+
+        if ($quiz->questions()->count() < 1) {
+            return back()->with('error', 'Tambahkan minimal satu soal sebelum membuka lagi.');
+        }
+
+        DB::transaction(function () use ($quiz, $classroom) {
+            $token = $quiz->access_token ?: GameQuiz::generateAccessToken();
+            $quiz->update([
+                'status' => 'published',
+                'is_locked' => true,
+                'access_token' => $token,
+            ]);
+            $assignment = GameQuizAssignment::firstOrCreate(
+                ['quiz_id' => $quiz->uuid, 'classroom_id' => $classroom->uuid],
+                [
+                    'opens_at' => $quiz->opens_at,
+                    'due_at' => $quiz->due_at,
+                    'status' => 'open',
+                ]
+            );
+            $assignment->update(['status' => 'open']);
+        });
+
+        Audit::log('arena_quiz_reopen', $quiz);
+        $quiz->refresh();
+
+        return back()->with(
+            'success',
+            'Kuis dibuka lagi untuk siswa. Token solo: '.$quiz->access_token
+        );
+    }
+
+    /** Kembalikan ke draf hanya jika belum ada jawaban siswa. */
+    public function unpublishToDraft(Classroom $classroom, GameQuiz $quiz)
+    {
+        abort_unless($quiz->classroom_id === $classroom->uuid, 404);
+        $this->authorize('manage', $quiz);
+        abort_unless(in_array($quiz->status, ['published', 'closed'], true), 422);
+
+        $questionIds = $quiz->questions()->pluck('uuid');
+        $hasAnswers = $questionIds->isNotEmpty()
+            && \App\Models\GameAnswer::whereIn('question_id', $questionIds)->exists();
+
+        $hasAttempts = GameQuizAssignment::where('quiz_id', $quiz->uuid)
+            ->whereHas('attempts')
+            ->exists();
+
+        if ($hasAnswers || $hasAttempts) {
+            return back()->with(
+                'error',
+                'Sudah ada pengerjaan siswa. Gunakan Tutup kuis, bukan kembalikan ke draf.'
+            );
+        }
+
+        DB::transaction(function () use ($quiz, $classroom) {
+            $quiz->update(['status' => 'draft']);
+            GameQuizAssignment::where('quiz_id', $quiz->uuid)
+                ->where('classroom_id', $classroom->uuid)
+                ->update(['status' => 'closed']);
+        });
+
+        Audit::log('arena_quiz_unpublish_draft', $quiz);
+
+        return back()->with('success', 'Kuis dikembalikan ke draf. Siswa tidak melihatnya.');
+    }
+
+    /** Generate ulang token solo (membatalkan unlock session token lama). Solo selalu wajib token. */
+    public function regenerateSoloToken(Classroom $classroom, GameQuiz $quiz)
+    {
+        abort_unless($quiz->classroom_id === $classroom->uuid, 404);
+        $this->authorize('manage', $quiz);
+
+        $token = GameQuiz::generateAccessToken();
+        $quiz->update([
+            'is_locked' => true,
+            'access_token' => $token,
+        ]);
+
+        Audit::log('arena_quiz_solo_token', $quiz, ['action' => 'regenerate']);
+
+        return back()->with('success', 'Token solo baru: '.$token.' — beritahu siswa token lama sudah tidak berlaku.');
     }
 
     /**
@@ -385,6 +528,8 @@ class GameQuizController extends Controller implements HasMiddleware
                     'opens_at' => null,
                     'due_at' => null,
                     'status' => $publish ? 'published' : 'draft',
+                    'is_locked' => $publish,
+                    'access_token' => $publish ? GameQuiz::generateAccessToken() : null,
                 ]);
 
                 foreach ($quiz->questions as $question) {
@@ -494,6 +639,61 @@ class GameQuizController extends Controller implements HasMiddleware
         ]);
     }
 
+    /** Siswa melapor keluar mode fokus (fullscreen / pindah tab). */
+    public function focusExit(Request $request, Classroom $classroom, GameQuiz $quiz)
+    {
+        abort_unless($quiz->classroom_id === $classroom->uuid, 404);
+
+        if ($request->user()->access !== 'siswa') {
+            return response()->noContent();
+        }
+
+        $this->authorize('play', [$quiz, $classroom]);
+
+        $data = $request->validate([
+            'context' => ['required', 'in:solo,live,template'],
+            'reason' => ['nullable', 'string', 'max:100'],
+            'attempt_id' => ['nullable', 'uuid'],
+            'session_id' => ['nullable', 'uuid'],
+        ]);
+
+        $attemptId = $data['attempt_id'] ?? null;
+        if ($attemptId) {
+            $owns = \App\Models\GameAttempt::query()
+                ->where('uuid', $attemptId)
+                ->where('student_id', $request->user()->uuid)
+                ->whereHas('assignment', fn ($q) => $q->where('quiz_id', $quiz->uuid)->where('classroom_id', $classroom->uuid))
+                ->exists();
+            if (! $owns) {
+                $attemptId = null;
+            }
+        }
+
+        $sessionId = $data['session_id'] ?? null;
+        if ($sessionId) {
+            $ok = GameLiveSession::where('uuid', $sessionId)
+                ->where('quiz_id', $quiz->uuid)
+                ->where('classroom_id', $classroom->uuid)
+                ->exists();
+            if (! $ok) {
+                $sessionId = null;
+            }
+        }
+
+        GameFocusEvent::create([
+            'quiz_id' => $quiz->uuid,
+            'classroom_id' => $classroom->uuid,
+            'student_id' => $request->user()->uuid,
+            'context' => $data['context'],
+            'attempt_id' => $attemptId,
+            'session_id' => $sessionId,
+            'type' => 'keluar',
+            'reason' => substr((string) ($data['reason'] ?? 'keluar fokus'), 0, 100),
+        ]);
+
+        return response()->json(['ok' => true]);
+    }
+
     public function results(Classroom $classroom, GameQuiz $quiz)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
@@ -508,6 +708,14 @@ class GameQuizController extends Controller implements HasMiddleware
 
         $memberCount = $classroom->members()->where('role_in_class', 'siswa')->count();
         $doneCount = $attempts->whereIn('status', ['submitted', 'graded'])->count();
+
+        $focusExitCounts = GameFocusEvent::query()
+            ->where('quiz_id', $quiz->uuid)
+            ->where('classroom_id', $classroom->uuid)
+            ->where('type', 'keluar')
+            ->selectRaw('student_id, count(*) as total')
+            ->groupBy('student_id')
+            ->pluck('total', 'student_id');
 
         $questionStats = $quiz->questions->map(function (GameQuestion $q) use ($attempts) {
             $answerRows = \App\Models\GameAnswer::where('question_id', $q->uuid)
@@ -537,7 +745,8 @@ class GameQuizController extends Controller implements HasMiddleware
 
         return view('arena-belajar.results', compact(
             'classroom', 'quiz', 'assignment', 'attempts',
-            'memberCount', 'doneCount', 'questionStats', 'materiList', 'tupeList'
+            'memberCount', 'doneCount', 'questionStats', 'materiList', 'tupeList',
+            'focusExitCounts'
         ));
     }
 

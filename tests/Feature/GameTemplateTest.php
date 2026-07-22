@@ -64,6 +64,7 @@ class GameTemplateTest extends TestCase
         $this->quiz = GameQuiz::create([
             'classroom_id' => $this->classroom->uuid, 'created_by' => $this->guruUser->uuid,
             'title' => 'Bank Soal', 'status' => 'published', 'max_score' => 100, 'template' => 'quiz',
+            'is_locked' => true, 'access_token' => 'SYNC',
         ]);
         GameQuestion::create([
             'quiz_id' => $this->quiz->uuid, 'type' => 'short_answer', 'question_text' => 'Hewan berkaki 4?',
@@ -152,6 +153,7 @@ class GameTemplateTest extends TestCase
     {
         $q = $this->quiz->questions()->first();
         $this->actingAs($this->siswaUser)
+            ->withSession(['arena_solo_unlock.'.$this->quiz->uuid => 'SYNC'])
             ->postJson(route('classroom.arena.sync', [$this->classroom, $this->quiz]), [
                 'answers' => [[
                     'question_id' => $q->uuid,
@@ -164,6 +166,7 @@ class GameTemplateTest extends TestCase
 
         // sync lagi
         $this->actingAs($this->siswaUser)
+            ->withSession(['arena_solo_unlock.'.$this->quiz->uuid => 'SYNC'])
             ->postJson(route('classroom.arena.sync', [$this->classroom, $this->quiz]), [
                 'answers' => [[
                     'question_id' => $q->uuid,
