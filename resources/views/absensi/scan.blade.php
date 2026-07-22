@@ -45,6 +45,9 @@
         </div>
         @unless($isKiosk ?? false)
         <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" @click="showDiag = !showDiag" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition" :class="showDiag ? 'border-primary text-primary bg-primary-50' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'">
+                <i data-lucide="activity" class="w-4 h-4"></i> Info Diagnostik
+            </button>
             <a href="{{ route('wajah.ganda') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-200 text-amber-700 hover:bg-amber-50 transition">
                 <i data-lucide="shield-alert" class="w-4 h-4"></i> Wajah Ganda
             </a>
@@ -55,7 +58,39 @@
         @endunless
     </div>
 
-    <div class="card p-4 flex flex-wrap gap-3 items-center">
+    {{-- Panel diagnostik: penyebab GAGAL pengenalan wajah selama sesi scan ini berjalan (angka
+         hidup, di-reset tiap buka halaman). Tujuannya supaya laporan "susah terdeteksi" berikutnya
+         bisa disertai data nyata (screenshot panel ini) drpd cuma deskripsi verbal — riwayat
+         kalibrasi ambang sudah berkali-kali dinaik-turunkan tanpa data konkret dan tak kunjung
+         beres; panel ini memutus siklus tebak-tebakan itu. --}}
+    @unless($isKiosk ?? false)
+    <div x-show="showDiag" x-cloak x-transition class="card p-4 text-xs space-y-2">
+        <p class="font-bold text-slate-600 dark:text-slate-300">Penyebab gagal kenali wajah (sesi ini) — total <span x-text="diagTotal"></span></p>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.small_face"></p>
+                <p class="text-slate-400">Wajah kecil/jauh</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.low_face_score"></p>
+                <p class="text-slate-400">Kualitas/cahaya</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.low_score"></p>
+                <p class="text-slate-400">Skor rendah</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.small_margin"></p>
+                <p class="text-slate-400">Mirip 2 orang</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.low_support"></p>
+                <p class="text-slate-400">Sampel kurang</p>
+            </div>
+        </div>
+        <p class="text-slate-400">Kalau angka "Wajah kecil/jauh" paling tinggi → suruh piket mendekat ke kamera. Kalau "Kualitas/cahaya" tinggi → tambah pencahayaan. Kalau "Skor rendah" tinggi terus-menerus utk orang yang SAMA → kemungkinan wajah perlu didaftar ulang (foto lebih jelas, 3 posisi).</p>
+    </div>
+    @endunless
         <div class="min-w-44 flex-1 max-w-xs">
             <label class="form-label">Kelas</label>
             <select x-model="kelasFilter" @change="onKelasChange()" class="form-select">
@@ -349,12 +384,17 @@ async function loadHuman(){
     human = new HumanLib({
         modelBasePath:'https://vladmandic.github.io/human-models/models/',
         backend: backend, cacheSensitivity: 0, warmup:'none',
-        // minConfidence diturunkan 0.45→0.35: ini ambang DETEKSI kotak wajah (ada wajah atau
-        // tidak), bukan ambang KECOCOKAN identitas — kalau kotaknya sendiri gagal muncul (sudut
-        // agak miring, sebagian tertutup hijab/masker di dagu-dahi, cahaya kurang), tidak ada
-        // proses pencocokan apa pun yang sempat jalan; pengguna cuma melihat kamera diam tanpa
-        // kotak sama sekali, jauh lebih membingungkan drpd kotak muncul tapi belum cocok.
-        face:{ enabled:true, detector:{ maxDetected:5, minConfidence:0.35 }, mesh:{enabled:true}, iris:{enabled:false},
+        // minConfidence DIKEMBALIKAN ke 0.45 (sempat diturunkan ke 0.35 utk kasus "kotak sama
+        // sekali tak muncul", tapi laporan lapangan setelahnya justru "makin susah/gray dash
+        // makin sering") — ambang 0.35 rupanya meloloskan terlalu banyak deteksi kotak wajah
+        // BERKUALITAS RENDAH (blur/miring/sebagian) sbg kandidat, yang lalu gagal di tahap
+        // KECOCOKAN (embedding dari kotak buruk pasti mirip siapa pun dgn skor rendah) —
+        // hasilnya wajah asli yg jelas pun "tenggelam" di antara deteksi sampah yg lebih sering
+        // muncul drpd sebelumnya. 0.45 adalah nilai lama yg terbukti bertahun-tahun sebelum
+        // sesi ini mulai mengubahnya — JANGAN turunkan lagi tanpa data diagnostik nyata (lihat
+        // panel "Info Diagnostik" di halaman ini) yg menunjukkan `small_face`/deteksi kosong
+        // sbg penyebab dominan, BUKAN cuma laporan verbal "susah terdeteksi".
+        face:{ enabled:true, detector:{ maxDetected:5, minConfidence:0.45 }, mesh:{enabled:true}, iris:{enabled:false},
                description:{enabled:true}, emotion:{enabled:false}, antispoof:{enabled:false}, liveness:{enabled:false} },
         body:{enabled:false}, hand:{enabled:false}, object:{enabled:false}, gesture:{enabled:false},
         filter:{enabled:false}, segmentation:{enabled:false},
@@ -407,6 +447,7 @@ function faceScan(data, opts={}){
         _scanPauseUntil:0,
         recent:[], lastMatch:null, _seq:0, audioCtx:null,
         _noFaceStreak:0, noFaceHint:false,
+        showDiag:false,
         scanMode:'masuk',
         activeTab: 'siswa',
         siswaSearch: '',
@@ -898,12 +939,18 @@ function faceScan(data, opts={}){
                     // jatuh ke '—' polos tanpa petunjuk apa pun, sementara "Dekatkan wajah" (yang
                     // seharusnya soal jarak) hanya muncul saat wajah SUDAH cukup besar. Pengguna
                     // yang berdiri di jarak wajar dari kiosk tidak pernah diberi tahu utk mendekat.
+                    const top1Val = bestMatch?.top1 ?? bestSim;
                     if(!bigEnough){
                         label='Mendekat ke kamera'; color='#f59e0b';
                     } else if(faceScore < this.minFaceScore){
                         label='Tahan diam, perbaiki cahaya'; color='#f59e0b';
-                    } else if((bestMatch?.top1 || bestSim) >= this.supportThreshold){
+                    } else if(top1Val >= this.supportThreshold){
                         label='Perjelas wajah'; color='#f59e0b';
+                    } else if(top1Val >= 0.45){
+                        // Skor sedang (0.45–0.62) — kemungkinan besar orang yg SAMA tapi sudut/
+                        // cahaya kurang pas, BUKAN "tidak dikenali sama sekali". Dulu kasus ini
+                        // ikut jatuh ke '—' polos, tak beda dgn wajah yg benar2 tak dikenal.
+                        label='Coba lagi, hadap lurus'; color='#f59e0b';
                     } else {
                         label='—'; color='#94a3b8';
                     }

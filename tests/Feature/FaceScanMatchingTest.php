@@ -55,11 +55,40 @@ class FaceScanMatchingTest extends TestCase
         $this->assertStringContainsString("label='Mendekat ke kamera'", $source);
         $this->assertStringContainsString("label='Tahan diam, perbaiki cahaya'", $source);
         $this->assertStringContainsString("label='Perjelas wajah'", $source);
+        $this->assertStringContainsString("label='Coba lagi, hadap lurus'", $source);
         // Badge saat Human sama sekali tidak menemukan wajah di frame (bukan soal cocok/tidak)
         $this->assertStringContainsString('noFaceHint', $source);
         $this->assertStringContainsString('Wajah tidak terlihat', $source);
-        // minConfidence detektor diturunkan agar sudut/wajah tertutup sebagian tetap terdeteksi
-        $this->assertStringContainsString('minConfidence:0.35', $source);
+    }
+
+    public function test_min_confidence_detektor_dikembalikan_ke_045(): void
+    {
+        // Regresi: sempat diturunkan ke 0.35 (harapan: tangkap wajah miring/tertutup sebagian),
+        // tapi laporan lapangan SETELAHNYA justru "makin susah, kotak abu2 makin sering muncul"
+        // — 0.35 meloloskan terlalu banyak deteksi kotak berkualitas rendah yg lalu gagal di
+        // tahap kecocokan (bukan wajah asli tersembunyi, tapi TENGGELAM di antara noise).
+        // 0.45 adalah nilai lama yg bertahun-tahun terbukti oke sblm sesi ini menyentuhnya.
+        $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
+
+        $this->assertStringContainsString('minConfidence:0.45', $source);
+        $this->assertStringNotContainsString('minConfidence:0.35', $source);
+    }
+
+    public function test_panel_diagnostik_tersedia_utk_laporan_lapangan_berbasis_data(): void
+    {
+        // Riwayat kalibrasi ambang sudah bolak-balik berkali-kali murni berdasar laporan verbal
+        // ("susah terdeteksi") tanpa data konkret ttg gate mana yg sebenarnya gagal — panel ini
+        // menampilkan counter diag (yg sudah lama ada tapi tak pernah terlihat siapa pun) LANGSUNG
+        // di halaman, supaya laporan berikutnya bisa disertai screenshot data nyata.
+        $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
+
+        $this->assertStringContainsString('showDiag', $source);
+        $this->assertStringContainsString('Info Diagnostik', $source);
+        $this->assertStringContainsString('diag.small_face', $source);
+        $this->assertStringContainsString('diag.low_face_score', $source);
+        $this->assertStringContainsString('diag.low_score', $source);
+        $this->assertStringContainsString('diag.small_margin', $source);
+        $this->assertStringContainsString('diag.low_support', $source);
     }
 
     public function test_kamera_wajah_juga_membaca_qr_kartu(): void
