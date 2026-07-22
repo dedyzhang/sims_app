@@ -35,7 +35,9 @@ class PanduanSimsTest extends TestCase
             ->assertOk()
             ->assertSee('Panduan Visual', false)
             ->assertSee(route('panduan.content'), false)
-            ->assertSee('<iframe', false);
+            ->assertSee('<iframe', false)
+            ->assertSee('panduan-main-fallback', false)
+            ->assertSee('data-sims-ticker', false);
     }
 
     public function test_konten_panduan_visual_tersedia_untuk_iframe(): void
@@ -57,7 +59,9 @@ class PanduanSimsTest extends TestCase
             ->assertSee('arenakuis', false)
             ->assertSee('Kode masuk arena', false)
             ->assertSee('QR/barcode', false)
-            ->assertSee('1920×1080', false)
+            ->assertSee('Manajemen Sekolah', false)
+            ->assertSee('TA 2026/2027', false)
+            ->assertSee('hero-brand', false)
             ->assertSee('Ular tangga', false)
             ->assertSee('Solo · soal acak', false)
             ->assertSee('Salin soal ke kelas lain', false)
@@ -76,7 +80,13 @@ class PanduanSimsTest extends TestCase
             ->assertSee('"isAdmin":false', false)
             ->assertSee('html.dark', false)
             ->assertSee('theme_mode', false)
-            ->assertSee('sims-theme', false);
+            ->assertSee('viewport', false)
+            ->assertSee('scroll-padding-top', false)
+            ->assertSee('toc-mobile-only', false)
+            ->assertSee('playsinline', false)
+            ->assertSee('safe-area-inset', false)
+            ->assertSee('--fab-clearance', false)
+            ->assertSee('left:auto', false);
     }
 
     public function test_konten_admin_mendapat_flag_is_admin(): void

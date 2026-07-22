@@ -28,6 +28,7 @@
         // BUKAN dari session — supaya membuka link kiosk tak pernah memengaruhi tab lain di
         // browser yang sama yg mungkin sedang login sbg user lain.
         $kioskChrome = (bool) ($isKiosk ?? false);
+        $isPanduanPage = request()->routeIs('panduan.visual');
         // $access/$isAdmin dipakai di luar blok sidebar juga (mis. floating chat) — jadi
         // dihitung di sini, bukan cuma di dalam <aside> yang bisa disembunyikan (mode kiosk).
         $access  = auth()->user()?->access;
@@ -928,7 +929,7 @@
     @endunless
 
     {{-- ============ MAIN ============ --}}
-    <div class="flex-1 flex flex-col min-w-0 overflow-hidden min-h-0">
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden min-h-0{{ $isPanduanPage ? ' panduan-layout-host' : '' }}">
 
         @unless($kioskChrome)
         <header class="h-16 flex items-center justify-between px-5 md:px-7 flex-shrink-0 gap-4 z-30">
@@ -1050,6 +1051,9 @@
             </div>
         </header>
 
+        @endunless
+
+        @unless($kioskChrome || $isPanduanPage)
         {{-- Breadcrumb strip --}}
         <div class="px-4 md:px-7 pb-1 hidden md:flex items-center gap-1.5 text-xs text-slate-400 flex-shrink-0">
             <a href="{{ route('dashboard') }}" class="hover:text-slate-600 grid place-items-center"><i data-lucide="home" class="w-3.5 h-3.5"></i></a>
@@ -1066,9 +1070,18 @@
         </div>
         @endunless
 
-        <main class="flex-1 overflow-y-auto px-5 md:px-7 py-4 flex flex-col">
+        <main @class([
+            'flex-1 flex flex-col min-h-0',
+            'overflow-y-auto px-5 md:px-7 py-4' => ! $isPanduanPage,
+            'overflow-hidden p-0' => $isPanduanPage,
+        ])>
+            @unless($isPanduanPage)
             @include('partials.langganan-banner')
-            <div class="anim-fade flex-1">@yield('content')</div>
+            @endunless
+            <div @class([
+                'anim-fade flex-1',
+                'min-h-0 flex flex-col' => $isPanduanPage,
+            ])>@yield('content')</div>
             {{-- Footer — selalu menempel di bawah berkat mt-auto (konten flex-1 mendorongnya turun) --}}
             @unless(View::hasSection('hide_page_footer'))
             <footer class="mt-auto pt-4 border-t border-slate-200/70 dark:border-slate-700/60 text-center text-xs text-slate-400">
@@ -1105,7 +1118,7 @@
             $tickerPeminjaman = $tickerData['peminjaman'];
             $tickerOnlineText = \App\Support\TickerStats::onlineText($tickerData);
         @endphp
-        <div class="h-8 bg-[#090d16] flex-shrink-0 flex items-center text-[10px] sm:text-[11px] font-mono tracking-wider overflow-hidden border-t border-slate-900 text-slate-400 select-none z-30 shadow-2xl">
+        <div data-sims-ticker class="h-8 bg-[#090d16] flex-shrink-0 flex items-center text-[10px] sm:text-[11px] font-mono tracking-wider overflow-hidden border-t border-slate-900 text-slate-400 select-none z-30 shadow-2xl">
             <div class="flex items-center px-3 border-r border-slate-800/80 h-full flex-shrink-0 z-20">
                 <span class="bg-amber-500/10 text-amber-500 border border-amber-500/20 font-bold px-2 py-0.5 rounded text-[9px] sm:text-[10px] tracking-wider">
                     SIMS-NET
@@ -1326,7 +1339,7 @@
             class="relative h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary-700 text-white shadow-lg shadow-primary/30 place-items-center hover:scale-105 active:scale-95 transition focus:outline-none focus:ring-4 focus:ring-primary/40"
             title="Asisten Sekolah">
         {{-- Ikon chat (saat tertutup) — Lucide message-circle-more, seimbang & ter-center --}}
-        <svg x-show="!open" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg x-show="!open" x-cloak class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
             <path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/>
         </svg>
