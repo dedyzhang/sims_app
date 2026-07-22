@@ -968,13 +968,27 @@ jumpSearch.addEventListener('keydown', function(e){
 var topbar=document.getElementById('topbar');
 var btnTop=document.getElementById('btnTop');
 var heroEl=document.querySelector('.hero');
-window.addEventListener('scroll', function(){
-  var y=window.scrollY||document.documentElement.scrollTop;
+function scrollEl(){
+  return document.documentElement.classList.contains('is-embed')
+    ? document.body
+    : (document.scrollingElement || document.documentElement);
+}
+function pageScrollY(){
+  var el=scrollEl();
+  return el===document.body ? el.scrollTop : (window.scrollY||el.scrollTop||0);
+}
+function scrollPageTo(top, smooth){
+  scrollEl().scrollTo({top:top, behavior:smooth?'smooth':'auto'});
+}
+function onPageScroll(){
+  var y=pageScrollY();
   var showAfter=heroEl ? Math.max(180, heroEl.offsetHeight - 40) : 280;
   topbar.classList.toggle('show', y>showAfter);
   btnTop.style.opacity=y>400?'1':'0.55';
-},{passive:true});
-btnTop.addEventListener('click', function(){ window.scrollTo({top:0,behavior:'smooth'}); });
+}
+scrollEl().addEventListener('scroll', onPageScroll, {passive:true});
+onPageScroll();
+btnTop.addEventListener('click', function(){ scrollPageTo(0, true); });
 
 var drawer=document.getElementById('drawer');
 var backdrop=document.getElementById('drawerBackdrop');

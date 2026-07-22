@@ -86,7 +86,8 @@ class PanduanSimsTest extends TestCase
             ->assertSee('playsinline', false)
             ->assertSee('safe-area-inset', false)
             ->assertSee('--fab-clearance', false)
-            ->assertSee('left:auto', false);
+            ->assertSee('scrollEl', false)
+            ->assertSee('scrollPageTo', false);
     }
 
     public function test_konten_admin_mendapat_flag_is_admin(): void
