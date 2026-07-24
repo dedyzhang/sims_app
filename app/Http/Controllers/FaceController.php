@@ -41,10 +41,11 @@ class FaceController extends Controller
             ? ($request->kelas ?: optional($kelasList->first())->uuid)
             : $idKelasWali;
 
+        // Kolom & mesin yg diaudit ikut Setting → Mesin Pengenalan Wajah yg SEDANG AKTIF.
         $siswas = $selectedKelas
-            ? Siswa::where('id_kelas', $selectedKelas)->whereNotNull('face_descriptor')->orderBy('nama')->get()
+            ? Siswa::where('id_kelas', $selectedKelas)->whereFaceRegistered()->orderBy('nama')->get()
             : collect();
-        $gurus = Guru::whereNotNull('face_descriptor')->orderBy('nama')->get();
+        $gurus = Guru::whereFaceRegistered()->orderBy('nama')->get();
 
         return view('face.gallery', compact('kelasList', 'selectedKelas', 'siswas', 'gurus'));
     }
@@ -54,9 +55,10 @@ class FaceController extends Controller
     {
         [$privileged, $idKelasWali] = $this->accessScope();
 
-        $min = (float) ($request->min ?: \App\Support\FaceMatch::THRESHOLD);
-        $min = max(0.5, min(0.99, $min));
-        $pairs = \App\Support\FaceMatch::duplicatePairs($min, 80);
+        $descCol = \App\Support\FaceEngine::kolomDescriptor();
+        $min = (float) ($request->min ?: \App\Support\FaceMatch::thresholdFor($descCol));
+        $min = max(0.3, min(0.99, $min));
+        $pairs = \App\Support\FaceMatch::duplicatePairs($min, 80, $descCol);
 
         if (!$privileged) {
             // Wali kelas hanya lihat pasangan yg melibatkan siswa di kelasnya sendiri.
@@ -99,8 +101,8 @@ class FaceController extends Controller
         }
 
         $ulang = $request->boolean('ulang');
-        // Sudah terdaftar & bukan mode daftar-ulang → lanjut
-        if (!$ulang && !empty($profile->face_descriptor)) {
+        // Sudah terdaftar (di mesin yg AKTIF sekarang) & bukan mode daftar-ulang → lanjut
+        if (!$ulang && !empty($profile->{\App\Support\FaceEngine::kolomDescriptor()})) {
             return redirect()->route('dashboard')->with('success', 'Wajah Anda sudah terdaftar.');
         }
 
@@ -110,6 +112,7 @@ class FaceController extends Controller
             'tipe'          => $tipe,
             'ulang'         => $ulang,
             'redirectAfter' => $ulang ? route('profile.index') : route('dashboard'),
+            'faceEngine'    => \App\Support\FaceEngine::aktif(),
         ]);
     }
 
@@ -128,9 +131,11 @@ class FaceController extends Controller
             return response()->json(['message' => 'Profil tidak ditemukan.'], 422);
         }
 
-        // Deteksi wajah ganda: cocok dengan orang lain?
-        $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $profile->uuid);
-        if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::THRESHOLD) {
+        $descCol = \App\Support\FaceEngine::kolomDescriptor();
+
+        // Deteksi wajah ganda: cocok dengan orang lain (di mesin yg sama)?
+        $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $profile->uuid, $descCol);
+        if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::thresholdFor($descCol)) {
             return response()->json([
                 'duplicate'  => true,
                 'nama'       => $dup['nama'],
@@ -140,11 +145,17 @@ class FaceController extends Controller
             ], 422);
         }
 
-        $profile->update([
-            'face_descriptor'    => $request->descriptors,
-            'face_registered_at' => now(),
-            'face_photo'         => \App\Support\FaceMatch::saveFromDataUrl($request->photo, $profile->uuid, $profile->face_photo),
-        ]);
+        $update = [$descCol => $request->descriptors];
+        // face_registered_at & foto profil dipakai bersama lintas mesin — jangan timpa kalau
+        // sudah pernah terisi dari registrasi sebelumnya (mis. via mesin lain), tapi TETAP isi
+        // kalau ini pendaftaran pertama orang ini, apa pun mesin yg sedang aktif (dulu hanya diisi
+        // saat $descCol==='face_descriptor', jadi orang yg daftar PERTAMA KALI langsung lewat
+        // InsightFace tak pernah dapat foto/tanggal sama sekali).
+        if ($descCol === 'face_descriptor' || empty($profile->face_registered_at)) {
+            $update['face_registered_at'] = now();
+            $update['face_photo'] = \App\Support\FaceMatch::saveFromDataUrl($request->photo, $profile->uuid, $profile->face_photo);
+        }
+        $profile->update($update);
 
         return response()->json(['success' => true, 'message' => 'Wajah berhasil didaftarkan.']);
     }

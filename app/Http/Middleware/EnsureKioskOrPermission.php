@@ -32,7 +32,7 @@ class EnsureKioskOrPermission
 
         $user = auth()->user();
         $profile = $user->siswa ?: $user->guru;
-        if ($profile && empty($profile->face_descriptor)) {
+        if ($profile && empty($profile->{\App\Support\FaceEngine::kolomDescriptor()})) {
             return redirect()->route('face.self');
         }
 

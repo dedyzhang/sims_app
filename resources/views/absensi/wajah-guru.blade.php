@@ -2,7 +2,7 @@
 @section('title', 'Registrasi Wajah Guru')
 
 @section('content')
-<div class="space-y-5" x-data="faceEnrollGuru()" @keydown.space.window="onSpace($event)">
+<div class="space-y-5" x-data="faceEnrollGuru(@js(['faceEngine' => $faceEngine]))" @keydown.space.window="onSpace($event)">
 
     {{-- Header --}}
     <div class="flex items-center justify-between flex-wrap gap-3">
@@ -29,7 +29,7 @@
             <label class="form-label">Cari nama guru</label>
             <input type="text" x-model="q" placeholder="Ketik nama..." class="form-input">
         </div>
-        @php $terdaftar = $gurus->whereNotNull('face_descriptor')->count(); @endphp
+        @php $descCol = \App\Support\FaceEngine::kolomDescriptor(); $terdaftar = $gurus->whereNotNull($descCol)->count(); @endphp
         <div class="text-sm text-slate-500">
             <span class="font-bold text-primary">{{ $terdaftar }}</span> / {{ $gurus->count() }} wajah terdaftar
         </div>
@@ -50,13 +50,13 @@
                 @else
                 {{ strtoupper(substr($g->nama,0,1)) }}
                 @endif
-                @if($g->face_descriptor)
+                @if($g->{$descCol})
                 <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 grid place-items-center ring-2 ring-white"><i data-lucide="check" class="w-2.5 h-2.5 text-white"></i></span>
                 @endif
             </div>
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-sm text-slate-700 dark:text-slate-200 truncate">{{ $g->nama }}</p>
-                @if($g->face_descriptor)
+                @if($g->{$descCol})
                 <p class="text-xs text-emerald-600 flex items-center gap-1"><i data-lucide="badge-check" class="w-3 h-3"></i> Terdaftar</p>
                 @else
                 <p class="text-xs text-slate-400">{{ $g->nip ?: $g->nik ?: 'Belum daftar wajah' }}</p>
@@ -64,9 +64,9 @@
             </div>
             <div class="flex items-center gap-1 flex-shrink-0">
                 <button @click="openFor('{{ $g->uuid }}', @js($g->nama))" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-primary-50 text-primary hover:bg-primary-100 transition flex items-center gap-1">
-                    <i data-lucide="camera" class="w-3.5 h-3.5"></i> {{ $g->face_descriptor ? 'Ulangi' : 'Daftar' }}
+                    <i data-lucide="camera" class="w-3.5 h-3.5"></i> {{ $g->{$descCol} ? 'Ulangi' : 'Daftar' }}
                 </button>
-                @if($g->face_descriptor)
+                @if($g->{$descCol})
                 <button @click="hapus('{{ $g->uuid }}')" class="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500" title="Hapus wajah"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                 @endif
             </div>
@@ -112,6 +112,15 @@
                         <i data-lucide="sun" class="w-3.5 h-3.5"></i> Pencahayaan rendah — kecerahan otomatis aktif
                     </div>
                 </div>
+                {{-- Variasi sudut wajib: 5 zona (tengah/kiri/kanan/atas/bawah) harus lengkap sebelum bisa disimpan --}}
+                <div x-show="streaming" class="flex flex-wrap items-center justify-center gap-1.5 text-xs font-semibold">
+                    <template x-for="z in ANGLE_ZONES" :key="z">
+                        <span class="px-2.5 py-1 rounded-full border transition"
+                              :class="zoneCounts[z]>0 ? 'bg-emerald-50 border-emerald-300 text-emerald-600 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300' : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-600'">
+                            <span x-text="(zoneCounts[z]>0 ? '✓ ' : '') + zoneLabel(z)"></span>
+                        </span>
+                    </template>
+                </div>
                 <p class="text-center text-sm" :class="msgErr ? 'text-rose-500' : 'text-slate-500'" x-text="msg"></p>
             </div>
             <div class="p-5 border-t border-slate-100 dark:border-slate-700 flex flex-wrap sm:flex-nowrap gap-2 justify-end">
@@ -120,7 +129,7 @@
                     <i data-lucide="aperture" class="w-4 h-4"></i> Ambil Sampel (<span x-text="samples.length"></span>/5)
                     <kbd class="text-[10px] px-1.5 py-0.5 rounded bg-primary-50 border border-primary/30">Spasi</kbd>
                 </button>
-                <button @click="save()" :disabled="samples.length<3 || saving" class="flex-1 sm:flex-none justify-center btn-primary px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-40">
+                <button @click="save()" :disabled="samples.length<3 || saving || Object.values(zoneCounts).some(n => !n)" class="flex-1 sm:flex-none justify-center btn-primary px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 disabled:opacity-40">
                     <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin" x-show="saving"></i><span x-text="saving?'Menyimpan...':'Simpan'"></span>
                 </button>
             </div>
@@ -138,7 +147,12 @@
 </div>
 
 @push('scripts')
+@if(\App\Support\FaceEngine::isInsightFace())
+@include('absensi._insightface_engine')
+@else
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/dist/human.js"></script>
+@endif
+@include('absensi._face_enroll_shared')
 <script>
 let humanGuru=null, humanGuruReady=false;
 async function loadHumanGuru(){
@@ -158,9 +172,11 @@ async function loadHumanGuru(){
     return humanGuru;
 }
 
-function faceEnrollGuru(){
-    return {
+function faceEnrollGuru(opts){
+    opts = opts || {};
+    return Object.assign(faceEnrollShared(), {
         modal:false, loading:false, streaming:false, capturing:false, saving:false, lowLight:false, q:'',
+        faceEngine: opts.faceEngine || 'human',
         uuid:null, nama:'', samples:[], photo:null, _bestYaw:Infinity, stream:null, status:'', msg:'', msgErr:false,
         zoomSrc:null, zoomNama:'',
         zoom(src, nama){ this.zoomSrc=src; this.zoomNama=nama; },
@@ -277,15 +293,19 @@ function faceEnrollGuru(){
 
         async openFor(uuid, nama){
             this.uuid=uuid; this.nama=nama; this.samples=[]; this.photo=null; this._bestYaw=Infinity; this.msg=''; this.msgErr=false; this.lowLight=false;
+            this.zoneCounts={tengah:0, kiri:0, kanan:0, atas:0, bawah:0};
             this.modal=true; this.streaming=false; this.loading=true; this.status='Memuat model AI (pertama kali agak lama)...';
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} } });
                 this.stream = stream;
                 this.$refs.video.srcObject = this.stream;
                 this.streaming=true;
-                await loadHumanGuru();
+                if(this.faceEngine === 'insightface') await loadInsightFace(); else await loadHumanGuru();
                 this.status='Menyiapkan model (sekali saja)...';
-                try { const cv=document.createElement('canvas'); cv.width=256; cv.height=256; cv.getContext('2d').fillRect(0,0,256,256); await humanGuru.detect(cv); } catch(e){}
+                try {
+                    const cv=document.createElement('canvas'); cv.width=256; cv.height=256; cv.getContext('2d').fillRect(0,0,256,256);
+                    if(this.faceEngine === 'insightface') await ifDetect(cv); else await humanGuru.detect(cv);
+                } catch(e){}
                 this.loading=false;
                 this.msg='Posisikan wajah dalam bingkai, lalu tekan Spasi / klik Ambil Sampel.';
             } catch(e){
@@ -303,10 +323,18 @@ function faceEnrollGuru(){
             this.capturing=true; this.msg='Mendeteksi wajah...'; this.msgErr=false;
             try {
                 const frame = this.enhanceFrame(this.$refs.video); // pencerahan otomatis sebelum deteksi (aman di tempat gelap)
-                const res = await humanGuru.detect(frame);
+                const res = this.faceEngine === 'insightface' ? await ifDetect(frame) : await humanGuru.detect(frame);
                 let face = (res.face||[])[0];
                 const quality = this.faceQuality(face);
                 if(quality.ok){
+                    // Cek wajah di dalam lingkaran panduan (posisi & jarak) SEBELUM cek lain.
+                    const framed = this.checkFramed(face, this.$refs.video);
+                    if(!framed.ok){
+                        this.msg = framed.msg;
+                        this.msgErr = true;
+                        this.capturing = false;
+                        return;
+                    }
                     // Cek dahi/rahang tertutup (mis. hijab) + coba cerahkan lokal dulu sebelum menolak.
                     const occ = this.checkOcclusion(this._ecv, this._ectx, face.box);
                     if(!occ.forehead || !occ.jaw){
@@ -318,14 +346,39 @@ function faceEnrollGuru(){
                         return;
                     }
                     if(occ.boosted){
-                        const res2 = await humanGuru.detect(this._ecv);
+                        const res2 = this.faceEngine === 'insightface' ? await ifDetect(this._ecv) : await humanGuru.detect(this._ecv);
                         const face2 = (res2.face||[])[0];
                         if(face2 && face2.embedding) face = face2;
                     }
+                    // Yaw & pitch BERTANDA — lihat komentar sama di wajah.blade.php.
+                    let signedYaw, signedPitch;
+                    if(face.kps && face.kps.length >= 5){
+                        const [le, re, nose, lm, rm] = face.kps;
+                        const midX = (le[0]+re[0])/2;
+                        const eyeDist = Math.abs(re[0]-le[0]) || 1;
+                        signedYaw = (nose[0]-midX) / eyeDist;
+                        const eyeLineY = (le[1]+re[1])/2, mouthLineY = (lm[1]+rm[1])/2;
+                        const faceH = Math.abs(mouthLineY-eyeLineY) || 1;
+                        signedPitch = ((nose[1]-eyeLineY)/faceH) - 0.55;
+                    } else {
+                        signedYaw = face.rotation?.angle?.yaw ?? 0;
+                        signedPitch = face.rotation?.angle?.pitch ?? 0;
+                    }
+                    // Paksa variasi sudut — lihat komentar sama di wajah.blade.php.
+                    const zone = this.classifyAngle(signedYaw, signedPitch);
+                    if((this.zoneCounts[zone]||0) >= 1){
+                        this.msg = 'Sudah dapat sampel dari sisi ' + this.zoneLabel(zone) + '. Ganti pose ke sisi lain sebelum ambil sampel berikutnya.';
+                        this.msgErr = true;
+                        this.capturing = false;
+                        return;
+                    }
                     this.samples.push(Array.from(face.embedding));
-                    const yaw = Math.abs(face.rotation?.angle?.yaw ?? 0);
-                    if(face.box && yaw < this._bestYaw){ this.photo = this.cropFace(face.box, this._ecv); this._bestYaw = yaw; }
-                    this.msg = 'Sampel ' + this.samples.length + ' tersimpan. ' + (this.samples.length<5 ? 'Ubah sudut/jarak sedikit lalu ambil lagi (target 5).' : 'Lengkap (5). Klik Simpan.');
+                    this.zoneCounts[zone] = (this.zoneCounts[zone]||0) + 1;
+                    // foto profil = pose paling menghadap depan (gabungan yaw+pitch terkecil)
+                    const frontalness = Math.hypot(signedYaw, signedPitch);
+                    if(face.box && frontalness < this._bestYaw){ this.photo = this.cropFace(face.box, this._ecv); this._bestYaw = frontalness; }
+                    const sisaZona = ANGLE_ZONES.filter(z => !this.zoneCounts[z]);
+                    this.msg = 'Sampel ' + this.samples.length + ' tersimpan. ' + (sisaZona.length ? ('Ambil juga dari sisi ' + sisaZona.map(z=>this.zoneLabel(z)).join(', ') + '.') : 'Lengkap (5). Klik Simpan.');
                     this.msgErr=false;
                 } else {
                     this.msg=quality.msg || 'Wajah tidak terdeteksi. Pastikan pencahayaan cukup & wajah menghadap kamera.';
@@ -336,6 +389,8 @@ function faceEnrollGuru(){
         },
         async save(force=false){
             if(this.samples.length < 3){ this.msg='Ambil minimal 3 sampel wajah dulu (disarankan 5).'; this.msgErr=true; return; }
+            const sisaZona = ANGLE_ZONES.filter(z => !this.zoneCounts[z]);
+            if(sisaZona.length){ this.msg='Variasi sudut belum lengkap. Ambil juga sampel dari sisi ' + sisaZona.map(z=>this.zoneLabel(z)).join(', ') + ' sebelum Simpan.'; this.msgErr=true; return; }
             this.saving=true;
             try {
                 const res = await fetch(`/guru/${this.uuid}/wajah`, {
@@ -375,7 +430,7 @@ function faceEnrollGuru(){
             if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
             this.streaming=false;
         }
-    }
+    });
 }
 </script>
 @endpush

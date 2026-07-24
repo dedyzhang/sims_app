@@ -273,10 +273,13 @@ class GuruController extends Controller
             'photo'         => 'nullable|string',
         ]);
 
-        // Deteksi wajah ganda: cocok dengan orang lain yang sudah terdaftar?
+        // Kolom & mesin descriptor tergantung Setting → Mesin Pengenalan Wajah yg AKTIF sekarang.
+        $descCol = \App\Support\FaceEngine::kolomDescriptor();
+
+        // Deteksi wajah ganda: cocok dengan orang lain yang sudah terdaftar (di mesin yg sama)?
         if (!$request->boolean('force')) {
-            $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $uuid);
-            if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::THRESHOLD) {
+            $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $uuid, $descCol);
+            if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::thresholdFor($descCol)) {
                 return response()->json([
                     'duplicate'  => true,
                     'nama'       => $dup['nama'],
@@ -289,8 +292,8 @@ class GuruController extends Controller
 
         $guru = Guru::findOrFail($uuid);
 
-        $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $guru->uuid);
-        if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::THRESHOLD) {
+        $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $guru->uuid, $descCol);
+        if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::thresholdFor($descCol)) {
             return response()->json([
                 'duplicate'  => true,
                 'nama'       => $dup['nama'],
@@ -300,17 +303,28 @@ class GuruController extends Controller
             ], 422);
         }
 
-        $guru->update([
-            'face_descriptor'    => $request->descriptors,
-            'face_registered_at' => now(),
-            'face_photo'         => \App\Support\FaceMatch::saveFromDataUrl($request->photo, $guru->uuid, $guru->face_photo),
-        ]);
+        $update = [$descCol => $request->descriptors];
+        // face_registered_at & foto profil dipakai bersama lintas mesin — jangan timpa kalau
+        // sudah pernah terisi dari registrasi sebelumnya (mis. via mesin lain), tapi TETAP isi
+        // kalau ini pendaftaran pertama guru ini, apa pun mesin yg sedang aktif (dulu hanya diisi
+        // saat $descCol==='face_descriptor', jadi guru yg daftar PERTAMA KALI langsung lewat
+        // InsightFace tak pernah dapat foto/tanggal sama sekali).
+        if ($descCol === 'face_descriptor' || empty($guru->face_registered_at)) {
+            $update['face_registered_at'] = now();
+            $update['face_photo'] = \App\Support\FaceMatch::saveFromDataUrl($request->photo, $guru->uuid, $guru->face_photo);
+        }
+        $guru->update($update);
         return response()->json(['success' => true, 'message' => 'Wajah ' . $guru->nama . ' terdaftar.']);
     }
 
     public function destroyFace(string $uuid)
     {
-        Guru::findOrFail($uuid)->update(['face_descriptor' => null, 'face_registered_at' => null]);
+        $descCol = \App\Support\FaceEngine::kolomDescriptor();
+        $update = [$descCol => null];
+        if ($descCol === 'face_descriptor') {
+            $update['face_registered_at'] = null;
+        }
+        Guru::findOrFail($uuid)->update($update);
         return response()->json(['success' => true, 'message' => 'Data wajah dihapus.']);
     }
 

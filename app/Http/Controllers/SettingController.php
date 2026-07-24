@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Aturan;
+use App\Models\Guru;
 use App\Models\Kelas;
 use App\Models\NilaiPenjabaran;
 use App\Models\Pelajaran;
@@ -10,6 +11,8 @@ use App\Models\PenjabaranKomponen;
 use App\Models\RolePermission;
 use App\Models\Semester;
 use App\Models\Setting;
+use App\Models\Siswa;
+use App\Support\FaceEngine;
 use App\Support\ModulAktif;
 use App\Support\Uploads;
 use Illuminate\Http\Request;
@@ -51,7 +54,16 @@ class SettingController extends Controller
         $settings = Setting::pluck('value', 'key');
         $aturans = Aturan::orderBy('kode')->get();
 
-        return view('setting.index', compact('semester', 'semesterAktif', 'kelas', 'pelajarans', 'settings', 'aturans'));
+        // Dipakai kartu "Reset Verifikasi Wajah Massal" — hitung siapa yg akan terdampak SEBELUM
+        // admin menekan tombol, supaya konfirmasi bukan cek buta.
+        $faceDescCol = FaceEngine::kolomDescriptor();
+        $siswaFaceTerdaftar = Siswa::whereNotNull($faceDescCol)->count();
+        $guruFaceTerdaftar = Guru::whereNotNull($faceDescCol)->count();
+
+        return view('setting.index', compact(
+            'semester', 'semesterAktif', 'kelas', 'pelajarans', 'settings', 'aturans',
+            'siswaFaceTerdaftar', 'guruFaceTerdaftar'
+        ));
     }
 
     public function updateSemester(Request $request)
@@ -271,6 +283,49 @@ class SettingController extends Controller
         Setting::set('scan_kiosk_mode', $request->scan_kiosk_mode);
 
         return back()->with('success', 'Mode kamera scan disimpan.');
+    }
+
+    /**
+     * Mesin pengenalan wajah: Human.js (default) atau InsightFace/ArcFace (percobaan).
+     * Data descriptor kedua mesin disimpan terpisah (face_descriptor vs face_descriptor_if)
+     * — pindah setting ini tidak pernah menghapus data, jadi aman dibalik kapan saja.
+     */
+    public function setFaceEngine(Request $request)
+    {
+        $request->validate(['face_engine' => 'required|in:' . implode(',', array_keys(\App\Support\FaceEngine::ENGINES))]);
+        Setting::set('face_engine', $request->face_engine);
+
+        return back()->with('success', 'Mesin pengenalan wajah disimpan.');
+    }
+
+    /**
+     * Reset massal SEMUA verifikasi wajah (siswa + guru) sekaligus, sekali klik — dipakai admin
+     * kalau perlu memaksa SEMUA orang daftar ulang wajah (mis. dicurigai ada data keliru/tercampur
+     * saat registrasi massal). Hanya kolom mesin yg SEDANG AKTIF yg direset — data mesin yg TIDAK
+     * aktif dibiarkan utuh, konsisten dgn prinsip reversibilitas di App\Support\FaceEngine (ganti
+     * setting mesin tidak pernah menghapus data mesin lain). Setelah direset, EnsureFaceRegistered
+     * otomatis mengarahkan semua orang ke halaman daftar wajah begitu mereka login/navigasi.
+     */
+    public function resetAllFaceVerification()
+    {
+        abort_unless(auth()->user()->canAccess('manage_settings'), 403);
+
+        $descCol = \App\Support\FaceEngine::kolomDescriptor();
+        $update = [$descCol => null];
+        if ($descCol === 'face_descriptor') {
+            // face_registered_at/face_photo cuma relevan utk kolom Human.js (lihat komentar sama
+            // di SiswaController/GuruController::storeFace) — direset bareng supaya konsisten.
+            $update['face_registered_at'] = null;
+        }
+
+        $siswaCount = Siswa::whereNotNull($descCol)->count();
+        $guruCount = Guru::whereNotNull($descCol)->count();
+        Siswa::whereNotNull($descCol)->update($update);
+        Guru::whereNotNull($descCol)->update($update);
+
+        $mesin = \App\Support\FaceEngine::ENGINES[\App\Support\FaceEngine::aktif()] ?? \App\Support\FaceEngine::aktif();
+
+        return back()->with('success', "Verifikasi wajah direset: {$siswaCount} siswa & {$guruCount} guru (mesin {$mesin}) — semua wajib daftar ulang wajah sebelum bisa lanjut memakai aplikasi.");
     }
 
     /** Buat/ganti token link kiosk absensi publik. Mengganti token otomatis mematikan link lama. */

@@ -2,7 +2,15 @@
 @section('title', 'Presensi Saya')
 
 @section('content')
-@php $hasFace = !empty($guru->face_descriptor); @endphp
+@php
+    // Verifikasi wajah izin pulang di halaman ini masih 100% Human.js (kamera & pencocokan di
+    // bawah belum ditambah dukungan InsightFace, beda dari halaman registrasi/kios utama) — kalau
+    // mesin aktif skrg InsightFace, TETAP cek kolom Human.js saja drpd asal ikut kolom aktif:
+    // kamera di sini menangkap embedding Human.js, jadi membandingkannya ke data InsightFace
+    // tersimpan pasti gagal terus (beda ruang embedding sepenuhnya, bukan cuma beda skala ambang).
+    $insightFaceActive = \App\Support\FaceEngine::isInsightFace();
+    $hasFace = !$insightFaceActive && !empty($guru->face_descriptor);
+@endphp
 @php
     // Metode default saat KEDUA jalur tersedia (cara_absensi_guru = 'keduanya'): utamakan
     // wajah kalau sudah terdaftar (lebih cepat, tak perlu GPS), kalau belum fallback ke QR.
@@ -129,7 +137,11 @@
             <div x-show="metodeIzin==='wajah'" x-data="izinPulang({{ json_encode($hasFace) }})" class="space-y-3">
                 {{-- ===== Jalur Wajah (metode absensi aktif = Scan Wajah / keduanya) ===== --}}
                 @if(!$hasFace)
-                <p class="text-sm text-slate-500 dark:text-slate-400">Wajah Anda belum terdaftar, jadi izin pulang lewat kamera belum bisa dipakai. <a href="{{ route('face.self', ['ulang' => 1]) }}" class="text-primary font-semibold hover:underline">Daftarkan wajah</a> dulu.</p>
+                    @if($insightFaceActive)
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Verifikasi wajah izin pulang di halaman ini belum mendukung mesin InsightFace yg sedang aktif (Setting → Mesin Pengenalan Wajah). Pakai jalur QR, atau hubungi admin.</p>
+                    @else
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Wajah Anda belum terdaftar, jadi izin pulang lewat kamera belum bisa dipakai. <a href="{{ route('face.self', ['ulang' => 1]) }}" class="text-primary font-semibold hover:underline">Daftarkan wajah</a> dulu.</p>
+                    @endif
                 @else
                 <template x-if="!verified">
                     <div class="space-y-3">

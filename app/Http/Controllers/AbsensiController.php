@@ -200,14 +200,16 @@ class AbsensiController extends Controller
         $siswas = $selectedKelas
             ? Siswa::where('id_kelas', $selectedKelas)->orderBy('nama')->get()
             : collect();
-        return view('absensi.wajah', compact('kelasList', 'selectedKelas', 'siswas', 'walikelasKelas'));
+        $faceEngine = \App\Support\FaceEngine::aktif();
+        return view('absensi.wajah', compact('kelasList', 'selectedKelas', 'siswas', 'walikelasKelas', 'faceEngine'));
     }
 
     /** Halaman registrasi wajah guru */
     public function wajahGuru()
     {
         $gurus = Guru::orderBy('nama')->get();
-        return view('absensi.wajah-guru', compact('gurus'));
+        $faceEngine = \App\Support\FaceEngine::aktif();
+        return view('absensi.wajah-guru', compact('gurus', 'faceEngine'));
     }
 
     /** Halaman scan absensi via kamera — mode kiosk; filter kelas opsional untuk gallery lebih kecil */
@@ -223,10 +225,15 @@ class AbsensiController extends Controller
             $scanKioskMode = 'keduanya';
         }
 
+        // Kolom descriptor yg dipakai tergantung mesin pengenalan wajah yg aktif (Setting →
+        // Mesin Pengenalan Wajah) — Human.js pakai face_descriptor, InsightFace pakai kolom
+        // TERPISAH face_descriptor_if (lihat App\Support\FaceEngine).
+        $descCol = \App\Support\FaceEngine::kolomDescriptor();
+
         // Mode wajah saja: hanya siswa yang sudah daftar wajah (filter kelas di UI JS).
         // Mode dengan QR: SEMUA siswa — kartu pelajar berlaku juga untuk yang belum daftar wajah.
         $siswas = Siswa::with('kelas')
-            ->when($scanKioskMode === 'wajah', fn ($q) => $q->whereNotNull('face_descriptor'))
+            ->when($scanKioskMode === 'wajah', fn ($q) => $q->whereNotNull($descCol))
             ->orderBy('nama')
             ->get()
             ->sortBy(fn ($s) => sprintf('%s%s %s', $s->kelas?->tingkat, $s->kelas?->kelas, $s->nama))
@@ -235,8 +242,8 @@ class AbsensiController extends Controller
         $existingSiswa = Absensi::whereIn('id_siswa', $siswas->pluck('uuid'))
             ->whereDate('tanggal', $tanggal)->get()->keyBy('id_siswa');
 
-        // Semua guru yang SUDAH daftar wajah
-        $gurus = Guru::whereNotNull('face_descriptor')
+        // Semua guru yang SUDAH daftar wajah (utk mesin yg sedang aktif)
+        $gurus = Guru::whereNotNull($descCol)
             ->orderBy('nama')
             ->get();
 
@@ -254,7 +261,7 @@ class AbsensiController extends Controller
             'kelas'    => $s->kelas ? $s->kelas->tingkat.$s->kelas->kelas : '-',
             'id_kelas' => $s->id_kelas,
             // Mode QR saja: descriptor tidak dipakai — jangan kirim (payload jauh lebih ringan).
-            'desc'     => $scanKioskMode === 'qr' ? [] : $s->face_descriptor,
+            'desc'     => $scanKioskMode === 'qr' ? [] : $s->{$descCol},
             'status'   => $existingSiswa->get($s->uuid)?->status,
             'jam_masuk'=> substr($existingSiswa->get($s->uuid)?->jam_masuk, 0, 5),
         ]);
@@ -265,7 +272,7 @@ class AbsensiController extends Controller
             'nama'       => $g->nama,
             'jk'         => $g->jk,
             // QR kartu hanya untuk siswa — di mode QR saja, guru tidak bisa scan di halaman ini.
-            'desc'       => $scanKioskMode === 'qr' ? [] : $g->face_descriptor,
+            'desc'       => $scanKioskMode === 'qr' ? [] : $g->{$descCol},
             'nip'        => $g->nip ?: $g->nik,
             'status'     => $existingGuru->get($g->uuid)?->status,
             'pulangDone' => (bool) ($existingGuru->get($g->uuid)?->jam_pulang),

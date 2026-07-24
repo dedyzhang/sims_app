@@ -2,7 +2,7 @@
 @section('title', 'Daftar Wajah')
 
 @section('content')
-<div class="max-w-3xl mx-auto" x-data="selfEnroll()" @keydown.space.window="onSpace($event)">
+<div class="max-w-3xl mx-auto" x-data="selfEnroll(@js(['faceEngine' => $faceEngine]))" @keydown.space.window="onSpace($event)">
 
     <div class="card overflow-hidden">
         {{-- Header --}}
@@ -45,6 +45,15 @@
                         <i data-lucide="sun" class="w-3.5 h-3.5"></i> Pencahayaan rendah — kecerahan otomatis aktif
                     </div>
                 </div>
+                {{-- Variasi sudut wajib: 5 zona (tengah/kiri/kanan/atas/bawah) harus lengkap sebelum bisa disimpan --}}
+                <div x-show="streaming" class="flex flex-wrap items-center justify-center gap-1.5 text-xs font-semibold">
+                    <template x-for="z in ANGLE_ZONES" :key="z">
+                        <span class="px-2.5 py-1 rounded-full border transition"
+                              :class="zoneCounts[z]>0 ? 'bg-emerald-50 border-emerald-300 text-emerald-600 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300' : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-600'">
+                            <span x-text="(zoneCounts[z]>0 ? '✓ ' : '') + zoneLabel(z)"></span>
+                        </span>
+                    </template>
+                </div>
                 <p class="text-center text-sm" :class="msgErr ? 'text-rose-500' : 'text-slate-500'" x-text="msg"></p>
 
                 <div class="flex gap-2">
@@ -56,7 +65,7 @@
                         <kbd class="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded bg-primary-50 border border-primary/30">Spasi</kbd>
                     </button>
                 </div>
-                <button x-show="streaming" @click="save()" :disabled="samples.length<3 || saving" class="btn-primary w-full px-5 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40">
+                <button x-show="streaming" @click="save()" :disabled="samples.length<3 || saving || Object.values(zoneCounts).some(n => !n)" class="btn-primary w-full px-5 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40">
                     <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="saving"></i>
                     <i data-lucide="check" class="w-4 h-4" x-show="!saving"></i>
                     <span x-text="saving ? 'Menyimpan...' : 'Simpan & Lanjutkan'"></span>
@@ -87,7 +96,12 @@
 </div>
 
 @push('scripts')
+@if(\App\Support\FaceEngine::isInsightFace())
+@include('absensi._insightface_engine')
+@else
 <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/dist/human.js"></script>
+@endif
+@include('absensi._face_enroll_shared')
 <script>
 let human=null, humanReady=false;
 async function loadHuman(){
@@ -107,9 +121,11 @@ async function loadHuman(){
     return human;
 }
 
-function selfEnroll(){
-    return {
+function selfEnroll(opts){
+    opts = opts || {};
+    return Object.assign(faceEnrollShared(), {
         loading:false, streaming:false, capturing:false, saving:false, lowLight:false,
+        faceEngine: opts.faceEngine || 'human',
         samples:[], photo:null, _bestYaw:Infinity, stream:null, status:'Klik "Nyalakan Kamera" untuk memulai', msg:'', msgErr:false,
 
         // Pencerahan otomatis: gambar video digambar ke kanvas offscreen, dicerahkan bila gelap,
@@ -230,10 +246,13 @@ function selfEnroll(){
                 this.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} } });
                 this.$refs.video.srcObject = this.stream;
                 this.streaming=true;
-                await loadHuman();
+                if(this.faceEngine === 'insightface') await loadInsightFace(); else await loadHuman();
                 // Warm-up: kompilasi shader GPU sekali (saat loading) agar capture pertama tak nge-lag
                 this.status='Menyiapkan model (sekali saja)...';
-                try { const cv=document.createElement('canvas'); cv.width=256; cv.height=256; cv.getContext('2d').fillRect(0,0,256,256); await human.detect(cv); } catch(e){}
+                try {
+                    const cv=document.createElement('canvas'); cv.width=256; cv.height=256; cv.getContext('2d').fillRect(0,0,256,256);
+                    if(this.faceEngine === 'insightface') await ifDetect(cv); else await human.detect(cv);
+                } catch(e){}
                 this.loading=false;
                 this.msg='Ikuti panduan, lalu tekan Spasi / klik Ambil Sampel.';
                 setTimeout(()=> window.lucide && lucide.createIcons(), 40);
@@ -253,10 +272,18 @@ function selfEnroll(){
             this.capturing=true; this.msg='Mendeteksi wajah...'; this.msgErr=false;
             try {
                 const frame = this.enhanceFrame(this.$refs.video); // pencerahan otomatis sebelum deteksi (aman di tempat gelap)
-                const res = await human.detect(frame);
+                const res = this.faceEngine === 'insightface' ? await ifDetect(frame) : await human.detect(frame);
                 let face = (res.face||[])[0];
                 const quality = this.faceQuality(face);
                 if(quality.ok){
+                    // Cek wajah di dalam lingkaran panduan (posisi & jarak) SEBELUM cek lain.
+                    const framed = this.checkFramed(face, this.$refs.video);
+                    if(!framed.ok){
+                        this.msg = framed.msg;
+                        this.msgErr = true;
+                        this.capturing = false;
+                        return;
+                    }
                     // Cek dahi/rahang tertutup (mis. hijab) + coba cerahkan lokal dulu sebelum menolak.
                     const occ = this.checkOcclusion(this._ecv, this._ectx, face.box);
                     if(!occ.forehead || !occ.jaw){
@@ -270,15 +297,39 @@ function selfEnroll(){
                     // Kalau tadi dicerahkan lokal, deteksi ulang di kanvas yg sudah diperbaiki agar
                     // embedding yg dipakai adalah versi kualitas terbaik, bukan versi sebelum dicerahkan.
                     if(occ.boosted){
-                        const res2 = await human.detect(this._ecv);
+                        const res2 = this.faceEngine === 'insightface' ? await ifDetect(this._ecv) : await human.detect(this._ecv);
                         const face2 = (res2.face||[])[0];
                         if(face2 && face2.embedding) face = face2;
                     }
+                    // Yaw & pitch BERTANDA — lihat komentar sama di absensi/wajah.blade.php.
+                    let signedYaw, signedPitch;
+                    if(face.kps && face.kps.length >= 5){
+                        const [le, re, nose, lm, rm] = face.kps;
+                        const midX = (le[0]+re[0])/2;
+                        const eyeDist = Math.abs(re[0]-le[0]) || 1;
+                        signedYaw = (nose[0]-midX) / eyeDist;
+                        const eyeLineY = (le[1]+re[1])/2, mouthLineY = (lm[1]+rm[1])/2;
+                        const faceH = Math.abs(mouthLineY-eyeLineY) || 1;
+                        signedPitch = ((nose[1]-eyeLineY)/faceH) - 0.55;
+                    } else {
+                        signedYaw = face.rotation?.angle?.yaw ?? 0;
+                        signedPitch = face.rotation?.angle?.pitch ?? 0;
+                    }
+                    // Paksa variasi sudut — lihat komentar sama di absensi/wajah.blade.php.
+                    const zone = this.classifyAngle(signedYaw, signedPitch);
+                    if((this.zoneCounts[zone]||0) >= 1){
+                        this.msg = 'Sudah dapat sampel dari sisi ' + this.zoneLabel(zone) + '. Ganti pose ke sisi lain sebelum ambil sampel berikutnya.';
+                        this.msgErr = true;
+                        this.capturing = false;
+                        return;
+                    }
                     this.samples.push(Array.from(face.embedding));
-                    // simpan snapshot HANYA dari pose paling menghadap depan (yaw terkecil)
-                    const yaw = Math.abs(face.rotation?.angle?.yaw ?? 0);
-                    if(face.box && yaw < this._bestYaw){ this.photo = this.cropFace(face.box, this._ecv); this._bestYaw = yaw; }
-                    this.msg = 'Sampel ' + this.samples.length + ' tersimpan. ' + (this.samples.length<5 ? 'Ubah posisi/jarak sedikit & ambil lagi (target 5).' : 'Lengkap (5)! Klik Simpan & Lanjutkan.');
+                    this.zoneCounts[zone] = (this.zoneCounts[zone]||0) + 1;
+                    // simpan snapshot HANYA dari pose paling menghadap depan (gabungan yaw+pitch terkecil)
+                    const frontalness = Math.hypot(signedYaw, signedPitch);
+                    if(face.box && frontalness < this._bestYaw){ this.photo = this.cropFace(face.box, this._ecv); this._bestYaw = frontalness; }
+                    const sisaZona = ANGLE_ZONES.filter(z => !this.zoneCounts[z]);
+                    this.msg = 'Sampel ' + this.samples.length + ' tersimpan. ' + (sisaZona.length ? ('Ambil juga dari sisi ' + sisaZona.map(z=>this.zoneLabel(z)).join(', ') + '.') : 'Lengkap (5)! Klik Simpan & Lanjutkan.');
                 } else {
                     this.msg=quality.msg || 'Wajah tidak terdeteksi. Perbaiki posisi & pencahayaan.'; this.msgErr=true;
                 }
@@ -287,6 +338,8 @@ function selfEnroll(){
         },
         async save(){
             if(this.samples.length < 3){ this.msg='Ambil minimal 3 sampel wajah dulu (disarankan 5).'; this.msgErr=true; return; }
+            const sisaZona = ANGLE_ZONES.filter(z => !this.zoneCounts[z]);
+            if(sisaZona.length){ this.msg='Variasi sudut belum lengkap. Ambil juga sampel dari sisi ' + sisaZona.map(z=>this.zoneLabel(z)).join(', ') + ' sebelum Simpan.'; this.msgErr=true; return; }
             this.saving=true;
             try {
                 const res = await fetch('{{ route('face.self.store') }}', {
@@ -311,7 +364,7 @@ function selfEnroll(){
                 showToast('Gagal menyimpan, coba lagi','error'); this.saving=false;
             } catch { showToast('Gagal menghubungi server','error'); this.saving=false; }
         }
-    }
+    });
 }
 </script>
 @endpush

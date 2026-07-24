@@ -81,7 +81,7 @@
                             @if($row?->jam_masuk)<span class="{{ $row->terlambat($batas) ? 'text-rose-500' : 'text-emerald-500' }} flex items-center gap-0.5" title="Jam masuk"><i data-lucide="log-in" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::of($row->jam_masuk)->substr(0,5) }}</span>@endif
                             @if($row?->jam_pulang)<span class="text-slate-500 flex items-center gap-0.5" title="Jam pulang"><i data-lucide="log-out" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::of($row->jam_pulang)->substr(0,5) }}</span>@endif
                             @if($row && $row->terlambat($batas))<span class="badge bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300 font-semibold">Terlambat</span>@endif
-                            @if(!$g->face_descriptor)<span class="text-amber-500">⚠ belum daftar wajah</span>@endif
+                            @if(!$g->active_face_descriptor)<span class="text-amber-500">⚠ belum daftar wajah</span>@endif
                         </p>
                     </div>
                     <div class="flex items-center gap-1.5 flex-shrink-0 w-full sm:w-auto sm:justify-end mt-2 sm:mt-0 pl-[68px] sm:pl-0">

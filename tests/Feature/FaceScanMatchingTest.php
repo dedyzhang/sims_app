@@ -138,19 +138,31 @@ class FaceScanMatchingTest extends TestCase
 
     public function test_guru_tetap_bisa_dikenali_utk_pulang_setelah_absen_masuk(): void
     {
-        // Regresi konkret dilaporkan user: guru yg sudah absen MASUK (s.marked=true) jadi tak
-        // pernah dikenali kamera LAGI walau kiosk sudah dipindah ke mode Pulang — krn isFaceLocked()
+        // Regresi konkret dilaporkan user (round 1): guru yg sudah absen MASUK (s.marked=true) jadi
+        // tak pernah dikenali kamera LAGI walau kiosk sudah dipindah ke mode Pulang — krn isFaceLocked()
         // dan awal onMatch() dulu sama2 mengunci berdasar s.marked TANPA peduli scanMode saat ini.
-        // Alur yg benar: guru dikenali SEKALI utk masuk, lalu (setelah kiosk pindah mode) dikenali
-        // SEKALI LAGI utk pulang — dikunci lagi hanya setelah pulangMarked true.
+        // Fix pertama: buat isFaceLocked()/onMatch() sadar scanMode.
+        //
+        // Regresi lanjutan (round 2, dilaporkan lagi): kiosk tak dijaga terus — operator sering lupa
+        // pindah toggle ke "Mode Pulang" di siang/sore hari, jadi guru yg mau pulang TETAP tak pernah
+        // terbaca krn kiosk masih dianggap "Mode Masuk" (s.marked sudah true dari pagi → terkunci).
+        // Fix final: mode masuk/pulang guru via wajah DIDETEKSI OTOMATIS per orang dari status
+        // s.marked/s.pulangMarked-nya sendiri — sama sekali tak bergantung toggle scanMode manual lagi.
+        // Toggle scanMode kini HANYA dipakai utk Kartu ID (barcode/QR).
         $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
 
-        $this->assertStringContainsString("if(this.scanMode==='pulang') return s.type!=='guru' || !!s.pulangMarked;", $source);
-        $this->assertStringContainsString('return !!(s.marked || s.pulangMarked);', $source);
-        // onMatch() tak lagi mengecek s.marked/s.pulangMarked tanpa peduli mode di gerbang paling atas.
+        // isFaceLocked(): guru terkunci hanya kalau masuk DAN pulang sudah dua-duanya tercatat.
+        $this->assertStringContainsString("if(s.type==='guru') return !!(s.marked && s.pulangMarked);", $source);
+        $this->assertStringContainsString('return !!s.marked;', $source);
+        // Behavior lama (bergantung scanMode utk kunci) harus sudah hilang.
+        $this->assertStringNotContainsString("if(this.scanMode==='pulang') return s.type!=='guru' || !!s.pulangMarked;", $source);
+
+        // onMatch(): mode ditentukan dari status guru sendiri, bukan this.scanMode.
+        $this->assertStringContainsString("const mode = s.marked ? 'pulang' : 'masuk';", $source);
+        $this->assertStringNotContainsString("if(this.scanMode==='pulang'){", $source);
         $this->assertStringContainsString('if(s._masukBusy || s._pulangBusy) return;', $source);
-        $this->assertStringNotContainsString('if(this.isFaceLocked(uuid) && (s.marked || s.pulangMarked || s._masukBusy || s._pulangBusy)) return;', $source);
-        // Ganti mode mereset streak supaya deteksi ulang (grup yg baru terbuka kuncinya) responsif.
+
+        // Toggle Kartu ID tetap ada (masih dipakai barcode/QR) & tetap reset streak saat diganti.
         $this->assertStringContainsString("@click=\"scanMode='masuk'; _streak={}\"", $source);
         $this->assertStringContainsString("@click=\"scanMode='pulang'; _streak={}\"", $source);
     }
