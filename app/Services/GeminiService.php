@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Exceptions\AiDailyQuotaExhaustedException;
 use App\Exceptions\AiProviderUnavailableException;
+use App\Exceptions\AiRateLimitedException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Arr;
@@ -81,9 +83,14 @@ class GeminiService
      */
     public function generate(string $prompt, array $options = []): array
     {
-        // Key pribadi guru (opsi eksplisit): selalu lewat Gemini langsung, tanpa fallback sekolah.
+        // Key guru (opsi api_key): Gemini dulu dengan key guru; kuota harian habis
+        // → barulah key sekolah. Key invalid / error non-kuota TIDAK diganti sekolah.
         if (trim((string) ($options['api_key'] ?? '')) !== '') {
-            return $this->generateGemini($prompt, $options);
+            return $this->withGeminiKeyFallback(
+                $options,
+                fn (array $keyOptions) => $this->generateGemini($prompt, $keyOptions),
+                'generate',
+            );
         }
 
         if (! in_array($this->provider(), self::SUPPORTED_PROVIDERS, true)) {
@@ -134,6 +141,23 @@ class GeminiService
      */
     public function generateImage(string $prompt, array $options = []): array
     {
+        // Sama seperti generate teks: key guru dulu, sekolah hanya saat kuota harian guru habis.
+        if (trim((string) ($options['api_key'] ?? '')) !== '') {
+            return $this->withGeminiKeyFallback(
+                $options,
+                fn (array $keyOptions) => $this->generateImageWithResolvedKey($prompt, $keyOptions),
+                'generateImage',
+            );
+        }
+
+        return $this->generateImageWithResolvedKey($prompt, $options);
+    }
+
+    /**
+     * @return array{binary:string,mime:string,model:string,prompt_tokens:int,completion_tokens:int}
+     */
+    private function generateImageWithResolvedKey(string $prompt, array $options = []): array
+    {
         $apiKey = $this->resolveApiKey($options);
         if ($apiKey === '') {
             throw new RuntimeException('Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).');
@@ -149,6 +173,8 @@ class GeminiService
         }
 
         $lastError = null;
+        $had429 = false;
+        $allModelsHitDailyQuota = true;
         $body = [
             'contents' => [[
                 'role' => 'user',
@@ -177,6 +203,7 @@ class GeminiService
                     ->post(rtrim((string) config('ai.base_url'), '/')."/models/{$model}:generateContent", $body);
             } catch (\Throwable $e) {
                 $lastError = 'Gagal menghubungi layanan generate gambar AI.';
+                $allModelsHitDailyQuota = false;
 
                 continue;
             }
@@ -186,18 +213,28 @@ class GeminiService
             }
 
             if ($response->status() === 429) {
-                $lastError = $this->normalizeError(429, $response->json());
+                $json = $response->json();
+                $had429 = true;
+                $lastError = $this->normalizeError(429, $json);
+                $allModelsHitDailyQuota = $allModelsHitDailyQuota && $this->isDailyQuotaError($json);
 
                 continue;
             }
 
             if ($response->status() >= 500) {
                 $lastError = $this->normalizeError($response->status(), $response->json());
+                $allModelsHitDailyQuota = false;
 
                 continue;
             }
 
             throw new RuntimeException($this->normalizeError($response->status(), $response->json()));
+        }
+
+        if ($this->freeTierOnly() && $had429 && $allModelsHitDailyQuota) {
+            $this->rememberFreeTierQuotaExhausted($models, $apiKey);
+
+            throw new AiDailyQuotaExhaustedException($this->freeTierQuotaMessage());
         }
 
         throw new AiProviderUnavailableException($lastError ?? 'Gagal menghasilkan gambar soal.');
@@ -295,6 +332,77 @@ class GeminiService
         $fromOptions = trim((string) ($options['api_key'] ?? ''));
 
         return $fromOptions !== '' ? $fromOptions : trim((string) config('ai.api_key'));
+    }
+
+    /**
+     * Urutan key Gemini: key preferensi (guru) dulu, lalu key sekolah bila berbeda.
+     * Dipakai HANYA untuk fallback kuota harian — error lain tidak berpindah key.
+     *
+     * @return list<string>
+     */
+    private function geminiApiKeyChain(array $options = []): array
+    {
+        $preferred = trim((string) ($options['api_key'] ?? ''));
+        $school = trim((string) config('ai.api_key'));
+        $keys = [];
+
+        if ($preferred !== '') {
+            $keys[] = $preferred;
+        }
+        if ($school !== '' && $school !== $preferred) {
+            $keys[] = $school;
+        }
+
+        return $keys;
+    }
+
+    /**
+     * Coba key berurutan (guru → sekolah) hanya saat kuota harian Gemini habis.
+     *
+     * @template T
+     * @param  callable(array):T  $attempt  menerima options dengan api_key terisi
+     * @return T
+     */
+    private function withGeminiKeyFallback(array $options, callable $attempt, string $operation)
+    {
+        $keys = $this->geminiApiKeyChain($options);
+        if ($keys === []) {
+            throw new RuntimeException('Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).');
+        }
+
+        $lastDaily = null;
+
+        foreach ($keys as $index => $key) {
+            $keyOptions = array_merge($options, ['api_key' => $key]);
+
+            try {
+                $result = $attempt($keyOptions);
+
+                if ($index > 0) {
+                    Log::info('AI memakai key sekolah setelah kuota key guru habis.', [
+                        'operation' => $operation,
+                    ]);
+                    // Hanya tempel flag di hasil generate (assoc); jangan rusak vektor embed (list float).
+                    if (is_array($result) && array_key_exists('text', $result)) {
+                        $result['used_school_key'] = true;
+                    }
+                    if (is_array($result) && array_key_exists('binary', $result)) {
+                        $result['used_school_key'] = true;
+                    }
+                }
+
+                return $result;
+            } catch (AiDailyQuotaExhaustedException $e) {
+                $lastDaily = $e;
+                Log::info('Kuota harian key Gemini habis, mencoba key berikutnya bila ada.', [
+                    'operation' => $operation,
+                    'key_index' => $index,
+                    'has_next' => isset($keys[$index + 1]),
+                ]);
+            }
+        }
+
+        throw $lastDaily ?? new AiDailyQuotaExhaustedException($this->freeTierQuotaMessage());
     }
 
     /** Gabungkan kegagalan tiap provider jadi satu pesan yang jujur untuk guru. */
@@ -401,7 +509,8 @@ class GeminiService
         if ($this->freeTierOnly() && $lastQuotaError !== null && $allModelsHitDailyQuota) {
             $this->rememberFreeTierQuotaExhausted($modelChain, $apiKey);
 
-            throw new AiProviderUnavailableException($this->freeTierQuotaMessage());
+            // Exception khusus agar pemanggil bisa ganti key guru → sekolah.
+            throw new AiDailyQuotaExhaustedException($this->freeTierQuotaMessage());
         }
 
         throw new AiProviderUnavailableException($lastQuotaError ?? 'Terjadi kesalahan saat memproses permintaan AI.');
@@ -1081,7 +1190,7 @@ class GeminiService
             return;
         }
 
-        throw new AiProviderUnavailableException($this->freeTierQuotaMessage((string) $resetAt));
+        throw new AiDailyQuotaExhaustedException($this->freeTierQuotaMessage((string) $resetAt));
     }
 
     /** @param string[] $modelChain */
@@ -1104,10 +1213,47 @@ class GeminiService
         return 'ai:gemini:free-tier-quota-exhausted:'.sha1($key.'|'.implode('|', $modelChain));
     }
 
-    private function nextFreeTierResetAt(): Carbon
+    public function nextFreeTierResetAt(): Carbon
     {
         // Google menyebut RPD reset tengah malam Pacific time.
         return now('America/Los_Angeles')->addDay()->startOfDay();
+    }
+
+    /**
+     * Kapan kuota embedding harian terbuka lagi — null bila belum tercatat habis.
+     * Dipakai ingest untuk menjadwalkan lanjutan, dan UI untuk memberi tahu guru.
+     */
+    /**
+     * Kapan kuota embedding terbuka lagi untuk rantai key yang diberikan.
+     * Tanpa preferred key: cek key sekolah. Dengan preferred (guru): null selama
+     * masih ada key (guru ATAU sekolah) yang belum tercatat habis.
+     *
+     * @param  array{api_key?:string}  $options
+     */
+    public function embedQuotaResetAt(array $options = []): ?Carbon
+    {
+        if (! $this->freeTierOnly()) {
+            return null;
+        }
+
+        $modelChain = [(string) config('ai.rag.embed_model')];
+        $keys = $this->geminiApiKeyChain($options);
+        if ($keys === []) {
+            return null;
+        }
+
+        // Hanya anggap "habis" bila SEMUA key di rantai tercatat exhausted.
+        $latest = null;
+        foreach ($keys as $key) {
+            $resetAt = Cache::get($this->freeTierQuotaCacheKey($modelChain, $key));
+            if (! $resetAt) {
+                return null;
+            }
+            $parsed = Carbon::parse((string) $resetAt);
+            $latest = $latest === null || $parsed->gt($latest) ? $parsed : $latest;
+        }
+
+        return $latest;
     }
 
     private function freeTierQuotaMessage(?string $resetAt = null): string
@@ -1137,28 +1283,77 @@ class GeminiService
     /**
      * Hasilkan vektor embedding untuk satu teks (FASE 5 — RAG).
      *
+     * Opsi `api_key` (key guru) dicoba dulu; kuota harian habis → key sekolah.
+     * Tanpa opsi: hanya key sekolah.
+     *
      * @return float[] Vektor embedding.
      */
-    public function embed(string $text): array
+    public function embed(string $text, array $options = []): array
     {
-        if (empty(config('ai.api_key'))) {
+        return $this->withGeminiKeyFallback(
+            $options,
+            fn (array $keyOptions) => $this->embedWithResolvedKey($text, $keyOptions),
+            'embed',
+        );
+    }
+
+    /**
+     * @return float[]
+     */
+    private function embedWithResolvedKey(string $text, array $options = []): array
+    {
+        $apiKey = $this->resolveApiKey($options);
+        if ($apiKey === '') {
             throw new RuntimeException('Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).');
         }
 
         $model = config('ai.rag.embed_model');
         $url = rtrim(config('ai.base_url'), '/')."/models/{$model}:embedContent";
 
+        // Embedding memakai jatah harian free tier yang sama seperti generate, jadi ia
+        // wajib tunduk pada penjagaan kuota yang sama. Tanpa ini, ingest dokumen panjang
+        // akan terus memukul API yang sudah pasti menolak sampai reset tengah malam.
+        $modelChain = [$model];
+        $this->ensureFreeTierQuotaIsOpen($modelChain, $apiKey);
+
         try {
             $response = Http::timeout(config('ai.timeout'))
-                ->retry(config('ai.retries'), config('ai.retry_delay'), throw: false)
-                ->withQueryParameters(['key' => config('ai.api_key')])
+                // Sama seperti generateGemini: hanya kegagalan transien yang layak diulang.
+                // Mengulang 429 justru mempercepat kuota harian habis.
+                ->retry(
+                    config('ai.retries'),
+                    config('ai.retry_delay'),
+                    fn (\Throwable $e) => $this->isTransient($e),
+                    throw: false,
+                )
+                ->withQueryParameters(['key' => $apiKey])
                 ->acceptJson()
                 ->post($url, [
                     'model' => "models/{$model}",
                     'content' => ['parts' => [['text' => $text]]],
                 ]);
+        } catch (AiDailyQuotaExhaustedException|AiRateLimitedException $e) {
+            throw $e;
         } catch (\Throwable $e) {
-            throw new RuntimeException('Gagal menghubungi layanan embedding AI.');
+            throw new AiProviderUnavailableException('Gagal menghubungi layanan embedding AI.');
+        }
+
+        if ($response->status() === 429) {
+            $json = $response->json();
+
+            // Batas HARIAN: catat waktu reset supaya pemanggil (ingest) bisa berhenti rapi
+            // dan menjadwalkan lanjutan setelah midnight, bukan menganggapnya gagal permanen.
+            if ($this->freeTierOnly() && $this->isDailyQuotaError($json)) {
+                $this->rememberFreeTierQuotaExhausted($modelChain, $apiKey);
+
+                throw new AiDailyQuotaExhaustedException($this->freeTierQuotaMessage());
+            }
+
+            // Batas per-menit: penundaan singkat — jangan disamakan dengan kuota harian.
+            throw new AiRateLimitedException(
+                $this->normalizeError(429, $json),
+                retryAfterSeconds: 60,
+            );
         }
 
         if ($response->failed()) {
