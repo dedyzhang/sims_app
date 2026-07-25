@@ -134,6 +134,130 @@ class GeminiService
     }
 
     /**
+     * OCR / vision → teks dari satu atau beberapa gambar (foto halaman buku).
+     * Selalu lewat Gemini REST + key (pribadi guru bila api_key di opsi).
+     *
+     * @param  list<array{binary:string,mime:string}>  $images
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int}
+     */
+    public function visionText(array $images, array $options = []): array
+    {
+        $apiKey = $this->resolveApiKey($options);
+        if ($apiKey === '') {
+            throw new RuntimeException('Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).');
+        }
+
+        $parts = [];
+        foreach ($images as $index => $image) {
+            $binary = $image['binary'] ?? '';
+            $mime = strtolower(trim((string) ($image['mime'] ?? 'image/jpeg')));
+            if ($binary === '') {
+                continue;
+            }
+            if (! in_array($mime, ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'], true)) {
+                $mime = 'image/jpeg';
+            }
+            if ($mime === 'image/jpg') {
+                $mime = 'image/jpeg';
+            }
+            $parts[] = [
+                'inlineData' => [
+                    'mimeType' => $mime,
+                    'data' => base64_encode($binary),
+                ],
+            ];
+            if (count($images) > 1) {
+                $parts[] = ['text' => '[Halaman '.($index + 1).']'];
+            }
+        }
+
+        if ($parts === []) {
+            throw new RuntimeException('Tidak ada gambar valid untuk dibaca.');
+        }
+
+        $instruction = trim((string) ($options['prompt'] ?? ''));
+        if ($instruction === '') {
+            $instruction = 'Ekstrak SEMUA teks terbaca dari foto halaman buku/materi ajar berikut. '
+                .'Keluarkan teks polos Bahasa Indonesia (atau bahasa asli di halaman), urut dari atas ke bawah. '
+                .'Pertahankan nomor, judul, dan struktur paragraf. '
+                .'Jangan menerjemahkan kecuali teks campur dan perlu kejelasan. '
+                .'Jangan menambahkan penjelasan, markdown, atau komentar di luar isi halaman. '
+                .'Jika multi-halaman, awali tiap bagian dengan baris [Halaman n]. '
+                .'Jika gambar tidak terbaca/buram, tulis tepat: TIDAK_TERBACA';
+        }
+        $parts[] = ['text' => $instruction];
+
+        $modelChain = $this->modelChain($options);
+        $this->ensureFreeTierQuotaIsOpen($modelChain, $apiKey);
+
+        $system = trim(
+            (string) ($options['system'] ?? 'Anda adalah mesin OCR akurat untuk buku pelajaran sekolah Indonesia.')
+            ."\n\n".(string) config('ai.system_prompt')
+        );
+
+        $timeout = (int) ($options['timeout'] ?? config('ai.ocr.timeout', 60));
+        $lastQuotaError = null;
+        $allModelsHitDailyQuota = true;
+
+        foreach ($modelChain as $model) {
+            $body = [
+                'systemInstruction' => ['parts' => [['text' => $system]]],
+                'contents' => [[
+                    'role' => 'user',
+                    'parts' => $parts,
+                ]],
+                'generationConfig' => [
+                    'temperature' => $options['temperature'] ?? 0.1,
+                    'maxOutputTokens' => $options['max_output_tokens'] ?? max(2048, (int) config('ai.max_output_tokens', 1024)),
+                ],
+            ];
+
+            $this->extendExecutionTime($options + ['timeout' => $timeout]);
+
+            try {
+                $response = Http::timeout($timeout)
+                    ->retry(
+                        $options['retries'] ?? 1,
+                        config('ai.retry_delay'),
+                        fn (\Throwable $e) => $this->isTransient($e),
+                        throw: false,
+                    )
+                    ->withQueryParameters(['key' => $apiKey])
+                    ->acceptJson()
+                    ->post(rtrim((string) config('ai.base_url'), '/')."/models/{$model}:generateContent", $body);
+            } catch (\Throwable) {
+                throw new AiProviderUnavailableException('Gagal menghubungi layanan AI untuk membaca foto. Coba lagi.');
+            }
+
+            if ($response->successful()) {
+                return $this->parse($response->json(), $model);
+            }
+
+            if ($response->status() === 429) {
+                $json = $response->json();
+                $lastQuotaError = $this->normalizeError(429, $json);
+                $allModelsHitDailyQuota = $allModelsHitDailyQuota && $this->isDailyQuotaError($json);
+
+                continue;
+            }
+
+            if ($response->status() >= 500) {
+                throw new AiProviderUnavailableException($this->normalizeError($response->status(), $response->json()));
+            }
+
+            throw new RuntimeException($this->normalizeError($response->status(), $response->json()));
+        }
+
+        if ($this->freeTierOnly() && $lastQuotaError !== null && $allModelsHitDailyQuota) {
+            $this->rememberFreeTierQuotaExhausted($modelChain, $apiKey);
+
+            throw new AiProviderUnavailableException($this->freeTierQuotaMessage());
+        }
+
+        throw new AiProviderUnavailableException($lastQuotaError ?? 'Gagal membaca teks dari foto.');
+    }
+
+    /**
      * Hasilkan satu gambar via model Gemini image-capable (responseModalities IMAGE).
      * Selalu memakai API key Gemini (pribadi atau sekolah) — OpenRouter tidak dipakai.
      *

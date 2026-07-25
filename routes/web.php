@@ -177,6 +177,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/external-result', 'externalResult')->middleware('throttle:30,1')->name('external-result');
             Route::post('/chat', 'chat')->middleware('throttle:30,1')->name('chat');
             Route::post('/presentasi-from-chat', 'presentasiFromChat')->middleware('throttle:20,1')->name('presentasi-from-chat');
+            Route::post('/ocr', 'ocr')->middleware('throttle:20,1')->name('ocr');
             Route::post('/quiz', 'quiz')->name('quiz');
             Route::post('/quiz/preview', 'previewQuiz')->name('quiz.preview');
             Route::post('/quiz/export-word', 'exportQuizWord')->name('quiz.export-word');

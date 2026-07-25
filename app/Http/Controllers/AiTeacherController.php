@@ -91,7 +91,7 @@ class AiTeacherController extends Controller
 
         return view('ai.teacher', [
             'histories' => $histories,
-            'quotaUsage' => $this->aiPublicQuotaUsage(true),
+            'quotaUsage' => $this->aiPublicQuotaUsage(true, $user->uuid),
             'canViewQuotaUsage' => false,
             'arenaClassrooms' => $arenaClassrooms,
             'arenaBelajarAktif' => ModulAktif::aktif('arena_belajar'),
@@ -590,10 +590,143 @@ class AiTeacherController extends Controller
     public function quota(Request $request): JsonResponse
     {
         $fresh = $request->boolean('fresh');
+        $userId = $request->user()?->uuid;
 
         return response()->json([
             'ok' => true,
-            'quota' => $this->aiPublicQuotaUsage($fresh),
+            'quota' => $this->aiPublicQuotaUsage($fresh, $userId),
+        ]);
+    }
+
+    /**
+     * POST /ai/teacher/ocr — foto buku (kamera HP) → teks via Gemini vision.
+     * Foto tidak disimpan permanen; hanya dikirim ke model lalu dibuang.
+     */
+    public function ocr(Request $request): JsonResponse
+    {
+        if ($blocked = $this->requireTeacherReady($request)) {
+            return $blocked;
+        }
+
+        $maxImages = max(1, (int) config('ai.ocr.max_images', 3));
+        $maxKb = max(256, (int) ceil(((int) config('ai.ocr.max_bytes', 4 * 1024 * 1024)) / 1024));
+
+        $request->validate([
+            'images' => ['required', 'array', 'min:1', 'max:'.$maxImages],
+            // image = cek isi biner (bukan hanya ekstensi); mimes membatasi format OCR.
+            'images.*' => ['required', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:'.$maxKb],
+            'scope' => ['nullable', 'in:quiz,learning'],
+            'title' => ['nullable', 'string', 'max:180'],
+        ], [
+            'images.required' => 'Unggah minimal satu foto halaman buku.',
+            'images.max' => "Maksimal {$maxImages} foto per sekali baca.",
+            'images.*.image' => 'File harus berupa gambar yang valid.',
+            'images.*.mimes' => 'Format foto harus JPEG, PNG, atau WebP.',
+            'images.*.max' => 'Setiap foto maksimal '.round($maxKb / 1024, 1).' MB. Kompres di HP lalu coba lagi.',
+        ]);
+
+        $user = $request->user();
+        $userId = $user->uuid;
+        $apiKey = $user->plainGeminiApiKey();
+
+        if ($limited = $this->aiRateLimited('teacher_ocr', $userId)) {
+            return $limited;
+        }
+
+        $prepared = [];
+        foreach ($request->file('images', []) as $file) {
+            $binary = $this->prepareOcrImageBinary($file->getRealPath(), $file->getMimeType() ?: 'image/jpeg');
+            if ($binary === null) {
+                continue;
+            }
+            $prepared[] = $binary;
+        }
+
+        if ($prepared === []) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Foto tidak bisa diproses. Ambil ulang dengan format JPEG/PNG.',
+            ], 422);
+        }
+
+        try {
+            $result = $this->gemini->visionText($prepared, [
+                'api_key' => $apiKey,
+                'timeout' => (int) config('ai.ocr.timeout', 60),
+                'max_output_tokens' => 4096,
+            ]);
+        } catch (RuntimeException $e) {
+            $this->logAiUsage($userId, 'teacher_ocr', config('ai.model'), 0, 0, 'error');
+
+            return response()->json([
+                'ok' => false,
+                'message' => $e->getMessage(),
+                'quota' => $this->aiPublicQuotaUsage(false, $userId),
+            ], 502);
+        }
+
+        $this->logAiUsage(
+            $userId,
+            'teacher_ocr',
+            $result['model'] ?? config('ai.model'),
+            $result['prompt_tokens'] ?? 0,
+            $result['completion_tokens'] ?? 0,
+            'success',
+        );
+
+        $text = trim((string) ($result['text'] ?? ''));
+        $upper = mb_strtoupper($text);
+        if ($text === '' || str_contains($upper, 'TIDAK_TERBACA')) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'image_unreadable',
+                'message' => 'Teks tidak terbaca dari foto (mungkin buram atau gelap). Potret ulang halaman dengan cahaya cukup dan fokus tajam.',
+                'quota' => $this->aiPublicQuotaUsage(false, $userId),
+            ], 422);
+        }
+
+        $maxChars = max(4000, (int) config('ai.max_input_chars', 8000) * 2);
+        // Sisakan ruang untuk kop + stempel sumber (anti-plagiarisme).
+        $stampBudget = 900;
+        $bodyMax = max(2000, $maxChars - $stampBudget);
+        if (mb_strlen($text) > $bodyMax) {
+            $text = mb_substr($text, 0, $bodyMax);
+        }
+
+        $scope = $request->input('scope', 'quiz') === 'learning' ? 'learning' : 'quiz';
+        $pageCount = count($prepared);
+        $customTitle = trim((string) $request->input('title', ''));
+        $title = $customTitle !== ''
+            ? $customTitle
+            : ('Teks scan buku · '.now()->timezone(config('app.timezone', 'Asia/Jakarta'))->format('d/m/Y H:i')
+                .($pageCount > 1 ? " · {$pageCount} halaman" : ''));
+
+        // Kop sekolah + stempel sumber digital (trademark / pertanggungjawaban).
+        $text = SchoolLetterhead::ensureOcrAttribution($text, [
+            'pages' => $pageCount,
+        ]);
+
+        // Simpan ke History Generate agar bisa dipakai ulang (tanpa menyimpan file foto).
+        $history = $this->storeHistory($userId, [
+            'type' => 'ocr_scan',
+            'type_label' => 'Scan Buku',
+            'title' => $title,
+            'metadata' => [
+                'source' => 'camera_ocr',
+                'scope' => $scope,
+                'char_count' => mb_strlen($text),
+                'pages' => $pageCount,
+                'attribution' => 'school_letterhead+scan_stamp',
+                'via' => 'sims',
+            ],
+        ], $text);
+
+        return response()->json([
+            'ok' => true,
+            'text' => $text,
+            'char_count' => mb_strlen($text),
+            'history' => $history,
+            'quota' => $this->aiPublicQuotaUsage(false, $userId),
         ]);
     }
 
@@ -943,6 +1076,7 @@ class AiTeacherController extends Controller
         }
 
         $allowedQuizTypes = implode(',', array_keys(self::QUIZ_TYPES));
+        $maxMaterial = max(4000, (int) config('ai.max_input_chars', 8000) * 2);
         $data = $request->validate([
             // Topik kini SELALU wajib: dengan RAG, topik adalah kunci pencarian yang
             // menentukan bagian buku mana yang dipakai. Tanpa topik tidak ada yang
@@ -1038,19 +1172,23 @@ class AiTeacherController extends Controller
      */
     private function composeLearning(Request $request): array|JsonResponse
     {
+        $maxMaterial = max(4000, (int) config('ai.max_input_chars', 8000) * 2);
         $data = $request->validate([
             'tool' => ['required', 'in:rpp'],
-            'topik' => ['nullable', 'required_without:file', 'string', 'max:500'],
+            'topik' => ['nullable', 'required_without_all:file,material_text', 'string', 'max:500'],
             'mapel' => ['nullable', 'string', 'max:100'],
             'jenjang' => ['nullable', 'string', 'max:100'],
             'durasi' => ['nullable', 'string', 'max:100'],
             'file' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
+            'material_text' => ['nullable', 'string', 'max:'.$maxMaterial],
         ]);
 
         $documentText = '';
+        $materialSource = null;
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $documentText = $this->extractQuizDocumentText($file->getRealPath(), $file->getClientOriginalExtension(), true);
+            $materialSource = 'file';
 
             if ($documentText === '') {
                 return response()->json([
@@ -1058,11 +1196,18 @@ class AiTeacherController extends Controller
                     'message' => 'Teks tidak dapat diekstrak dari file. Pastikan PDF bukan hasil scan/gambar dan file Word berisi teks.',
                 ], 422);
             }
+        } elseif (trim((string) ($data['material_text'] ?? '')) !== '') {
+            $documentText = trim((string) $data['material_text']);
+            $materialSource = 'camera_ocr';
         }
 
         $toolLabel = $this->learningToolLabel($data['tool']);
         $topik = trim((string) ($data['topik'] ?? ''));
-        $title = $topik !== '' ? $topik : 'RPM dari file '.$request->file('file')?->getClientOriginalName();
+        $title = $topik !== ''
+            ? $topik
+            : ($materialSource === 'camera_ocr'
+                ? 'RPM dari foto buku'
+                : 'RPM dari file '.$request->file('file')?->getClientOriginalName());
         $details = array_filter([
             ! empty($data['mapel']) ? "Mata pelajaran: {$data['mapel']}" : null,
             ! empty($data['jenjang']) ? "Jenjang/kelas: {$data['jenjang']}" : null,
@@ -1074,12 +1219,14 @@ class AiTeacherController extends Controller
             $maxChars = (int) config('ai.max_input_chars');
             $material = mb_substr($documentText, 0, $maxChars);
             $topicLine = $topik !== '' ? "Fokus/topik RPM: \"{$topik}\".\n" : '';
-            $prompt = "Buat {$toolLabel} siap pakai untuk guru berdasarkan materi dari file berikut.\n"
+            $label = $materialSource === 'camera_ocr' ? 'MATERI SCAN BUKU' : 'MATERI FILE';
+            $prompt = "Buat {$toolLabel} siap pakai untuk guru berdasarkan materi dari "
+                .($materialSource === 'camera_ocr' ? 'scan/foto buku' : 'file')." berikut.\n"
                 .$topicLine
                 .$detailText
                 ."Gunakan Bahasa Indonesia baku, praktis, dan langsung bisa direview guru.\n"
-                ."JANGAN keluar dari cakupan MATERI FILE. Jika ada informasi yang belum ada di file, gunakan placeholder yang jelas, bukan mengarang.\n\n"
-                ."MATERI FILE:\n{$material}\n\n"
+                ."JANGAN keluar dari cakupan {$label}. Jika ada informasi yang belum ada di materi, gunakan placeholder yang jelas, bukan mengarang.\n\n"
+                ."{$label}:\n{$material}\n\n"
                 .$this->learningFormatInstruction($data['tool']);
         } else {
             $prompt = "Buat {$toolLabel} siap pakai untuk guru dengan topik: \"{$topik}\".\n"
@@ -1104,10 +1251,81 @@ class AiTeacherController extends Controller
                     'jenjang' => $data['jenjang'] ?? null,
                     'durasi' => $data['durasi'] ?? null,
                     'file' => $request->file('file')?->getClientOriginalName(),
+                    'source' => $materialSource ?? 'topic',
                     'via' => 'sims',
                 ],
             ],
         ];
+    }
+
+    /**
+     * Siapkan binary gambar untuk OCR: resize edge bila perlu, JPEG quality tinggi.
+     *
+     * @return array{binary:string,mime:string}|null
+     */
+    private function prepareOcrImageBinary(string $path, string $mime): ?array
+    {
+        if (! is_readable($path)) {
+            return null;
+        }
+
+        $raw = @file_get_contents($path);
+        if ($raw === false || $raw === '') {
+            return null;
+        }
+
+        $mime = strtolower($mime);
+        if ($mime === 'image/jpg') {
+            $mime = 'image/jpeg';
+        }
+
+        $maxEdge = max(800, (int) config('ai.ocr.max_edge', 1920));
+        $quality = max(80, min(95, (int) config('ai.ocr.jpeg_quality', 90)));
+
+        if (! function_exists('imagecreatefromstring')) {
+            return ['binary' => $raw, 'mime' => in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true) ? $mime : 'image/jpeg'];
+        }
+
+        $src = @imagecreatefromstring($raw);
+        if ($src === false) {
+            // Jangan kirim biner non-gambar ke provider eksternal.
+            return null;
+        }
+
+        $w = imagesx($src);
+        $h = imagesy($src);
+        if ($w < 1 || $h < 1) {
+            imagedestroy($src);
+
+            return null;
+        }
+
+        $scale = 1.0;
+        $long = max($w, $h);
+        if ($long > $maxEdge) {
+            $scale = $maxEdge / $long;
+        }
+
+        $nw = max(1, (int) round($w * $scale));
+        $nh = max(1, (int) round($h * $scale));
+
+        if ($scale < 1.0) {
+            $dst = imagecreatetruecolor($nw, $nh);
+            imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+            imagedestroy($src);
+            $src = $dst;
+        }
+
+        ob_start();
+        imagejpeg($src, null, $quality);
+        $binary = ob_get_clean();
+        imagedestroy($src);
+
+        if ($binary === false || $binary === '') {
+            return ['binary' => $raw, 'mime' => 'image/jpeg'];
+        }
+
+        return ['binary' => $binary, 'mime' => 'image/jpeg'];
     }
 
     /**

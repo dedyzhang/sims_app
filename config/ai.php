@@ -57,6 +57,10 @@ return [
     // Gemini sampai reset RPD berikutnya. Jangan aktifkan billing otomatis dari aplikasi.
     'free_tier_only' => (bool) env('AI_FREE_TIER_ONLY', true),
 
+    // Batas estimasi request/hari per guru (AI Studio / key pribadi) untuk progress bar Asisten Guru.
+    // Bukan hard-block API — hanya metrik UI dari log SIMS. Default = OPENROUTER_FREE_DAILY_LIMIT.
+    'teacher_studio_daily_limit' => (int) env('AI_TEACHER_STUDIO_DAILY_LIMIT', env('OPENROUTER_FREE_DAILY_LIMIT', 50)),
+
     // Batas RPD free tier untuk progress bar lokal. Nilai resmi bisa berubah;
     // sesuaikan dengan angka aktif di Google AI Studio > Rate limits.
     //
@@ -131,6 +135,21 @@ return [
     // Timeout khusus keluaran panjang berformat (generator perangkat ajar RPM
     // Learning): satu dokumen penuh bisa memakan ~45 detik, jauh di atas `timeout`.
     'long_timeout' => (int) env('AI_LONG_TIMEOUT', 120),
+
+    /*
+    | OCR foto buku (kamera HP) → teks untuk Generator Soal / RPM.
+    | Kompres client: edge-first + JPEG ~0.9 (jaga ketajaman). Blur dicek di client.
+    */
+    'ocr' => [
+        'max_images' => (int) env('AI_OCR_MAX_IMAGES', 3),
+        'max_bytes' => (int) env('AI_OCR_MAX_BYTES', 4 * 1024 * 1024),
+        'max_edge' => (int) env('AI_OCR_MAX_EDGE', 1920),
+        'jpeg_quality' => (int) env('AI_OCR_JPEG_QUALITY', 90),
+        'timeout' => (int) env('AI_OCR_TIMEOUT', 60),
+        'client_jpeg_quality' => (float) env('AI_OCR_CLIENT_JPEG_QUALITY', 0.90),
+        'client_max_edge' => (int) env('AI_OCR_CLIENT_MAX_EDGE', 1920),
+        'blur_variance_min' => (int) env('AI_OCR_BLUR_VARIANCE_MIN', 100),
+    ],
 
     /*
     | Generate gambar soal (Gemini native image / "Nano Banana").
