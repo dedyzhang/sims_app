@@ -1,12 +1,12 @@
 @extends('layouts.app')
-@section('title', 'Presensi Saya')
+@section('title', 'Absensi')
 
 @section('content')
 @php $hasFace = !empty($guru->face_descriptor); @endphp
 <div class="max-w-4xl mx-auto space-y-5"
      x-data="{{ $bolehQr ? 'izinPulangQr(' . json_encode(['lat' => $qrLat, 'lng' => $qrLng, 'radius' => $qrRadius]) . ')' : 'izinPulang(' . json_encode($hasFace) . ')' }}">
     <div>
-        <h1 class="page-title">Presensi Saya</h1>
+        <h1 class="page-title">Absensi</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Riwayat jam masuk &amp; pulang, form keterlambatan, dan izin pulang awal.</p>
     </div>
 

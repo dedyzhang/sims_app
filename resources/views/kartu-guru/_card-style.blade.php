@@ -1,5 +1,5 @@
 {{-- Gaya kartu ID guru — dipakai pdf.blade.php (tunggal), cetak-massal.blade.php, & self.blade.php
-     (halaman "Kartu ID Saya", di-scale via transform di sana). Semua rule di-scope ke .kg-card
+     (halaman "Kartu ID", di-scale via transform di sana). Semua rule di-scope ke .kg-card
      (bukan `*` global) karena self.blade.php merender ini di TENGAH halaman app biasa — `*` tak
      berbatas akan membocorkan font DejaVu Sans (dompdf) ke seluruh layout Tailwind di sekitarnya. --}}
 <style>

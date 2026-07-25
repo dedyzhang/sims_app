@@ -544,7 +544,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/mode', 'mode')->name('mode');
     });
 
-    // ─── Presensi Saya (guru): riwayat sendiri + form keterlambatan + izin pulang awal (guard di controller) ───
+    // ─── Absensi (guru): riwayat sendiri + form keterlambatan + izin pulang awal (guard di controller) ───
     Route::middleware('modul:absensi')->prefix('presensi-guru')->name('presensi-guru.')->controller(PresensiGuruController::class)->group(function () {
         Route::get('/saya', 'self')->name('self');
         Route::post('/saya/keterlambatan', 'keterlambatanStore')->middleware('throttle:10,1')->name('keterlambatan.store');

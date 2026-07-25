@@ -6,7 +6,7 @@
     $guruPrsWarna = ['hadir' => 'emerald', 'izin' => 'amber', 'sakit' => 'blue', 'alpa' => 'rose'];
 @endphp
 <div class="card p-5 h-full flex flex-col justify-center">
-    <p class="text-xs text-slate-400 font-semibold mb-2 flex items-center gap-1.5"><i data-lucide="user-check" class="w-3.5 h-3.5 text-primary"></i> Presensi Saya</p>
+    <p class="text-xs text-slate-400 font-semibold mb-2 flex items-center gap-1.5"><i data-lucide="user-check" class="w-3.5 h-3.5 text-primary"></i> Absensi</p>
     @if($guruPrsHariIni)
     @php $sw = $guruPrsWarna[$guruPrsHariIni->status] ?? 'slate'; @endphp
     <span class="badge bg-{{ $sw }}-100 dark:bg-{{ $sw }}-900 text-{{ $sw }}-700 dark:text-{{ $sw }}-300 font-semibold w-fit">{{ \App\Models\PresensiGuru::STATUS[$guruPrsHariIni->status] ?? ucfirst($guruPrsHariIni->status) }}</span>

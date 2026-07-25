@@ -183,7 +183,7 @@ class PresensiGuruController extends Controller
         ]);
     }
 
-    /** Presensi Saya (guru): riwayat sendiri + akses ke form keterlambatan & izin pulang awal. */
+    /** Absensi (guru): riwayat sendiri + akses ke form keterlambatan & izin pulang awal. */
     public function self(Request $request)
     {
         $guru = auth()->user()->guru;

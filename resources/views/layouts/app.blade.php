@@ -470,17 +470,17 @@
                 $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
                 $groups = [];
 
-                // ── Absensi Saya (self-service: absen QR + presensi guru pribadi) ──
+                // ── Absensi (self-service: absen QR + absensi guru pribadi) ──
                 if ($modulOn('absensi')) {
                     $absensiSayaItems = [];
                     if (auth()->user()?->siswa || auth()->user()?->guru) {
                         $absensiSayaItems[] = ['absen.qr', ['absen.qr'], 'qr-code', 'Absen QR'];
                     }
                     if (auth()->user()?->guru) {
-                        $absensiSayaItems[] = ['presensi-guru.self', ['presensi-guru.self'], 'clock', 'Presensi Saya'];
+                        $absensiSayaItems[] = ['presensi-guru.self', ['presensi-guru.self'], 'clock', 'Absensi'];
                     }
                     if (!empty($absensiSayaItems)) {
-                        $groups['absensi_saya'] = ['Absensi Saya', 'qr-code', $absensiSayaItems];
+                        $groups['absensi_saya'] = ['Absensi', 'qr-code', $absensiSayaItems];
                     }
                 }
 
@@ -810,9 +810,9 @@
             </a>
             @endif
             @if(auth()->user()?->guru)
-            <a href="{{ route('kartu-guru.self') }}" data-tip="Kartu ID Saya" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('kartu-guru.self') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
+            <a href="{{ route('kartu-guru.self') }}" data-tip="Kartu ID" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('kartu-guru.self') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="contact-round" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
-                <span x-show="!mini" class="text-sm truncate">Kartu ID Saya</span>
+                <span x-show="!mini" class="text-sm truncate">Kartu ID</span>
             </a>
             @endif
 
