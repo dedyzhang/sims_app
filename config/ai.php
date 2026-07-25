@@ -63,8 +63,17 @@ return [
 
     // Batas RPD free tier untuk progress bar lokal. Nilai resmi bisa berubah;
     // sesuaikan dengan angka aktif di Google AI Studio > Rate limits.
+    //
+    // gemini-embedding-001 dipakai RAG (ingest dokumen) dan memakai jatah harian
+    // tersendiri. Ingest satu buku bisa menghabiskan sampai ai.rag.max_chunks
+    // request, jadi angka ini menentukan berapa lama satu buku selesai diproses.
+    //
+    // BELUM DIVERIFIKASI: angka 1000 di bawah adalah perkiraan awal, bukan nilai
+    // resmi. Cek Google AI Studio > Rate limits untuk project ini lalu sesuaikan
+    // lewat AI_FREE_TIER_DAILY_LIMITS. Angka ini hanya dipakai untuk tampilan
+    // progres — penghentian nyata tetap dipicu oleh error 429 dari Google.
     'free_tier_daily_limits' => (function (): array {
-        $raw = (string) env('AI_FREE_TIER_DAILY_LIMITS', 'gemini-3.5-flash:20,gemini-3.1-flash-lite:100,gemini-2.5-flash:250,gemini-2.5-flash-lite:1000');
+        $raw = (string) env('AI_FREE_TIER_DAILY_LIMITS', 'gemini-3.5-flash:20,gemini-3.1-flash-lite:100,gemini-2.5-flash:250,gemini-2.5-flash-lite:1000,gemini-embedding-001:1000');
         $limits = [];
 
         foreach (array_filter(array_map('trim', explode(',', $raw))) as $pair) {
@@ -313,6 +322,17 @@ return [
         'max_extract_chars' => (int) env('AI_RAG_MAX_EXTRACT_CHARS', 200_000),
         'max_upload_kb' => (int) env('AI_RAG_MAX_UPLOAD_KB', 5120), // 5 MB
         'top_k' => (int) env('AI_RAG_TOPK', 5),        // chunk termirip yang dipakai
+        // Pembuatan soal butuh bahan lebih banyak daripada tanya-jawab: 5 chunk cukup
+        // untuk menjawab satu pertanyaan, tapi terlalu tipis untuk menyusun 20 soal.
+        'quiz_top_k' => (int) env('AI_RAG_QUIZ_TOPK', 12),
+        // Anggaran karakter materi hasil retrieval yang dikirim ke model.
+        // JANGAN pakai ai.max_input_chars di sini — itu batas validasi panjang teks
+        // yang diketik user, bukan batas kapasitas model. Nilai default disetel
+        // longgar agar quiz_top_k chunk masuk seluruhnya tanpa terpotong.
+        'quiz_material_chars' => (int) env('AI_RAG_QUIZ_MATERIAL_CHARS', 24_000),
+        // Batas maksimum jumlah penjadwalan ulang ingest saat kuota harian habis,
+        // supaya dokumen yang bermasalah permanen tidak menggantung selamanya.
+        'max_quota_retries' => (int) env('AI_RAG_MAX_QUOTA_RETRIES', 7),
         // Batas kandidat yang di-score di PHP (hindari O(n) seluruh korpus).
         'search_candidate_limit' => (int) env('AI_RAG_SEARCH_CANDIDATES', 400),
         'queue_ingest' => (bool) env('AI_RAG_QUEUE_INGEST', true),

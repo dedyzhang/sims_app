@@ -9,6 +9,9 @@ use App\Models\Setting;
 use App\Models\TeacherPresentation;
 use App\Services\GameQuizImporter;
 use App\Services\GeminiService;
+use App\Services\TeacherMaterialException;
+use App\Services\TeacherMaterialService;
+use App\Support\DocumentText;
 use App\Support\LearningDocument;
 use App\Support\LearningDocxBuilder;
 use App\Support\ModulAktif;
@@ -24,7 +27,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use RuntimeException;
-use Smalot\PdfParser\Parser as PdfParser;
 use ZipArchive;
 
 /*
@@ -51,7 +53,10 @@ class AiTeacherController extends Controller
         'campuran' => ['pg_kompleks', 'pg', 'benar_salah', 'mencocokkan', 'isian'],
     ];
 
-    public function __construct(private GeminiService $gemini) {}
+    public function __construct(
+        private GeminiService $gemini,
+        private TeacherMaterialService $materials,
+    ) {}
 
     /** GET /ai/teacher - halaman panel Asisten Guru. */
     public function index(): View
@@ -93,11 +98,24 @@ class AiTeacherController extends Controller
             'launcherAktif' => (Setting::get('tp_launcher_aktif', '1') ?? '1') === '1',
             'needsApiKeySetup' => ! $hasApiKey,
             'canvaStatus' => $canvaStatus,
+            'teacherMaterials' => $this->materials->listPayloads($user->uuid),
             'externalAccounts' => [
                 'has_gemini_api_key' => $hasApiKey,
                 'gemini_api_key_masked' => $user->geminiApiKeyMasked(),
                 'canva_belajar_id' => $user->canva_belajar_id,
             ],
+        ]);
+    }
+
+    /**
+     * GET /ai/teacher/materials — daftar buku/materi unggahan guru (Generator Soal RAG).
+     * Dipakai UI untuk pilih ulang tanpa upload, dan polling status pending/partial.
+     */
+    public function materials(Request $request): JsonResponse
+    {
+        return response()->json([
+            'ok' => true,
+            'materials' => $this->materials->listPayloads($request->user()->uuid),
         ]);
     }
 
@@ -1060,39 +1078,45 @@ class AiTeacherController extends Controller
         $allowedQuizTypes = implode(',', array_keys(self::QUIZ_TYPES));
         $maxMaterial = max(4000, (int) config('ai.max_input_chars', 8000) * 2);
         $data = $request->validate([
-            'topik' => ['nullable', 'required_without_all:file,material_text', 'string', 'max:500'],
+            // Topik kini SELALU wajib: dengan RAG, topik adalah kunci pencarian yang
+            // menentukan bagian buku mana yang dipakai. Tanpa topik tidak ada yang
+            // bisa dicari, dan kita kembali ke menebak dari halaman awal.
+            'topik' => ['required', 'string', 'max:500'],
             'jumlah' => ['required', 'integer', 'min:1', 'max:20'],
             'jenis_soal' => ['required', 'array', 'min:1', 'max:5'],
             'jenis_soal.*' => ['required', 'string', 'distinct', 'in:'.$allowedQuizTypes],
             'tingkat' => ['required', 'in:mudah,sedang,sulit'],
             'jenjang' => ['nullable', 'string', 'max:100'],
             'file' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
-            'material_text' => ['nullable', 'string', 'max:'.$maxMaterial],
+            'document_uuid' => ['nullable', 'string', 'max:64'],
             'soal_bergambar' => ['sometimes', 'boolean'],
         ]);
         $data['jenis_soal'] = array_values(array_unique($data['jenis_soal']));
         $data['soal_bergambar'] = $request->boolean('soal_bergambar');
 
-        $documentText = '';
-        $materialSource = null;
-        if ($request->hasFile('file')) {
-            $file = $request->file('file');
-            $documentText = $this->extractQuizDocumentText($file->getRealPath(), $file->getClientOriginalExtension());
-            $materialSource = 'file';
+        $topik = trim((string) $data['topik']);
+        $user = $request->user();
 
-            if ($documentText === '') {
-                return response()->json([
-                    'ok' => false,
-                    'message' => 'Teks tidak dapat diekstrak dari file. Pastikan PDF bukan hasil scan/gambar dan file Word berisi teks.',
-                ], 422);
+        // Materi: file kecil (inline) | file besar (RAG) | buku lama (document_uuid).
+        $document = null;
+        $inlineMaterial = '';
+
+        try {
+            if ($request->hasFile('file')) {
+                [$inlineMaterial, $document] = $this->materials->resolveUpload($user, $request->file('file'));
+            } elseif (! empty($data['document_uuid'])) {
+                $document = $this->materials->findOwned($user, (string) $data['document_uuid']);
             }
-        } elseif (trim((string) ($data['material_text'] ?? '')) !== '') {
-            $documentText = trim((string) $data['material_text']);
-            $materialSource = 'camera_ocr';
+
+            $material = $inlineMaterial;
+            if ($material === '' && $document) {
+                $material = $this->materials->retrieveForTopic($document, $topik, $user->uuid);
+            }
+        } catch (TeacherMaterialException $e) {
+            return response()->json($e->toArray(), $e->httpStatus);
         }
 
         $jenis = $this->quizTypeSummary($data['jenis_soal']);
-        $topik = trim((string) ($data['topik'] ?? ''));
         $jenjang = ! empty($data['jenjang']) ? "untuk jenjang {$data['jenjang']}" : '';
         $formatInstruction = $this->quizFormatInstruction(
             (int) $data['jumlah'],
@@ -1103,16 +1127,13 @@ class AiTeacherController extends Controller
             (bool) $data['soal_bergambar'],
         );
 
-        if ($documentText !== '') {
-            $maxChars = (int) config('ai.max_input_chars');
-            $material = mb_substr($documentText, 0, $maxChars);
-            $topicLine = $topik !== '' ? "Fokus topik: \"{$topik}\".\n" : '';
-            $label = $materialSource === 'camera_ocr' ? 'MATERI SCAN BUKU' : 'MATERI FILE';
+        if ($material !== '') {
             $prompt = "Buat {$data['jumlah']} soal ({$jenis}) dengan tingkat kesulitan "
-                ."{$data['tingkat']} {$jenjang} berdasarkan materi dari "
-                .($materialSource === 'camera_ocr' ? 'scan/foto buku' : 'file')." berikut.\n"
-                .$topicLine
-                ."{$label}:\n{$material}\n\n"
+                ."{$data['tingkat']} {$jenjang} berdasarkan materi dari file berikut.\n"
+                ."Fokus topik: \"{$topik}\".\n"
+                ."JANGAN keluar dari cakupan MATERI FILE. Bila sebuah fakta tidak ada di "
+                ."dalamnya, jangan mengarang — susun soal dari bagian yang tersedia saja.\n\n"
+                ."MATERI FILE:\n{$material}\n\n"
                 .$formatInstruction;
         } else {
             $prompt = "Buat {$data['jumlah']} soal ({$jenis}) dengan tingkat kesulitan "
@@ -1120,11 +1141,7 @@ class AiTeacherController extends Controller
                 .$formatInstruction;
         }
 
-        $title = $topik !== ''
-            ? $topik
-            : ($materialSource === 'camera_ocr'
-                ? 'Soal dari foto buku'
-                : 'Soal dari file '.$request->file('file')?->getClientOriginalName());
+        $title = $topik;
 
         return [
             'system' => (string) config('ai.teacher.quiz'),
@@ -1142,8 +1159,8 @@ class AiTeacherController extends Controller
                     'tingkat' => $data['tingkat'],
                     'jenjang' => $data['jenjang'] ?? null,
                     'soal_bergambar' => (bool) $data['soal_bergambar'],
-                    'source' => $materialSource ?? 'topic',
-                    'file' => $request->file('file')?->getClientOriginalName(),
+                    'file' => $request->file('file')?->getClientOriginalName() ?? $document?->title,
+                    'document_uuid' => $document?->uuid,
                     'via' => 'sims',
                 ],
             ],
@@ -1823,73 +1840,8 @@ TXT;
 
     private function extractQuizDocumentText(string $path, string $extension, bool $preserveNewlines = false): string
     {
-        $extension = strtolower($extension);
-
-        try {
-            $text = match ($extension) {
-                'pdf' => (new PdfParser)->parseFile($path)->getText(),
-                'docx' => $this->extractDocxText($path),
-                'doc' => $this->extractLegacyDocText($path),
-                default => '',
-            };
-        } catch (\Throwable) {
-            return '';
-        }
-
-        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u', ' ', (string) $text);
-
-        if ($preserveNewlines) {
-            $text = preg_replace("/[ \t]+/u", ' ', (string) $text);
-            $text = preg_replace("/\n{3,}/u", "\n\n", (string) $text);
-
-            return trim((string) $text);
-        }
-
-        return trim((string) preg_replace('/\s+/u', ' ', $text));
-    }
-
-    private function extractDocxText(string $path): string
-    {
-        $zip = new ZipArchive;
-        if ($zip->open($path) !== true) {
-            return '';
-        }
-
-        $parts = ['word/document.xml'];
-        $text = '';
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $name = $zip->getNameIndex($i);
-            if (preg_match('#^word/(header|footer|footnotes|endnotes)\d*\.xml$#', $name)) {
-                $parts[] = $name;
-            }
-        }
-
-        foreach (array_unique($parts) as $part) {
-            $xml = $zip->getFromName($part);
-            if ($xml === false) {
-                continue;
-            }
-
-            $xml = preg_replace('/<w:(tab|br|cr)[^>]*\/>/i', ' ', $xml);
-            $xml = preg_replace('/<\/w:t>\s*<w:t[^>]*>/i', ' ', $xml);
-            $xml = preg_replace('/<\/w:p>/i', "\n", $xml);
-            $text .= ' '.html_entity_decode(strip_tags($xml), ENT_QUOTES | ENT_XML1, 'UTF-8');
-        }
-
-        $zip->close();
-
-        return $text;
-    }
-
-    private function extractLegacyDocText(string $path): string
-    {
-        $raw = (string) file_get_contents($path);
-        if ($raw === '') {
-            return '';
-        }
-
-        preg_match_all('/[\x20-\x7E]{3,}/', $raw, $matches);
-
-        return implode(' ', $matches[0] ?? []);
+        // Ekstraksi dipusatkan di DocumentText agar RagService (ingest RAG) membaca
+        // dokumen dengan cara yang persis sama seperti controller ini.
+        return DocumentText::extract($path, $extension, $preserveNewlines);
     }
 }

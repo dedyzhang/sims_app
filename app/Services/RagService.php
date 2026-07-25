@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Exceptions\AiDailyQuotaExhaustedException;
+use App\Exceptions\AiRateLimitedException;
 use App\Models\AiDocument;
 use App\Models\AiDocumentChunk;
+use App\Models\User;
+use App\Support\DocumentText;
 use RuntimeException;
-use Smalot\PdfParser\Parser as PdfParser;
 
 /*
 | Mesin RAG dokumen sekolah (FASE 5). Ekstrak teks (PDF/TXT) → chunk → embed
@@ -16,20 +19,17 @@ class RagService
 {
     public function __construct(private GeminiService $gemini) {}
 
-    /** Ekstrak teks mentah dari file dokumen. */
+    /** Ekstrak teks mentah dari file dokumen (PDF, DOCX, DOC, teks polos). */
     public function extractText(string $absPath, ?string $mime = null): string
     {
+        // Ekstensi file lebih dipercaya daripada MIME; MIME hanya jadi cadangan
+        // saat file tersimpan tanpa ekstensi.
         $ext = strtolower(pathinfo($absPath, PATHINFO_EXTENSION));
-
-        if ($mime === 'application/pdf' || $ext === 'pdf') {
-            $text = (new PdfParser())->parseFile($absPath)->getText();
-        } else {
-            $text = (string) file_get_contents($absPath);
+        if ($ext === '') {
+            $ext = DocumentText::extensionFromMime($mime);
         }
 
-        // Normalkan spasi/karakter kontrol.
-        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u', ' ', $text);
-        $text = trim(preg_replace('/\s+/u', ' ', $text));
+        $text = DocumentText::extract($absPath, $ext);
 
         $maxChars = max(1000, (int) config('ai.rag.max_extract_chars', 200_000));
         if (mb_strlen($text) > $maxChars) {
@@ -81,11 +81,24 @@ class RagService
     }
 
     /**
-     * Proses dokumen: ekstrak → chunk → embed → simpan. Set status processed|failed.
-     * @return int Jumlah chunk yang tersimpan.
+     * Proses dokumen: ekstrak → chunk → embed → simpan.
+     *
+     * Bisa dilanjutkan: chunk yang sudah ter-embed dilewati, sehingga ingest yang
+     * terhenti karena kuota harian Gemini habis bisa disambung keesokan harinya
+     * tanpa mengulang (dan tanpa membakar kuota untuk pekerjaan yang sama).
+     *
+     * Status akhir: processed (selesai) | partial (kuota habis, lanjut nanti)
+     * | failed (gagal permanen).
+     *
+     * @param  array{api_key?:string}  $embedOptions  key guru (opsional); kuota habis → sekolah di GeminiService
+     * @return int Total chunk dokumen ini yang sudah tersimpan.
      */
-    public function ingest(AiDocument $doc, string $absPath, ?string $mime = null): int
+    public function ingest(AiDocument $doc, string $absPath, ?string $mime = null, array $embedOptions = []): int
     {
+        if ($embedOptions === []) {
+            $embedOptions = $this->embedOptionsForDocument($doc);
+        }
+
         try {
             $text = $this->extractText($absPath, $mime);
             if ($text === '') {
@@ -96,55 +109,118 @@ class RagService
             if ($pieces === []) {
                 throw new RuntimeException('Dokumen kosong setelah diproses.');
             }
+        } catch (\Throwable $e) {
+            // Gagal di tahap ekstraksi/chunking = gagal permanen: dokumen tak terbaca.
+            return $this->markFailed($doc, $e);
+        }
 
-            $doc->chunks()->delete(); // re-ingest aman
+        // Chunk yang sudah ter-embed pada percobaan sebelumnya. Isinya di-cek juga,
+        // bukan cuma jumlahnya: bila file diganti, hasil chunk bisa bergeser dan
+        // embedding lama tidak lagi mewakili teks di posisi itu.
+        $existing = $doc->chunks()->pluck('content', 'ord')->all();
 
-            foreach ($pieces as $i => $piece) {
-                $vec = $this->gemini->embed($piece);
-                AiDocumentChunk::create([
-                    'document_id' => $doc->uuid,
-                    'ord'         => $i,
-                    'content'     => $piece,
-                    'embedding'   => $vec,
-                ]);
+        $done = 0;
+        foreach ($pieces as $i => $piece) {
+            if (($existing[$i] ?? null) === $piece) {
+                $done++;
+
+                continue;
             }
 
-            $doc->update([
-                'status'      => AiDocument::STATUS_PROCESSED,
-                'chunk_count' => count($pieces),
-                'error'       => null,
-            ]);
+            try {
+                $vec = $this->gemini->embed($piece, $embedOptions);
+            } catch (AiDailyQuotaExhaustedException $e) {
+                // Kuota harian: simpan progres, job menjadwalkan resume setelah reset.
+                return $this->markPartial($doc, $done, $e);
+            } catch (AiRateLimitedException $e) {
+                // RPM: simpan progres bila ada, biarkan job menunda singkat (bukan midnight).
+                if ($done > 0) {
+                    $this->markPartial($doc, $done, $e);
+                }
+                throw $e;
+            } catch (\Throwable $e) {
+                return $this->markFailed($doc, $e);
+            }
 
-            return count($pieces);
-        } catch (\Throwable $e) {
-            $doc->chunks()->delete();
-            $doc->update([
-                'status'      => AiDocument::STATUS_FAILED,
-                'chunk_count' => 0,
-                'error'       => mb_substr($e->getMessage(), 0, 500),
-            ]);
-
-            return 0;
+            // updateOrCreate, bukan create: posisi ord ini mungkin sudah terisi hasil
+            // ingest sebelumnya dengan teks berbeda (file diganti).
+            AiDocumentChunk::updateOrCreate(
+                ['document_id' => $doc->uuid, 'ord' => $i],
+                ['content' => $piece, 'embedding' => $vec],
+            );
+            $done++;
         }
+
+        // Buang sisa chunk dari ingest lama yang lebih panjang dari dokumen sekarang.
+        $doc->chunks()->where('ord', '>=', count($pieces))->delete();
+
+        $doc->update([
+            'status'        => AiDocument::STATUS_PROCESSED,
+            'chunk_count'   => $done,
+            'error'         => null,
+            'quota_retries' => 0,
+        ]);
+
+        return $done;
+    }
+
+    /** Kuota harian habis di tengah jalan: simpan progres, tandai untuk dilanjutkan. */
+    private function markPartial(AiDocument $doc, int $done, \Throwable $e): int
+    {
+        $doc->update([
+            'status'      => AiDocument::STATUS_PARTIAL,
+            'chunk_count' => $done,
+            'error'       => mb_substr($e->getMessage(), 0, 500),
+        ]);
+
+        return $done;
+    }
+
+    /** Gagal permanen: dokumen tak terbaca atau error non-kuota. Bersihkan chunk. */
+    private function markFailed(AiDocument $doc, \Throwable $e): int
+    {
+        $doc->chunks()->delete();
+        $doc->update([
+            'status'      => AiDocument::STATUS_FAILED,
+            'chunk_count' => 0,
+            'error'       => mb_substr($e->getMessage(), 0, 500),
+        ]);
+
+        return 0;
     }
 
     /**
-     * Cari chunk paling mirip dengan query (cosine). Hanya dokumen processed.
+     * Cari chunk paling mirip dengan query (cosine).
+     *
+     * Dokumen `partial` ikut dicari: guru tetap bisa membuat soal dari bagian buku
+     * yang sudah ter-embed sambil menunggu sisanya diproses setelah kuota reset.
+     *
      * Kandidat dibatasi search_candidate_limit agar tidak O(n) seluruh korpus.
      *
+     * @param  string|null  $ownerUuid  Batasi ke dokumen milik user ini (guru hanya
+     *                                  mencari di materinya sendiri).
+     * @param  array{api_key?:string}  $embedOptions  key guru dulu, sekolah cadangan
      * @return array<int, array{content:string, title:string, score:float}>
      */
-    public function search(string $query, ?int $k = null, ?string $documentId = null): array
-    {
+    public function search(
+        string $query,
+        ?int $k = null,
+        ?string $documentId = null,
+        ?string $ownerUuid = null,
+        array $embedOptions = [],
+    ): array {
         $k = $k ?? (int) config('ai.rag.top_k');
         $candidateLimit = max($k, (int) config('ai.rag.search_candidate_limit', 400));
-        $qvec = $this->gemini->embed($query);
+        $qvec = $this->gemini->embed($query, $embedOptions);
 
         $chunks = AiDocumentChunk::query()
-            ->whereHas('document', function ($q) use ($documentId) {
-                $q->where('status', AiDocument::STATUS_PROCESSED);
+            ->whereHas('document', function ($q) use ($documentId, $ownerUuid) {
+                $q->whereIn('status', AiDocument::searchableStatuses());
                 if ($documentId) {
                     $q->where('uuid', $documentId);
+                }
+                if ($ownerUuid) {
+                    $q->where('user_uuid', $ownerUuid);
                 }
             })
             ->with('document:uuid,title')
@@ -167,6 +243,24 @@ class RagService
         usort($scored, fn ($a, $b) => $b['score'] <=> $a['score']);
 
         return array_slice($scored, 0, $k);
+    }
+
+    /**
+     * Opsi embed untuk dokumen: materi guru memakai key pribadi pemilik dulu.
+     * Dokumen admin → rantai default (key sekolah saja).
+     *
+     * @return array{api_key?:string}
+     */
+    public function embedOptionsForDocument(AiDocument $doc): array
+    {
+        if ($doc->source !== AiDocument::SOURCE_TEACHER_MATERIAL) {
+            return [];
+        }
+
+        $user = User::query()->find($doc->user_uuid);
+        $key = $user?->plainGeminiApiKey();
+
+        return $key ? ['api_key' => $key] : [];
     }
 
     /** Cosine similarity dua vektor. */

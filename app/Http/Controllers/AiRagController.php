@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\InteractsWithAi;
-use App\Jobs\IngestAiDocumentJob;
 use App\Models\AiDocument;
+use App\Services\AiDocumentRegistrar;
 use App\Services\GeminiService;
 use App\Services\RagService;
 use Illuminate\Contracts\View\View;
@@ -25,6 +25,7 @@ class AiRagController extends Controller
     public function __construct(
         private GeminiService $gemini,
         private RagService $rag,
+        private AiDocumentRegistrar $registrar,
     ) {}
 
     /** GET /ai/rag — daftar dokumen + kotak tanya. */
@@ -57,36 +58,15 @@ class AiRagController extends Controller
         $file = $request->file('file');
         $title = $data['title'] ?: pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
 
-        $path = $file->store('ai_documents', 'local');
+        $doc = $this->registrar->register(
+            $request->user()->uuid,
+            $file,
+            AiDocument::SOURCE_ADMIN_UPLOAD,
+            $title,
+            (string) $file->getMimeType(),
+        );
 
-        $doc = AiDocument::create([
-            'user_uuid' => $request->user()->uuid,
-            'title' => $title,
-            'file_path' => $path,
-            'status' => AiDocument::STATUS_PENDING,
-        ]);
-
-        $mime = (string) $file->getMimeType();
-
-        if (config('ai.rag.queue_ingest', true)) {
-            IngestAiDocumentJob::dispatch($doc->uuid, $mime);
-            $doc->refresh();
-
-            return response()->json([
-                'ok' => true,
-                'message' => "Dokumen \"{$doc->title}\" diantrekan untuk diproses. Muat ulang sebentar lagi bila status masih Pending.",
-                'queued' => true,
-                'document' => [
-                    'id' => $doc->uuid,
-                    'title' => $doc->title,
-                    'status' => $doc->status,
-                    'chunk_count' => $doc->chunk_count,
-                ],
-            ]);
-        }
-
-        $this->rag->ingest($doc, Storage::disk('local')->path($path), $mime);
-        $doc->refresh();
+        $queued = (bool) config('ai.rag.queue_ingest', true);
 
         if ($doc->status === AiDocument::STATUS_FAILED) {
             return response()->json([
@@ -97,8 +77,10 @@ class AiRagController extends Controller
 
         return response()->json([
             'ok' => true,
-            'message' => "Dokumen \"{$doc->title}\" diproses ({$doc->chunk_count} potongan).",
-            'queued' => false,
+            'message' => $queued
+                ? "Dokumen \"{$doc->title}\" diantrekan untuk diproses. Muat ulang sebentar lagi bila status masih Pending."
+                : "Dokumen \"{$doc->title}\" diproses ({$doc->chunk_count} potongan).",
+            'queued' => $queued,
             'document' => [
                 'id' => $doc->uuid,
                 'title' => $doc->title,

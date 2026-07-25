@@ -169,6 +169,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::controller(AiTeacherController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/quota', 'quota')->name('quota');
+            Route::get('/materials', 'materials')->middleware('throttle:60,1')->name('materials');
             Route::put('/gemini-key', 'updateGeminiKey')->middleware('throttle:20,1')->name('gemini-key');
             Route::post('/gemini-key', 'updateGeminiKey')->middleware('throttle:20,1');
             Route::delete('/gemini-key', 'destroyGeminiKey')->middleware('throttle:20,1')->name('gemini-key.destroy');
