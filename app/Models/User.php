@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Integrations\Ludensa\Concerns\InteractsWithLudensa;
 use App\Support\Forum;
 use App\Support\UserRole;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -16,7 +17,7 @@ use Throwable;
 
 class User extends Authenticatable implements WebAuthnAuthenticatable
 {
-    use HasFactory, Notifiable, HasUuids, WebAuthnAuthentication;
+    use HasFactory, InteractsWithLudensa, Notifiable, HasUuids, WebAuthnAuthentication;
 
     protected $primaryKey = 'uuid';
     protected $keyType = 'string';
@@ -304,5 +305,13 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     public function getNameAttribute(): ?string
     {
         return $this->guru?->nama ?? $this->siswa?->nama ?? $this->username;
+    }
+
+    /**
+     * Alias getter untuk attribute `id` agar mengembalikan `uuid` (Primary Key).
+     */
+    public function getIdAttribute(): ?string
+    {
+        return $this->attributes['uuid'] ?? $this->uuid ?? $this->getKey();
     }
 }

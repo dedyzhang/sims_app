@@ -181,6 +181,7 @@ final class SchoolLetterhead
             'PERENCANAAN PEMBELAJARAN MENDALAM',
             'RANGKUMAN MATERI',
             'RINGKASAN MATERI',
+            'CATATAN SISWA',
             'DRAF UMPAN BALIK',
             'DRAFT UMPAN BALIK',
             'UMPAN BALIK',

@@ -14,10 +14,14 @@
         "laragear/webauthn": "^4.1",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
+        "livewire/livewire": "^3.5",
+        "ludensa/ludensa": "@dev",
         "maatwebsite/excel": "^3.1",
         "mavinoo/laravel-batch": "^2.4",
         "simplesoftwareio/simple-qrcode": "^4.2",
-        "smalot/pdfparser": "^2.12"
+        "smalot/pdfparser": "^2.12",
+        "spatie/laravel-activitylog": "^4.8",
+        "spatie/laravel-permission": "^6.9"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -91,5 +95,15 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "name": "ludensa",
+            "type": "path",
+            "url": "../Ludensa GAMIFIKASI/packages/ludensa",
+            "options": {
+                "symlink": true
+            }
+        }
+    ]
 }

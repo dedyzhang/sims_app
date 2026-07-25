@@ -89,8 +89,12 @@
             loading: false,
             init() {
                 this.fetchComments();
-                // Polling setiap 5 detik
-                setInterval(() => this.fetchComments(), 5000);
+                // Polling 15s (was 5s); pause saat tab hidden
+                if (window.simsPollInterval) {
+                    window.simsPollInterval(() => this.fetchComments(), 15000);
+                } else {
+                    setInterval(() => { if (!document.hidden) this.fetchComments(); }, 15000);
+                }
             },
             countAll() {
                 let total = this.comments.length;

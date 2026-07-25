@@ -283,9 +283,243 @@ CUSTOM = {
             },
         ],
     },
+    # ── Fitur baru tanpa video (storyboard + render khusus) ──
+    "ai-foto-soal": {
+        "brand": "Asisten · Foto → Soal",
+        "accent": (16, 185, 129),
+        "shots": [
+            {
+                "title": "Buka Generator Soal",
+                "subtitle": "Asisten Guru · tab Generator Soal.",
+                "bullets": [
+                    "Akademik → Asisten Guru",
+                    "Pastikan API key Gemini (AI Studio) tersimpan",
+                    "Pilih tab Generator Soal",
+                ],
+            },
+            {
+                "title": "Sumber: Foto buku",
+                "subtitle": "Bukan dari topik atau file PDF saja.",
+                "bullets": [
+                    "Pada Sumber Materi pilih Foto buku",
+                    "Indikator langkah: 1 Foto · 2 Buat soal",
+                    "Topik opsional sebagai fokus",
+                ],
+            },
+            {
+                "title": "Ambil atau unggah foto",
+                "subtitle": "JPEG, PNG, atau WebP — tajam & terang.",
+                "bullets": [
+                    "Buka kamera (belakang) atau Dari galeri",
+                    "Maks. beberapa halaman · kompres otomatis",
+                    "Foto buram ditandai — potret ulang atau Tetap pakai",
+                ],
+                "tip": "Fokus ke teks halaman, hindari pantulan cahaya",
+            },
+            {
+                "title": "Buat Soal dari foto",
+                "subtitle": "Satu langkah: baca foto + susun soal.",
+                "bullets": [
+                    "Atur jumlah, jenis, dan tingkat soal",
+                    "Klik Buat Soal dari foto",
+                    "Gemini (key AI Studio Anda) menyusun di SIMS",
+                ],
+            },
+            {
+                "title": "Periksa & bagikan",
+                "subtitle": "Hasil di panel Hasil + History.",
+                "bullets": [
+                    "Cek soal dan kunci jawaban",
+                    "Unduh Word/PDF atau Kirim ke Arena",
+                    "RPM: alur sama di tab RPM Learning + Foto buku",
+                ],
+                "tip": "Hasil AI wajib direview guru sebelum dibagikan",
+            },
+        ],
+    },
+    "ai-catatan-siswa": {
+        "brand": "Asisten · Catatan Siswa",
+        "accent": (244, 114, 182),
+        "shots": [
+            {
+                "title": "Buka tab Catatan Siswa",
+                "subtitle": "Label hangat menggantikan Draft Feedback.",
+                "bullets": [
+                    "Asisten Guru → tab Catatan Siswa",
+                    "Butuh API key Gemini pribadi",
+                    "Untuk draf komentar ke siswa / orang tua",
+                ],
+            },
+            {
+                "title": "Isi nama & konteks",
+                "subtitle": "Apa yang ingin dicatat hari ini?",
+                "bullets": [
+                    "Nama siswa (opsional)",
+                    "Jawaban ujian, sikap, tugas, atau catatan guru",
+                    "Jangan mengarang nilai yang tidak ada",
+                ],
+            },
+            {
+                "title": "Susun Catatan Siswa",
+                "subtitle": "AI menulis draf dengan nada mendukung.",
+                "bullets": [
+                    "Klik Susun Catatan Siswa",
+                    "Dokumen: kop sekolah + judul CATATAN SISWA",
+                    "Isi: yang sudah baik, yang perlu diperbaiki, saran",
+                ],
+            },
+            {
+                "title": "Edit sebelum dibagikan",
+                "subtitle": "Draf — bukan teks final otomatis.",
+                "bullets": [
+                    "Sunting di panel Hasil",
+                    "Salin atau buka lagi lewat History Generate",
+                    "Sesuaikan nada dengan siswa yang sebenarnya",
+                ],
+                "tip": "Hindari data sensitif berlebih di catatan",
+            },
+        ],
+    },
+    "ai-export-mobile": {
+        "brand": "Asisten · Export HP",
+        "accent": (56, 189, 248),
+        "shots": [
+            {
+                "title": "Hasil generate siap",
+                "subtitle": "Soal, RPM, atau catatan di panel Hasil.",
+                "bullets": [
+                    "Selesaikan generate di Asisten Guru",
+                    "Panel Hasil menampilkan dokumen",
+                    "Bisa diedit dulu sebelum unduh",
+                ],
+            },
+            {
+                "title": "Tombol Word & PDF di HP",
+                "subtitle": "Lebar penuh, tinggi nyaman diketuk.",
+                "bullets": [
+                    "Toolbar Hasil: tombol Word | PDF",
+                    "Dirancang untuk layar sempit / WebView",
+                    "Pilih format yang dibutuhkan",
+                ],
+            },
+            {
+                "title": "Proses unduhan",
+                "subtitle": "Browser atau DownloadManager APK.",
+                "bullets": [
+                    "Ketuk Word atau PDF",
+                    "Izinkan unduhan jika browser meminta",
+                    "APK: unduhan lewat form → notifikasi sistem",
+                ],
+                "tip": "APK butuh DownloadListener + cookie sesi",
+            },
+            {
+                "title": "Buka file di perangkat",
+                "subtitle": "Notifikasi atau folder Unduhan.",
+                "bullets": [
+                    "Buka dari notifikasi unduhan",
+                    "Atau file manager → Unduhan",
+                    "Buka dengan Word / PDF reader",
+                ],
+            },
+        ],
+    },
+    "absensi-guru-self": {
+        "brand": "Absensi · Menu Guru",
+        "accent": (14, 165, 233),
+        "shots": [
+            {
+                "title": "Sidebar: grup Absensi",
+                "subtitle": "Label baru (bukan Absensi Saya).",
+                "bullets": [
+                    "Login sebagai guru",
+                    "Buka grup Absensi di sidebar",
+                    "Item: Absen QR + Absensi",
+                ],
+            },
+            {
+                "title": "Halaman Absensi pribadi",
+                "subtitle": "Riwayat kehadiran Anda sendiri.",
+                "bullets": [
+                    "Status hari ini",
+                    "Daftar riwayat masuk/pulang",
+                    "Bukan daftar admin menandai semua guru",
+                ],
+            },
+            {
+                "title": "Keterlambatan & izin",
+                "subtitle": "Form bila diaktifkan sekolah.",
+                "bullets": [
+                    "Ajukan keterlambatan",
+                    "Izin pulang awal bila tersedia",
+                    "Ikuti aturan sekolah setempat",
+                ],
+            },
+            {
+                "title": "Absen mandiri lewat QR",
+                "subtitle": "Masuk/pulang tetap di Absen QR.",
+                "bullets": [
+                    "Grup Absensi → Absen QR",
+                    "Pilih Masuk atau Pulang",
+                    "Scan QR sekolah di lokasi valid",
+                ],
+            },
+        ],
+    },
+    "kartu-id-guru": {
+        "brand": "Kartu ID · Guru",
+        "accent": (20, 184, 166),
+        "shots": [
+            {
+                "title": "Buka menu Kartu ID",
+                "subtitle": "Sidebar: Kartu ID (bukan Kartu Pelajar).",
+                "bullets": [
+                    "Login sebagai guru",
+                    "Sidebar → Kartu ID",
+                    "Hanya akun yang terhubung data guru",
+                ],
+            },
+            {
+                "title": "Kartu digital di layar",
+                "subtitle": "Desain sama dengan cetakan resmi.",
+                "bullets": [
+                    "Identitas, foto, logo sekolah",
+                    "Skala nyaman di HP",
+                    "Bisa digeser / diperbesar pratinjau",
+                ],
+            },
+            {
+                "title": "Perbesar QR",
+                "subtitle": "Agar mudah discan kiosk.",
+                "bullets": [
+                    "Ketuk perbesar QR / barcode",
+                    "Layar penuh kode",
+                    "Kecerahan HP dinaikkan bila perlu",
+                ],
+            },
+            {
+                "title": "Absen di kiosk",
+                "subtitle": "Tunjukkan QR ke kamera absensi.",
+                "bullets": [
+                    "Arahkan QR ke kamera kiosk sekolah",
+                    "Tunggu konfirmasi hadir/pulang",
+                    "Simpan halaman untuk dipakai kapan saja",
+                ],
+            },
+        ],
+    },
 }
 
-GALLERY_IDS = {"arenabelajar", "arenakuis", "arenamisi", "ai"}
+GALLERY_IDS = {
+    "arenabelajar",
+    "arenakuis",
+    "arenamisi",
+    "ai",
+    "ai-foto-soal",
+    "ai-catatan-siswa",
+    "ai-export-mobile",
+    "absensi-guru-self",
+    "kartu-id-guru",
+}
 AI_GALLERY_ALIASES = True
 
 
@@ -431,15 +665,29 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Render panduan SIMS 1920x1080")
-    parser.add_argument("--only", help="Render satu fitur saja (id, mis. arenatren)")
+    parser.add_argument(
+        "--only",
+        help="Render fitur tertentu (id, koma-separated: mis. ai-foto-soal,ai-catatan-siswa)",
+    )
+    parser.add_argument(
+        "--missing-video",
+        action="store_true",
+        help="Hanya fitur yang belum punya public/videos/panduan/{id}.mp4",
+    )
     args = parser.parse_args()
 
     html = VISUAL_HTML.read_text(encoding="utf-8")
     features = parse_features(html)
     if args.only:
-        features = [f for f in features if f["id"] == args.only]
+        want = {x.strip() for x in args.only.split(",") if x.strip()}
+        features = [f for f in features if f["id"] in want]
         if not features:
             raise SystemExit(f"Fitur tidak ditemukan: {args.only}")
+    if args.missing_video:
+        features = [f for f in features if not (OUT_VID / f"{f['id']}.mp4").is_file()]
+        if not features:
+            print("Semua fitur sudah punya video.")
+            return
     print(f"Rendering {len(features)} fitur panduan @ {W}x{H}…")
 
     for feature in features:

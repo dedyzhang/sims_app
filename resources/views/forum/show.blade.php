@@ -207,8 +207,16 @@
         }
     }
 
-    // Jalankan polling setiap 5 detik
-    setInterval(refreshForumComments, 5000);
+    // Polling komentar 15s (was 5s); skip saat tab hidden
+    async function refreshForumCommentsVisible() {
+        if (document.hidden) return;
+        return refreshForumComments();
+    }
+    if (window.simsPollInterval) {
+        window.simsPollInterval(refreshForumCommentsVisible, 15000);
+    } else {
+        setInterval(refreshForumCommentsVisible, 15000);
+    }
 
     // Intersepsi submit form untuk kirim komentar & balasan agar AJAX + spinner
     document.addEventListener('submit', async function(e) {

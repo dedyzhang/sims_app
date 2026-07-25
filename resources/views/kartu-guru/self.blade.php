@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Kartu ID Saya')
+@section('title', 'Kartu ID')
 
 @push('styles')
 {{-- Style ASLI kartu (sumber tunggal, sama persis dgn PDF/cetak-massal) — sudah di-scope ke
@@ -16,7 +16,7 @@
 @section('content')
 <div class="max-w-md mx-auto" x-data="{ zoomQr: false }">
     <div class="mb-6">
-        <h1 class="page-title">Kartu ID Saya</h1>
+        <h1 class="page-title">Kartu ID</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Kartu identitas digitalmu — tunjukkan halaman ini atau perbesar QR-nya untuk absen di kiosk.</p>
     </div>
 

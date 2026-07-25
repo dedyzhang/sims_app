@@ -133,7 +133,7 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         $assignment->access_token = $lockStatus['access_token'];
 
         $assignment->load(['files', 'author', 'classroom.pelajaran', 'classroom.rombel']);
-        $comments = $assignment->comments()->whereNull('parent_id')->where('classroom_id', $classroom->uuid)->with(['user', 'replies'])->latest()->get();
+        $comments = $assignment->comments()->whereNull('parent_id')->where('classroom_id', $classroom->uuid)->with(['user', 'replies'])->latest()->limit(100)->get();
         $canManage = $user->can('manage', $classroom);
 
         // Mode terkunci (token + layar penuh) untuk siswa.

@@ -691,7 +691,7 @@
         : [];
     $blockLabel = [
         'siswa_jadwal'  => 'Jadwal Hari Ini',
-        'siswa_absensi' => 'Absensi Saya',
+        'siswa_absensi' => 'Absensi',
         'siswa_poin'    => $jenisAturan === 'poin' ? 'Poin Kedisiplinan' : 'P3 Kedisiplinan',
         'siswa_podium'  => 'Papan Peringkat Sekolah',
     ];
@@ -735,7 +735,7 @@
         : [];
     $blockLabel = [
         'guru_jadwal'        => 'Jadwal Mengajar',
-        'guru_presensi'      => 'Presensi Saya',
+        'guru_presensi'      => 'Absensi',
         'guru_agenda'        => 'Agenda Hari Ini',
         'ringkasan_siswa'    => 'Ringkasan Siswa',
         'ringkasan_guru'     => 'Ringkasan Guru',
@@ -913,7 +913,14 @@
     }
 
     tick();
-    setInterval(tick, 1000);
+    // Jam dashboard 1s hanya saat tab visible (hemat CPU HP/lab).
+    setInterval(function () {
+        if (document.hidden) return;
+        tick();
+    }, 1000);
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) tick();
+    });
 })();
 </script>
 @endpush

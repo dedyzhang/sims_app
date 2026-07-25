@@ -113,6 +113,7 @@
         line-height: 1.7;
         white-space: pre-wrap;
         word-break: break-word;
+        white-space: normal;
     }
 
     /* ── AI Console — clean white, match SIMS theme ── */
@@ -805,9 +806,387 @@
             height: 100%;
             overflow: hidden;
         }
+        .ai-console__keyform-actions {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+    }
+    .ai-console__warn {
+        margin: 0;
+        font-size: 11px;
+        color: #b45309;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .ai-console__msg-ok {
+        margin: 0;
+        font-size: 11px;
+        color: var(--c-lime);
+        font-weight: 600;
+    }
+    .ai-console__msg-err {
+        margin: 0;
+        font-size: 11px;
+        color: var(--c-rose);
+        font-weight: 600;
+    }
+
+    /* Masthead + tabs */
+    .ai-masthead {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem 1rem;
+    }
+    .ai-masthead__badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.25rem 0.65rem;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: color-mix(in srgb, var(--cp) 80%, #0f172a);
+        background: color-mix(in srgb, var(--cp) 10%, #fff);
+        border: 1px solid color-mix(in srgb, var(--cp) 22%, #e2e8f0);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .ai-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        padding: 0.35rem;
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--cp) 4%, #fff);
+        border: 1.5px solid color-mix(in srgb, var(--cp) 12%, #e2e8f0);
+        box-shadow: 0 2px 10px -8px rgba(15, 23, 42, 0.08);
+    }
+    .ai-tabs__btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        border-radius: 12px;
+        border: 1px solid transparent;
+        padding: 0.55rem 0.95rem;
+        font-size: 13px;
+        font-weight: 700;
+        color: #64748b;
+        background: transparent;
+        transition: color .15s, background .15s, border-color .15s, box-shadow .15s;
+    }
+    .ai-tabs__btn:hover {
+        color: #0f172a;
+        background: color-mix(in srgb, var(--cp) 8%, #fff);
+    }
+    .ai-tabs__btn.is-active {
+        color: #fff;
+        background: var(--cp);
+        border-color: transparent;
+        box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--cp) 55%, transparent);
+    }
+
+    /* Nalar chat shell — clean light */
+    .ai-chat {
+        border-radius: 22px;
+        overflow: hidden;
+        border: 1.5px solid color-mix(in srgb, var(--cp) 12%, #e2e8f0);
+        background: #fff;
+        box-shadow: 0 4px 18px -10px rgba(15, 23, 42, 0.08);
+        display: flex;
+        flex-direction: column;
+        min-height: min(70vh, 720px);
+    }
+    .ai-chat__head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.9rem 1.1rem;
+        border-bottom: 1px solid color-mix(in srgb, var(--cp) 10%, #e2e8f0);
+        background: linear-gradient(115deg, color-mix(in srgb, var(--cp) 10%, #fff) 0%, #fff 55%, color-mix(in srgb, var(--cps, var(--cp)) 8%, #fff) 100%);
+    }
+    .ai-chat__body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.15rem 1.1rem;
+        background:
+            radial-gradient(ellipse 70% 40% at 10% 0%, color-mix(in srgb, var(--cp) 8%, transparent), transparent 55%),
+            radial-gradient(ellipse 50% 35% at 90% 100%, color-mix(in srgb, var(--cps, var(--cp)) 8%, transparent), transparent 50%),
+            color-mix(in srgb, var(--cp) 2.5%, #f8fafc);
+    }
+    .ai-chat__composer {
+        border-top: 1px solid color-mix(in srgb, var(--cp) 10%, #e2e8f0);
+        padding: 0.75rem;
+        background: #fff;
+    }
+    .ai-chat__composer-inner {
+        display: flex;
+        gap: 0.5rem;
+        align-items: end;
+        border-radius: 16px;
+        border: 1.5px solid color-mix(in srgb, var(--cp) 16%, #e2e8f0);
+        background: color-mix(in srgb, var(--cp) 3%, #fff);
+        padding: 0.45rem;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .ai-chat__composer-inner:focus-within {
+        border-color: var(--cp);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--cp) 12%, transparent);
+    }
+    .ai-chat__ta {
+        flex: 1;
+        resize: none;
+        background: transparent;
+        border: 0;
+        outline: none;
+        box-shadow: none;
+        font-size: 14px;
+        padding: 0.55rem 0.65rem;
+        color: #0f172a;
+        min-height: 48px;
+    }
+    .ai-chat__ta::placeholder { color: #94a3b8; }
+    .ai-chat__bubble-user {
+        max-width: 92%;
+        background: var(--cp);
+        color: #fff;
+        border-radius: 18px 18px 6px 18px;
+        box-shadow: 0 8px 20px -12px color-mix(in srgb, var(--cp) 50%, transparent);
+    }
+    .ai-chat__bubble-ai {
+        max-width: 92%;
+        background: #fff;
+        color: #1e293b;
+        border: 1.5px solid color-mix(in srgb, var(--cp) 12%, #e2e8f0);
+        border-radius: 18px 18px 18px 6px;
+        box-shadow: 0 2px 10px -8px rgba(15, 23, 42, 0.08);
+    }
+    @media (min-width: 640px) {
+        .ai-chat__bubble-user,
+        .ai-chat__bubble-ai { max-width: 80%; }
+        .ai-chat__bubble-ai.ai-chat__bubble-ai--wide { max-width: 48rem; width: 100%; }
+    }
+    .ai-chat__suggest {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        width: 100%;
+        text-align: left;
+        border-radius: 14px;
+        border: 1.5px solid color-mix(in srgb, var(--cp) 12%, #e2e8f0);
+        background: #fff;
+        padding: 0.75rem 0.9rem;
+        font-size: 12px;
+        font-weight: 600;
+        color: #475569;
+        transition: border-color .15s, background .15s, color .15s, box-shadow .15s;
+    }
+    .ai-chat__suggest:hover {
+        border-color: color-mix(in srgb, var(--cp) 40%, #cbd5e1);
+        background: color-mix(in srgb, var(--cp) 6%, #fff);
+        color: color-mix(in srgb, var(--cp) 80%, #0f172a);
+        box-shadow: 0 4px 14px -10px color-mix(in srgb, var(--cp) 35%, transparent);
+    }
+    .ai-chat__icon-soft {
+        background: color-mix(in srgb, var(--cp) 12%, #fff);
+        color: var(--cp);
+        border: 1px solid color-mix(in srgb, var(--cp) 18%, transparent);
+    }
+
+    .dark .ai-console {
+        background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+        border-color: #334155;
+        color: #e2e8f0;
+        box-shadow: none;
+    }
+    .dark .ai-console__title,
+    .dark .ai-tile__value,
+    .dark .ai-tile__meta strong { color: #f8fafc; }
+    .dark .ai-tile {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    .dark .ai-tabs {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    .dark .ai-tabs__btn { color: #94a3b8; }
+    .dark .ai-tabs__btn:hover { color: #f1f5f9; background: #334155; }
+    .dark .ai-chat {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    .dark .ai-chat__head {
+        background: linear-gradient(115deg, color-mix(in srgb, var(--cp) 18%, #1e293b), #1e293b);
+        border-color: #334155;
+    }
+    .dark .ai-chat__body {
+        background: #0f172a;
+    }
+    .dark .ai-chat__bubble-ai {
+        background: #1e293b;
+        border-color: #334155;
+        color: #e2e8f0;
+    }
+    .dark .ai-chat__composer { background: #1e293b; border-color: #334155; }
+    .dark .ai-chat__composer-inner {
+        background: #0f172a;
+        border-color: #334155;
+    }
+    .dark .ai-chat__ta { color: #e2e8f0; }
+    .dark .ai-chat__suggest {
+        background: #0f172a;
+        border-color: #334155;
+        color: #cbd5e1;
+    }
+    .dark .ai-input {
+        background: #0f172a;
+        border-color: #334155;
+        color: #e2e8f0;
+    }
+    .dark .ai-btn--ghost {
+        background: transparent;
+        border-color: #475569;
+        color: #cbd5e1;
+    }
+
+    /* Mobile/stack: 1 kolom, tidak overflow frame, scroll internal */
+    @media (max-width: 1279px) {
+        .ai-teacher-tools-grid {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.85rem;
+        }
+        .ai-teacher-form-card {
+            height: auto;
+            overflow: visible;
+            padding: 1rem;
+        }
+        .ai-teacher-hasil,
+        .ai-teacher-history {
+            height: auto;
+            min-height: min(50vh, 420px);
+            max-height: min(68vh, 640px);
+            width: 100%;
+        }
+        .ai-teacher-hasil > .ai-teacher-col-shell,
+        .ai-teacher-history > .ai-teacher-col-shell {
+            display: flex;
+            flex-direction: column;
+            min-height: min(50vh, 420px);
+            max-height: min(68vh, 640px);
+            height: 100%;
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+        }
+        .ai-teacher-hasil > .ai-teacher-col-shell {
+            padding: 0.85rem;
+        }
+        /* Di mobile history full-width → pakai judul lengkap */
+        .ai-teacher-history__title-full { display: inline !important; }
+        .ai-teacher-history__title-short { display: none !important; }
+        .ai-teacher-history__meta-label { display: inline !important; }
+        .ai-teacher-history__toggle {
+            padding: 0.75rem 1rem;
+        }
+        .ai-tabs {
+            max-width: 100%;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        .ai-tabs__btn {
+            flex: 0 0 auto;
+            padding: 0.5rem 0.75rem;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .ai-console__body {
+            padding: 0.9rem;
+        }
+        .ai-console__title {
+            font-size: 0.98rem;
+        }
+        .ai-console__sub {
+            font-size: 11px;
+            overflow-wrap: anywhere;
+        }
+        .ai-btn {
+            max-width: 100%;
+        }
+        .ai-usage__head {
+            flex-wrap: wrap;
+            gap: 0.15rem 0.5rem;
+        }
+        .ai-usage__nums {
+            font-size: 10px;
+        }
+        .ai-usage__hint {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+    }
+    @media (max-width: 639px) {
+        .ai-teacher-form-card {
+            padding: 0.85rem;
+        }
+        .ai-teacher-hasil,
+        .ai-teacher-history {
+            min-height: min(48vh, 380px);
+            max-height: min(62vh, 560px);
+        }
+        .ai-teacher-hasil > .ai-teacher-col-shell,
+        .ai-teacher-history > .ai-teacher-col-shell {
+            min-height: min(48vh, 380px);
+            max-height: min(62vh, 560px);
+        }
+        .ai-teacher-history-body {
+            padding-left: 0.65rem;
+            padding-right: 0.65rem;
+        }
+        /* Tombol form generator: full width stack di HP sempit */
+        .ai-teacher-form-scroll .ai-btn {
+            justify-content: center;
+        }
+        .ai-teacher-form-scroll .grid.grid-cols-3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .ai-teacher-form-scroll .grid.grid-cols-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    /* Cegah overflow horizontal di seluruh modul Asisten Guru */
+    .ai-teacher-page {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: clip;
+    }
+    .ai-teacher-page *,
+    .ai-teacher-page *::before,
+    .ai-teacher-page *::after {
+        box-sizing: border-box;
+    }
+    .ai-teacher-page img,
+    .ai-teacher-page video,
+    .ai-teacher-page canvas {
+        max-width: 100%;
+        height: auto;
+    }
+    .ai-teacher-page pre,
+    .ai-teacher-page code {
+        max-width: 100%;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
     }
 </style>
-<div class="space-y-5 relative min-w-0 max-w-full" x-data="teacherAi()">
+<div class="ai-teacher-page space-y-5 relative min-w-0 max-w-full w-full" x-data="teacherAi()">
 
     @if(session('error'))
     <div class="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-900/30 dark:border-rose-800 px-4 py-3 text-sm font-semibold text-rose-800 dark:text-rose-200">
@@ -1423,6 +1802,74 @@
                     </div>
                 </div>
 
+                <div x-show="quiz.source === 'camera'" x-cloak class="space-y-3">
+                    <label class="form-label">Foto halaman buku → langsung jadi soal <span class="text-rose-500">*</span></label>
+                    <div class="grid grid-cols-2 gap-1.5 rounded-xl border border-primary/15 bg-primary/[0.04] p-2 text-center">
+                        <div class="rounded-lg px-1.5 py-1.5"
+                             :class="ocrHasUsable('quiz') ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-white/80 text-slate-600 dark:bg-slate-900/50 dark:text-slate-300'">
+                            <p class="text-[10px] font-bold uppercase tracking-wide opacity-70">1</p>
+                            <p class="text-[11px] font-semibold leading-tight">Foto / unggah</p>
+                        </div>
+                        <div class="rounded-lg px-1.5 py-1.5"
+                             :class="resultSource === 'generate' && tab === 'quiz' ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-white/80 text-slate-600 dark:bg-slate-900/50 dark:text-slate-300'">
+                            <p class="text-[10px] font-bold uppercase tracking-wide opacity-70">2</p>
+                            <p class="text-[11px] font-semibold leading-tight">Buat soal (AI Studio)</p>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">Ambil/unggah foto halaman → atur jumlah/jenis → <strong>Buat Soal dari foto</strong>. Gemini (API key AI Studio guru) membaca foto dan langsung menyusun soal — tanpa langkah OCR terpisah.</p>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+                        <p class="font-bold text-slate-700 dark:text-slate-200 mb-1">Batas &amp; konversi otomatis</p>
+                        <ul class="list-disc pl-4 space-y-0.5">
+                            <li>Maks. <strong x-text="ocr.maxImages"></strong> foto · format <strong>JPEG, PNG, WebP</strong></li>
+                            <li>Ukuran unggah maks. <strong x-text="formatBytes(ocr.maxBytes)"></strong>/foto · target kompres ~<strong x-text="formatBytes(ocr.targetBytes)"></strong></li>
+                            <li>PNG/WebP kecil <strong>dipertahankan</strong>; foto besar dikompres (sisi max <span x-text="ocr.maxEdge"></span>px)</li>
+                            <li>Foto buram ditandai — potret ulang atau “Tetap pakai”</li>
+                        </ul>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" class="ai-btn min-h-[44px]" @click="openOcrCamera('quiz')">
+                            <i data-lucide="camera" class="w-4 h-4"></i> Buka kamera
+                        </button>
+                        {{-- Fallback native capture: TANPA multiple (multiple memaksa galeri di banyak HP) --}}
+                        <input x-ref="ocrCameraNativeQuiz" type="file" accept="image/*,.png,.jpg,.jpeg,.webp" capture="environment"
+                               class="sr-only" @change="addOcrImages($event, 'quiz')">
+                        <label class="ai-btn ai-btn--ghost cursor-pointer min-h-[44px]">
+                            <i data-lucide="image" class="w-4 h-4"></i> Dari galeri
+                            <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.jpeg,.jpg,.png,.webp,image/*" class="sr-only"
+                                   @change="addOcrImages($event, 'quiz')" multiple>
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2" x-show="ocr.quiz.images.length">
+                        <template x-for="(img, idx) in ocr.quiz.images" :key="img.id">
+                            <div class="relative rounded-xl border overflow-hidden"
+                                 :class="img.blurry && !img.forceKeep ? 'border-rose-300' : 'border-slate-200 dark:border-slate-700'">
+                                <img :src="img.preview" alt="" class="h-24 w-full object-cover">
+                                <span class="absolute left-1 top-1 rounded px-1.5 py-0.5 text-[9px] font-bold"
+                                      :class="img.blurry && !img.forceKeep ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'"
+                                      x-text="img.blurry && !img.forceKeep ? 'Buram' : 'Tajam'"></span>
+                                <span class="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[9px] font-mono text-white"
+                                      x-text="(img.converted ? '→ ' : '') + (img.sizeKb || 0) + ' KB'"></span>
+                                <button type="button" @click="removeOcrImage('quiz', idx)"
+                                        class="absolute right-1 top-1 rounded-md bg-black/55 p-1 text-white">
+                                    <i data-lucide="x" class="w-3 h-3"></i>
+                                </button>
+                                <button type="button" x-show="img.blurry && !img.forceKeep" x-cloak
+                                        @click="img.forceKeep = true; $nextTick(() => lucide && lucide.createIcons())"
+                                        class="absolute bottom-6 left-1 right-1 rounded bg-white/95 px-1 py-0.5 text-[9px] font-bold text-slate-700">
+                                    Tetap pakai
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                    <p class="text-xs text-emerald-700 dark:text-emerald-300 font-semibold" x-show="ocr.quiz.notice" x-cloak x-text="ocr.quiz.notice"></p>
+                    <p class="text-xs text-rose-600 font-semibold" x-show="ocr.quiz.error" x-cloak x-text="ocr.quiz.error"></p>
+                    <div x-show="ocrHasUsable('quiz')" x-cloak
+                         class="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-[11px] leading-relaxed text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-100">
+                        <p class="font-bold">Foto siap. Atur jumlah &amp; jenis soal, lalu klik <strong>Buat Soal dari foto</strong>.</p>
+                        <p class="mt-0.5 opacity-90">Soal digenerate langsung dari foto lewat API AI Studio guru Anda.</p>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="form-label">Jumlah Soal <span class="text-rose-500">*</span></label>
@@ -1469,7 +1916,8 @@
                 </button>
                 <button type="button" @click="submitExternal('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || !canSubmitQuiz()"
                         class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-primary hover:text-primary disabled:opacity-40">
-                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Cadangan: buka Gemini web
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                    <span x-text="quiz.source === 'camera' ? 'Cadangan web: tidak untuk foto' : 'Cadangan: buka Gemini web'"></span>
                 </button>
             </div>
 
@@ -1595,7 +2043,8 @@
                 </button>
                 <button type="button" @click="submitExternal('learning')" :disabled="loading || !learningSourceReady()"
                         class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-primary hover:text-primary disabled:opacity-40">
-                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Cadangan: buka Gemini web
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                    <span x-text="learning.source === 'camera' ? 'Cadangan web: tidak untuk foto' : 'Cadangan: buka Gemini web'"></span>
                 </button>
             </div>
             {{-- Perangkum Materi --}}
@@ -1610,18 +2059,22 @@
                 </button>
             </div>
 
-            {{-- Draft Feedback --}}
+            {{-- Catatan Siswa --}}
             <div x-show="tab === 'feedback'" class="space-y-4" x-cloak>
+                <p class="text-[11px] text-slate-500 leading-relaxed">
+                    Susun catatan hangat dan membangun untuk siswa — dari jawaban, sikap, atau hal yang ingin Anda sampaikan.
+                    Hasil adalah draf; edit dulu sebelum dibagikan.
+                </p>
                 <div>
-                    <label class="form-label">Nama Siswa (opsional)</label>
+                    <label class="form-label">Nama siswa (opsional)</label>
                     <input type="text" x-model="feedback.nama" placeholder="mis. Andi" class="form-input">
                 </div>
                 <div>
-                    <label class="form-label">Konteks / Jawaban Siswa <span class="text-rose-500">*</span></label>
-                    <textarea x-model="feedback.konteks" rows="9" placeholder="mis. Jawaban ujian, sikap belajar, atau hal yang ingin dikomentari..." class="form-input resize-y"></textarea>
+                    <label class="form-label">Apa yang ingin dicatat? <span class="text-rose-500">*</span></label>
+                    <textarea x-model="feedback.konteks" rows="9" placeholder="mis. Jawaban ujian, sikap belajar, tugas, atau hal yang ingin dikomentari..." class="form-input resize-y"></textarea>
                 </div>
                 <button type="button" @click="submit('feedback')" :disabled="loading || feedback.konteks.trim() === ''" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="message-square-heart" class="w-4 h-4"></i> Susun Draf
+                    <i data-lucide="message-square-heart" class="w-4 h-4"></i> Susun Catatan Siswa
                 </button>
             </div>
             </div>{{-- /ai-teacher-form-scroll --}}
@@ -1867,6 +2320,8 @@
             loading: false,
             exportingWord: false,
             exportingPdf: false,
+            exportNotice: '',
+            exportNoticeTimer: null,
             result: '',
             resultSource: null, // 'generate' | 'ocr' | null
             error: '',
@@ -1925,7 +2380,7 @@
                 { key: 'quiz',     label: 'Generator Soal',  icon: 'file-question' },
                 { key: 'learning', label: 'RPM Learning',    icon: 'clipboard-list' },
                 { key: 'summary',  label: 'Perangkum Materi', icon: 'list-collapse' },
-                { key: 'feedback', label: 'Draft Feedback',  icon: 'message-square-heart' },
+                { key: 'feedback', label: 'Catatan Siswa',  icon: 'message-square-heart' },
             ],
             geminiMessages: [],
             geminiInput: '',
@@ -2415,11 +2870,16 @@
 
             startQuotaPolling() {
                 if (this.quotaTimer) clearInterval(this.quotaTimer);
-                this.quotaTimer = setInterval(() => this.refreshQuota(false), 10000);
+                // 15s (was 10s); skip tick saat tab hidden
+                this.quotaTimer = setInterval(() => {
+                    if (document.hidden) return;
+                    this.refreshQuota(false);
+                }, 15000);
             },
 
             async refreshQuota(fresh = false) {
                 if (this.quotaLoading) return;
+                if (!fresh && document.hidden) return;
                 this.quotaLoading = true;
                 try {
                     const url = this.urls.quota + (fresh ? '?fresh=1' : '');
@@ -3101,12 +3561,46 @@
                 form.submit();
             },
 
-            async exportQuiz(format) {
-                if (!this.result) return;
-                const isPdf = format === 'pdf';
-                if ((isPdf && this.exportingPdf) || (!isPdf && this.exportingWord)) return;
-                if (isPdf) this.exportingPdf = true; else this.exportingWord = true;
-                this.error = '';
+            /** Deteksi Android WebView APK (; wv) atau bridge native. */
+            isAndroidWebView() {
+                try {
+                    if (window.AndroidFcm || window.AndroidArena || window.AndroidBridge) return true;
+                } catch (_) {}
+                return /; wv\)/i.test(navigator.userAgent || '') || /\bwv\b/i.test(navigator.userAgent || '');
+            },
+            isMobileDevice() {
+                return this.isAndroidWebView()
+                    || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '')
+                    || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+            },
+            flashExportNotice(msg) {
+                this.exportNotice = msg || '';
+                if (this.exportNoticeTimer) clearTimeout(this.exportNoticeTimer);
+                if (!msg) return;
+                this.exportNoticeTimer = setTimeout(() => {
+                    this.exportNotice = '';
+                    this.exportNoticeTimer = null;
+                }, 6000);
+            },
+            /**
+             * Unduh file export — andal di Chrome mobile + Android WebView.
+             * WebView: blob+a.download sering DIABAIKAN; form POST ke iframe
+             * memicu setDownloadListener (DownloadManager) di APK.
+             */
+            async downloadExportFile({ url, fields, fileName, mimeHint }) {
+                const preferForm = this.isAndroidWebView() || this.isMobileDevice();
+
+                if (preferForm) {
+                    this.downloadViaForm(url, fields);
+                    this.flashExportNotice(
+                        this.isAndroidWebView()
+                            ? 'Mengunduh lewat DownloadManager… cek notifikasi / folder Unduhan.'
+                            : 'Mengunduh file… cek folder Unduhan atau notifikasi browser.'
+                    );
+                    return true;
+                }
+
+                // Desktop: fetch + blob (lebih cepat, tanpa navigasi).
                 try {
                     const title = this.resultSource === 'ocr'
                         ? ('Teks scan buku' + (this.quiz.topik ? ' - ' + this.quiz.topik : ''))
@@ -3115,29 +3609,162 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Accept': isPdf ? 'application/pdf,application/json' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json',
+                            'Accept': (mimeHint || '*/*') + ',application/json',
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'X-Requested-With': 'XMLHttpRequest',
                         },
-                        body: JSON.stringify({ title, content: this.result }),
+                        credentials: 'same-origin',
+                        body: JSON.stringify(fields),
                     });
 
                     if (!r.ok) {
                         const d = await r.json().catch(() => ({}));
-                        this.error = d.message || 'Export gagal. Coba lagi.';
-                        return;
+                        throw new Error(d.message || 'Export gagal. Coba lagi.');
                     }
 
                     const blob = await r.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = this.slugify(title || 'soal-asisten-ai') + (isPdf ? '.pdf' : '.docx');
-                    document.body.appendChild(a);
-                    a.click();
+                    if (!blob || blob.size < 32) {
+                        throw new Error('File export kosong. Coba lagi.');
+                    }
+
+                    // Kalau server mengembalikan JSON error tersamar sebagai blob.
+                    if ((blob.type || '').includes('json')) {
+                        const text = await blob.text();
+                        let msg = 'Export gagal.';
+                        try { msg = JSON.parse(text).message || msg; } catch (_) {}
+                        throw new Error(msg);
+                    }
+
+                    const cd = r.headers.get('Content-Disposition') || '';
+                    const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd);
+                    const name = match
+                        ? decodeURIComponent(match[1].replace(/"/g, '').trim())
+                        : fileName;
+
+                    const saved = await this.saveBlobToDevice(blob, name);
+                    if (!saved) {
+                        // Fallback form bila blob gagal (beberapa browser ketat).
+                        this.downloadViaForm(url, fields);
+                        this.flashExportNotice('Mengunduh file… cek folder Unduhan.');
+                    } else {
+                        this.flashExportNotice('File diunduh: ' + name);
+                    }
+                    return true;
+                } catch (e) {
+                    // Fallback form juga di desktop jika fetch gagal.
+                    try {
+                        this.downloadViaForm(url, fields);
+                        this.flashExportNotice('Mengunduh file… cek folder Unduhan.');
+                        return true;
+                    } catch (_) {
+                        throw e;
+                    }
+                }
+            },
+            downloadViaForm(url, fields) {
+                let iframe = document.getElementById('ai-teacher-export-frame');
+                if (!iframe) {
+                    iframe = document.createElement('iframe');
+                    iframe.id = 'ai-teacher-export-frame';
+                    iframe.name = 'ai-teacher-export-frame';
+                    iframe.setAttribute('aria-hidden', 'true');
+                    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:0;opacity:0;pointer-events:none';
+                    document.body.appendChild(iframe);
+                }
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = url;
+                form.target = 'ai-teacher-export-frame';
+                form.enctype = 'application/x-www-form-urlencoded';
+                form.style.display = 'none';
+
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                form.appendChild(csrf);
+
+                Object.entries(fields || {}).forEach(([name, value]) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = name;
+                    input.value = value == null ? '' : String(value);
+                    form.appendChild(input);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+                setTimeout(() => form.remove(), 4000);
+            },
+            async saveBlobToDevice(blob, fileName) {
+                // IE/legacy
+                if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
+                    window.navigator.msSaveOrOpenBlob(blob, fileName);
+                    return true;
+                }
+
+                // iOS Safari: a.download + blob sering diabaikan → data URL
+                const isIOS = /iP(ad|hone|od)/i.test(navigator.userAgent || '')
+                    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                if (isIOS) {
+                    try {
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = () => reject(new Error('read fail'));
+                            reader.readAsDataURL(blob);
+                        });
+                        const a = document.createElement('a');
+                        a.href = dataUrl;
+                        a.download = fileName;
+                        a.rel = 'noopener';
+                        a.style.display = 'none';
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => a.remove(), 1500);
+                        return true;
+                    } catch (_) {
+                        // lanjut ke blob URL
+                    }
+                }
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.rel = 'noopener';
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
                     a.remove();
                     URL.revokeObjectURL(url);
-                } catch (_) {
-                    this.error = 'Export gagal. Periksa koneksi lalu coba lagi.';
+                }, 2500);
+                return true;
+            },
+            async exportQuiz(format) {
+                if (!this.result) return;
+                const isPdf = format === 'pdf';
+                if ((isPdf && this.exportingPdf) || (!isPdf && this.exportingWord)) return;
+                if (isPdf) this.exportingPdf = true; else this.exportingWord = true;
+                this.error = '';
+                this.exportNotice = '';
+                try {
+                    const title = this.resultSource === 'ocr'
+                        ? ('Teks scan buku' + (this.quiz.topik ? ' - ' + this.quiz.topik : ''))
+                        : (this.quiz.topik ? 'Soal - ' + this.quiz.topik : 'Soal dari Asisten Guru');
+                    const fileName = this.slugify(title || 'soal-asisten-ai') + (isPdf ? '.pdf' : '.docx');
+                    await this.downloadExportFile({
+                        url: isPdf ? this.urls.quizPdf : this.urls.quizWord,
+                        fields: { title, content: this.result },
+                        fileName,
+                        mimeHint: isPdf
+                            ? 'application/pdf'
+                            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    });
+                } catch (e) {
+                    this.error = (e && e.message) ? e.message : 'Export gagal. Periksa koneksi lalu coba lagi.';
                 } finally {
                     if (isPdf) this.exportingPdf = false; else this.exportingWord = false;
                     this.$nextTick(() => window.lucide && lucide.createIcons());
@@ -3280,40 +3907,25 @@
                 if ((isPdf && this.exportingPdf) || (!isPdf && this.exportingWord)) return;
                 if (isPdf) this.exportingPdf = true; else this.exportingWord = true;
                 this.error = '';
+                this.exportNotice = '';
                 try {
                     const toolLabel = this.learningToolLabel();
                     const title = this.learning.topik ? toolLabel + ' - ' + this.learning.topik : toolLabel;
-                    const r = await fetch(isPdf ? this.urls.learningPdf : this.urls.learningWord, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': isPdf ? 'application/pdf,application/json' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        },
-                        body: JSON.stringify({
-                            tool: this.learning.tool,
+                    const fileName = this.slugify(title || 'perangkat-ajar-learning') + (isPdf ? '.pdf' : '.docx');
+                    await this.downloadExportFile({
+                        url: isPdf ? this.urls.learningPdf : this.urls.learningWord,
+                        fields: {
+                            tool: this.learning.tool || 'rpp',
                             title,
                             content: this.result,
-                        }),
+                        },
+                        fileName,
+                        mimeHint: isPdf
+                            ? 'application/pdf'
+                            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     });
-
-                    if (!r.ok) {
-                        const d = await r.json().catch(() => ({}));
-                        this.error = d.message || 'Export gagal. Coba lagi.';
-                        return;
-                    }
-
-                    const blob = await r.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = this.slugify(title || 'perangkat-ajar-learning') + (isPdf ? '.pdf' : '.docx');
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                } catch (_) {
-                    this.error = 'Export gagal. Periksa koneksi lalu coba lagi.';
+                } catch (e) {
+                    this.error = (e && e.message) ? e.message : 'Export gagal. Periksa koneksi lalu coba lagi.';
                 } finally {
                     if (isPdf) this.exportingPdf = false; else this.exportingWord = false;
                     this.$nextTick(() => window.lucide && lucide.createIcons());

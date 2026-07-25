@@ -63,6 +63,36 @@ class ModulAktifTest extends TestCase
         $this->assertSame('0', Setting::get(ModulAktif::settingKey('keuangan')));
     }
 
+    public function test_arena_petualangan_sd_bisa_diaktif_nonaktif_dari_pengaturan(): void
+    {
+        $this->assertArrayHasKey('ludensa', ModulAktif::semua());
+        $this->assertSame('Arena Petualangan SD', ModulAktif::semua()['ludensa']['label']);
+
+        $admin = $this->admin();
+
+        $html = $this->actingAs($admin)
+            ->get(route('setting.index', ['tab' => 'fitur']))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('Arena Petualangan SD', $html);
+        $this->assertStringContainsString('name="ludensa"', $html);
+
+        $payload = [];
+        foreach (ModulAktif::kodeValid() as $kode) {
+            if ($kode !== 'ludensa') {
+                $payload[$kode] = '1';
+            }
+        }
+
+        $this->actingAs($admin)
+            ->post(route('setting.fitur'), $payload)
+            ->assertRedirect();
+
+        $this->assertFalse(ModulAktif::aktif('ludensa'));
+        $this->assertSame('0', Setting::get(ModulAktif::settingKey('ludensa')));
+    }
+
     public function test_modul_off_blokir_url_dan_sembunyikan_menu(): void
     {
         Setting::set(ModulAktif::settingKey('asisten_guru'), '0');

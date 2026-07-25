@@ -439,6 +439,16 @@ const F = [
  steps:["Buka Data Master ' Kartu Pelajar.","Cari siswa atau saring per kelas.","Status Otomatis berarti kartu sudah siap dari data.","Klik Lihat untuk pratinjau kartu.","Gunakan Choose File ' Unggah Kustom bila memakai desain sendiri."],
  sb:{dur:"~35 detik", shots:[["1","Tabel kartu pelajar","Sorot status Otomatis"],["2","Klik Lihat","Pratinjau kartu + QR"],["3","Unggah Kustom","Alur pilih file ' unggah"]], narr:"'Kartu pelajar dibuat otomatis lengkap dengan QR. Siswa bisa mengunduh sendiri, atau admin mengunggah desain kustom.'"}},
 
+/* ============ KARTU ID GURU (menu mandiri — label baru) ============ */
+{cat:"Data Master", role:true, id:"kartu-id-guru", title:"Kartu ID (Guru)", path:"/kartu-saya", img:"kartu-id-guru.png",
+ users:"Guru (akun yang terhubung ke data guru)",
+ cap:"Sidebar Kartu ID: kartu identitas digital guru + QR untuk absen di kiosk.",
+ desc:"Menu mandiri guru (label: Kartu ID). Menampilkan kartu identitas digital resmi (desain sama dengan cetak admin) lengkap foto, data, dan QR/barcode. Tunjukkan di layar HP atau perbesar QR untuk absensi di kiosk kamera sekolah. Bukan menu admin kelola semua kartu guru.",
+ steps:["Login sebagai guru.","Buka sidebar Kartu ID.","Lihat kartu digital (bisa digeser/zoom di HP).","Ketuk perbesar QR bila absen di kiosk.","Unduh/cetak PDF bila tersedia di halaman."],
+ sb:{dur:"~35 detik", shots:[["1","Buka menu Kartu ID","Sidebar kiri → Kartu ID (bukan Kartu Pelajar siswa)"],["2","Kartu digital tampil","Pratinjau identitas + logo sekolah, skala HP"],["3","Perbesar QR","Ketuk perbesar QR agar mudah discan kiosk"],["4","Absen di kiosk","Arahkan QR ke kamera absensi sekolah"]], narr:"'Buka Kartu ID di sidebar. Tunjukkan kartu atau perbesar QR di HP untuk absen di kiosk kamera sekolah.'"},
+ note:"Hanya tampil jika akun terhubung ke data guru. Admin mengelola massal lewat menu Kartu ID Guru (kelola).",
+ gallery:["kartu-id-guru-s1.png","kartu-id-guru-s2.png","kartu-id-guru-s3.png","kartu-id-guru-s4.png"]},
+
 /* ============ ABSENSI & PRESENSI ============ */
 {cat:"Absensi & Presensi", role:false, id:"absensi", title:"Absensi Siswa", path:"/absensi", img:"absensi-siswa.png",
  users:"Guru, Wali Kelas, Admin",
@@ -453,6 +463,16 @@ const F = [
  desc:"Absensi mandiri berbasis QR dengan validasi lokasi (harus berada di area sekolah). Pengguna memindai QR absensi sekolah untuk mencatat jam masuk atau pulang langsung dari perangkatnya.",
  steps:["Buka menu Absen QR.","Pilih tab Absen Masuk atau Absen Pulang.","Izinkan akses lokasi & kamera pada perangkat.","Klik Scan QR dan arahkan ke QR absensi sekolah.","Kehadiran tercatat bila lokasi valid."],
  sb:{dur:"~35 detik", shots:[["1","Halaman Absen QR","Sorot tab Masuk/Pulang"],["2","Status lokasi","Tunjuk indikator lokasi"],["3","Klik Scan QR","Kamera aktif memindai"],["4","Berhasil absen","Notifikasi sukses"]], narr:"'Dengan Absen QR, siswa dan guru mengabsen sendiri dengan memindai QR sekolah. Pastikan lokasi Anda berada di area sekolah.'"}},
+
+/* ============ ABSENSI GURU (menu mandiri — label baru) ============ */
+{cat:"Absensi & Presensi", role:true, id:"absensi-guru-self", title:"Absensi (Menu Guru)", path:"/presensi-guru/saya", img:"absensi-guru-self.png",
+ users:"Guru (akun yang terhubung ke data guru)",
+ cap:"Sidebar Absensi → Absensi: riwayat kehadiran sendiri, keterlambatan, izin pulang awal.",
+ desc:"Menu mandiri guru (sebelumnya berlabel Presensi Saya). Di sidebar grup Absensi, item Absensi membuka halaman riwayat kehadiran pribadi: status hari ini, riwayat, serta tautan form keterlambatan dan izin pulang awal bila diaktifkan sekolah. Bukan halaman admin yang menandai semua guru.",
+ steps:["Login sebagai guru.","Buka sidebar grup Absensi → Absensi.","Lihat status/riwayat kehadiran Anda.","Gunakan form keterlambatan atau izin pulang awal bila tersedia.","Untuk absen masuk/pulang mandiri, pakai juga Absen QR di grup yang sama."],
+ sb:{dur:"~40 detik", shots:[["1","Sidebar grup Absensi","Buka item Absensi (bukan Presensi Guru admin)"],["2","Riwayat pribadi","Status hari ini + daftar kehadiran Anda"],["3","Keterlambatan / izin","Isi form bila diaktifkan sekolah"],["4","Absen QR mandiri","Masuk/pulang lewat Absen QR di grup yang sama"]], narr:"'Menu Absensi menampilkan riwayat kehadiran pribadi guru. Absen masuk atau pulang mandiri tetap lewat Absen QR.'"},
+ note:"Hanya untuk akun guru. Admin menandai kehadiran massal lewat menu Presensi Guru (admin).",
+ gallery:["absensi-guru-self-s1.png","absensi-guru-self-s2.png","absensi-guru-self-s3.png","absensi-guru-self-s4.png"]},
 
 {cat:"Absensi & Presensi", role:false, id:"presensiguru", title:"Presensi Guru", path:"/presensi-guru", img:"presensi-guru.png",
  users:"Admin, Kepala Sekolah",
@@ -554,6 +574,34 @@ const F = [
  note:"Wajib API key Gemini pribadi. Jangan bagikan key. Siswa & Orang Tua tidak mendapat menu ini. Kirim ke Arena hanya jika modul Arena Belajar aktif dan guru punya ruang mapel.",
  gallery:["asisten-ai-s1.png","asisten-ai-s2.png","asisten-ai-s3.png","asisten-ai-s4.png","asisten-ai-s5.png"]},
 
+/* ============ PEMBARUAN ASISTEN GURU (fitur baru) ============ */
+{cat:"Akademik", role:true, id:"ai-foto-soal", title:"Soal dari Foto Buku", path:"/ai/teacher", img:"ai-foto-soal.png",
+ users:"Guru, Wali Kelas, Kepala Sekolah, Waka (sama dengan Asisten Guru)",
+ cap:"Generator Soal → sumber Foto buku: kamera/galeri → langsung Buat Soal dari foto (tanpa langkah OCR terpisah).",
+ desc:"Fitur baru di Generator Soal (dan RPM Learning). Ambil foto halaman buku atau unggah dari galeri (JPEG, PNG, WebP). Foto dikompres otomatis; yang buram ditandai. Lalu atur jumlah/jenis/tingkat dan klik Buat Soal dari foto — Gemini (API key AI Studio Anda) membaca foto dan menyusun soal. Tidak perlu tombol Jadikan teks. Topik opsional sebagai fokus. Hasil muncul di panel Hasil + History.",
+ steps:["Buka Akademik → Asisten Guru → tab Generator Soal.","Pastikan API key Gemini (AI Studio) sudah tersimpan.","Pada Sumber Materi pilih Foto buku.","Buka kamera atau Dari galeri; ambil 1–3 halaman (foto tajam, cahaya cukup).","Atur jumlah, jenis, dan tingkat soal.","Klik Buat Soal dari foto. Tunggu hingga soal muncul di Hasil.","Periksa soal & kunci; unduh Word/PDF atau Kirim ke Arena bila perlu."],
+ sb:{dur:"~55 detik", shots:[["1","Buka Generator Soal","Akademik → Asisten Guru → tab Generator Soal"],["2","Pilih sumber Foto buku","Sakelar sumber: topik / file / Foto buku"],["3","Ambil atau unggah foto","Kamera HP atau galeri · JPEG/PNG/WebP"],["4","Atur soal lalu generate","Jumlah, jenis, tingkat → Buat Soal dari foto"],["5","Periksa hasil","Panel Hasil + Word/PDF atau Kirim ke Arena"]], narr:"'Foto halaman buku, lalu langsung buat soal. Tidak perlu OCR manual — Asisten Guru membaca foto lewat API key AI Studio Anda.'"},
+ note:"Butuh API key Gemini pribadi. Foto buram bisa ditolak atau ditandai; pakai Tetap pakai bila teks tetap terbaca. Untuk RPM: pilih tab RPM Learning → sumber Foto buku → Buat RPM dari foto.",
+ gallery:["ai-foto-soal-s1.png","ai-foto-soal-s2.png","ai-foto-soal-s3.png","ai-foto-soal-s4.png","ai-foto-soal-s5.png"]},
+
+{cat:"Akademik", role:true, id:"ai-catatan-siswa", title:"Catatan Siswa", path:"/ai/teacher", img:"ai-catatan-siswa.png",
+ users:"Guru, Wali Kelas, Kepala Sekolah, Waka (sama dengan Asisten Guru)",
+ cap:"Tab Catatan Siswa: nama opsional + konteks (jawaban/sikap/tugas) → Susun Catatan Siswa (draf hangat).",
+ desc:"Tab baru (pengganti label Draft Feedback). Menyusun draf catatan hangat dan membangun untuk siswa — cocok untuk komentar rapor, buku penghubung, atau umpan balik tugas. Isi nama (opsional) dan konteks; AI menulis draf dengan nada mendukung. Guru wajib menyunting sebelum dibagikan. Judul dokumen: CATATAN SISWA + kop sekolah.",
+ steps:["Buka Asisten Guru → tab Catatan Siswa.","Isi nama siswa bila perlu.","Isi Apa yang ingin dicatat? (jawaban ujian, sikap, tugas, dll).","Klik Susun Catatan Siswa.","Edit di panel Hasil agar sesuai kondisi nyata.","Salin atau simpan lewat History Generate."],
+ sb:{dur:"~40 detik", shots:[["1","Buka tab Catatan Siswa","Asisten Guru → tab Catatan Siswa"],["2","Isi nama & konteks","Nama opsional; tulis jawaban/sikap/tugas"],["3","Susun Catatan Siswa","Tunggu draf muncul di panel Hasil"],["4","Edit lalu bagikan","Sesuaikan kalimat sebelum ke siswa/ortu"]], narr:"'Catatan Siswa membantu guru menulis komentar yang hangat dan membangun. Hasilnya draf — selalu edit sebelum dibagikan ke siswa atau orang tua.'"},
+ note:"Jangan mengarang nilai. Hindari data sensitif berlebih. Bukan pengganti penilaian formal.",
+ gallery:["ai-catatan-siswa-s1.png","ai-catatan-siswa-s2.png","ai-catatan-siswa-s3.png","ai-catatan-siswa-s4.png"]},
+
+{cat:"Akademik", role:true, id:"ai-export-mobile", title:"Export Word/PDF di HP", path:"/ai/teacher", img:"ai-export-mobile.png",
+ users:"Guru (Asisten Guru di browser HP atau aplikasi WebView)",
+ cap:"Tombol Word & PDF besar di panel Hasil; unduhan lewat form agar masuk folder Unduhan / notifikasi HP.",
+ desc:"Setelah generate (soal, RPM, scan teks, dll), unduh Word atau PDF langsung dari panel Hasil. Di HP dan WebView APK, unduhan memakai cara yang memicu DownloadManager (bukan hanya tautan blob). Tombol Word/PDF full-width di layar sempit agar mudah diketuk. Notifikasi singkat muncul saat unduhan dimulai.",
+ steps:["Generate konten di Asisten Guru hingga muncul di panel Hasil.","Di baris unduh, ketuk Word atau PDF (tinggi tombol nyaman di HP).","Izinkan unduhan di browser bila diminta.","Cek notifikasi unduhan atau folder Unduhan.","Buka file di aplikasi Word / pembaca PDF."],
+ sb:{dur:"~35 detik", shots:[["1","Hasil generate siap","Panel Hasil berisi soal/RPM/catatan"],["2","Tombol Word & PDF","Dua tombol besar di toolbar Hasil (HP)"],["3","Ketuk unduh","Izinkan unduhan / DownloadManager APK"],["4","Buka file di HP","Notifikasi unduhan atau folder Unduhan"]], narr:"'Export Word dan PDF di HP: ketuk tombol di panel Hasil, lalu buka file dari notifikasi atau folder Unduhan.'"},
+ note:"Di APK WebView, unduhan mengandalkan DownloadListener native + cookie sesi. Jika file tidak muncul, coba browser Chrome atau minta update APK.",
+ gallery:["ai-export-mobile-s1.png","ai-export-mobile-s2.png","ai-export-mobile-s3.png","ai-export-mobile-s4.png"]},
+
 {cat:"Akademik", role:false, id:"cetakrapor", title:"Cetak Rapor", path:"/cetak-rapor", img:"cetak-rapor.png",
  users:"Admin, Wali Kelas",
  cap:"Cetak Rapor: pilih Kelas + Tampilkan; daftar peserta didik (Nama, NIS) dengan tombol Cetak per siswa; tombol Cetak Satu Kelas.",
@@ -650,6 +698,11 @@ const FEATURE_ROLES = {
   agenda:['guru'], poin:['admin','kesiswaan','walikelas'],
   walikelas:['walikelas'],
   ai:['guru','walikelas','kepala','kurikulum','kesiswaan','sapras'],
+  'ai-foto-soal':['guru','walikelas','kepala','kurikulum','kesiswaan','sapras'],
+  'ai-catatan-siswa':['guru','walikelas','kepala','kurikulum','kesiswaan','sapras'],
+  'ai-export-mobile':['guru','walikelas','kepala','kurikulum','kesiswaan','sapras'],
+  'absensi-guru-self':['guru','walikelas'],
+  'kartu-id-guru':['guru','walikelas'],
   sarpras:['sapras','admin','kepala'], inventaris:['sapras','admin'],
   kerusakan:['*'], denah:['sapras','admin'],
   spp:['bendahara','admin','siswa','orangtua'], settings:['admin']
