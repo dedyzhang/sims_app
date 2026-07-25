@@ -145,16 +145,16 @@ class FaceController extends Controller
             ], 422);
         }
 
-        $update = [$descCol => $request->descriptors];
-        // face_registered_at & foto profil dipakai bersama lintas mesin — jangan timpa kalau
-        // sudah pernah terisi dari registrasi sebelumnya (mis. via mesin lain), tapi TETAP isi
-        // kalau ini pendaftaran pertama orang ini, apa pun mesin yg sedang aktif (dulu hanya diisi
-        // saat $descCol==='face_descriptor', jadi orang yg daftar PERTAMA KALI langsung lewat
-        // InsightFace tak pernah dapat foto/tanggal sama sekali).
-        if ($descCol === 'face_descriptor' || empty($profile->face_registered_at)) {
-            $update['face_registered_at'] = now();
-            $update['face_photo'] = \App\Support\FaceMatch::saveFromDataUrl($request->photo, $profile->uuid, $profile->face_photo);
-        }
+        // face_registered_at & foto profil dipakai BERSAMA lintas mesin (bukan data per-mesin
+        // spt descriptor) — selalu diperbarui di SETIAP registrasi sukses, apa pun mesin yg aktif.
+        // Dulu hanya diisi saat $descCol==='face_descriptor' (atau pendaftaran pertama), jadi
+        // registrasi ULANG lewat InsightFace pada orang yg sudah pernah terdaftar (mis. lewat
+        // Human.js) tak pernah memperbarui foto profilnya lagi walau foto baru sudah dikirim.
+        $update = [
+            $descCol => $request->descriptors,
+            'face_registered_at' => now(),
+            'face_photo' => \App\Support\FaceMatch::saveFromDataUrl($request->photo, $profile->uuid, $profile->face_photo),
+        ];
         $profile->update($update);
 
         return response()->json(['success' => true, 'message' => 'Wajah berhasil didaftarkan.']);

@@ -18,12 +18,13 @@
     points:@js($points ?? []),
     rushBonus:{{ (float) ($rushBonus ?? 0) }},
     aktif:{{ $aktif ? 'true':'false' }},
-    isGuru:{{ ($isGuru ?? false) ? 'true':'false' }}
+    isGuru:{{ ($isGuru ?? false) ? 'true':'false' }},
+    geoWajib:{{ $geoWajib ? 'true':'false' }}
 })" x-init="init()">
 
     <div>
         <h1 class="page-title">Absen QR</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Pindai QR absensi sekolah hari ini. Lokasi Anda harus berada di area sekolah.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5" x-text="geoWajib ? 'Pindai QR absensi sekolah hari ini. Lokasi Anda harus berada di area sekolah.' : 'Pindai QR absensi sekolah hari ini.'"></p>
     </div>
 
     @if($kaihBelum)
@@ -37,11 +38,11 @@
     <template x-if="!aktif">
         <div class="card p-4 border-l-4 !border-l-amber-500 text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Absen QR sedang dinonaktifkan oleh admin.</div>
     </template>
-    <template x-if="aktif && !schoolLat && !(points && points.length)">
+    <template x-if="aktif && geoWajib && !schoolLat && !(points && points.length)">
         <div class="card p-4 border-l-4 !border-l-rose-500 text-sm text-rose-700 dark:text-rose-300 flex items-center gap-2"><i data-lucide="map-pin-off" class="w-4 h-4"></i> Lokasi sekolah belum diatur admin. Hubungi admin.</div>
     </template>
 
-    <div x-show="aktif && (schoolLat || (points && points.length))" class="space-y-4">
+    <div x-show="aktif && (!geoWajib || schoolLat || (points && points.length))" class="space-y-4">
         {{-- Mode Masuk/Pulang (khusus guru) --}}
         <template x-if="isGuru">
             <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800">
@@ -50,8 +51,8 @@
             </div>
         </template>
 
-        {{-- Peta lokasi --}}
-        <div class="card p-3 space-y-2">
+        {{-- Peta lokasi (disembunyikan total kalau admin matikan pelacakan GPS) --}}
+        <div class="card p-3 space-y-2" x-show="geoWajib">
             <div class="relative rounded-2xl overflow-hidden">
                 <div id="absenMap"></div>
                 <div class="absolute top-3 right-3 z-[1000] flex rounded-lg overflow-hidden shadow-md border border-white/40 bg-white/95 dark:bg-slate-800/95 text-xs font-bold">
@@ -78,6 +79,9 @@
                 </div>
             </template>
         </div>
+        <template x-if="!geoWajib">
+            <div class="card p-3 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2"><i data-lucide="map-pin-off" class="w-4 h-4 flex-shrink-0"></i> Pelacakan lokasi GPS dimatikan admin.</div>
+        </template>
 
         {{-- Scanner --}}
         <div x-show="scanning" class="card p-3">
@@ -115,6 +119,7 @@ function qrAbsen(cfg){
         schoolLat: cfg.lat ? parseFloat(cfg.lat) : null,
         schoolLng: cfg.lng ? parseFloat(cfg.lng) : null,
         radius: cfg.radius, aktif: cfg.aktif, isGuru: cfg.isGuru || false, mode:'masuk',
+        geoWajib: cfg.geoWajib !== false,
         points: Array.isArray(cfg.points) ? cfg.points : [],
         rushBonus: cfg.rushBonus || 0,
         softTolerance: (window.SimsGeo && SimsGeo.defaults.softToleranceM) || 50,
@@ -128,12 +133,17 @@ function qrAbsen(cfg){
             return SimsGeo.effectiveRadius(r, this.softTolerance, this.rushBonus);
         },
         get dalamArea(){
+            if(!this.geoWajib) return true;
             if(this.distMeters===null) return false;
             const r = this.nearestRadius != null ? this.nearestRadius : this.radius;
             return SimsGeo.withinRadius(this.distMeters, r, this.softTolerance, this.rushBonus);
         },
 
         init(){
+            if(!this.geoWajib){
+                this.$nextTick(()=> lucide.createIcons());
+                return;
+            }
             this.$nextTick(()=>{ lucide.createIcons(); this.ensureMap(); });
             try { if('speechSynthesis' in window) speechSynthesis.getVoices(); } catch(e){}
             if(this.aktif && (this.schoolLat || (this.points && this.points.length))) this.status = 'Tekan "Perbarui" untuk menampilkan posisi Anda di peta.';
@@ -271,9 +281,11 @@ function qrAbsen(cfg){
         startScan(){
             this.primeSpeech();
             if(this.loading || this.locating) return;
-            if(!this.lat){ this.locate(); showToast('Mengambil lokasi dulu, coba lagi sebentar','info'); return; }
-            if(!this.dalamArea){
-                showToast('Anda di luar area sekolah. Mendekat ke lokasi sekolah dulu.','error'); return;
+            if(this.geoWajib){
+                if(!this.lat){ this.locate(); showToast('Mengambil lokasi dulu, coba lagi sebentar','info'); return; }
+                if(!this.dalamArea){
+                    showToast('Anda di luar area sekolah. Mendekat ke lokasi sekolah dulu.','error'); return;
+                }
             }
             this.result=null; this.scanning=true;
             this.$nextTick(()=>{
@@ -290,15 +302,17 @@ function qrAbsen(cfg){
             if(this.loading || this.locating) return;
             this.loading=true;
             this.stopScan();
-            this.status='Membaca lokasi & memverifikasi QR…';
+            this.status = this.geoWajib ? 'Membaca lokasi & memverifikasi QR…' : 'Memverifikasi QR…';
             try {
-                await this.refreshGeoConfig(true);
-                const fix = await SimsGeo.getLocationOnce({ timeout: 12000 });
-                this.applyFix(fix);
-                if(!this.dalamArea){
-                    showToast('Anda di luar area sekolah (batas '+Math.round(this.effectiveBound)+' m).','error');
-                    this.loading=false;
-                    return;
+                if(this.geoWajib){
+                    await this.refreshGeoConfig(true);
+                    const fix = await SimsGeo.getLocationOnce({ timeout: 12000 });
+                    this.applyFix(fix);
+                    if(!this.dalamArea){
+                        showToast('Anda di luar area sekolah (batas '+Math.round(this.effectiveBound)+' m).','error');
+                        this.loading=false;
+                        return;
+                    }
                 }
                 const res = await fetch('{{ route('absen.qr.mark') }}', {
                     method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},

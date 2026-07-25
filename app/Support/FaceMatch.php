@@ -129,12 +129,15 @@ class FaceMatch
             // gagal re-encode (mis. driver tak tersedia) → simpan data asli apa adanya
         }
 
-        $path = 'faces/' . $ownerUuid . '_' . now()->format('YmdHis') . '.' . $ext;
-        Storage::disk('public')->put($path, $bin);
-
+        // Foto lama dihapus DULU sebelum yg baru disimpan (bukan sebaliknya) — supaya storage
+        // faces/ tak menumpuk file lama tiap kali registrasi ulang (Human.js <-> InsightFace
+        // bolak-balik bisa dipanggil berkali-kali per hari saat kalibrasi).
         if ($oldPath && self::isValidStoredPath($oldPath, $ownerUuid)) {
             Storage::disk('public')->delete($oldPath);
         }
+
+        $path = 'faces/' . $ownerUuid . '_' . now()->format('YmdHis') . '.' . $ext;
+        Storage::disk('public')->put($path, $bin);
 
         return $path;
     }

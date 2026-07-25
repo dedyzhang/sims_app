@@ -217,6 +217,9 @@ class SettingController extends Controller
         Setting::set('absen_rush_end', $rushEnd);
         Setting::set('qr_absensi_aktif', $request->boolean('qr_absensi_aktif') ? '1' : '0');
         Setting::set('qr_absensi_mode', $request->input('qr_absensi_mode', 'harian'));
+        // Sekolah boleh matikan pelacakan GPS sepenuhnya (preferensi masing2 sekolah) — kalau
+        // nonaktif, absen QR tak lagi meminta izin lokasi & server tak menolak berdasar jarak.
+        Setting::set('qr_geo_wajib', $request->boolean('qr_geo_wajib') ? '1' : '0');
 
         $msg = 'Lokasi & QR absensi disimpan.';
         if ($skipped > 0) {

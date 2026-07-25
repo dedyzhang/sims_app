@@ -212,10 +212,11 @@ class PresensiGuruController extends Controller
         $qrLat    = Setting::get('sekolah_lat');
         $qrLng    = Setting::get('sekolah_lng');
         $qrRadius = (float) Setting::get('absen_radius', 200);
+        $geoWajib = \App\Support\Geofence::wajib();
 
         return view('presensi_guru.self', compact(
             'guru', 'riwayat', 'batas', 'dari', 'sampai', 'today', 'belumAgenda',
-            'bolehQr', 'bolehWajahMandiri', 'qrLat', 'qrLng', 'qrRadius'
+            'bolehQr', 'bolehWajahMandiri', 'qrLat', 'qrLng', 'qrRadius', 'geoWajib'
         ));
     }
 

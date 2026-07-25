@@ -94,6 +94,7 @@ class QrAbsensiController extends Controller
     {
         return response()->json([
             'ok' => true,
+            'geo_wajib' => Geofence::wajib(),
             'points' => Geofence::schoolPoints(),
             'rush_bonus' => Geofence::rushBonusMeters(),
             'radius' => (float) Setting::get('absen_radius', 200),
@@ -125,6 +126,7 @@ class QrAbsensiController extends Controller
             'points' => $points,
             'rushBonus' => $rushBonus,
             'aktif'  => Setting::get('qr_absensi_aktif', '1') == '1',
+            'geoWajib' => Geofence::wajib(),
             'isGuru' => (bool) auth()->user()->guru,   // guru bisa absen masuk & pulang
             'kaihBelum'       => $kaihBelum,
             'kaihPertanyaans' => $kaihPertanyaans,
@@ -134,15 +136,22 @@ class QrAbsensiController extends Controller
     /** Proses absen (AJAX): validasi token harian + jarak ke sekolah. */
     public function mark(Request $request)
     {
+        // lat/lng/accuracy WAJIB seperti semula selama Geofence::wajib() (perilaku lama, tak
+        // berubah) — hanya jadi nullable kalau admin matikan pelacakan GPS, krn klien lalu tak
+        // lagi mengirim lokasi sama sekali (lihat qr/absen.blade.php).
+        $geoWajib = Geofence::wajib();
+        $latRule = $geoWajib ? 'required' : 'nullable';
         $data = $request->validate([
             'token'    => 'required|string',
-            'lat'      => 'required|numeric|between:-90,90',
-            'lng'      => 'required|numeric|between:-180,180',
-            'accuracy' => 'required|numeric|min:0|max:10000',
+            'lat'      => [$latRule, 'numeric', 'between:-90,90'],
+            'lng'      => [$latRule, 'numeric', 'between:-180,180'],
+            'accuracy' => [$latRule, 'numeric', 'min:0', 'max:10000'],
             'mode'     => 'nullable|in:masuk,pulang',
         ]);
         $mode = $data['mode'] ?? 'masuk';
-        $accuracy = (float) $data['accuracy'];
+        $lat = isset($data['lat']) ? (float) $data['lat'] : null;
+        $lng = isset($data['lng']) ? (float) $data['lng'] : null;
+        $accuracy = isset($data['accuracy']) ? (float) $data['accuracy'] : 0.0;
 
         if (Setting::get('qr_absensi_aktif', '1') != '1') {
             return response()->json(['ok' => false, 'message' => 'Absen QR sedang dinonaktifkan admin.'], 422);
@@ -157,11 +166,14 @@ class QrAbsensiController extends Controller
             return response()->json(['ok' => false, 'message' => $pesan], 422);
         }
 
-        $gate = $this->assertWithinSchool((float) $data['lat'], (float) $data['lng'], $accuracy);
-        if ($gate !== true) {
-            return $gate;
+        if ($geoWajib) {
+            // $lat/$lng dijamin non-null oleh validasi 'required' di atas saat geoWajib true.
+            $gate = $this->assertWithinSchool($lat, $lng, $accuracy);
+            if ($gate !== true) {
+                return $gate;
+            }
         }
-        $eval = Geofence::evaluate((float) $data['lat'], (float) $data['lng']);
+        $eval = $this->safeGeoEval($lat, $lng);
         $dist = $eval['dist'];
         $radius = $eval['radius'];
 
@@ -175,7 +187,7 @@ class QrAbsensiController extends Controller
 
         $jamDipakai = $jam;
         $label = 'Hadir';
-        $geoAudit = $this->geoAuditPayload((float) $data['lat'], (float) $data['lng'], $accuracy, $dist);
+        $geoAudit = $this->geoAuditPayload($lat, $lng, $accuracy, $dist);
 
         if ($user->siswa) {
             // Metode absensi aktif harus "Barcode / QR".
@@ -278,14 +290,19 @@ class QrAbsensiController extends Controller
         $guru = auth()->user()->guru;
         abort_unless($guru, 403);
 
+        // lat/lng/accuracy WAJIB seperti semula selama Geofence::wajib() — lihat komentar sama di mark().
+        $geoWajib = Geofence::wajib();
+        $latRule = $geoWajib ? 'required' : 'nullable';
         $data = $request->validate([
             'token'    => 'required|string',
-            'lat'      => 'required|numeric|between:-90,90',
-            'lng'      => 'required|numeric|between:-180,180',
-            'accuracy' => 'required|numeric|min:0|max:10000',
+            'lat'      => [$latRule, 'numeric', 'between:-90,90'],
+            'lng'      => [$latRule, 'numeric', 'between:-180,180'],
+            'accuracy' => [$latRule, 'numeric', 'min:0', 'max:10000'],
             'alasan'   => 'required|string|max:500',
         ]);
-        $accuracy = (float) $data['accuracy'];
+        $lat = isset($data['lat']) ? (float) $data['lat'] : null;
+        $lng = isset($data['lng']) ? (float) $data['lng'] : null;
+        $accuracy = isset($data['accuracy']) ? (float) $data['accuracy'] : 0.0;
 
         if (Setting::get('qr_absensi_aktif', '1') != '1') {
             return response()->json(['ok' => false, 'message' => 'Absen QR sedang dinonaktifkan admin.'], 422);
@@ -300,12 +317,15 @@ class QrAbsensiController extends Controller
             return response()->json(['ok' => false, 'message' => $pesan], 422);
         }
 
-        $gate = $this->assertWithinSchool((float) $data['lat'], (float) $data['lng'], $accuracy);
-        if ($gate !== true) {
-            return $gate;
+        if ($geoWajib) {
+            // $lat/$lng dijamin non-null oleh validasi 'required' di atas saat geoWajib true.
+            $gate = $this->assertWithinSchool($lat, $lng, $accuracy);
+            if ($gate !== true) {
+                return $gate;
+            }
         }
-        [$dist] = $this->schoolDistance((float) $data['lat'], (float) $data['lng']);
-        $geoAudit = $this->geoAuditPayload((float) $data['lat'], (float) $data['lng'], $accuracy, $dist);
+        [$dist] = $this->schoolDistance($lat, $lng);
+        $geoAudit = $this->geoAuditPayload($lat, $lng, $accuracy, $dist);
 
         $row = PresensiGuru::where('id_guru', $guru->uuid)->whereDate('tanggal', now())->first();
         if (!$row || empty($row->jam_masuk)) {
@@ -339,8 +359,11 @@ class QrAbsensiController extends Controller
     /**
      * @return array{0: float, 1: float}  [jarak ke titik terbaik, radius titik itu]
      */
-    private function schoolDistance(float $lat, float $lng): array
+    private function schoolDistance(?float $lat, ?float $lng): array
     {
+        if ($lat === null || $lng === null) {
+            return [0.0, (float) Setting::get('absen_radius', 200)];
+        }
         $eval = Geofence::evaluate($lat, $lng);
         if ($eval === null) {
             $radius = (float) Setting::get('absen_radius', 200);
@@ -349,6 +372,23 @@ class QrAbsensiController extends Controller
         }
 
         return [$eval['dist'], $eval['radius']];
+    }
+
+    /**
+     * Evaluasi lokasi vs sekolah, AMAN dipakai walau lat/lng null (mis. Geofence::wajib()===false
+     * jadi klien tak mengirim lokasi sama sekali) atau titik sekolah belum diatur — selalu
+     * balikan array lengkap (dist/radius/bonus/label default 0/null), tak pernah null spt
+     * Geofence::evaluate() mentah. Dipakai HANYA utk data respons/audit, BUKAN utk keputusan
+     * boleh/tidaknya absen (itu tugas assertWithinSchool(), yg cuma dipanggil saat wajib).
+     */
+    private function safeGeoEval(?float $lat, ?float $lng): array
+    {
+        $default = ['dist' => 0.0, 'radius' => (float) Setting::get('absen_radius', 200), 'bonus' => 0.0, 'label' => null];
+        if ($lat === null || $lng === null) {
+            return $default;
+        }
+
+        return Geofence::evaluate($lat, $lng) ?? $default;
     }
 
     /** true bila OK; JsonResponse 422 bila gagal. */
@@ -383,9 +423,15 @@ class QrAbsensiController extends Controller
         return true;
     }
 
-    /** @return array{geo_lat: float, geo_lng: float, geo_accuracy: int, geo_jarak: int} */
-    private function geoAuditPayload(float $lat, float $lng, float $accuracy, float $dist): array
+    /** @return array{geo_lat: ?float, geo_lng: ?float, geo_accuracy: ?int, geo_jarak: ?int} */
+    private function geoAuditPayload(?float $lat, ?float $lng, float $accuracy, float $dist): array
     {
+        // lat/lng null (Geofence::wajib()===false, klien tak mengirim lokasi) → simpan null,
+        // BUKAN 0.0/0.0 (yg akan terbaca spt "di lautan Guinea" kalau ada yg cek data lama nanti).
+        if ($lat === null || $lng === null) {
+            return ['geo_lat' => null, 'geo_lng' => null, 'geo_accuracy' => null, 'geo_jarak' => null];
+        }
+
         return [
             'geo_lat'      => round($lat, 7),
             'geo_lng'      => round($lng, 7),

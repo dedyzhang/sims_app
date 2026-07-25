@@ -96,15 +96,15 @@
             @endif
 
             @if($bolehQr)
-            <div x-show="metodeIzin==='qr'" x-data="izinPulangQr({{ json_encode(['lat' => $qrLat, 'lng' => $qrLng, 'radius' => $qrRadius]) }})" class="space-y-3">
+            <div x-show="metodeIzin==='qr'" x-data="izinPulangQr({{ json_encode(['lat' => $qrLat, 'lng' => $qrLng, 'radius' => $qrRadius, 'geoWajib' => $geoWajib]) }})" class="space-y-3">
                 {{-- ===== Jalur QR (metode absensi aktif = Barcode/QR / keduanya) ===== --}}
-                @if(!$qrLat || !$qrLng)
+                @if($geoWajib && (!$qrLat || !$qrLng))
                 <p class="text-sm text-slate-500 dark:text-slate-400">Lokasi sekolah belum diatur admin, jadi izin pulang via QR belum bisa dipakai. Hubungi admin.</p>
                 @else
                 <template x-if="!scannedToken">
                     <div class="space-y-3">
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Pastikan Anda berada di area sekolah, lalu pindai QR absensi untuk mencatat jam pulang.</p>
-                        <div class="flex items-center justify-between text-sm px-1">
+                        <p class="text-xs text-slate-500 dark:text-slate-400" x-text="geoWajib ? 'Pastikan Anda berada di area sekolah, lalu pindai QR absensi untuk mencatat jam pulang.' : 'Pindai QR absensi untuk mencatat jam pulang.'"></p>
+                        <div class="flex items-center justify-between text-sm px-1" x-show="geoWajib">
                             <span class="text-slate-500 flex items-center gap-1.5"><i data-lucide="map-pin" class="w-4 h-4"></i> <span x-text="status"></span></span>
                             <button type="button" @click="locate()" class="text-xs text-primary font-semibold flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Perbarui</button>
                         </div>
@@ -249,17 +249,20 @@ function izinPulangQr(cfg){
         schoolLat: cfg.lat ? parseFloat(cfg.lat) : null,
         schoolLng: cfg.lng ? parseFloat(cfg.lng) : null,
         radius: cfg.radius,
+        geoWajib: cfg.geoWajib !== false,
         softTolerance: (window.SimsGeo && SimsGeo.defaults.softToleranceM) || 50,
         lat:null, lng:null, accuracy:null, dist:null, distMeters:null, status:'', locating:false, scanning:false,
         scannedToken:null, alasan:'', sending:false, msg:'', msgErr:false,
         scanner:null,
 
         get dalamArea(){
+            if(!this.geoWajib) return true;
             if(this.distMeters===null) return false;
             return SimsGeo.withinRadius(this.distMeters, this.radius);
         },
 
         init(){
+            if(!this.geoWajib){ this.status = ''; return; }
             this.status = this.schoolLat ? 'Tekan "Perbarui" untuk membaca lokasi Anda.' : 'Lokasi sekolah belum diatur admin.';
         },
         haversine(la1,ln1,la2,ln2){
@@ -293,9 +296,11 @@ function izinPulangQr(cfg){
         },
         startScan(){
             if(this.locating || this.sending) return;
-            if(!this.lat){ this.locate(); showToast('Mengambil lokasi dulu, coba lagi sebentar','info'); return; }
-            if(!this.dalamArea){
-                showToast('Anda di luar area sekolah. Mendekat ke lokasi sekolah dulu.','error'); return;
+            if(this.geoWajib){
+                if(!this.lat){ this.locate(); showToast('Mengambil lokasi dulu, coba lagi sebentar','info'); return; }
+                if(!this.dalamArea){
+                    showToast('Anda di luar area sekolah. Mendekat ke lokasi sekolah dulu.','error'); return;
+                }
             }
             this.msg=''; this.msgErr=false; this.scanning=true;
             this.$nextTick(()=>{
@@ -315,17 +320,19 @@ function izinPulangQr(cfg){
         },
         async submitIzin(){
             if(!this.alasan.trim() || !this.scannedToken || this.sending) return;
-            this.sending=true; this.msgErr=false; this.msg='Membaca lokasi…';
+            this.sending=true; this.msgErr=false; this.msg = this.geoWajib ? 'Membaca lokasi…' : 'Menyimpan…';
             try {
-                // Fresh GPS saat submit — jangan pakai koordinat lama dari locate().
-                const fix = await SimsGeo.getLocationOnce({ timeout: 8000 });
-                this.applyFix(fix);
-                if(!this.dalamArea){
-                    this.msg = 'Anda di luar area sekolah (batas '+(this.radius + this.softTolerance)+' m).';
-                    this.msgErr = true;
-                    showToast(this.msg, 'error');
-                    this.sending=false;
-                    return;
+                if(this.geoWajib){
+                    // Fresh GPS saat submit — jangan pakai koordinat lama dari locate().
+                    const fix = await SimsGeo.getLocationOnce({ timeout: 8000 });
+                    this.applyFix(fix);
+                    if(!this.dalamArea){
+                        this.msg = 'Anda di luar area sekolah (batas '+(this.radius + this.softTolerance)+' m).';
+                        this.msgErr = true;
+                        showToast(this.msg, 'error');
+                        this.sending=false;
+                        return;
+                    }
                 }
                 const res = await fetch('{{ route('presensi-guru.izinPulang.qrStore') }}', {
                     method:'POST',

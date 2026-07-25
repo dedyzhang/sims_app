@@ -152,10 +152,10 @@
                             </div>
                         </div>
 
-                        {{-- Label ini cuma mencerminkan mode Kartu ID (barcode/QR) — absen wajah guru sudah
-                             otomatis, tidak lagi ikut badge ini. --}}
+                        {{-- Mode Masuk/Pulang ini jadi niat awal utk Kartu ID DAN wajah guru — guru yg
+                             aksinya sudah tercatat tetap otomatis lompat ke aksi satunya (lihat onMatch()). --}}
                         <div x-show="camOn && hasGuru && qrEnabled" class="px-3 py-1.5 rounded-full backdrop-blur text-white text-xs font-bold whitespace-nowrap pointer-events-auto" :class="scanMode==='pulang' ? 'bg-amber-600/85' : 'bg-emerald-600/85'">
-                            <span x-text="scanMode==='pulang' ? '🏠 Kartu ID: Pulang' : '🚪 Kartu ID: Masuk'"></span>
+                            <span x-text="scanMode==='pulang' ? '🏠 Mode: Pulang' : '🚪 Mode: Masuk'"></span>
                         </div>
 
                         <div class="flex items-center gap-2 pointer-events-auto mr-11">
@@ -221,10 +221,11 @@
                         &bull; {{ \Carbon\Carbon::parse($tanggal)->isoFormat('dddd, D MMM') }}
                     </p>
                     <div class="flex items-center gap-2 flex-wrap">
-                        {{-- Toggle ini HANYA relevan utk Kartu ID guru (barcode/QR) — mode masuk/pulang via
-                             WAJAH kini terdeteksi otomatis per guru (lihat isFaceLocked()/onMatch() di script),
-                             jadi toggle ditampilkan berdasar qrEnabled, bukan faceEnabled lagi. --}}
-                        <div x-show="hasGuru && qrEnabled" class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800" title="Mode Kartu ID guru — absen wajah kini otomatis, agenda & jam tetap berlaku">
+                        {{-- Niat mode Masuk/Pulang guru — dipakai baik utk Kartu ID (barcode/QR) maupun
+                             wajah (lihat isFaceLocked()/onMatch() di script). Ditampilkan berdasar qrEnabled
+                             krn Kartu ID selalu butuh toggle ini scr eksplisit; wajah tetap auto-lompat kalau
+                             aksi yg dituju toggle sudah tercatat utk guru ybs. --}}
+                        <div x-show="hasGuru && qrEnabled" class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800" title="Mode Masuk/Pulang guru — berlaku utk Kartu ID & wajah, agenda & jam tetap berlaku">
                             <button @click="scanMode='masuk'; _streak={}" :class="scanMode==='masuk' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Masuk</button>
                             <button @click="scanMode='pulang'; _streak={}" :class="scanMode==='pulang' ? 'bg-white dark:bg-slate-700 text-amber-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Pulang</button>
                         </div>
@@ -556,14 +557,19 @@ function faceScan(data, opts={}){
             const s = this.attendees.find(x=>x.uuid===uuid);
             if(!s) return false;
             if(this._faceLocked[uuid]) return true;
-            // GURU: mode masuk/pulang via wajah kini DIDETEKSI OTOMATIS per orang di onMatch()
-            // (lihat komentar di sana), TIDAK lagi bergantung toggle scanMode manual — kiosk
-            // biasanya tak dijaga terus, jadi kalau operator lupa pindah ke "Mode Pulang" siang/
-            // sore, guru yg mau pulang dulu tak pernah terbaca sama sekali krn dianggap masih
-            // "Mode Masuk" (sudah s.marked=true dari pagi → selalu dianggap terkunci). Sekarang
-            // wajah guru tetap bisa dikenali selama SALAH SATU dari masuk/pulang belum tercatat;
-            // baru terkunci kalau dua-duanya sudah lengkap hari ini.
-            if(s.type==='guru') return !!(s.marked && s.pulangMarked);
+            if(s.type==='guru'){
+                if(s.marked && s.pulangMarked) return true; // sudah lengkap hari ini
+                // Toggle Masuk/Pulang TAMPIL di layar → operator punya kendali eksplisit, wajah
+                // HANYA dikenali utk aksi yg SEDANG dipilih tab itu (dilaporkan user: tab "Datang"
+                // sempat ikut mencatat "Pulang" jg krn dulu auto-lompat ke aksi lain — sekarang
+                // dihapus, murni ikut tab). Toggle TAK tampil (sekolah cuma pakai wajah tanpa Kartu
+                // ID, scanKioskMode='wajah' → tak ada tab yg bisa dipilih sama sekali) → tetap
+                // terbuka spy onMatch() bisa auto-deteksi aksi yg belum tercatat.
+                if(this.hasGuru && this.qrEnabled){
+                    return this.scanMode === 'pulang' ? !!s.pulangMarked : !!s.marked;
+                }
+                return false;
+            }
             return !!s.marked;
         },
         afterFaceMarkSuccess(){
@@ -972,13 +978,18 @@ function faceScan(data, opts={}){
             if(s._masukBusy || s._pulangBusy) return;
             this._faceLocked[uuid] = true;
 
-            // ===== GURU: mode masuk/pulang DIDETEKSI OTOMATIS per orang — lihat komentar sama
-            // di isFaceLocked(). Belum absen masuk hari ini → proses sbg masuk; sudah masuk tapi
-            // belum pulang → proses sbg pulang. TIDAK lagi bergantung toggle scanMode manual di
-            // atas layar (toggle itu sekarang cuma dipakai utk mode Kartu ID/barcode).
+            // ===== GURU: mode masuk/pulang. Kalau toggle Masuk/Pulang TAMPIL, mode MURNI ikut tab
+            // yg sedang dipilih operator — TIDAK auto-lompat ke aksi lain lagi (sempat dicoba, tapi
+            // dilaporkan user: pas operator di tab "Datang", wajah guru yg discan malah IKUT
+            // tercatat "Pulang" jg — operator tak menyangka & tak menghendaki itu). Kalau tab-nya
+            // sendiri TAK ADA (sekolah cuma pakai wajah tanpa Kartu ID, scanKioskMode='wajah') maka
+            // tak ada niat eksplisit yg bisa diikuti, jadi tetap auto-deteksi dari status guru spy
+            // absen pulang tetap bisa tercatat tanpa operator perlu toggle yg memang tak pernah ada.
             if(s.type==='guru'){
                 if(s.marked && s.pulangMarked){ delete this._faceLocked[uuid]; return; } // sudah lengkap hari ini
-                const mode = s.marked ? 'pulang' : 'masuk';
+                const mode = (this.hasGuru && this.qrEnabled)
+                    ? (this.scanMode === 'pulang' ? 'pulang' : 'masuk')
+                    : (s.marked ? 'pulang' : 'masuk');
 
                 if(mode==='pulang'){
                     if(s._pulangBusy) return;
@@ -996,7 +1007,13 @@ function faceScan(data, opts={}){
                             this.rejectFeedback(s.nama, (d&&d.message) ? d.message : 'Tidak bisa absen pulang.');
                             return;
                         }
-                        // Lolos → tampilkan konfirmasi pulang
+                        // Lolos → tampilkan konfirmasi pulang. Lepas cache _faceLocked (bukan cuma
+                        // di jalur gagal) — kalau tidak, wajah guru ini TAK PERNAH terbaca kamera lagi
+                        // sepanjang sesi halaman ini, walau state s.marked/s.pulangMarked sudah benar,
+                        // krn isFaceLocked() short-circuit true dari cache ini duluan sebelum sempat
+                        // mengecek state aslinya (persis keluhan "cuma bisa absen datang, giliran mau
+                        // pulang tidak terdeteksi lagi").
+                        delete this._faceLocked[uuid];
                         s.pulangMarked=true; s.justMarked=true;
                         const key=++this._seq;
                         const jam=d.jam || this.nowHM();
@@ -1030,6 +1047,9 @@ function faceScan(data, opts={}){
                         this.rejectFeedback(s.nama, (d&&d.message) || 'Tidak bisa absen');
                         return;
                     }
+                    // Lepas cache _faceLocked sama spt cabang pulang di atas — guru ini masih perlu
+                    // dikenali lagi nanti utk absen pulang, jangan biarkan cache menguncinya permanen.
+                    delete this._faceLocked[uuid];
                     s.marked=true; s.justMarked=true;
                     const key=++this._seq; const jam=d.jam || this.nowHM();
                     s.jam_masuk = jam;
@@ -1291,7 +1311,11 @@ function faceScan(data, opts={}){
                     if(d.mode==='pulang'){ s.pulangMarked = true; s.jam_pulang = jamBaru; }
                     else { s.marked = true; s.jam_masuk = jamBaru; }
                     s.justMarked = true;
-                    this._faceLocked[d.uuid] = true;
+                    // TIDAK di-set _faceLocked di sini (beda dari sebelumnya) — kalau di-kunci di sini,
+                    // wajah guru ini jadi tak pernah terbaca kamera lagi utk aksi satunya yg masih
+                    // tersisa (mis. absen masuk pakai Kartu ID pagi → nanti wajah tak terdeteksi sama
+                    // sekali saat mau absen pulang sore). isFaceLocked() sudah cukup akurat dari state
+                    // s.marked/s.pulangMarked yg baru diset di atas, tak perlu cache tambahan di sini.
                     const key=++this._seq;
                     this.playDing(); this.speak(d.mode==='pulang' ? 'pulang' : 'masuk', s.nama);
                     this.lastMatch={ key, nama:s.nama, type:'guru', kelas:'Guru', mode:d.mode, jam:jamBaru, terlambat:!!d.terlambat };

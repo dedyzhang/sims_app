@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\Guru;
 use App\Models\Kelas;
+use App\Models\Setting;
 use App\Models\Siswa;
 use App\Models\User;
 use App\Models\Walikelas;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class FaceRegistrationTest extends TestCase
@@ -193,5 +195,72 @@ class FaceRegistrationTest extends TestCase
             ->assertForbidden();
 
         $this->assertNull($siswaLain->fresh()->face_descriptor);
+    }
+
+    /** 1x1 PNG transparan — dipakai membuktikan foto BENAR-BENAR tersimpan (bukan cuma cek non-null path lama). */
+    private function fotoDataUrl(): string
+    {
+        return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    }
+
+    public function test_registrasi_ulang_lewat_insightface_tetap_perbarui_foto_profil(): void
+    {
+        // Regresi: siswa yg SUDAH terdaftar (mis. lewat Human.js, face_registered_at & face_photo
+        // sudah terisi), lalu mesin dipindah ke InsightFace & didaftar ULANG — foto profil dulu
+        // TIDAK PERNAH ikut diperbarui (guard lama hanya mengisi foto saat descCol==='face_descriptor'
+        // ATAU pendaftaran PERTAMA kali), padahal client sudah mengirim foto baru yg valid.
+        $siswaAwal = Siswa::create([
+            'nama' => 'Siswa Foto Lama', 'nis' => 'FACE005', 'jk' => 'L',
+            'face_descriptor' => $this->descriptors(3),
+            'face_registered_at' => now()->subDays(30),
+            'face_photo' => 'faces/placeholder_20260101000000.jpg',
+        ]);
+
+        Setting::set('face_engine', 'insightface');
+
+        $this->actingAs($this->admin())
+            ->postJson("/siswa/{$siswaAwal->uuid}/wajah", [
+                'descriptors' => $this->descriptors(3),
+                'photo'       => $this->fotoDataUrl(),
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $siswaAwal->refresh();
+        $this->assertNotNull($siswaAwal->face_descriptor_if, 'Descriptor InsightFace harus tersimpan.');
+        $this->assertNotSame('faces/placeholder_20260101000000.jpg', $siswaAwal->face_photo, 'Foto profil harus diperbarui ke foto baru, bukan tetap foto lama.');
+        $this->assertNotNull($siswaAwal->face_photo);
+        $this->assertTrue($siswaAwal->face_registered_at->greaterThan(now()->subMinute()), 'Tanggal daftar harus ikut diperbarui ke waktu registrasi ulang.');
+    }
+
+    public function test_registrasi_ulang_menghapus_file_foto_lama_sebelum_menyimpan_yang_baru(): void
+    {
+        // Diminta user: foto lama dihapus DULU, baru foto baru disimpan (App\Support\FaceMatch::
+        // saveFromDataUrl) — supaya storage faces/ tak menumpuk file lama tiap registrasi ulang.
+        Storage::fake('public');
+
+        $siswaAwal = Siswa::create([
+            'nama' => 'Siswa Foto Dihapus', 'nis' => 'FACE006', 'jk' => 'P',
+            'face_descriptor' => $this->descriptors(3),
+            'face_registered_at' => now()->subDays(10),
+        ]);
+        // Path harus match pola faces/{uuid}_{14digit}.ext (App\Support\FaceMatch::isValidStoredPath)
+        // supaya benar2 dianggap file lama milik siswa ini & memicu penghapusan.
+        $oldPath = 'faces/' . $siswaAwal->uuid . '_20260101000000.jpg';
+        Storage::disk('public')->put($oldPath, 'foto-lama');
+        $siswaAwal->update(['face_photo' => $oldPath]);
+
+        $this->actingAs($this->admin())
+            ->postJson("/siswa/{$siswaAwal->uuid}/wajah", [
+                'descriptors' => $this->descriptors(3),
+                'photo'       => $this->fotoDataUrl(),
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $siswaAwal->refresh();
+        Storage::disk('public')->assertMissing($oldPath);
+        $this->assertNotNull($siswaAwal->face_photo);
+        Storage::disk('public')->assertExists($siswaAwal->face_photo);
     }
 }

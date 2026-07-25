@@ -681,6 +681,15 @@
                         <input type="checkbox" name="qr_absensi_aktif" value="1" @checked(($settings['qr_absensi_aktif'] ?? '1')=='1') class="accent-[color:var(--cp)] w-4 h-4"> Aktifkan Absen QR
                     </label>
                 </div>
+                <div class="border-t border-slate-100 dark:border-slate-700 pt-3">
+                    <label class="flex items-start gap-2 text-sm font-medium cursor-pointer">
+                        <input type="checkbox" name="qr_geo_wajib" value="1" @checked(($settings['qr_geo_wajib'] ?? '1')=='1') class="accent-[color:var(--cp)] w-4 h-4 mt-0.5">
+                        <span>
+                            Wajibkan Lokasi GPS Saat Absen QR
+                            <span class="block text-xs font-normal text-slate-400 mt-0.5">Kalau dimatikan, siswa/guru bisa absen QR dari mana saja tanpa perlu izin/pelacakan GPS sama sekali — sekolah tidak lagi membatasi jarak.</span>
+                        </span>
+                    </label>
+                </div>
                 <button type="submit" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><span x-ignore><i data-lucide="save" class="w-4 h-4"></i></span> Simpan Lokasi</button>
             </form>
 
