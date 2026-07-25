@@ -1660,13 +1660,16 @@
 
                 <div>
                     <label class="form-label">Sumber Materi <span class="text-rose-500">*</span></label>
-                    <div class="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+                    <div class="grid grid-cols-3 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
                         <button type="button" @click="quiz.source = 'ai'; quiz.document_uuid = ''; clearQuizFile()"
                                 :class="quiz.source === 'ai' ? 'bg-white text-primary shadow-sm dark:bg-slate-900' : 'text-slate-500 dark:text-slate-300'"
-                                class="rounded-lg px-3 py-2 text-xs font-semibold transition">Generate dari topik</button>
+                                class="rounded-lg px-2 py-2 text-[11px] font-semibold transition">Dari topik</button>
                         <button type="button" @click="quiz.source = 'file'; loadMaterials()"
                                 :class="quiz.source === 'file' ? 'bg-white text-primary shadow-sm dark:bg-slate-900' : 'text-slate-500 dark:text-slate-300'"
-                                class="rounded-lg px-3 py-2 text-xs font-semibold transition">Upload / pilih materi</button>
+                                class="rounded-lg px-2 py-2 text-[11px] font-semibold transition">Upload file</button>
+                        <button type="button" @click="quiz.source = 'camera'; $nextTick(() => lucide && lucide.createIcons())"
+                                :class="quiz.source === 'camera' ? 'bg-white text-primary shadow-sm dark:bg-slate-900' : 'text-slate-500 dark:text-slate-300'"
+                                class="rounded-lg px-2 py-2 text-[11px] font-semibold transition">Foto buku</button>
                     </div>
                 </div>
 
@@ -1735,7 +1738,7 @@
 
                 <div x-show="quiz.source === 'camera'" x-cloak class="space-y-3">
                     <label class="form-label">Foto halaman buku <span class="text-rose-500">*</span></label>
-                    <p class="text-[11px] text-slate-500 leading-relaxed">Fokus ke teks, cahaya cukup, kamera stabil. Foto buram ditolak otomatis — potret ulang.</p>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">Fokus ke teks, cahaya cukup, kamera stabil. Foto buram ditolak otomatis — potret ulang. Tak perlu "Jadikan teks" manual — foto langsung dibaca otomatis saat klik <strong>Buat Soal</strong>.</p>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
                         <p class="font-bold text-slate-700 dark:text-slate-200 mb-1">Batas &amp; konversi otomatis</p>
                         <ul class="list-disc pl-4 space-y-0.5">
@@ -1757,12 +1760,6 @@
                             <input type="file" accept="image/jpeg,image/png,image/webp,image/*" class="sr-only"
                                    @change="addOcrImages($event, 'quiz')" multiple>
                         </label>
-                        <button type="button" class="ai-btn ai-btn--solid min-h-[44px]"
-                                @click="runOcr('quiz')"
-                                :disabled="ocr.loading || !ocrHasUsable('quiz')">
-                            <i data-lucide="scan-text" class="w-4 h-4" :class="ocr.loading && 'animate-spin'"></i>
-                            <span x-text="ocr.loading ? 'Membaca teks…' : 'Jadikan teks'"></span>
-                        </button>
                     </div>
                     <div class="grid grid-cols-3 gap-2" x-show="ocr.quiz.images.length">
                         <template x-for="(img, idx) in ocr.quiz.images" :key="img.id">
@@ -1799,74 +1796,6 @@
                                   placeholder="Teks dari foto akan muncul di sini… (juga di panel Hasil)"
                                   @input="syncResultFromOcr('quiz'); clampOcrText('quiz')"></textarea>
                         <p class="text-[11px] text-slate-400">Panel <strong>Hasil</strong> menampilkan teks lebih besar — edit, salin, Word/PDF di sana.</p>
-                    </div>
-                </div>
-
-                <div x-show="quiz.source === 'camera'" x-cloak class="space-y-3">
-                    <label class="form-label">Foto halaman buku → langsung jadi soal <span class="text-rose-500">*</span></label>
-                    <div class="grid grid-cols-2 gap-1.5 rounded-xl border border-primary/15 bg-primary/[0.04] p-2 text-center">
-                        <div class="rounded-lg px-1.5 py-1.5"
-                             :class="ocrHasUsable('quiz') ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-white/80 text-slate-600 dark:bg-slate-900/50 dark:text-slate-300'">
-                            <p class="text-[10px] font-bold uppercase tracking-wide opacity-70">1</p>
-                            <p class="text-[11px] font-semibold leading-tight">Foto / unggah</p>
-                        </div>
-                        <div class="rounded-lg px-1.5 py-1.5"
-                             :class="resultSource === 'generate' && tab === 'quiz' ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-white/80 text-slate-600 dark:bg-slate-900/50 dark:text-slate-300'">
-                            <p class="text-[10px] font-bold uppercase tracking-wide opacity-70">2</p>
-                            <p class="text-[11px] font-semibold leading-tight">Buat soal (AI Studio)</p>
-                        </div>
-                    </div>
-                    <p class="text-[11px] text-slate-500 leading-relaxed">Ambil/unggah foto halaman → atur jumlah/jenis → <strong>Buat Soal dari foto</strong>. Gemini (API key AI Studio guru) membaca foto dan langsung menyusun soal — tanpa langkah OCR terpisah.</p>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
-                        <p class="font-bold text-slate-700 dark:text-slate-200 mb-1">Batas &amp; konversi otomatis</p>
-                        <ul class="list-disc pl-4 space-y-0.5">
-                            <li>Maks. <strong x-text="ocr.maxImages"></strong> foto · format <strong>JPEG, PNG, WebP</strong></li>
-                            <li>Ukuran unggah maks. <strong x-text="formatBytes(ocr.maxBytes)"></strong>/foto · target kompres ~<strong x-text="formatBytes(ocr.targetBytes)"></strong></li>
-                            <li>PNG/WebP kecil <strong>dipertahankan</strong>; foto besar dikompres (sisi max <span x-text="ocr.maxEdge"></span>px)</li>
-                            <li>Foto buram ditandai — potret ulang atau “Tetap pakai”</li>
-                        </ul>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" class="ai-btn min-h-[44px]" @click="openOcrCamera('quiz')">
-                            <i data-lucide="camera" class="w-4 h-4"></i> Buka kamera
-                        </button>
-                        {{-- Fallback native capture: TANPA multiple (multiple memaksa galeri di banyak HP) --}}
-                        <input x-ref="ocrCameraNativeQuiz" type="file" accept="image/*,.png,.jpg,.jpeg,.webp" capture="environment"
-                               class="sr-only" @change="addOcrImages($event, 'quiz')">
-                        <label class="ai-btn ai-btn--ghost cursor-pointer min-h-[44px]">
-                            <i data-lucide="image" class="w-4 h-4"></i> Dari galeri
-                            <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.jpeg,.jpg,.png,.webp,image/*" class="sr-only"
-                                   @change="addOcrImages($event, 'quiz')" multiple>
-                        </label>
-                    </div>
-                    <div class="grid grid-cols-3 gap-2" x-show="ocr.quiz.images.length">
-                        <template x-for="(img, idx) in ocr.quiz.images" :key="img.id">
-                            <div class="relative rounded-xl border overflow-hidden"
-                                 :class="img.blurry && !img.forceKeep ? 'border-rose-300' : 'border-slate-200 dark:border-slate-700'">
-                                <img :src="img.preview" alt="" class="h-24 w-full object-cover">
-                                <span class="absolute left-1 top-1 rounded px-1.5 py-0.5 text-[9px] font-bold"
-                                      :class="img.blurry && !img.forceKeep ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'"
-                                      x-text="img.blurry && !img.forceKeep ? 'Buram' : 'Tajam'"></span>
-                                <span class="absolute bottom-1 left-1 rounded bg-black/60 px-1 py-0.5 text-[9px] font-mono text-white"
-                                      x-text="(img.converted ? '→ ' : '') + (img.sizeKb || 0) + ' KB'"></span>
-                                <button type="button" @click="removeOcrImage('quiz', idx)"
-                                        class="absolute right-1 top-1 rounded-md bg-black/55 p-1 text-white">
-                                    <i data-lucide="x" class="w-3 h-3"></i>
-                                </button>
-                                <button type="button" x-show="img.blurry && !img.forceKeep" x-cloak
-                                        @click="img.forceKeep = true; $nextTick(() => lucide && lucide.createIcons())"
-                                        class="absolute bottom-6 left-1 right-1 rounded bg-white/95 px-1 py-0.5 text-[9px] font-bold text-slate-700">
-                                    Tetap pakai
-                                </button>
-                            </div>
-                        </template>
-                    </div>
-                    <p class="text-xs text-emerald-700 dark:text-emerald-300 font-semibold" x-show="ocr.quiz.notice" x-cloak x-text="ocr.quiz.notice"></p>
-                    <p class="text-xs text-rose-600 font-semibold" x-show="ocr.quiz.error" x-cloak x-text="ocr.quiz.error"></p>
-                    <div x-show="ocrHasUsable('quiz')" x-cloak
-                         class="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-[11px] leading-relaxed text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-100">
-                        <p class="font-bold">Foto siap. Atur jumlah &amp; jenis soal, lalu klik <strong>Buat Soal dari foto</strong>.</p>
-                        <p class="mt-0.5 opacity-90">Soal digenerate langsung dari foto lewat API AI Studio guru Anda.</p>
                     </div>
                 </div>
 
@@ -1912,9 +1841,10 @@
                     </span>
                 </label>
                 <button type="button" @click="submit('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || !canSubmitQuiz()" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="wand-2" class="w-4 h-4"></i> Buat Soal
+                    <i data-lucide="wand-2" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
+                    <span x-text="loading && ocr.loading ? 'Membaca foto…' : (loading ? 'Menyusun soal…' : 'Buat Soal')"></span>
                 </button>
-                <button type="button" @click="submitExternal('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || !canSubmitQuiz()"
+                <button type="button" @click="submitExternal('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || !canSubmitQuiz() || quiz.source === 'camera'"
                         class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-primary hover:text-primary disabled:opacity-40">
                     <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                     <span x-text="quiz.source === 'camera' ? 'Cadangan web: tidak untuk foto' : 'Cadangan: buka Gemini web'"></span>
@@ -2431,6 +2361,7 @@
                 feedback: '{{ route('ai.teacher.feedback') }}',
                 quota:    '{{ route('ai.teacher.quota') }}',
                 materials: '{{ route('ai.teacher.materials') }}',
+                ocr: '{{ route('ai.teacher.ocr') }}',
                 historyBase: '{{ url('ai/teacher/history') }}',
                 quizPreview: '{{ route('ai.teacher.quiz.preview') }}',
                 quizWord: '{{ route('ai.teacher.quiz.export-word') }}',
@@ -2467,8 +2398,11 @@
 
             canSubmitQuiz() {
                 if ((this.quiz.topik || '').trim() === '') return false;
-                if (this.quiz.source !== 'file') return true;
-                return !!(this.quiz.file || this.quiz.document_uuid);
+                if (this.quiz.source === 'file') return !!(this.quiz.file || this.quiz.document_uuid);
+                // Foto buku: cukup ada foto tajam siap pakai — OCR jalan otomatis saat "Buat Soal"
+                // ditekan (lihat submit()), tak perlu ocr.quiz.text sudah terisi lebih dulu.
+                if (this.quiz.source === 'camera') return !!(this.ocr.quiz.text || '').trim() || this.ocrHasUsable('quiz');
+                return true;
             },
 
             selectedMaterial() {
@@ -2937,11 +2871,6 @@
                 this.$nextTick(() => window.lucide && lucide.createIcons());
             },
 
-            quizSourceReady() {
-                if (this.quiz.source === 'file') return !!this.quiz.file;
-                if (this.quiz.source === 'camera') return !!(this.ocr.quiz.text || '').trim();
-                return (this.quiz.topik || '').trim() !== '';
-            },
             learningSourceReady() {
                 if (this.learning.source === 'file') return !!this.learning.file;
                 if (this.learning.source === 'camera') return !!(this.ocr.learning.text || '').trim();
@@ -3233,19 +3162,21 @@
                     finalSize: last.blob.size,
                 };
             },
+            /** @return {Promise<boolean>} true kalau teks berhasil didapat dari foto. */
             async runOcr(scope) {
-                if (this.ocr.loading) return;
+                if (this.ocr.loading) return false;
                 if (this.needsApiKeySetup) {
                     this.ocr[scope].error = 'Simpan API key Gemini terlebih dahulu.';
-                    return;
+                    return false;
                 }
                 const usable = (this.ocr[scope].images || []).filter((i) => !i.blurry || i.forceKeep);
                 if (!usable.length) {
                     this.ocr[scope].error = 'Tambah foto tajam dulu, atau potret ulang yang buram.';
-                    return;
+                    return false;
                 }
                 this.ocr.loading = true;
                 this.ocr[scope].error = '';
+                let ok = false;
                 try {
                     const form = new FormData();
                     usable.forEach((img, i) => form.append('images[]', img.blob, img.name || `halaman-${i + 1}.jpg`));
@@ -3276,6 +3207,7 @@
                         this.ocr[scope].text = text;
                         this.ocr[scope].error = '';
                         this.ocr[scope].notice = notice || this.ocr[scope].notice || '';
+                        ok = !!text.trim();
                         // Tampilkan di panel Hasil (besar, edit, salin, export Word/PDF).
                         this.result = text;
                         this.resultSource = 'ocr';
@@ -3299,6 +3231,7 @@
                     this.ocr.loading = false;
                     this.$nextTick(() => window.lucide && lucide.createIcons());
                 }
+                return ok;
             },
             /** Sinkron edit di panel Hasil → material_text OCR (agar generate pakai teks yang diedit). */
             syncOcrFromResult() {
@@ -3351,6 +3284,8 @@
                         form.append('file', this.quiz.file);
                     } else if (this.quiz.source === 'file' && this.quiz.document_uuid) {
                         form.append('document_uuid', this.quiz.document_uuid);
+                    } else if (this.quiz.source === 'camera' && (this.ocr.quiz.text || '').trim()) {
+                        form.append('material_text', this.ocr.quiz.text.trim());
                     }
                 }
 
@@ -3376,6 +3311,17 @@
                 this.externalFlow = false;
                 this.promptCopied = false;
                 try {
+                    // Foto buku di Generator Soal: OCR jalan otomatis sbg BAGIAN dari proses "Buat
+                    // Soal" — user tak perlu klik "Jadikan teks" manual dulu. Kalau ocr.quiz.text
+                    // sudah terisi (mis. user sempat edit manual, atau reload dari histori), pakai
+                    // itu apa adanya tanpa OCR ulang.
+                    if (tool === 'quiz' && this.quiz.source === 'camera' && !(this.ocr.quiz.text || '').trim()) {
+                        const ok = await this.runOcr('quiz');
+                        if (!ok || !(this.ocr.quiz.text || '').trim()) {
+                            this.error = this.ocr.quiz.error || 'Gagal membaca teks dari foto.';
+                            return;
+                        }
+                    }
                     const payload = this.payloadFor(tool);
                     const r = await fetch(this.urls[tool], {
                         method: 'POST',

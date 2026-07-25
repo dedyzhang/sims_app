@@ -180,6 +180,66 @@ class AiTeacherOcrTest extends TestCase
         $this->assertStringContainsString('MATERI SCAN BUKU', $captured);
     }
 
+    /** Tombol "Foto buku" utk Generator Soal sempat ada state/JS-nya tapi tak ada tombolnya di
+     *  UI (grid Sumber Materi cuma 2 kolom: topik/file) — jadi jalur camera tak pernah bisa dipicu
+     *  sama sekali dari halaman. Pastikan tombolnya benar2 ada & sejajar dgn pola RPM Learning. */
+    public function test_halaman_generator_soal_punya_tombol_foto_buku(): void
+    {
+        $user = $this->guruWithKey();
+
+        $html = $this->actingAs($user)->get(route('ai.teacher.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString("quiz.source = 'camera'", $html);
+        $this->assertStringContainsString('Foto buku', $html);
+        // Grid Sumber Materi Generator Soal harus 3 kolom (topik/file/foto), sama pola dgn RPM Learning.
+        $this->assertMatchesRegularExpression(
+            "/grid grid-cols-3 gap-2 rounded-xl bg-slate-100.*?quiz\\.source = 'ai'/s",
+            $html
+        );
+    }
+
+    /** Diminta user: tak perlu langkah manual "Jadikan teks" sebelum bisa "Buat Soal" dari foto —
+     *  OCR-nya jalan otomatis SEBAGAI BAGIAN dari proses "Buat Soal". Pastikan submit('quiz') di JS
+     *  benar2 memanggil runOcr('quiz') dulu saat sumbernya kamera & teksnya belum ada, dan tombol
+     *  manual "Jadikan teks" khusus Generator Soal sudah dihapus (RPM Learning tetap punya tombolnya
+     *  sendiri, jadi tak bisa dicek hilang total dari halaman — cek scoped ke blok quiz.source==='camera'). */
+    public function test_buat_soal_dari_foto_otomatis_ocr_tanpa_langkah_manual(): void
+    {
+        $user = $this->guruWithKey();
+
+        $html = $this->actingAs($user)->get(route('ai.teacher.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString(
+            "tool === 'quiz' && this.quiz.source === 'camera' && !(this.ocr.quiz.text || '').trim()",
+            $html
+        );
+        $this->assertStringContainsString('const ok = await this.runOcr(\'quiz\');', $html);
+
+        // Blok "Foto halaman buku" Generator Soal (di antara pembuka blok camera & grid preview foto)
+        // tak boleh lagi punya tombol @click="runOcr('quiz')" — itu skrg dipicu otomatis dari submit().
+        $blokFotoBuku = preg_match(
+            "/Foto halaman buku.*?grid grid-cols-3 gap-2\" x-show=\"ocr\\.quiz\\.images\\.length\"/s",
+            $html,
+            $m
+        ) ? $m[0] : '';
+        $this->assertNotSame('', $blokFotoBuku, 'Blok Foto halaman buku Generator Soal tak ditemukan di halaman.');
+        $this->assertStringNotContainsString("@click=\"runOcr('quiz')\"", $blokFotoBuku);
+        $this->assertStringContainsString('Tak perlu "Jadikan teks" manual', $blokFotoBuku);
+    }
+
+    /** Bug nyata dilaporkan user: klik "Jadikan teks" (baik di RPM Learning maupun Generate Soal)
+     *  gagal dgn "The route ai/undefined could not be found." — krn key `ocr` di object `urls`
+     *  Alpine tak pernah didaftarkan (fetch(this.urls.ocr, ...) jadi fetch(undefined, ...), browser
+     *  resolve jadi "/ai/undefined" relatif thd halaman "/ai/teacher"). Pastikan URL-nya benar2 ada. */
+    public function test_halaman_ai_teacher_mendaftarkan_url_ocr(): void
+    {
+        $user = $this->guruWithKey();
+
+        $html = $this->actingAs($user)->get(route('ai.teacher.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString("ocr: '".route('ai.teacher.ocr')."'", $html);
+    }
+
     public function test_learning_bisa_pakai_material_text_scan_buku(): void
     {
         $user = $this->guruWithKey();

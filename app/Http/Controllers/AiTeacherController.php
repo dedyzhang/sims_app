@@ -1194,12 +1194,8 @@ class AiTeacherController extends Controller
             'jenjang' => ['nullable', 'string', 'max:100'],
             'file' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
             'document_uuid' => ['nullable', 'string', 'max:64'],
+            'material_text' => ['nullable', 'string', 'max:'.$maxMaterial],
             'soal_bergambar' => ['sometimes', 'boolean'],
-        ], [
-            'images.max' => "Maksimal {$maxImages} foto per sekali generate.",
-            'images.*.image' => 'File harus berupa gambar yang valid.',
-            'images.*.mimes' => 'Format foto harus JPEG, PNG, atau WebP.',
-            'images.*.max' => 'Setiap foto maksimal '.round($maxKb / 1024, 1).' MB.',
         ]);
         $data['jenis_soal'] = array_values(array_unique($data['jenis_soal']));
         $data['soal_bergambar'] = $request->boolean('soal_bergambar');
@@ -1207,15 +1203,22 @@ class AiTeacherController extends Controller
         $topik = trim((string) $data['topik']);
         $user = $request->user();
 
-        // Materi: file kecil (inline) | file besar (RAG) | buku lama (document_uuid).
+        // Materi: file kecil (inline) | file besar (RAG) | buku lama (document_uuid) | teks
+        // hasil OCR foto halaman buku (material_text, dari alur "Foto buku" spt di RPM Learning).
         $document = null;
         $inlineMaterial = '';
+        $materialSource = null;
 
         try {
             if ($request->hasFile('file')) {
                 [$inlineMaterial, $document] = $this->materials->resolveUpload($user, $request->file('file'));
+                $materialSource = 'file';
             } elseif (! empty($data['document_uuid'])) {
                 $document = $this->materials->findOwned($user, (string) $data['document_uuid']);
+                $materialSource = 'file';
+            } elseif (trim((string) ($data['material_text'] ?? '')) !== '') {
+                $inlineMaterial = trim((string) $data['material_text']);
+                $materialSource = 'camera_ocr';
             }
 
             $material = $inlineMaterial;
@@ -1238,12 +1241,14 @@ class AiTeacherController extends Controller
         );
 
         if ($material !== '') {
+            $label = $materialSource === 'camera_ocr' ? 'MATERI SCAN BUKU' : 'MATERI FILE';
+            $sumber = $materialSource === 'camera_ocr' ? 'scan/foto halaman buku' : 'file';
             $prompt = "Buat {$data['jumlah']} soal ({$jenis}) dengan tingkat kesulitan "
-                ."{$data['tingkat']} {$jenjang} berdasarkan materi dari file berikut.\n"
+                ."{$data['tingkat']} {$jenjang} berdasarkan materi dari {$sumber} berikut.\n"
                 ."Fokus topik: \"{$topik}\".\n"
-                ."JANGAN keluar dari cakupan MATERI FILE. Bila sebuah fakta tidak ada di "
+                ."JANGAN keluar dari cakupan {$label}. Bila sebuah fakta tidak ada di "
                 ."dalamnya, jangan mengarang — susun soal dari bagian yang tersedia saja.\n\n"
-                ."MATERI FILE:\n{$material}\n\n"
+                ."{$label}:\n{$material}\n\n"
                 .$formatInstruction;
         } else {
             $prompt = "Buat {$data['jumlah']} soal ({$jenis}) dengan tingkat kesulitan "
@@ -1259,7 +1264,6 @@ class AiTeacherController extends Controller
             'answer_style' => 'Tulis sebagai dokumen soal teks polos siap cetak sesuai format yang diminta. JANGAN memakai Markdown, heading #, atau bullet dekoratif.',
             'title' => (string) $title,
             'soal_bergambar' => (bool) $data['soal_bergambar'],
-            'vision_images' => $visionImages,
             'history' => [
                 'type' => 'quiz',
                 'type_label' => 'Generator Soal',
@@ -1272,6 +1276,7 @@ class AiTeacherController extends Controller
                     'soal_bergambar' => (bool) $data['soal_bergambar'],
                     'file' => $request->file('file')?->getClientOriginalName() ?? $document?->title,
                     'document_uuid' => $document?->uuid,
+                    'source' => $materialSource ?? 'topic',
                     'via' => 'sims',
                 ],
             ],
@@ -1364,7 +1369,6 @@ class AiTeacherController extends Controller
                 .'(tanpa **tebal**, tanpa heading #, tanpa tabel pipa selain yang diminta format).',
             'title' => (string) $title,
             'learning_tool' => $data['tool'],
-            'vision_images' => $visionImages,
             'history' => [
                 'type' => $data['tool'],
                 'type_label' => $toolLabel,

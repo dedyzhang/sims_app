@@ -544,11 +544,17 @@
                         $akademik[] = ['jagat-misi.index', ['jagat-misi.*'], 'gamepad-2', 'Arena Belajar'];
                     }
 
-                    if ($modulOn('ludensa') && $access === 'siswa' && \App\Integrations\Ludensa\LudensaJenjang::bolehAksesSiswa(auth()->user())) {
+                    // Ludensa datang dari paket composer terpisah (ludensa/ludensa) yg route-nya baru
+                    // ada setelah paket itu terpasang. Setting modulnya default AKTIF, jadi tanpa cek
+                    // Route::has() ini setiap halaman 500 ("Route [ludensa.beranda] not defined") di
+                    // instalasi yg belum/tidak memasang paketnya.
+                    $ludensaSiap = $modulOn('ludensa') && \Illuminate\Support\Facades\Route::has('ludensa.beranda');
+
+                    if ($ludensaSiap && $access === 'siswa' && \App\Integrations\Ludensa\LudensaJenjang::bolehAksesSiswa(auth()->user())) {
                         $akademik[] = ['ludensa.beranda', ['ludensa.siswa.*'], 'sparkles', 'Arena Petualangan SD'];
                     }
 
-                    if ($modulOn('ludensa') && \App\Support\UserRole::matches($access, 'guru', 'walikelas', 'admin', 'superadmin')) {
+                    if ($ludensaSiap && \App\Support\UserRole::matches($access, 'guru', 'walikelas', 'admin', 'superadmin')) {
                         $akademik[] = ['ludensa.beranda', ['ludensa.guru.*', 'ludensa.admin.*'], 'sparkles', 'Arena Petualangan SD'];
                     }
 

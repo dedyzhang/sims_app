@@ -62,7 +62,7 @@ class SettingController extends Controller
         $guruFaceTerdaftar = Guru::whereNotNull($faceDescCol)->count();
 
         return view('setting.index', compact(
-            'semester', 'semesterAktif', 'kelas', 'pelajarans', 'settings', 'aturans',
+            'semester', 'semesterAktif', 'kelas', 'pelajarans', 'settings', 'aturans', 'modulFitur',
             'siswaFaceTerdaftar', 'guruFaceTerdaftar'
         ));
     }
