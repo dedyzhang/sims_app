@@ -31,7 +31,7 @@ class AiRagController extends Controller
     public function index(): View
     {
         return view('ai.rag', [
-            'documents' => AiDocument::withCount('chunks')->latest()->get(),
+            'documents' => AiDocument::withCount('chunks')->latest()->limit(100)->get(),
             'schoolAiConfigured' => $this->gemini->enabled() && filled(config('ai.api_key')),
             'maxUploadKb' => (int) config('ai.rag.max_upload_kb', 5120),
         ]);

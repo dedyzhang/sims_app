@@ -87,6 +87,7 @@ class ChatbotAdminController extends Controller
             ->whereIn('status', ['waiting', 'assigned'])
             ->orderByRaw("CASE status WHEN 'waiting' THEN 0 ELSE 1 END")
             ->orderBy('updated_at')
+            ->limit(100)
             ->get()
             ->map(fn (ChatbotConversation $c) => $this->summarize($c));
 

@@ -913,7 +913,14 @@
     }
 
     tick();
-    setInterval(tick, 1000);
+    // Jam dashboard 1s hanya saat tab visible (hemat CPU HP/lab).
+    setInterval(function () {
+        if (document.hidden) return;
+        tick();
+    }, 1000);
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) tick();
+    });
 })();
 </script>
 @endpush

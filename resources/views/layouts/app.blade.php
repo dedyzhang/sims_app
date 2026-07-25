@@ -98,20 +98,63 @@
         }
     </script>
 
-    <script defer src="https://unpkg.com/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    {{-- Pin versi CDN (hindari @latest floating). Perf: jangan unduh versi tak terduga tiap hari. --}}
+    <script defer src="https://unpkg.com/@alpinejs/collapse@3.14.8/dist/cdn.min.js"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.468.0"></script>
+    @php
+        // Perf R1: muat library berat hanya di halaman yang memakainya (bukan global).
+        $path = request()->path();
+        $needsDataTables = str_contains($path, 'sarpras');
+        $needsSortable = $path === 'dashboard'
+            || str_starts_with($path, 'dashboard/')
+            || str_contains($path, 'pelajaran');
+        $needsTomSelect = str_contains($path, 'walikelas')
+            || str_contains($path, 'pemanggilan')
+            || str_contains($path, 'poin/')
+            || (str_contains($path, 'guru') && str_contains($path, 'pelajaran'))
+            || str_contains($path, 'ngajar');
+        // Kiosk / scan: kurangi widget floating AI (R4.1).
+        $isScanKioskSurface = (bool) ($isKiosk ?? false)
+            || request()->routeIs([
+                'absensi.scan', 'presensi-guru.scan', 'absensi.kioskEnter',
+                'absensi.wajah', 'absensi.wajah-guru', 'face.self',
+            ])
+            || str_contains($path, 'absensi/scan')
+            || str_contains($path, 'presensi-guru/scan')
+            || str_contains($path, 'kiosk-absensi')
+            || str_contains($path, 'wajah-saya');
+    @endphp
+    @if($needsTomSelect)
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    @endif
+    @if($needsSortable)
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-    
-    <!-- DataTables CSS & JS -->
+    @endif
+    @if($needsDataTables)
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    @endif
+    <script>
+        // Polling bijak: skip saat tab hidden; refresh saat kembali visible.
+        window.simsWhenVisible = function (fn) {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            try { fn(); } catch (_) {}
+        };
+        window.simsPollInterval = function (fn, ms) {
+            const id = setInterval(() => window.simsWhenVisible(fn), ms);
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) window.simsWhenVisible(fn);
+            });
+            return id;
+        };
+    </script>
 
+    @if($needsDataTables)
     <style>
         /* Penyesuaian DataTables dengan Tailwind & Dark Mode */
         .dataTables_wrapper { font-size: var(--fsm); margin-top: 1rem; }
@@ -124,7 +167,6 @@
         .dark .dataTables_wrapper .dataTables_length, .dark .dataTables_wrapper .dataTables_filter, .dark .dataTables_wrapper .dataTables_info {
             color: #94a3b8 !important;
         }
-        /* Sembunyikan ikon accordion (jika masih tersisa) */
         table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control:before, table.dataTable.dtr-inline.collapsed>tbody>tr>th.dtr-control:before {
             display: none;
         }
@@ -133,17 +175,13 @@
         }
         .dataTables_wrapper .dataTables_paginate .paginate_button { border-radius: 0.375rem; padding: 0.25rem 0.75rem; }
     </style>
-    
     <script>
         $(document).ready(function() {
-            // Auto initialize datatables for sarpras tables
-            if (window.location.pathname.includes('/sarpras')) {
-                // Initialize on generic tables (except .ttd which is for signatures, or explicit .no-dt)
+            if (window.location.pathname.includes('/sarpras') && typeof $.fn.DataTable === 'function') {
                 $('table:not(.ttd, .no-dt)').addClass('display w-full').DataTable({
                     scrollX: true,
                     pageLength: 15,
                     autoWidth: false,
-                    // Toolbar di dalam kartu: length + filter di atas, info + paginate di bawah.
                     dom: '<"sarpras-dt-toolbar"lf>t<"sarpras-dt-footer"ip>',
                     language: {
                         search: "Cari:",
@@ -157,6 +195,7 @@
             }
         });
     </script>
+    @endif
     <style>
         * { font-family: 'Plus Jakarta Sans','Inter',sans-serif; }
         [x-cloak] { display:none !important; }
@@ -503,6 +542,14 @@
 
                     if ($modulOn('arena_belajar') && $access !== 'orangtua') {
                         $akademik[] = ['jagat-misi.index', ['jagat-misi.*'], 'gamepad-2', 'Arena Belajar'];
+                    }
+
+                    if ($modulOn('ludensa') && $access === 'siswa' && \App\Integrations\Ludensa\LudensaJenjang::bolehAksesSiswa(auth()->user())) {
+                        $akademik[] = ['ludensa.beranda', ['ludensa.siswa.*'], 'sparkles', 'Arena Petualangan SD'];
+                    }
+
+                    if ($modulOn('ludensa') && \App\Support\UserRole::matches($access, 'guru', 'walikelas', 'admin', 'superadmin')) {
+                        $akademik[] = ['ludensa.beranda', ['ludensa.guru.*', 'ludensa.admin.*'], 'sparkles', 'Arena Petualangan SD'];
                     }
 
                     if ($isAdmin || auth()->user()?->canAccess('manage_jadwal')) {
@@ -1382,7 +1429,7 @@
                     if (e.data === 'chatfab:close') { this.open = false; this.poll(); }
                 });
                 this.poll();                                   // cek awal saat halaman dibuka
-                setInterval(() => this.poll(), 20000);         // polling latar tiap 20 detik
+                window.simsPollInterval(() => this.poll(), 20000); // pause saat tab hidden
             },
         }
     }
@@ -1390,8 +1437,9 @@
 @endif
 
 {{-- Widget AsistenAI (Fase 2) — STAF & ADMIN saja. Siswa & orang tua tidak
-     mendapat AI generatif; mereka memakai chatbot handoff ke admin di atas. --}}
-@unless(in_array($access, ['siswa', 'orangtua']))
+     mendapat AI generatif; mereka memakai chatbot handoff ke admin di atas.
+     R4.1: jangan muat di kiosk/scan absensi (hemat JS & fokus kamera). --}}
+@unless(in_array($access, ['siswa', 'orangtua']) || ($isScanKioskSurface ?? false))
 @include('partials.ai-assistant')
 @endunless
 
@@ -1483,10 +1531,7 @@
                     } catch (_) {}
                 };
                 fetchBadge();
-                if (!this.adminChatBadgeTimer) this.adminChatBadgeTimer = setInterval(fetchBadge, 20000);
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'visible') fetchBadge();
-                });
+                if (!this.adminChatBadgeTimer) this.adminChatBadgeTimer = window.simsPollInterval(fetchBadge, 20000);
                 @endif
             },
             initFeedbackBadge(){
@@ -1500,10 +1545,7 @@
                     } catch (_) {}
                 };
                 fetchBadge();
-                if (!this.feedbackBadgeTimer) this.feedbackBadgeTimer = setInterval(fetchBadge, 20000);
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'visible') fetchBadge();
-                });
+                if (!this.feedbackBadgeTimer) this.feedbackBadgeTimer = window.simsPollInterval(fetchBadge, 20000);
                 @endif
             },
             // Tooltip melayang utk ikon sidebar saat mode mini (anti-terpotong overflow).
@@ -1544,10 +1586,11 @@
                     this.audio.volume = 0.6;
                 } catch (_) { this.audio = null; }
                 this.fetchNotifications();
-                // Polling setiap 10 detik untuk notifikasi baru
-                setInterval(() => this.fetchNotifications(), 10000);
+                // Polling 15s (was 10s); pause saat tab hidden (simsPollInterval)
+                window.simsPollInterval(() => this.fetchNotifications(), 15000);
             },
             async fetchNotifications() {
+                if (document.hidden) return;
                 try {
                     let response = await fetch('{{ route('notifications.json') }}');
                     if (response.ok) {
@@ -1864,8 +1907,8 @@
             }
         };
 
-        // Update stats periodically every 20 seconds
-        setInterval(updateTickerStats, 20000);
+        // Update stats every 30s; pause when tab hidden
+        window.simsPollInterval(updateTickerStats, 30000);
     });
 </script>
 
