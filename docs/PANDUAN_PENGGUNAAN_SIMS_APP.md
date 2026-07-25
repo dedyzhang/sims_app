@@ -248,7 +248,7 @@ Nalar Guru (chat) dan status **Generate Kuota** digabung dalam satu folder yang 
 - Membuat soal dari sebuah topik atau dari berkas materi.
 - Menyusun rancangan pembelajaran (RPM Learning).
 - Merangkum bahan ajar menjadi poin-poin penting.
-- Membuat draf umpan balik untuk siswa.
+- Membuat Catatan Siswa (draf komentar hangat untuk siswa).
 - **Kirim ke Arena Belajar** dari hasil Nalar/Generator (impor ke form buat kuis).
 - Melihat pratinjau hasil sebelum diunduh.
 - Mengunduh hasil soal atau rancangan ke Word/PDF.
@@ -288,12 +288,12 @@ Nalar Guru (chat) dan status **Generate Kuota** digabung dalam satu folder yang 
 3. Klik tombol buat rangkuman.
 4. Periksa hasilnya sebelum dipakai mengajar.
 
-**Cara membuat draf umpan balik siswa:**
+**Cara membuat Catatan Siswa:**
 
-1. Pilih tab **Draft Feedback**.
+1. Pilih tab **Catatan Siswa**.
 2. Isi nama siswa bila diperlukan.
-3. Isi keterangan nilai, sikap, tugas, atau catatan guru.
-4. Klik tombol buat umpan balik.
+3. Isi keterangan nilai, sikap, tugas, atau hal yang ingin dicatat.
+4. Klik **Susun Catatan Siswa**.
 5. Sunting kalimatnya agar sesuai dengan kondisi siswa yang sebenarnya.
 
 **Cara memakai riwayat hasil:**
@@ -1845,7 +1845,7 @@ Gunakan daftar ini saat memperkenalkan aplikasi ke sekolah:
 - Sistem Poin atau P3 sesuai pengaturan aktif.
 - Wali Kelas: siswa kelas, sekretaris, absensi kelas, disiplin kelas, dan nilai kelas.
 - Forum Diskusi dan pengaturan aksesnya.
-- Asisten Guru: Generator Soal, RPM Learning, Rangkuman Materi, Draft Feedback, ekspor, dan riwayat.
+- Asisten Guru: Generator Soal, RPM Learning, Rangkuman Materi, Catatan Siswa, ekspor, dan riwayat.
 - Analisis AI dan Dokumen AI.
 - Sarpras lengkap: dashboard, denah, ruangan, kerusakan, aset, kategori, pengadaan, supplier, peminjaman, pemesanan, perbaikan, teknisi, jadwal, mutasi, penghapusan, dan laporan.
 - Keuangan: pembayaran SPP, verifikasi, bank/metode, dan tagihan siswa/orang tua.

@@ -72,19 +72,149 @@ trait InteractsWithAi
         return $this->aiGeminiTierUsage();
     }
 
-    /** @return array<string,mixed> */
-    protected function aiPublicQuotaUsage(bool $fresh = false): array
+    /**
+     * Snapshot kuota untuk UI (polling). Sertakan breakdown AI Studio (key guru)
+     * vs AI Sekolah (key server) dari log SIMS — real-time via refresh endpoint.
+     *
+     * @return array<string,mixed>
+     */
+    protected function aiPublicQuotaUsage(bool $fresh = false, ?string $userUuid = null): array
     {
-        return match ($this->aiActiveProvider()) {
+        $userUuid = $userUuid ?? (auth()->id() ? (string) auth()->id() : null);
+
+        $base = match ($this->aiActiveProvider()) {
             'openrouter' => $this->aiOpenRouterPublicQuota($fresh),
             'ninerouter' => $this->aiNinerouterPublicQuota($fresh),
             default => $this->aiGeminiPublicQuota(),
         };
+
+        return $this->aiAttachDualUsageBreakdown($base, $userUuid);
     }
 
     private function aiActiveProvider(): string
     {
         return strtolower((string) config('ai.provider', 'gemini'));
+    }
+
+    /**
+     * Window hari kuota (selaras provider: Gemini Pacific RPD, OpenRouter UTC).
+     *
+     * @return array{start: CarbonImmutable, end: CarbonImmutable, reset_human: string}
+     */
+    private function aiQuotaDayWindow(): array
+    {
+        $timezone = config('app.timezone', 'Asia/Jakarta');
+        $provider = $this->aiActiveProvider();
+
+        if ($provider === 'gemini') {
+            $start = CarbonImmutable::now('America/Los_Angeles')->startOfDay();
+            $end = $start->addDay();
+        } else {
+            $start = CarbonImmutable::now('UTC')->startOfDay();
+            $end = $start->addDay();
+        }
+
+        return [
+            'start' => $start->setTimezone($timezone),
+            'end' => $end->setTimezone($timezone),
+            'reset_human' => $end->setTimezone($timezone)->format('d/m/Y H:i T'),
+        ];
+    }
+
+    /**
+     * Hitung pemakaian harian AI Studio (request sukses user ini) + AI Sekolah (global log).
+     *
+     * @param  array<string,mixed>  $base
+     * @return array<string,mixed>
+     */
+    private function aiAttachDualUsageBreakdown(array $base, ?string $userUuid): array
+    {
+        $window = $this->aiQuotaDayWindow();
+        $dayStart = $window['start'];
+        $dayEnd = $window['end'];
+
+        // AI Studio = pemakaian key pribadi guru (semua hit sukses user di Asisten Guru hari ini).
+        $studioUsed = 0;
+        if ($userUuid) {
+            $studioUsed = (int) AiUsageLog::query()
+                ->where('user_uuid', $userUuid)
+                ->where('status', 'success')
+                ->where('created_at', '>=', $dayStart)
+                ->where('created_at', '<', $dayEnd)
+                ->count();
+        }
+
+        $studioLimit = max(1, (int) config(
+            'ai.teacher_studio_daily_limit',
+            (int) config('ai.openrouter.free_daily_limit', 50)
+        ));
+        $studioRemaining = max(0, $studioLimit - $studioUsed);
+        $studioPercentUsed = min(100, (int) floor(($studioUsed / $studioLimit) * 100));
+        $studioPercentLeft = max(0, 100 - $studioPercentUsed);
+
+        // AI Sekolah = total free-tier / log global yang sudah dihitung di snapshot provider.
+        $schoolUsed = $base['total']['used'] ?? null;
+        $schoolLimit = $base['total']['limit'] ?? null;
+        $schoolRemaining = $base['total']['remaining'] ?? null;
+
+        if ($schoolUsed === null) {
+            // Fallback: seluruh request sukses hari ini (provider tanpa limit terstruktur).
+            $schoolUsed = (int) AiUsageLog::query()
+                ->where('status', 'success')
+                ->where('created_at', '>=', $dayStart)
+                ->where('created_at', '<', $dayEnd)
+                ->count();
+        }
+
+        $schoolPercentLeft = null;
+        $schoolPercentUsed = null;
+        if ($schoolLimit !== null && (int) $schoolLimit > 0) {
+            $schoolRemaining = $schoolRemaining ?? max(0, (int) $schoolLimit - (int) $schoolUsed);
+            $schoolPercentUsed = min(100, (int) floor(((int) $schoolUsed / (int) $schoolLimit) * 100));
+            $schoolPercentLeft = max(0, 100 - $schoolPercentUsed);
+        }
+
+        $base['studio'] = [
+            'label' => 'AI Studio',
+            'hint' => 'Key pribadi Anda (hari ini)',
+            'used' => $studioUsed,
+            'limit' => $studioLimit,
+            'remaining' => $studioRemaining,
+            'percent' => $studioPercentLeft,
+            'percent_used' => $studioPercentUsed,
+            'used_label' => number_format($studioUsed, 0, ',', '.'),
+            'limit_label' => number_format($studioLimit, 0, ',', '.'),
+            'remaining_label' => number_format($studioRemaining, 0, ',', '.').' tersisa',
+        ];
+
+        $base['school'] = [
+            'label' => 'AI Sekolah',
+            'hint' => 'Key server sekolah (hari ini)',
+            'used' => (int) $schoolUsed,
+            'limit' => $schoolLimit !== null ? (int) $schoolLimit : null,
+            'remaining' => $schoolRemaining !== null ? (int) $schoolRemaining : null,
+            'percent' => $schoolPercentLeft,
+            'percent_used' => $schoolPercentUsed,
+            'used_label' => number_format((int) $schoolUsed, 0, ',', '.'),
+            'limit_label' => $schoolLimit !== null ? number_format((int) $schoolLimit, 0, ',', '.') : '—',
+            'remaining_label' => $schoolRemaining !== null
+                ? number_format((int) $schoolRemaining, 0, ',', '.').' tersisa'
+                : number_format((int) $schoolUsed, 0, ',', '.').' dipakai',
+        ];
+
+        $base['usage_window'] = [
+            'start' => $dayStart->toIso8601String(),
+            'end' => $dayEnd->toIso8601String(),
+            'reset_human' => $window['reset_human'],
+        ];
+
+        // Ringkasan untuk tile: prioritaskan angka dual-usage.
+        if (($base['status'] ?? '') !== 'error' && ($base['key_alive'] ?? true) !== false) {
+            $base['remaining_label'] = 'Studio '.$base['studio']['remaining_label']
+                .' · Sekolah '.$base['school']['remaining_label'];
+        }
+
+        return $base;
     }
 
     /** @return array<string,mixed> */

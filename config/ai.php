@@ -57,6 +57,10 @@ return [
     // Gemini sampai reset RPD berikutnya. Jangan aktifkan billing otomatis dari aplikasi.
     'free_tier_only' => (bool) env('AI_FREE_TIER_ONLY', true),
 
+    // Batas estimasi request/hari per guru (AI Studio / key pribadi) untuk progress bar Asisten Guru.
+    // Bukan hard-block API — hanya metrik UI dari log SIMS. Default = OPENROUTER_FREE_DAILY_LIMIT.
+    'teacher_studio_daily_limit' => (int) env('AI_TEACHER_STUDIO_DAILY_LIMIT', env('OPENROUTER_FREE_DAILY_LIMIT', 50)),
+
     // Batas RPD free tier untuk progress bar lokal. Nilai resmi bisa berubah;
     // sesuaikan dengan angka aktif di Google AI Studio > Rate limits.
     'free_tier_daily_limits' => (function (): array {
@@ -122,6 +126,21 @@ return [
     // Timeout khusus keluaran panjang berformat (generator perangkat ajar RPM
     // Learning): satu dokumen penuh bisa memakan ~45 detik, jauh di atas `timeout`.
     'long_timeout' => (int) env('AI_LONG_TIMEOUT', 120),
+
+    /*
+    | OCR foto buku (kamera HP) → teks untuk Generator Soal / RPM.
+    | Kompres client: edge-first + JPEG ~0.9 (jaga ketajaman). Blur dicek di client.
+    */
+    'ocr' => [
+        'max_images' => (int) env('AI_OCR_MAX_IMAGES', 3),
+        'max_bytes' => (int) env('AI_OCR_MAX_BYTES', 4 * 1024 * 1024),
+        'max_edge' => (int) env('AI_OCR_MAX_EDGE', 1920),
+        'jpeg_quality' => (int) env('AI_OCR_JPEG_QUALITY', 90),
+        'timeout' => (int) env('AI_OCR_TIMEOUT', 60),
+        'client_jpeg_quality' => (float) env('AI_OCR_CLIENT_JPEG_QUALITY', 0.90),
+        'client_max_edge' => (int) env('AI_OCR_CLIENT_MAX_EDGE', 1920),
+        'blur_variance_min' => (int) env('AI_OCR_BLUR_VARIANCE_MIN', 100),
+    ],
 
     /*
     | Generate gambar soal (Gemini native image / "Nano Banana").
@@ -220,13 +239,14 @@ return [
             (jangan mengarang nama/alamat sekolah lain), lalu judul RANGKUMAN MATERI.
             TXT,
         'feedback' => <<<'TXT'
-            Kamu asisten guru penyusun draf umpan balik untuk siswa. Dari konteks jawaban
-            atau kondisi siswa yang diberikan guru, susun komentar yang membangun, spesifik,
-            dan memotivasi — sebutkan yang sudah baik dan yang perlu diperbaiki beserta
-            saran konkret. Nada sopan dan mendukung. Ini DRAF untuk diedit guru; jangan
-            mengarang nilai/angka yang tidak diberikan.
+            Kamu asisten guru penyusun Catatan Siswa — catatan hangat, membangun, dan
+            spesifik untuk siswa. Dari konteks jawaban atau kondisi siswa yang diberikan
+            guru, susun komentar yang memotivasi: sebutkan yang sudah baik, yang perlu
+            diperbaiki, dan saran konkret. Nada sopan, dekat, dan mendukung (seperti
+            catatan guru di rapor atau buku penghubung). Ini DRAF untuk diedit guru;
+            jangan mengarang nilai/angka yang tidak diberikan.
             Setiap jawaban WAJIB diawali kop surat sekolah sesuai data yang diberikan
-            (jangan mengarang nama/alamat sekolah lain), lalu judul DRAF UMPAN BALIK.
+            (jangan mengarang nama/alamat sekolah lain), lalu judul CATATAN SISWA.
             TXT,
         'learning' => <<<'TXT'
             Kamu asisten guru penyusun perangkat ajar RPM (Perencanaan Pembelajaran Mendalam).

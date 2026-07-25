@@ -10,12 +10,16 @@
      */
     .ai-teacher-tools-grid {
         align-items: stretch;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
     .ai-teacher-form-card {
         display: block;
         height: auto;
         min-height: 0;
         max-height: none;
+        max-width: 100%;
         overflow: visible;
     }
     .ai-teacher-form-scroll {
@@ -23,22 +27,91 @@
         min-height: 0;
         height: auto;
         max-height: none;
+        max-width: 100%;
     }
     .ai-teacher-hasil,
     .ai-teacher-history {
         display: flex;
         flex-direction: column;
         min-height: 0;
+        max-width: 100%;
         overflow: hidden;
     }
-    .ai-teacher-hasil__toolbar { flex: 0 0 auto; z-index: 2; }
+    /* Label History menyesuaikan lebar kolom (container query) */
+    .ai-teacher-history {
+        container-type: inline-size;
+        container-name: history-col;
+    }
+    .ai-teacher-history__toggle {
+        display: flex;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.4rem;
+        padding: 0.7rem 0.85rem;
+        text-align: left;
+    }
+    .ai-teacher-history__heading {
+        display: flex;
+        min-width: 0;
+        flex: 1 1 auto;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #334155;
+        line-height: 1.25;
+    }
+    .dark .ai-teacher-history__heading { color: #e2e8f0; }
+    .ai-teacher-history__heading > i { flex-shrink: 0; }
+    .ai-teacher-history__title {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .ai-teacher-history__title-full { display: none; }
+    .ai-teacher-history__title-short { display: inline; }
+    /* Kolom cukup lebar → tampil "History Generate" */
+    @container history-col (min-width: 200px) {
+        .ai-teacher-history__title-full { display: inline; }
+        .ai-teacher-history__title-short { display: none; }
+    }
+    .ai-teacher-history__count {
+        flex-shrink: 0;
+        font-size: 10px;
+        font-weight: 600;
+        color: #94a3b8;
+    }
+    .ai-teacher-history__meta {
+        display: inline-flex;
+        flex-shrink: 0;
+        align-items: center;
+        gap: 0.2rem;
+        font-size: 10px;
+        font-weight: 600;
+        color: #94a3b8;
+        white-space: nowrap;
+    }
+    .ai-teacher-history__meta-label {
+        display: none;
+    }
+    @container history-col (min-width: 240px) {
+        .ai-teacher-history__meta-label { display: inline; }
+    }
+    .ai-teacher-hasil__toolbar { flex: 0 0 auto; z-index: 2; max-width: 100%; }
     .ai-teacher-hasil__body {
         flex: 1 1 0%;
         min-height: 0;
+        max-width: 100%;
         overflow-x: auto;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: auto;
+        word-break: break-word;
+        overflow-wrap: anywhere;
     }
     .ai-teacher-hasil__empty {
         box-sizing: border-box;
@@ -52,13 +125,82 @@
         overflow: visible;
         max-height: none;
         min-height: 0;
+        max-width: 100%;
+        word-break: break-word;
+        overflow-wrap: anywhere;
     }
     .ai-teacher-history-body {
         flex: 1 1 0%;
         min-height: 0;
+        max-width: 100%;
+        overflow-x: hidden;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: auto;
+    }
+    .ai-teacher-history-item {
+        max-width: 100%;
+        min-width: 0;
+    }
+    .ai-teacher-history-item__type {
+        display: inline-block;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 0.2rem 0.45rem;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1.25;
+        letter-spacing: 0.01em;
+        color: var(--cp, #2563eb);
+        background: color-mix(in srgb, var(--cp, #2563eb) 10%, #fff);
+        /* Jangan truncate — label "Generator Soal" / "Nalar Guru" harus utuh */
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        hyphens: auto;
+    }
+    .dark .ai-teacher-history-item__type {
+        background: color-mix(in srgb, var(--cp, #60a5fa) 18%, #0f172a);
+        color: #93c5fd;
+    }
+    .ai-teacher-history-item__meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+        min-width: 0;
+        max-width: 100%;
+    }
+    /* Kolom history lebar cukup: tipe + waktu sejajar */
+    @container history-col (min-width: 220px) {
+        .ai-teacher-history-item__meta {
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.25rem 0.5rem;
+        }
+        .ai-teacher-history-item__type {
+            max-width: calc(100% - 4.5rem);
+        }
+    }
+    .ai-teacher-history-item__time {
+        flex-shrink: 0;
+        font-size: 10px;
+        line-height: 1.2;
+        color: #94a3b8;
+        white-space: nowrap;
+    }
+    .ai-teacher-history-item__title {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: normal;
+    }
+    .ai-teacher-history-item__excerpt {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        white-space: normal;
     }
     /* ≥xl: form | hasil sejajar — hasil samakan tinggi form */
     @media (min-width: 1280px) {
@@ -271,6 +413,10 @@
     .ai-console__grid {
         display: grid;
         gap: 0.75rem;
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
     }
     @media (min-width: 768px) {
         .ai-console__grid {
@@ -285,6 +431,8 @@
         background: var(--c-panel);
         padding: 0.95rem 1rem;
         min-height: 118px;
+        min-width: 0;
+        max-width: 100%;
         display: flex;
         flex-direction: column;
         gap: 0.55rem;
@@ -342,6 +490,8 @@
         color: color-mix(in srgb, var(--cp) 85%, #0f172a);
     }
     .ai-tile__value {
+        overflow-wrap: anywhere;
+        word-break: break-word;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: clamp(1.35rem, 2.4vw, 1.7rem);
         font-weight: 800;
@@ -784,30 +934,139 @@
         color: #cbd5e1;
     }
 
-    /* Mobile/stack: Hasil & History tinggi nyaman + scroll sendiri */
+    /* Mobile/stack: 1 kolom, tidak overflow frame, scroll internal */
     @media (max-width: 1279px) {
+        .ai-teacher-tools-grid {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.85rem;
+        }
         .ai-teacher-form-card {
             height: auto;
             overflow: visible;
+            padding: 1rem;
         }
         .ai-teacher-hasil,
         .ai-teacher-history {
             height: auto;
-            min-height: min(55vh, 480px);
-            max-height: min(70vh, 720px);
+            min-height: min(50vh, 420px);
+            max-height: min(68vh, 640px);
+            width: 100%;
         }
         .ai-teacher-hasil > .ai-teacher-col-shell,
         .ai-teacher-history > .ai-teacher-col-shell {
             display: flex;
             flex-direction: column;
-            min-height: min(55vh, 480px);
-            max-height: min(70vh, 720px);
+            min-height: min(50vh, 420px);
+            max-height: min(68vh, 640px);
             height: 100%;
+            width: 100%;
+            max-width: 100%;
             overflow: hidden;
         }
+        .ai-teacher-hasil > .ai-teacher-col-shell {
+            padding: 0.85rem;
+        }
+        /* Di mobile history full-width → pakai judul lengkap */
+        .ai-teacher-history__title-full { display: inline !important; }
+        .ai-teacher-history__title-short { display: none !important; }
+        .ai-teacher-history__meta-label { display: inline !important; }
+        .ai-teacher-history__toggle {
+            padding: 0.75rem 1rem;
+        }
+        .ai-tabs {
+            max-width: 100%;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        .ai-tabs__btn {
+            flex: 0 0 auto;
+            padding: 0.5rem 0.75rem;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .ai-console__body {
+            padding: 0.9rem;
+        }
+        .ai-console__title {
+            font-size: 0.98rem;
+        }
+        .ai-console__sub {
+            font-size: 11px;
+            overflow-wrap: anywhere;
+        }
+        .ai-btn {
+            max-width: 100%;
+        }
+        .ai-usage__head {
+            flex-wrap: wrap;
+            gap: 0.15rem 0.5rem;
+        }
+        .ai-usage__nums {
+            font-size: 10px;
+        }
+        .ai-usage__hint {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+    }
+    @media (max-width: 639px) {
+        .ai-teacher-form-card {
+            padding: 0.85rem;
+        }
+        .ai-teacher-hasil,
+        .ai-teacher-history {
+            min-height: min(48vh, 380px);
+            max-height: min(62vh, 560px);
+        }
+        .ai-teacher-hasil > .ai-teacher-col-shell,
+        .ai-teacher-history > .ai-teacher-col-shell {
+            min-height: min(48vh, 380px);
+            max-height: min(62vh, 560px);
+        }
+        .ai-teacher-history-body {
+            padding-left: 0.65rem;
+            padding-right: 0.65rem;
+        }
+        /* Tombol form generator: full width stack di HP sempit */
+        .ai-teacher-form-scroll .ai-btn {
+            justify-content: center;
+        }
+        .ai-teacher-form-scroll .grid.grid-cols-3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .ai-teacher-form-scroll .grid.grid-cols-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    /* Cegah overflow horizontal di seluruh modul Asisten Guru */
+    .ai-teacher-page {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: clip;
+    }
+    .ai-teacher-page *,
+    .ai-teacher-page *::before,
+    .ai-teacher-page *::after {
+        box-sizing: border-box;
+    }
+    .ai-teacher-page img,
+    .ai-teacher-page video,
+    .ai-teacher-page canvas {
+        max-width: 100%;
+        height: auto;
+    }
+    .ai-teacher-page pre,
+    .ai-teacher-page code {
+        max-width: 100%;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
     }
 </style>
-<div class="space-y-5 relative min-w-0 max-w-full" x-data="teacherAi()">
+<div class="ai-teacher-page space-y-5 relative min-w-0 max-w-full w-full" x-data="teacherAi()">
 
     @if(session('error'))
     <div class="rounded-xl border border-rose-200 bg-rose-50 dark:bg-rose-900/30 dark:border-rose-800 px-4 py-3 text-sm font-semibold text-rose-800 dark:text-rose-200">
@@ -1263,11 +1522,12 @@
         </form>
     </div>
 
-    <div class="ai-teacher-tools-grid grid gap-5 min-w-0 xl:grid-cols-2 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(240px,0.55fr)]"
+    {{-- Form | Hasil (lebih lebar) | History (lebih sempit) --}}
+    <div class="ai-teacher-tools-grid grid gap-4 sm:gap-5 min-w-0 max-w-full w-full xl:grid-cols-2 2xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.55fr)_minmax(148px,0.32fr)]"
          x-show="isToolTab" x-cloak>
         {{-- Form Generator Soal --}}
-        <div class="ai-teacher-form-card card p-5 min-w-0">
-            <div class="ai-teacher-form-scroll">
+        <div class="ai-teacher-form-card card p-4 sm:p-5 min-w-0 max-w-full w-full overflow-hidden">
+            <div class="ai-teacher-form-scroll min-w-0 max-w-full">
             {{-- Generator Soal --}}
             <div x-show="tab === 'quiz'" class="space-y-4">
                 <div>
@@ -1308,15 +1568,27 @@
                 </div>
 
                 <div x-show="quiz.source === 'camera'" x-cloak class="space-y-3">
-                    <label class="form-label">Foto halaman buku <span class="text-rose-500">*</span></label>
-                    <p class="text-[11px] text-slate-500 leading-relaxed">Fokus ke teks, cahaya cukup, kamera stabil. Foto buram ditolak otomatis — potret ulang.</p>
+                    <label class="form-label">Foto halaman buku → langsung jadi soal <span class="text-rose-500">*</span></label>
+                    <div class="grid grid-cols-2 gap-1.5 rounded-xl border border-primary/15 bg-primary/[0.04] p-2 text-center">
+                        <div class="rounded-lg px-1.5 py-1.5"
+                             :class="ocrHasUsable('quiz') ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-white/80 text-slate-600 dark:bg-slate-900/50 dark:text-slate-300'">
+                            <p class="text-[10px] font-bold uppercase tracking-wide opacity-70">1</p>
+                            <p class="text-[11px] font-semibold leading-tight">Foto / unggah</p>
+                        </div>
+                        <div class="rounded-lg px-1.5 py-1.5"
+                             :class="resultSource === 'generate' && tab === 'quiz' ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200' : 'bg-white/80 text-slate-600 dark:bg-slate-900/50 dark:text-slate-300'">
+                            <p class="text-[10px] font-bold uppercase tracking-wide opacity-70">2</p>
+                            <p class="text-[11px] font-semibold leading-tight">Buat soal (AI Studio)</p>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">Ambil/unggah foto halaman → atur jumlah/jenis → <strong>Buat Soal dari foto</strong>. Gemini (API key AI Studio guru) membaca foto dan langsung menyusun soal — tanpa langkah OCR terpisah.</p>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
                         <p class="font-bold text-slate-700 dark:text-slate-200 mb-1">Batas &amp; konversi otomatis</p>
                         <ul class="list-disc pl-4 space-y-0.5">
-                            <li>Maks. <strong x-text="ocr.maxImages"></strong> foto · format JPEG/PNG/WebP</li>
+                            <li>Maks. <strong x-text="ocr.maxImages"></strong> foto · format <strong>JPEG, PNG, WebP</strong></li>
                             <li>Ukuran unggah maks. <strong x-text="formatBytes(ocr.maxBytes)"></strong>/foto · target kompres ~<strong x-text="formatBytes(ocr.targetBytes)"></strong></li>
-                            <li>Foto besar / resolusi tinggi <strong>otomatis dikompres</strong> ke JPEG (sisi max <span x-text="ocr.maxEdge"></span>px, kualitas tinggi)</li>
-                            <li>Teks hasil OCR maks. <strong x-text="formatNumber(ocr.maxChars)"></strong> karakter (kelebihan dipotong otomatis)</li>
+                            <li>PNG/WebP kecil <strong>dipertahankan</strong>; foto besar dikompres (sisi max <span x-text="ocr.maxEdge"></span>px)</li>
+                            <li>Foto buram ditandai — potret ulang atau “Tetap pakai”</li>
                         </ul>
                     </div>
                     <div class="flex flex-wrap gap-2">
@@ -1324,19 +1596,13 @@
                             <i data-lucide="camera" class="w-4 h-4"></i> Buka kamera
                         </button>
                         {{-- Fallback native capture: TANPA multiple (multiple memaksa galeri di banyak HP) --}}
-                        <input x-ref="ocrCameraNativeQuiz" type="file" accept="image/*" capture="environment"
+                        <input x-ref="ocrCameraNativeQuiz" type="file" accept="image/*,.png,.jpg,.jpeg,.webp" capture="environment"
                                class="sr-only" @change="addOcrImages($event, 'quiz')">
                         <label class="ai-btn ai-btn--ghost cursor-pointer min-h-[44px]">
                             <i data-lucide="image" class="w-4 h-4"></i> Dari galeri
-                            <input type="file" accept="image/jpeg,image/png,image/webp,image/*" class="sr-only"
+                            <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.jpeg,.jpg,.png,.webp,image/*" class="sr-only"
                                    @change="addOcrImages($event, 'quiz')" multiple>
                         </label>
-                        <button type="button" class="ai-btn ai-btn--solid min-h-[44px]"
-                                @click="runOcr('quiz')"
-                                :disabled="ocr.loading || !ocrHasUsable('quiz')">
-                            <i data-lucide="scan-text" class="w-4 h-4" :class="ocr.loading && 'animate-spin'"></i>
-                            <span x-text="ocr.loading ? 'Membaca teks…' : 'Jadikan teks'"></span>
-                        </button>
                     </div>
                     <div class="grid grid-cols-3 gap-2" x-show="ocr.quiz.images.length">
                         <template x-for="(img, idx) in ocr.quiz.images" :key="img.id">
@@ -1362,17 +1628,10 @@
                     </div>
                     <p class="text-xs text-emerald-700 dark:text-emerald-300 font-semibold" x-show="ocr.quiz.notice" x-cloak x-text="ocr.quiz.notice"></p>
                     <p class="text-xs text-rose-600 font-semibold" x-show="ocr.quiz.error" x-cloak x-text="ocr.quiz.error"></p>
-                    <div x-show="ocr.quiz.text" x-cloak class="space-y-1.5">
-                        <div class="flex items-center justify-between gap-2">
-                            <label class="form-label mb-0">Teks hasil scan (bisa diedit)</label>
-                            <span class="text-[10px] font-mono"
-                                  :class="(ocr.quiz.text || '').length > ocr.maxChars ? 'text-rose-600 font-bold' : 'text-slate-400'"
-                                  x-text="formatNumber((ocr.quiz.text || '').length) + ' / ' + formatNumber(ocr.maxChars) + ' karakter'"></span>
-                        </div>
-                        <textarea x-model="ocr.quiz.text" rows="4" class="form-input text-sm leading-relaxed"
-                                  placeholder="Teks dari foto akan muncul di sini… (juga di panel Hasil)"
-                                  @input="syncResultFromOcr('quiz'); clampOcrText('quiz')"></textarea>
-                        <p class="text-[11px] text-slate-400">Panel <strong>Hasil</strong> menampilkan teks lebih besar — edit, salin, Word/PDF di sana.</p>
+                    <div x-show="ocrHasUsable('quiz')" x-cloak
+                         class="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-[11px] leading-relaxed text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-100">
+                        <p class="font-bold">Foto siap. Atur jumlah &amp; jenis soal, lalu klik <strong>Buat Soal dari foto</strong>.</p>
+                        <p class="mt-0.5 opacity-90">Soal digenerate langsung dari foto lewat API AI Studio guru Anda.</p>
                     </div>
                 </div>
 
@@ -1417,12 +1676,22 @@
                         <span class="mt-0.5 block text-[11px] text-slate-500 dark:text-slate-400">AI menambahkan diagram/ilustrasi pada soal. Memakai kuota Gemini Image terpisah (maks. {{ (int) config('ai.image.max_per_quiz', 5) }} gambar/batch).</span>
                     </span>
                 </label>
-                <button type="button" @click="submit('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || !quizSourceReady()" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="wand-2" class="w-4 h-4"></i> Buat Soal
+                <button type="button" @click="submit('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || !quizSourceReady()" class="btn-primary w-full max-w-full flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 text-center">
+                    <i data-lucide="wand-2" class="w-4 h-4 shrink-0" :class="loading && 'animate-spin'"></i>
+                    <span class="min-w-0 break-words leading-snug" x-text="loading && tab === 'quiz'
+                        ? (quiz.source === 'camera' ? 'Membaca foto & menyusun soal…' : 'Menyusun soal…')
+                        : (quiz.source === 'camera'
+                            ? 'Buat Soal dari foto'
+                            : (quiz.source === 'file' ? 'Buat Soal dari file' : 'Buat Soal'))"></span>
                 </button>
-                <button type="button" @click="submitExternal('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || !quizSourceReady()"
+                <p class="text-[11px] text-center text-slate-400 -mt-1" x-show="quiz.source === 'camera' && !ocrHasUsable('quiz')" x-cloak>
+                    Tombol aktif setelah ada foto tajam (kamera/galeri).
+                </p>
+                <button type="button" @click="submitExternal('quiz')"
+                        :disabled="loading || quiz.jenis_soal.length === 0 || !quizSourceReady() || quiz.source === 'camera'"
                         class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-primary hover:text-primary disabled:opacity-40">
-                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Cadangan: buka Gemini web
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                    <span x-text="quiz.source === 'camera' ? 'Cadangan web: tidak untuk foto' : 'Cadangan: buka Gemini web'"></span>
                 </button>
             </div>
 
@@ -1463,34 +1732,28 @@
                     </div>
                 </div>
                 <div x-show="learning.source === 'camera'" x-cloak class="space-y-3">
-                    <label class="form-label">Foto halaman buku <span class="text-rose-500">*</span></label>
-                    <p class="text-[11px] text-slate-500 leading-relaxed">Foto buram ditolak — potret ulang. Teks hasil scan bisa diedit sebelum buat RPM.</p>
+                    <label class="form-label">Foto halaman buku → langsung jadi RPM <span class="text-rose-500">*</span></label>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">Ambil/unggah foto → <strong>Buat RPM dari foto</strong>. Gemini (API key AI Studio guru) membaca foto dan menyusun RPM — tanpa OCR terpisah.</p>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] leading-relaxed text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
                         <p class="font-bold text-slate-700 dark:text-slate-200 mb-1">Batas &amp; konversi otomatis</p>
                         <ul class="list-disc pl-4 space-y-0.5">
-                            <li>Maks. <strong x-text="ocr.maxImages"></strong> foto · format JPEG/PNG/WebP</li>
+                            <li>Maks. <strong x-text="ocr.maxImages"></strong> foto · format <strong>JPEG, PNG, WebP</strong></li>
                             <li>Ukuran unggah maks. <strong x-text="formatBytes(ocr.maxBytes)"></strong>/foto · target kompres ~<strong x-text="formatBytes(ocr.targetBytes)"></strong></li>
-                            <li>Foto besar <strong>otomatis dikompres</strong> ke JPEG (sisi max <span x-text="ocr.maxEdge"></span>px)</li>
-                            <li>Teks hasil OCR maks. <strong x-text="formatNumber(ocr.maxChars)"></strong> karakter</li>
+                            <li>PNG/WebP kecil <strong>dipertahankan</strong>; foto besar dikompres (sisi max <span x-text="ocr.maxEdge"></span>px)</li>
+                            <li>Foto buram ditandai — potret ulang atau “Tetap pakai”</li>
                         </ul>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button type="button" class="ai-btn min-h-[44px]" @click="openOcrCamera('learning')">
                             <i data-lucide="camera" class="w-4 h-4"></i> Buka kamera
                         </button>
-                        <input x-ref="ocrCameraNativeLearning" type="file" accept="image/*" capture="environment"
+                        <input x-ref="ocrCameraNativeLearning" type="file" accept="image/*,.png,.jpg,.jpeg,.webp" capture="environment"
                                class="sr-only" @change="addOcrImages($event, 'learning')">
                         <label class="ai-btn ai-btn--ghost cursor-pointer min-h-[44px]">
                             <i data-lucide="image" class="w-4 h-4"></i> Dari galeri
-                            <input type="file" accept="image/jpeg,image/png,image/webp,image/*" class="sr-only"
+                            <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp,.jpeg,.jpg,.png,.webp,image/*" class="sr-only"
                                    @change="addOcrImages($event, 'learning')" multiple>
                         </label>
-                        <button type="button" class="ai-btn ai-btn--solid min-h-[44px]"
-                                @click="runOcr('learning')"
-                                :disabled="ocr.loading || !ocrHasUsable('learning')">
-                            <i data-lucide="scan-text" class="w-4 h-4" :class="ocr.loading && 'animate-spin'"></i>
-                            <span x-text="ocr.loading ? 'Membaca teks…' : 'Jadikan teks'"></span>
-                        </button>
                     </div>
                     <div class="grid grid-cols-3 gap-2" x-show="ocr.learning.images.length">
                         <template x-for="(img, idx) in ocr.learning.images" :key="img.id">
@@ -1516,17 +1779,9 @@
                     </div>
                     <p class="text-xs text-emerald-700 dark:text-emerald-300 font-semibold" x-show="ocr.learning.notice" x-cloak x-text="ocr.learning.notice"></p>
                     <p class="text-xs text-rose-600 font-semibold" x-show="ocr.learning.error" x-cloak x-text="ocr.learning.error"></p>
-                    <div x-show="ocr.learning.text" x-cloak class="space-y-1.5">
-                        <div class="flex items-center justify-between gap-2">
-                            <label class="form-label mb-0">Teks hasil scan (bisa diedit)</label>
-                            <span class="text-[10px] font-mono"
-                                  :class="(ocr.learning.text || '').length > ocr.maxChars ? 'text-rose-600 font-bold' : 'text-slate-400'"
-                                  x-text="formatNumber((ocr.learning.text || '').length) + ' / ' + formatNumber(ocr.maxChars) + ' karakter'"></span>
-                        </div>
-                        <textarea x-model="ocr.learning.text" rows="4" class="form-input text-sm leading-relaxed"
-                                  placeholder="Teks dari foto akan muncul di sini… (juga di panel Hasil)"
-                                  @input="syncResultFromOcr('learning'); clampOcrText('learning')"></textarea>
-                        <p class="text-[11px] text-slate-400">Panel <strong>Hasil</strong> menampilkan teks lebih besar — edit, salin, Word/PDF di sana.</p>
+                    <div x-show="ocrHasUsable('learning')" x-cloak
+                         class="rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-[11px] leading-relaxed text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-100">
+                        <p class="font-bold">Foto siap. Klik <strong>Buat RPM dari foto</strong>.</p>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -1543,12 +1798,19 @@
                     <label class="form-label">Alokasi Waktu</label>
                     <input type="text" x-model="learning.durasi" placeholder="mis. 2 x 40 menit" class="form-input">
                 </div>
-                <button type="button" @click="submit('learning')" :disabled="loading || !learningSourceReady()" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="clipboard-list" class="w-4 h-4"></i> Buat RPM Learning
+                <button type="button" @click="submit('learning')" :disabled="loading || !learningSourceReady()" class="btn-primary w-full max-w-full flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 text-center">
+                    <i data-lucide="clipboard-list" class="w-4 h-4 shrink-0" :class="loading && 'animate-spin'"></i>
+                    <span class="min-w-0 break-words leading-snug" x-text="loading && tab === 'learning'
+                        ? (learning.source === 'camera' ? 'Membaca foto & menyusun RPM…' : 'Menyusun RPM…')
+                        : (learning.source === 'camera'
+                            ? 'Buat RPM dari foto'
+                            : (learning.source === 'file' ? 'Buat RPM dari file' : 'Buat RPM Learning'))"></span>
                 </button>
-                <button type="button" @click="submitExternal('learning')" :disabled="loading || !learningSourceReady()"
+                <button type="button" @click="submitExternal('learning')"
+                        :disabled="loading || !learningSourceReady() || learning.source === 'camera'"
                         class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-primary hover:text-primary disabled:opacity-40">
-                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Cadangan: buka Gemini web
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                    <span x-text="learning.source === 'camera' ? 'Cadangan web: tidak untuk foto' : 'Cadangan: buka Gemini web'"></span>
                 </button>
             </div>
             {{-- Perangkum Materi --}}
@@ -1563,68 +1825,84 @@
                 </button>
             </div>
 
-            {{-- Draft Feedback --}}
+            {{-- Catatan Siswa --}}
             <div x-show="tab === 'feedback'" class="space-y-4" x-cloak>
+                <p class="text-[11px] text-slate-500 leading-relaxed">
+                    Susun catatan hangat dan membangun untuk siswa — dari jawaban, sikap, atau hal yang ingin Anda sampaikan.
+                    Hasil adalah draf; edit dulu sebelum dibagikan.
+                </p>
                 <div>
-                    <label class="form-label">Nama Siswa (opsional)</label>
+                    <label class="form-label">Nama siswa (opsional)</label>
                     <input type="text" x-model="feedback.nama" placeholder="mis. Andi" class="form-input">
                 </div>
                 <div>
-                    <label class="form-label">Konteks / Jawaban Siswa <span class="text-rose-500">*</span></label>
-                    <textarea x-model="feedback.konteks" rows="9" placeholder="mis. Jawaban ujian, sikap belajar, atau hal yang ingin dikomentari..." class="form-input resize-y"></textarea>
+                    <label class="form-label">Apa yang ingin dicatat? <span class="text-rose-500">*</span></label>
+                    <textarea x-model="feedback.konteks" rows="9" placeholder="mis. Jawaban ujian, sikap belajar, tugas, atau hal yang ingin dikomentari..." class="form-input resize-y"></textarea>
                 </div>
                 <button type="button" @click="submit('feedback')" :disabled="loading || feedback.konteks.trim() === ''" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="message-square-heart" class="w-4 h-4"></i> Susun Draf
+                    <i data-lucide="message-square-heart" class="w-4 h-4"></i> Susun Catatan Siswa
                 </button>
             </div>
             </div>{{-- /ai-teacher-form-scroll --}}
         </div>
 
         {{-- Hasil: tinggi sama form generator sampai bawah --}}
-        <div class="ai-teacher-hasil card p-0 min-w-0 max-w-full">
-            <div class="ai-teacher-col-shell p-4 sm:p-5">
-                <div class="ai-teacher-hasil__toolbar flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3 min-w-0">
-                    <div class="min-w-0">
-                        <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 shrink-0">
-                            <i data-lucide="file-text" class="w-4 h-4"></i> Hasil
+        <div class="ai-teacher-hasil card p-0 min-w-0 max-w-full w-full">
+            <div class="ai-teacher-col-shell p-3 sm:p-5 min-w-0 max-w-full">
+                <div class="ai-teacher-hasil__toolbar flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-3 min-w-0 max-w-full">
+                    <div class="min-w-0 max-w-full">
+                        <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 min-w-0">
+                            <i data-lucide="file-text" class="w-4 h-4 shrink-0"></i>
+                            <span class="truncate">Hasil</span>
                         </h2>
-                        <p class="text-[11px] text-slate-400 mt-0.5" x-show="result && resultSource === 'ocr'" x-cloak>
-                            Teks scan buku · kop + stempel sumber sekolah ·
+                        <p class="text-[11px] text-slate-400 mt-0.5 break-words" x-show="result && resultSource === 'ocr'" x-cloak>
+                            Teks scan buku · siap jadi soal ·
                             <span class="font-mono" x-text="formatNumber((result || '').length) + ' / ' + formatNumber(ocr.maxChars) + ' karakter'"></span>
                             · edit · salin · Word/PDF
                         </p>
-                        <p class="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5 leading-snug" x-show="result && resultSource === 'ocr'" x-cloak>
-                            Stempel sumber di header menandai materi dari foto buku (bukan karya AI orisinal). Jaga saat mengutip.
+                        <p class="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5 leading-snug break-words" x-show="result && resultSource === 'ocr'" x-cloak>
+                            Stempel sumber di header menandai materi dari foto buku (bukan karya AI orisinal). Saat generate soal, isi materi saja yang dipakai.
                         </p>
                     </div>
-                    <div x-show="result" x-cloak class="flex flex-wrap items-center gap-1.5 sm:justify-end min-w-0">
-                        <button type="button" @click="toggleEdit()" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">
-                            <i :data-lucide="editing ? 'check' : 'pencil'" class="w-4 h-4"></i><span x-text="editing ? 'Selesai' : 'Edit'"></span>
-                        </button>
-                        <button type="button" x-show="tab === 'quiz' || resultSource === 'ocr'" @click="exportQuiz('word')" :disabled="exportingWord" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
-                            <i :data-lucide="exportingWord ? 'loader-circle' : 'file-down'" class="w-4 h-4" :class="exportingWord ? 'animate-spin' : ''"></i><span x-text="exportingWord ? 'Export...' : 'Word'"></span>
-                        </button>
-                        <button type="button" x-show="tab === 'quiz' || resultSource === 'ocr'" @click="exportQuiz('pdf')" :disabled="exportingPdf" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
-                            <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF'"></span>
-                        </button>
-                        <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr' && arenaBelajarAktif && arenaClassrooms.length"
-                                @click="openSendToArena()" :disabled="sendingArena"
-                                class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-50">
-                            <i :data-lucide="sendingArena ? 'loader-circle' : 'gamepad-2'" class="w-4 h-4" :class="sendingArena ? 'animate-spin' : ''"></i>
-                            <span x-text="sendingArena ? 'Mengirim…' : 'Kirim ke Arena'"></span>
-                        </button>
-                        <button type="button" x-show="tab === 'learning' && resultSource !== 'ocr'" @click="exportLearning('word')" :disabled="exportingWord" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
-                            <i :data-lucide="exportingWord ? 'loader-circle' : 'file-down'" class="w-4 h-4" :class="exportingWord ? 'animate-spin' : ''"></i><span x-text="exportingWord ? 'Export...' : 'Word'"></span>
-                        </button>
-                        <button type="button" x-show="tab === 'learning' && resultSource !== 'ocr'" @click="exportLearning('pdf')" :disabled="exportingPdf" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
-                            <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF'"></span>
-                        </button>
-                        <button type="button" @click="copy()" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">
-                            <i :data-lucide="copied ? 'check' : 'copy'" class="w-4 h-4"></i><span x-text="copied ? 'Tersalin' : 'Salin'"></span>
-                        </button>
-                        <button type="button" @click="clearResult()" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-900/30">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i><span>Hapus</span>
-                        </button>
+                    <div x-show="result" x-cloak class="flex flex-col gap-2 min-w-0 max-w-full w-full sm:items-end">
+                        {{-- Baris export Word/PDF: full-width di mobile agar mudah diketuk --}}
+                        <div class="grid grid-cols-2 gap-2 w-full sm:w-auto sm:inline-flex sm:flex-wrap sm:justify-end"
+                             x-show="tab === 'quiz' || tab === 'learning' || resultSource === 'ocr'" x-cloak>
+                            <button type="button"
+                                    x-show="tab === 'quiz' || resultSource === 'ocr' || (tab === 'learning' && resultSource !== 'ocr')"
+                                    @click="(tab === 'learning' && resultSource !== 'ocr') ? exportLearning('word') : exportQuiz('word')"
+                                    :disabled="exportingWord || exportingPdf || !(result || '').trim()"
+                                    class="ai-export-btn ai-export-btn--word inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-primary hover:text-primary disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
+                                <i :data-lucide="exportingWord ? 'loader-circle' : 'file-down'" class="w-4 h-4 shrink-0" :class="exportingWord ? 'animate-spin' : ''"></i>
+                                <span x-text="exportingWord ? 'Mengunduh…' : 'Word'"></span>
+                            </button>
+                            <button type="button"
+                                    x-show="tab === 'quiz' || resultSource === 'ocr' || (tab === 'learning' && resultSource !== 'ocr')"
+                                    @click="(tab === 'learning' && resultSource !== 'ocr') ? exportLearning('pdf') : exportQuiz('pdf')"
+                                    :disabled="exportingPdf || exportingWord || !(result || '').trim()"
+                                    class="ai-export-btn ai-export-btn--pdf inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm transition hover:border-primary hover:text-primary disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
+                                <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4 shrink-0" :class="exportingPdf ? 'animate-spin' : ''"></i>
+                                <span x-text="exportingPdf ? 'Mengunduh…' : 'PDF'"></span>
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-1 sm:gap-1.5 sm:justify-end min-w-0 max-w-full">
+                            <button type="button" @click="toggleEdit()" class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">
+                                <i :data-lucide="editing ? 'check' : 'pencil'" class="w-4 h-4"></i><span x-text="editing ? 'Selesai' : 'Edit'"></span>
+                            </button>
+                            <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr' && arenaBelajarAktif && arenaClassrooms.length"
+                                    @click="openSendToArena()" :disabled="sendingArena"
+                                    class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-50">
+                                <i :data-lucide="sendingArena ? 'loader-circle' : 'gamepad-2'" class="w-4 h-4" :class="sendingArena ? 'animate-spin' : ''"></i>
+                                <span x-text="sendingArena ? 'Mengirim…' : 'Kirim ke Arena'"></span>
+                            </button>
+                            <button type="button" @click="copy()" class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">
+                                <i :data-lucide="copied ? 'check' : 'copy'" class="w-4 h-4"></i><span x-text="copied ? 'Tersalin' : 'Salin'"></span>
+                            </button>
+                            <button type="button" @click="clearResult()" class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-900/30">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i><span>Hapus</span>
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold w-full sm:text-right" x-show="exportNotice" x-cloak x-text="exportNotice"></p>
                     </div>
                 </div>
 
@@ -1658,7 +1936,7 @@
                         </div>
                     </div>
 
-                    <div x-show="error && !loading" x-cloak class="rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-800 px-4 py-3 text-sm" x-text="error"></div>
+                    <div x-show="error && !loading" x-cloak class="rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-800 px-3 sm:px-4 py-3 text-sm break-words" x-text="error"></div>
 
                     <div x-show="!loading && !ocr.loading && !result && !error && !externalFlow" x-cloak
                          class="ai-teacher-hasil__empty text-slate-300 dark:text-slate-600">
@@ -1689,7 +1967,7 @@
         </div>
 
         {{-- History: tinggi sama form generator sampai bawah --}}
-        <div class="ai-teacher-history card p-0 min-w-0 xl:col-span-2 2xl:col-span-1"
+        <div class="ai-teacher-history card p-0 min-w-0 max-w-full w-full xl:col-span-2 2xl:col-span-1"
              x-data="{
                 collapsed: localStorage.getItem('ai.teacher.historyCollapsed') === '1',
                 toggle() {
@@ -1698,39 +1976,52 @@
                     this.$nextTick(() => window.lucide && lucide.createIcons());
                 }
              }">
-            <div class="ai-teacher-col-shell">
+            <div class="ai-teacher-col-shell min-w-0 max-w-full">
                 <button type="button" @click="toggle()"
-                        class="flex w-full shrink-0 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 text-sm">
-                        <i data-lucide="history" class="w-4 h-4"></i> History Generate
-                        <span class="text-[11px] font-medium text-slate-400" x-text="histories.length ? '(' + histories.length + ')' : ''"></span>
+                        class="ai-teacher-history__toggle shrink-0 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                        :title="collapsed ? 'Buka history' : 'Tutup history'">
+                    <h2 class="ai-teacher-history__heading m-0">
+                        <i data-lucide="history" class="w-4 h-4"></i>
+                        <span class="ai-teacher-history__title">
+                            <span class="ai-teacher-history__title-short">History</span>
+                            <span class="ai-teacher-history__title-full">History Generate</span>
+                        </span>
+                        <span class="ai-teacher-history__count" x-show="histories.length" x-cloak
+                              x-text="'(' + histories.length + ')'"></span>
                     </h2>
-                    <span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
-                        <span x-text="collapsed ? 'Buka' : 'Tutup'"></span>
-                        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform" :class="collapsed ? '' : 'rotate-180'"></i>
+                    <span class="ai-teacher-history__meta">
+                        <span class="ai-teacher-history__meta-label" x-text="collapsed ? 'Buka' : 'Tutup'"></span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform shrink-0" :class="collapsed ? '' : 'rotate-180'"></i>
                     </span>
                 </button>
 
-                <div x-show="!collapsed" x-cloak class="flex min-h-0 flex-1 flex-col border-t border-slate-100 dark:border-slate-800">
-                    <div x-show="histories.length === 0" class="grid flex-1 place-items-center px-4 py-10 text-slate-300 dark:text-slate-600">
-                        <p class="text-xs text-center">Belum ada history.</p>
+                <div x-show="!collapsed" x-cloak class="flex min-h-0 min-w-0 max-w-full flex-1 flex-col border-t border-slate-100 dark:border-slate-800">
+                    <div x-show="histories.length === 0" class="grid flex-1 place-items-center px-3 py-8 text-slate-300 dark:text-slate-600">
+                        <p class="text-xs text-center px-1">Belum ada history.</p>
                     </div>
 
-                    <div x-show="histories.length > 0" class="ai-teacher-history-body space-y-2 px-3 py-3">
+                    <div x-show="histories.length > 0" class="ai-teacher-history-body space-y-2 px-2.5 py-2.5 sm:px-3 sm:py-3">
                         <template x-for="item in histories" :key="item.uuid">
-                            <div class="rounded-lg border border-slate-200 bg-white transition hover:border-primary hover:bg-primary/5 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-primary/70">
-                                <div class="flex items-start gap-1 p-2.5">
-                                    <button type="button" @click="openHistory(item)" class="min-w-0 flex-1 text-left">
-                                        <div class="flex items-center justify-between gap-2">
-                                            <span class="inline-flex items-center rounded-full bg-primary-50 px-1.5 py-0.5 text-[10px] font-semibold text-primary" x-text="item.type_label"></span>
-                                            <span class="shrink-0 text-[10px] text-slate-400" x-text="item.created_at_human || ''"></span>
+                            <div class="ai-teacher-history-item rounded-lg border border-slate-200 bg-white transition hover:border-primary hover:bg-primary/5 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-primary/70">
+                                <div class="flex items-start gap-1 p-2 sm:p-2.5 min-w-0">
+                                    <button type="button" @click="openHistory(item)" class="min-w-0 flex-1 text-left overflow-visible">
+                                        {{-- Tipe (Generator Soal / Scan / Nalar) full, tidak di-truncate --}}
+                                        <div class="ai-teacher-history-item__meta">
+                                            <span class="ai-teacher-history-item__type"
+                                                  :title="item.type_label || ''"
+                                                  x-text="item.type_label || 'Generate'"></span>
+                                            <span class="ai-teacher-history-item__time"
+                                                  x-show="item.created_at_human"
+                                                  x-text="item.created_at_human || ''"></span>
                                         </div>
-                                        <div class="mt-1 text-xs font-semibold text-slate-700 dark:text-slate-100 break-words" x-text="item.title"></div>
-                                        <p class="mt-0.5 text-[11px] leading-snug text-slate-500 dark:text-slate-400 line-clamp-3" x-text="item.excerpt"></p>
+                                        <div class="ai-teacher-history-item__title mt-1.5 text-xs font-semibold text-slate-700 dark:text-slate-100 line-clamp-2"
+                                             x-text="item.title"></div>
+                                        <p class="ai-teacher-history-item__excerpt mt-0.5 text-[11px] leading-snug text-slate-500 dark:text-slate-400 line-clamp-2 sm:line-clamp-3"
+                                           x-text="item.excerpt"></p>
                                     </button>
                                     <button type="button" @click="deleteHistory(item)" :disabled="deletingHistory === item.uuid"
                                             :title="'Hapus history: ' + item.title"
-                                            class="shrink-0 rounded-md p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-900/30 dark:hover:text-rose-300">
+                                            class="shrink-0 rounded-md p-1.5 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-900/30 dark:hover:text-rose-300">
                                         <i :data-lucide="deletingHistory === item.uuid ? 'loader-circle' : 'trash-2'" class="w-3.5 h-3.5" :class="deletingHistory === item.uuid ? 'animate-spin' : ''"></i>
                                     </button>
                                 </div>
@@ -1820,6 +2111,8 @@
             loading: false,
             exportingWord: false,
             exportingPdf: false,
+            exportNotice: '',
+            exportNoticeTimer: null,
             result: '',
             resultSource: null, // 'generate' | 'ocr' | null
             error: '',
@@ -1878,7 +2171,7 @@
                 { key: 'quiz',     label: 'Generator Soal',  icon: 'file-question' },
                 { key: 'learning', label: 'RPM Learning',    icon: 'clipboard-list' },
                 { key: 'summary',  label: 'Perangkum Materi', icon: 'list-collapse' },
-                { key: 'feedback', label: 'Draft Feedback',  icon: 'message-square-heart' },
+                { key: 'feedback', label: 'Catatan Siswa',  icon: 'message-square-heart' },
             ],
             geminiMessages: [],
             geminiInput: '',
@@ -2388,12 +2681,17 @@
 
             quizSourceReady() {
                 if (this.quiz.source === 'file') return !!this.quiz.file;
-                if (this.quiz.source === 'camera') return !!(this.ocr.quiz.text || '').trim();
+                // Foto → langsung generate (atau fallback teks history OCR lama).
+                if (this.quiz.source === 'camera') {
+                    return this.ocrHasUsable('quiz') || !!(this.ocr.quiz.text || '').trim();
+                }
                 return (this.quiz.topik || '').trim() !== '';
             },
             learningSourceReady() {
                 if (this.learning.source === 'file') return !!this.learning.file;
-                if (this.learning.source === 'camera') return !!(this.ocr.learning.text || '').trim();
+                if (this.learning.source === 'camera') {
+                    return this.ocrHasUsable('learning') || !!(this.ocr.learning.text || '').trim();
+                }
                 return (this.learning.topik || '').trim() !== '';
             },
             ocrHasUsable(scope) {
@@ -2526,24 +2824,53 @@
                     if (this.resultSource === 'ocr') this.result = this.ocr[scope].text;
                 }
             },
+            /** Terima JPEG/PNG/WebP — termasuk file tanpa MIME (hanya ekstensi .png dll). */
+            isAllowedPhotoFile(file) {
+                if (!file) return false;
+                const type = String(file.type || '').toLowerCase();
+                const name = String(file.name || '').toLowerCase();
+                const okMime = [
+                    'image/jpeg', 'image/jpg', 'image/pjpeg',
+                    'image/png', 'image/x-png',
+                    'image/webp',
+                ];
+                if (type && okMime.includes(type)) return true;
+                if (type.startsWith('image/') && !type.includes('svg') && !type.includes('gif') && !type.includes('heic') && !type.includes('heif')) {
+                    // Beberapa browser kirim image/* generik — cek ekstensi.
+                    if (/\.(jpe?g|png|webp)$/i.test(name) || !name.includes('.')) return true;
+                }
+                if (!type && /\.(jpe?g|png|webp)$/i.test(name)) return true;
+                if (type && !type.startsWith('image/') && /\.(jpe?g|png|webp)$/i.test(name)) return true;
+                return false;
+            },
+            photoExtFromFile(file, blobType) {
+                const mime = String(blobType || file?.type || '').toLowerCase();
+                if (mime.includes('png')) return 'png';
+                if (mime.includes('webp')) return 'webp';
+                const name = String(file?.name || '').toLowerCase();
+                if (name.endsWith('.png')) return 'png';
+                if (name.endsWith('.webp')) return 'webp';
+                return 'jpg';
+            },
             async ingestOcrFiles(files, scope) {
                 this.ocr[scope].error = '';
                 this.ocr[scope].notice = '';
                 const max = this.ocr.maxImages || 3;
                 const maxBytes = this.ocr.maxBytes || (4 * 1024 * 1024);
                 let convertedCount = 0;
+                let keptPngCount = 0;
                 for (const file of files) {
                     if (this.ocr[scope].images.length >= max) {
                         this.ocr[scope].error = `Maksimal ${max} foto. Hapus salah satu dulu.`;
                         break;
                     }
-                    if (file.type && !file.type.startsWith('image/')) {
-                        this.ocr[scope].error = 'Format harus gambar (JPEG/PNG/WebP).';
+                    if (!this.isAllowedPhotoFile(file)) {
+                        this.ocr[scope].error = 'Format harus gambar JPEG, PNG, atau WebP.';
                         continue;
                     }
                     try {
                         const originalSize = file.size || 0;
-                        // Selalu re-encode JPEG smart; foto besar / non-JPEG → auto convert.
+                        // PNG/WebP kecil dipertahankan; foto besar dikompres (biasanya ke JPEG).
                         const compressed = await this.compressImageSmart(file, {
                             maxEdge: this.ocr.maxEdge || 1920,
                             quality: this.ocr.jpegQuality || 0.9,
@@ -2555,35 +2882,42 @@
                                 + this.formatBytes(maxBytes) + '). Ambil ulang dari jarak lebih dekat / resolusi lebih rendah.';
                             continue;
                         }
-                        const converted = compressed.converted
-                            || originalSize > compressed.blob.size * 1.05
-                            || (file.type && file.type !== 'image/jpeg');
+                        const outType = compressed.blob.type || file.type || 'image/jpeg';
+                        const ext = this.photoExtFromFile(file, outType);
+                        const converted = !!compressed.converted;
                         if (converted) convertedCount++;
+                        if (!converted && ext === 'png') keptPngCount++;
 
                         const sharp = await this.scoreImageSharpness(compressed.blob);
                         const blurry = sharp < (this.ocr.blurMin || 100);
                         const preview = URL.createObjectURL(compressed.blob);
+                        const base = (file.name || 'foto').replace(/\.\w+$/, '');
                         this.ocr[scope].images.push({
                             id: Date.now() + Math.random(),
                             blob: compressed.blob,
                             preview,
-                            name: (file.name || 'foto').replace(/\.\w+$/, '') + '.jpg',
+                            name: base + '.' + ext,
                             blurry,
                             forceKeep: false,
                             sharpScore: Math.round(sharp),
                             sizeKb: Math.round(compressed.blob.size / 1024),
                             originalKb: Math.round(originalSize / 1024),
                             converted,
+                            mime: outType,
                         });
                         if (blurry) {
                             this.ocr[scope].error = 'Ada foto buram. Potret ulang atau ketuk “Tetap pakai”.';
                         }
                     } catch (e) {
-                        this.ocr[scope].error = 'Gagal memproses foto. Coba ambil ulang.';
+                        this.ocr[scope].error = 'Gagal memproses foto (JPEG/PNG/WebP). Coba unggah ulang.';
                     }
                 }
-                if (convertedCount > 0 && !this.ocr[scope].error) {
-                    this.ocr[scope].notice = convertedCount + ' foto dikonversi/kompres otomatis ke JPEG agar muat batas ukuran.';
+                if (!this.ocr[scope].error) {
+                    if (keptPngCount > 0 && convertedCount === 0) {
+                        this.ocr[scope].notice = keptPngCount + ' foto PNG siap dipakai (tanpa konversi).';
+                    } else if (convertedCount > 0) {
+                        this.ocr[scope].notice = convertedCount + ' foto dikompres/dikonversi agar muat batas ukuran (JPEG/PNG/WebP didukung).';
+                    }
                 }
                 this.$nextTick(() => window.lucide && lucide.createIcons());
             },
@@ -2622,13 +2956,61 @@
                 const targetBytes = opts.targetBytes || Math.min(1.2 * 1024 * 1024, maxBytes);
                 let maxEdge = opts.maxEdge || 1920;
                 let quality = Math.min(0.95, Math.max(0.82, opts.quality || 0.9));
-                const bitmap = await createImageBitmap(file);
+                const originalSize = file.size || 0;
+                const name = String(file.name || '').toLowerCase();
+                const type = String(file.type || '').toLowerCase();
+                const isPng = type.includes('png') || name.endsWith('.png');
+                const isWebp = type.includes('webp') || name.endsWith('.webp');
+
+                let bitmap;
+                try {
+                    bitmap = await createImageBitmap(file);
+                } catch (_) {
+                    // Fallback: object URL + Image (beberapa PNG Windows)
+                    bitmap = await new Promise((resolve, reject) => {
+                        const url = URL.createObjectURL(file);
+                        const img = new Image();
+                        img.onload = () => {
+                            createImageBitmap(img).then((b) => {
+                                URL.revokeObjectURL(url);
+                                resolve(b);
+                            }).catch((err) => {
+                                URL.revokeObjectURL(url);
+                                reject(err);
+                            });
+                        };
+                        img.onerror = () => {
+                            URL.revokeObjectURL(url);
+                            reject(new Error('decode failed'));
+                        };
+                        img.src = url;
+                    });
+                }
+
                 const srcW = bitmap.width;
                 const srcH = bitmap.height;
-                let last = null;
+                const longEdge = Math.max(srcW, srcH);
 
+                // PNG/WebP yang sudah muat: kirim as-is (tanpa re-encode → lebih tajam untuk teks).
+                if ((isPng || isWebp) && originalSize > 0 && originalSize <= maxBytes && longEdge <= maxEdge) {
+                    bitmap.close?.();
+                    const mime = isPng ? 'image/png' : 'image/webp';
+                    const blob = file instanceof Blob
+                        ? (file.type ? file : new Blob([await file.arrayBuffer()], { type: mime }))
+                        : file;
+                    return {
+                        blob,
+                        width: srcW,
+                        height: srcH,
+                        converted: false,
+                        originalSize,
+                        finalSize: blob.size || originalSize,
+                    };
+                }
+
+                let last = null;
                 try {
-                    const encode = async (edge, q) => {
+                    const encode = async (edge, q, asPng = false) => {
                         let width = srcW;
                         let height = srcH;
                         const long = Math.max(width, height);
@@ -2641,18 +3023,40 @@
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
+                        // Latar putih: PNG transparan jadi terbaca OCR, bukan hitam.
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, width, height);
                         ctx.imageSmoothingEnabled = true;
                         ctx.imageSmoothingQuality = 'high';
                         ctx.drawImage(bitmap, 0, 0, width, height);
-                        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', q));
+                        const mimeOut = asPng ? 'image/png' : 'image/jpeg';
+                        const blob = await new Promise((resolve) => {
+                            if (asPng) canvas.toBlob(resolve, 'image/png');
+                            else canvas.toBlob(resolve, 'image/jpeg', q);
+                        });
                         if (!blob) throw new Error('compress failed');
-                        return { blob, width, height };
+                        return { blob, width, height, mime: mimeOut };
                     };
 
+                    // Screenshot/teks PNG: coba PNG dulu; jika terlalu besar baru JPEG.
+                    if (isPng && longEdge <= maxEdge) {
+                        last = await encode(maxEdge, quality, true);
+                        if (last.blob.size <= maxBytes) {
+                            bitmap.close?.();
+                            return {
+                                blob: last.blob,
+                                width: last.width,
+                                height: last.height,
+                                converted: last.blob.size !== originalSize,
+                                originalSize,
+                                finalSize: last.blob.size,
+                            };
+                        }
+                    }
+
                     for (let attempt = 0; attempt < 8; attempt++) {
-                        last = await encode(maxEdge, quality);
+                        last = await encode(maxEdge, quality, false);
                         if (last.blob.size <= targetBytes) break;
-                        // Prioritas: kecilkan edge dulu, baru turunkan quality (min ~0.82 jaga ketajaman teks)
                         if (maxEdge > 1600) maxEdge = 1600;
                         else if (maxEdge > 1280) maxEdge = 1280;
                         else if (quality > 0.86) quality = 0.86;
@@ -2662,17 +3066,15 @@
                         else break;
                     }
 
-                    // Hard clamp: jika masih > maxBytes, paksa edge lebih kecil
                     while (last && last.blob.size > maxBytes && maxEdge > 640) {
                         maxEdge = Math.round(maxEdge * 0.85);
                         quality = Math.max(0.8, quality - 0.02);
-                        last = await encode(maxEdge, quality);
+                        last = await encode(maxEdge, quality, false);
                     }
                 } finally {
                     bitmap.close?.();
                 }
 
-                const originalSize = file.size || 0;
                 return {
                     blob: last.blob,
                     width: last.width,
@@ -2765,7 +3167,6 @@
                     this.previewHtml = '';
                 }
             },
-
             payloadFor(tool) {
                 if (tool === 'summary' || tool === 'feedback') {
                     return {
@@ -2786,8 +3187,14 @@
                     form.append('jenjang', this.learning.jenjang || '');
                     form.append('durasi', this.learning.durasi || '');
                     if (this.learning.source === 'file' && this.learning.file) form.append('file', this.learning.file);
-                    if (this.learning.source === 'camera' && (this.ocr.learning.text || '').trim()) {
-                        form.append('material_text', this.ocr.learning.text.trim());
+                    if (this.learning.source === 'camera') {
+                        const usable = (this.ocr.learning.images || []).filter((i) => !i.blurry || i.forceKeep);
+                        if (usable.length) {
+                            usable.forEach((img, i) => form.append('images[]', img.blob, img.name || `halaman-${i + 1}.jpg`));
+                        } else if ((this.ocr.learning.text || '').trim()) {
+                            // History scan lama tanpa foto.
+                            form.append('material_text', this.ocr.learning.text.trim());
+                        }
                     }
                 } else {
                     form.append('topik', this.quiz.topik || '');
@@ -2797,8 +3204,13 @@
                     form.append('jenjang', this.quiz.jenjang || '');
                     form.append('soal_bergambar', this.quiz.soal_bergambar ? '1' : '0');
                     if (this.quiz.source === 'file' && this.quiz.file) form.append('file', this.quiz.file);
-                    if (this.quiz.source === 'camera' && (this.ocr.quiz.text || '').trim()) {
-                        form.append('material_text', this.ocr.quiz.text.trim());
+                    if (this.quiz.source === 'camera') {
+                        const usable = (this.ocr.quiz.images || []).filter((i) => !i.blurry || i.forceKeep);
+                        if (usable.length) {
+                            usable.forEach((img, i) => form.append('images[]', img.blob, img.name || `halaman-${i + 1}.jpg`));
+                        } else if ((this.ocr.quiz.text || '').trim()) {
+                            form.append('material_text', this.ocr.quiz.text.trim());
+                        }
                     }
                 }
 
@@ -2996,43 +3408,207 @@
                 form.submit();
             },
 
+            /** Deteksi Android WebView APK (; wv) atau bridge native. */
+            isAndroidWebView() {
+                try {
+                    if (window.AndroidFcm || window.AndroidArena || window.AndroidBridge) return true;
+                } catch (_) {}
+                return /; wv\)/i.test(navigator.userAgent || '') || /\bwv\b/i.test(navigator.userAgent || '');
+            },
+            isMobileDevice() {
+                return this.isAndroidWebView()
+                    || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '')
+                    || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+            },
+            flashExportNotice(msg) {
+                this.exportNotice = msg || '';
+                if (this.exportNoticeTimer) clearTimeout(this.exportNoticeTimer);
+                if (!msg) return;
+                this.exportNoticeTimer = setTimeout(() => {
+                    this.exportNotice = '';
+                    this.exportNoticeTimer = null;
+                }, 6000);
+            },
+            /**
+             * Unduh file export — andal di Chrome mobile + Android WebView.
+             * WebView: blob+a.download sering DIABAIKAN; form POST ke iframe
+             * memicu setDownloadListener (DownloadManager) di APK.
+             */
+            async downloadExportFile({ url, fields, fileName, mimeHint }) {
+                const preferForm = this.isAndroidWebView() || this.isMobileDevice();
+
+                if (preferForm) {
+                    this.downloadViaForm(url, fields);
+                    this.flashExportNotice(
+                        this.isAndroidWebView()
+                            ? 'Mengunduh lewat DownloadManager… cek notifikasi / folder Unduhan.'
+                            : 'Mengunduh file… cek folder Unduhan atau notifikasi browser.'
+                    );
+                    return true;
+                }
+
+                // Desktop: fetch + blob (lebih cepat, tanpa navigasi).
+                try {
+                    const r = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': (mimeHint || '*/*') + ',application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(fields),
+                    });
+
+                    if (!r.ok) {
+                        const d = await r.json().catch(() => ({}));
+                        throw new Error(d.message || 'Export gagal. Coba lagi.');
+                    }
+
+                    const blob = await r.blob();
+                    if (!blob || blob.size < 32) {
+                        throw new Error('File export kosong. Coba lagi.');
+                    }
+
+                    // Kalau server mengembalikan JSON error tersamar sebagai blob.
+                    if ((blob.type || '').includes('json')) {
+                        const text = await blob.text();
+                        let msg = 'Export gagal.';
+                        try { msg = JSON.parse(text).message || msg; } catch (_) {}
+                        throw new Error(msg);
+                    }
+
+                    const cd = r.headers.get('Content-Disposition') || '';
+                    const match = /filename\*?=(?:UTF-8''|")?([^\";]+)/i.exec(cd);
+                    const name = match
+                        ? decodeURIComponent(match[1].replace(/"/g, '').trim())
+                        : fileName;
+
+                    const saved = await this.saveBlobToDevice(blob, name);
+                    if (!saved) {
+                        // Fallback form bila blob gagal (beberapa browser ketat).
+                        this.downloadViaForm(url, fields);
+                        this.flashExportNotice('Mengunduh file… cek folder Unduhan.');
+                    } else {
+                        this.flashExportNotice('File diunduh: ' + name);
+                    }
+                    return true;
+                } catch (e) {
+                    // Fallback form juga di desktop jika fetch gagal.
+                    try {
+                        this.downloadViaForm(url, fields);
+                        this.flashExportNotice('Mengunduh file… cek folder Unduhan.');
+                        return true;
+                    } catch (_) {
+                        throw e;
+                    }
+                }
+            },
+            downloadViaForm(url, fields) {
+                let iframe = document.getElementById('ai-teacher-export-frame');
+                if (!iframe) {
+                    iframe = document.createElement('iframe');
+                    iframe.id = 'ai-teacher-export-frame';
+                    iframe.name = 'ai-teacher-export-frame';
+                    iframe.setAttribute('aria-hidden', 'true');
+                    iframe.style.cssText = 'position:fixed;width:0;height:0;border:0;left:-9999px;top:0;opacity:0;pointer-events:none';
+                    document.body.appendChild(iframe);
+                }
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = url;
+                form.target = 'ai-teacher-export-frame';
+                form.enctype = 'application/x-www-form-urlencoded';
+                form.style.display = 'none';
+
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                form.appendChild(csrf);
+
+                Object.entries(fields || {}).forEach(([name, value]) => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = name;
+                    input.value = value == null ? '' : String(value);
+                    form.appendChild(input);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+                setTimeout(() => form.remove(), 4000);
+            },
+            async saveBlobToDevice(blob, fileName) {
+                // IE/legacy
+                if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
+                    window.navigator.msSaveOrOpenBlob(blob, fileName);
+                    return true;
+                }
+
+                // iOS Safari: a.download + blob sering diabaikan → data URL
+                const isIOS = /iP(ad|hone|od)/i.test(navigator.userAgent || '')
+                    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                if (isIOS) {
+                    try {
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.onerror = () => reject(new Error('read fail'));
+                            reader.readAsDataURL(blob);
+                        });
+                        const a = document.createElement('a');
+                        a.href = dataUrl;
+                        a.download = fileName;
+                        a.rel = 'noopener';
+                        a.style.display = 'none';
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => a.remove(), 1500);
+                        return true;
+                    } catch (_) {
+                        // lanjut ke blob URL
+                    }
+                }
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.rel = 'noopener';
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                }, 2500);
+                return true;
+            },
             async exportQuiz(format) {
                 if (!this.result) return;
                 const isPdf = format === 'pdf';
                 if ((isPdf && this.exportingPdf) || (!isPdf && this.exportingWord)) return;
                 if (isPdf) this.exportingPdf = true; else this.exportingWord = true;
                 this.error = '';
+                this.exportNotice = '';
                 try {
                     const title = this.resultSource === 'ocr'
                         ? ('Teks scan buku' + (this.quiz.topik ? ' - ' + this.quiz.topik : ''))
                         : (this.quiz.topik ? 'Soal - ' + this.quiz.topik : 'Soal dari Asisten Guru');
-                    const r = await fetch(isPdf ? this.urls.quizPdf : this.urls.quizWord, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': isPdf ? 'application/pdf,application/json' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        },
-                        body: JSON.stringify({ title, content: this.result }),
+                    const fileName = this.slugify(title || 'soal-asisten-ai') + (isPdf ? '.pdf' : '.docx');
+                    await this.downloadExportFile({
+                        url: isPdf ? this.urls.quizPdf : this.urls.quizWord,
+                        fields: { title, content: this.result },
+                        fileName,
+                        mimeHint: isPdf
+                            ? 'application/pdf'
+                            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     });
-
-                    if (!r.ok) {
-                        const d = await r.json().catch(() => ({}));
-                        this.error = d.message || 'Export gagal. Coba lagi.';
-                        return;
-                    }
-
-                    const blob = await r.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = this.slugify(title || 'soal-asisten-ai') + (isPdf ? '.pdf' : '.docx');
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                } catch (_) {
-                    this.error = 'Export gagal. Periksa koneksi lalu coba lagi.';
+                } catch (e) {
+                    this.error = (e && e.message) ? e.message : 'Export gagal. Periksa koneksi lalu coba lagi.';
                 } finally {
                     if (isPdf) this.exportingPdf = false; else this.exportingWord = false;
                     this.$nextTick(() => window.lucide && lucide.createIcons());
@@ -3175,40 +3751,25 @@
                 if ((isPdf && this.exportingPdf) || (!isPdf && this.exportingWord)) return;
                 if (isPdf) this.exportingPdf = true; else this.exportingWord = true;
                 this.error = '';
+                this.exportNotice = '';
                 try {
                     const toolLabel = this.learningToolLabel();
                     const title = this.learning.topik ? toolLabel + ' - ' + this.learning.topik : toolLabel;
-                    const r = await fetch(isPdf ? this.urls.learningPdf : this.urls.learningWord, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': isPdf ? 'application/pdf,application/json' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                        },
-                        body: JSON.stringify({
-                            tool: this.learning.tool,
+                    const fileName = this.slugify(title || 'perangkat-ajar-learning') + (isPdf ? '.pdf' : '.docx');
+                    await this.downloadExportFile({
+                        url: isPdf ? this.urls.learningPdf : this.urls.learningWord,
+                        fields: {
+                            tool: this.learning.tool || 'rpp',
                             title,
                             content: this.result,
-                        }),
+                        },
+                        fileName,
+                        mimeHint: isPdf
+                            ? 'application/pdf'
+                            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     });
-
-                    if (!r.ok) {
-                        const d = await r.json().catch(() => ({}));
-                        this.error = d.message || 'Export gagal. Coba lagi.';
-                        return;
-                    }
-
-                    const blob = await r.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = this.slugify(title || 'perangkat-ajar-learning') + (isPdf ? '.pdf' : '.docx');
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                } catch (_) {
-                    this.error = 'Export gagal. Periksa koneksi lalu coba lagi.';
+                } catch (e) {
+                    this.error = (e && e.message) ? e.message : 'Export gagal. Periksa koneksi lalu coba lagi.';
                 } finally {
                     if (isPdf) this.exportingPdf = false; else this.exportingWord = false;
                     this.$nextTick(() => window.lucide && lucide.createIcons());

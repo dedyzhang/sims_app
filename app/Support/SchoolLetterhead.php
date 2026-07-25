@@ -80,6 +80,112 @@ final class SchoolLetterhead
     }
 
     /**
+     * Stempel identitas + sumber digital untuk hasil scan buku (OCR).
+     * Pertanggungjawaban anti-plagiarisme: jelas bahwa teks berasal dari
+     * fotografi halaman lewat Asisten Guru SIMS, bukan karya orisinal AI/guru.
+     *
+     * @param  array{pages?:int, recorded_at?:string}  $meta
+     */
+    public static function ocrScanStamp(array $meta = []): string
+    {
+        $timezone = config('app.timezone', 'Asia/Jakarta');
+        $recorded = trim((string) ($meta['recorded_at'] ?? ''));
+        if ($recorded === '') {
+            $recorded = now()->timezone($timezone)->format('d/m/Y H:i T');
+        }
+
+        $pages = isset($meta['pages']) ? max(1, (int) $meta['pages']) : 1;
+        $pageLine = $pages > 1
+            ? "Jumlah halaman difoto: {$pages}"
+            : 'Jumlah halaman difoto: 1';
+
+        $sep = str_repeat('═', 42);
+        $lines = array_merge(
+            self::lines(),
+            [
+                $sep,
+                'SUMBER DIGITAL · SCAN BUKU',
+                'Asisten Guru SIMS (B\'tive) · trademark sekolah',
+                'Teks diekstrak dari foto halaman buku/materi cetak.',
+                'Bukan karya orisinal AI. Gunakan untuk pembelajaran internal.',
+                'Saat mengutip, cantumkan judul/penulis buku asli.',
+                $pageLine,
+                'Dicatat sistem: '.$recorded,
+                $sep,
+            ],
+        );
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Prefiks kop + stempel sumber scan pada teks OCR (hindari dobel stempel).
+     *
+     * @param  array{pages?:int, recorded_at?:string}  $meta
+     */
+    public static function ensureOcrAttribution(string $body, array $meta = []): string
+    {
+        $body = preg_replace("/\r\n?/", "\n", $body) ?? $body;
+        $body = trim($body);
+        $stamp = self::ocrScanStamp($meta);
+
+        if ($body === '') {
+            return $stamp;
+        }
+
+        $upper = mb_strtoupper($body);
+        // Sudah distempel (history / OCR ulang) — jangan dobel.
+        if (str_contains($upper, 'SUMBER DIGITAL') && str_contains($upper, 'SCAN BUKU')) {
+            $firstLine = trim(explode("\n", $body, 2)[0] ?? '');
+            if ($firstLine !== '' && mb_strtoupper($firstLine) === mb_strtoupper(self::schoolName())) {
+                return $body;
+            }
+
+            return self::asPlainText()."\n\n".$body;
+        }
+
+        return $stamp."\n\n".$body;
+    }
+
+    /**
+     * Buang kop + stempel SUMBER DIGITAL · SCAN BUKU dari teks OCR.
+     * Dipakai saat generate soal/RPM: model hanya butuh isi materi buku,
+     * bukan header anti-plagiarisme (stempel tetap di Hasil/History/export).
+     */
+    public static function stripOcrAttribution(string $text): string
+    {
+        $text = preg_replace("/\r\n?/", "\n", $text) ?? $text;
+        $text = trim($text);
+        if ($text === '') {
+            return '';
+        }
+
+        $upper = mb_strtoupper($text);
+        if (! str_contains($upper, 'SUMBER DIGITAL') || ! str_contains($upper, 'SCAN BUKU')) {
+            return $text;
+        }
+
+        // Body biasanya setelah baris ═ penutup blok stempel.
+        if (preg_match('/SUMBER DIGITAL[^\n]*SCAN BUKU[\s\S]*?\n═{10,}\s*\n+/iu', $text, $m, PREG_OFFSET_CAPTURE)) {
+            $end = $m[0][1] + strlen($m[0][0]);
+            $body = trim(substr($text, $end));
+            if ($body !== '') {
+                return $body;
+            }
+        }
+
+        // Fallback: ambil setelah pemisah ═ kedua (kop…sep…stempel…sep…body).
+        if (preg_match('/(?:^|\n)═{10,}\s*\n[\s\S]*?\n═{10,}\s*\n+([\s\S]+)$/u', $text, $m)) {
+            $body = trim($m[1]);
+            if ($body !== '') {
+                return $body;
+            }
+        }
+
+        return $text;
+    }
+
+    /**
      * Pastikan teks diawali kop sekolah dari Setting.
      * Jika model sudah menulis nama sekolah yang benar, biarkan.
      * Jika ada kop lama/asing di atas, diganti.
@@ -113,6 +219,7 @@ final class SchoolLetterhead
             'PERENCANAAN PEMBELAJARAN MENDALAM',
             'RANGKUMAN MATERI',
             'RINGKASAN MATERI',
+            'CATATAN SISWA',
             'DRAF UMPAN BALIK',
             'DRAFT UMPAN BALIK',
             'UMPAN BALIK',

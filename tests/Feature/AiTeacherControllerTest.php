@@ -545,7 +545,7 @@ class AiTeacherControllerTest extends TestCase
         $this->assertStringContainsString('Ringkasan materi.', (string) $response->json('answer'));
     }
 
-    public function test_draft_feedback_tetap_memakai_prompt_feedback(): void
+    public function test_catatan_siswa_tetap_memakai_prompt_feedback(): void
     {
         $user = User::create([
             'username' => 'guru-feedback',
@@ -557,7 +557,7 @@ class AiTeacherControllerTest extends TestCase
         $this->mock(GeminiService::class, function (MockInterface $mock) {
             $mock->shouldReceive('generate')
                 ->once()
-                ->withArgs(fn (string $prompt, array $options) => str_contains($prompt, 'Susun draf umpan balik')
+                ->withArgs(fn (string $prompt, array $options) => str_contains($prompt, 'Susun Catatan Siswa')
                     && str_contains($prompt, 'untuk siswa bernama Budi')
                     && str_contains($prompt, 'Perlu lebih aktif berdiskusi')
                     && str_contains($prompt, 'KOP SURAT WAJIB')
@@ -565,7 +565,7 @@ class AiTeacherControllerTest extends TestCase
                     && ($options['thinking_level'] ?? null) === 'low'
                     && ! str_contains($prompt, 'PERENCANAAN PEMBELAJARAN MENDALAM'))
                 ->andReturn([
-                    'text' => 'Draf feedback.',
+                    'text' => 'Catatan siswa untuk Budi.',
                     'model' => 'gemini-test',
                     'prompt_tokens' => 12,
                     'completion_tokens' => 6,
@@ -579,7 +579,7 @@ class AiTeacherControllerTest extends TestCase
 
         $response->assertOk()->assertJsonPath('ok', true);
         $this->assertStringStartsWith(SchoolLetterhead::schoolName(), (string) $response->json('answer'));
-        $this->assertStringContainsString('Draf feedback.', (string) $response->json('answer'));
+        $this->assertStringContainsString('Catatan siswa untuk Budi.', (string) $response->json('answer'));
     }
 
     public function test_generator_rpm_learning_memakai_8_komponen_wajib(): void
@@ -927,7 +927,7 @@ class AiTeacherControllerTest extends TestCase
                 'konteks' => 'Budi perlu lebih aktif berdiskusi.',
             ])
             ->assertOk()
-            ->assertJsonPath('history.type_label', 'Draft Feedback');
+            ->assertJsonPath('history.type_label', 'Catatan Siswa');
 
         $this->assertSame(4, AiTeacherHistory::where('user_uuid', $user->uuid)->count());
         foreach (['quiz', 'rpp', 'summary', 'feedback'] as $type) {
