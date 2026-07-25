@@ -100,7 +100,8 @@
                 </thead>
                 <tbody>
                     @foreach($jamList as $jam)
-                        @if($jam->jenis !== 'pelajaran')
+                        @if($jam->jenis !== 'pelajaran' && $jam->untukSemuaKelas())
+                        {{-- Jam khusus berlaku SEMUA kelas — satu baris banner spanning semua kolom --}}
                         <tr class="istirahat-row">
                             <td class="jam-col px-3 py-1.5 text-xs">
                                 <span class="font-bold text-amber-600">{{ $jam->nama_khusus }}</span>
@@ -112,10 +113,23 @@
                         @else
                         <tr>
                             <td class="jam-col px-3 py-2 align-top">
+                                @if($jam->jenis !== 'pelajaran')
+                                <span class="font-bold text-amber-600 text-xs">{{ $jam->nama_khusus }}</span>
+                                <p class="text-[10px] text-slate-400 leading-tight">{{ count($jam->kelas_scope) }} kelas</p>
+                                @else
                                 <p class="font-bold text-slate-700 dark:text-slate-200">Jam {{ $jam->jam_ke ?? '-' }}</p>
+                                @endif
                                 <p class="text-[11px] text-slate-400 font-mono">{{ $jam->rentang }}</p>
                             </td>
                             @foreach($kelasList as $k)
+                            @if($jam->isKhususUntukKelas($k->uuid))
+                            {{-- Jam khusus tapi HANYA utk sebagian kelas — kelas ini termasuk cakupannya --}}
+                            <td class="p-1 align-middle">
+                                <div class="rounded-lg py-2.5 text-center text-amber-600" style="background: repeating-linear-gradient(45deg,#fffbeb,#fffbeb 6px,#fef3c7 6px,#fef3c7 12px)" title="{{ $jam->nama_khusus }}">
+                                    <i data-lucide="{{ $jam->ikon }}" class="w-3.5 h-3.5 inline"></i>
+                                </div>
+                            </td>
+                            @else
                             @php
                                 $j = $cells[$jam->uuid.'|'.$k->uuid] ?? null;
                                 $pnama = $j?->pelajaran?->nama ?? $j?->keterangan ?? '';
@@ -136,6 +150,7 @@
                                         @keydown.enter.prevent="$event.target.blur()"
                                         autocomplete="off" spellcheck="false" />
                             </td>
+                            @endif
                             @endforeach
                         </tr>
                         @endif
@@ -169,6 +184,9 @@
                     <div class="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50">
                         @if($jam->jenis!=='pelajaran')
                         <span class="badge bg-amber-100 text-amber-700">{{ $jam->nama_khusus }}</span>
+                        @if(!$jam->untukSemuaKelas())
+                        <span class="badge bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300">{{ count($jam->kelas_scope) }} kelas</span>
+                        @endif
                         @else
                         <span class="badge bg-primary-50 text-primary">Jam {{ $jam->jam_ke }}</span>
                         @endif
@@ -211,6 +229,17 @@
                         <div>
                             <label class="form-label">Selesai</label>
                             <input type="time" name="jam_selesai" required class="form-input">
+                        </div>
+                        <div id="jamScopeWrap" class="col-span-2" style="display:none">
+                            <label class="form-label">Berlaku untuk kelas</label>
+                            <p class="text-[11px] text-slate-400 -mt-1 mb-1.5">Kosongkan semua = berlaku utk SEMUA kelas. Centang sebagian = hanya kelas tsb yang dapat jam ini, kelas lain tetap belajar seperti biasa (istirahat bergilir).</p>
+                            <div class="grid grid-cols-3 gap-1.5 max-h-32 overflow-y-auto p-2 rounded-lg border border-slate-200 dark:border-slate-600">
+                                @foreach($kelasList as $k)
+                                <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                                    <input type="checkbox" name="kelas_scope[]" value="{{ $k->uuid }}" class="accent-[color:var(--cp)]"> {{ $k->tingkat }}{{ $k->kelas }}
+                                </label>
+                                @endforeach
+                            </div>
                         </div>
                     </div>
                     <button type="submit" class="btn-primary w-full py-2.5 rounded-xl text-sm font-semibold">Tambah Jam ke {{ \App\Models\Jadwal::HARI[$hari] }}</button>
@@ -278,9 +307,10 @@
 // Atur Jam: tampilkan "Jam ke-" hanya utk pelajaran, "Nama" utk jam khusus
 function jamJenisChange(v){
     const isPel = v === 'pelajaran';
-    const ke = document.getElementById('jamKeWrap'), lb = document.getElementById('jamLabelWrap');
+    const ke = document.getElementById('jamKeWrap'), lb = document.getElementById('jamLabelWrap'), sc = document.getElementById('jamScopeWrap');
     if(ke) ke.style.display = isPel ? 'block' : 'none';
     if(lb) lb.style.display = isPel ? 'none' : 'block';
+    if(sc) sc.style.display = isPel ? 'none' : 'block';
 }
 function confirmCopyJam(form){
     const n = form.querySelectorAll('input[name="to[]"]:checked').length;

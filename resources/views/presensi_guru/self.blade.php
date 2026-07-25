@@ -2,9 +2,23 @@
 @section('title', 'Absensi')
 
 @section('content')
-@php $hasFace = !empty($guru->face_descriptor); @endphp
-<div class="max-w-4xl mx-auto space-y-5"
-     x-data="{{ $bolehQr ? 'izinPulangQr(' . json_encode(['lat' => $qrLat, 'lng' => $qrLng, 'radius' => $qrRadius]) . ')' : 'izinPulang(' . json_encode($hasFace) . ')' }}">
+@php
+    // Verifikasi wajah izin pulang di halaman ini masih 100% Human.js (kamera & pencocokan di
+    // bawah belum ditambah dukungan InsightFace, beda dari halaman registrasi/kios utama) — kalau
+    // mesin aktif skrg InsightFace, TETAP cek kolom Human.js saja drpd asal ikut kolom aktif:
+    // kamera di sini menangkap embedding Human.js, jadi membandingkannya ke data InsightFace
+    // tersimpan pasti gagal terus (beda ruang embedding sepenuhnya, bukan cuma beda skala ambang).
+    $insightFaceActive = \App\Support\FaceEngine::isInsightFace();
+    $hasFace = !$insightFaceActive && !empty($guru->face_descriptor);
+@endphp
+@php
+    // Metode default saat KEDUA jalur tersedia (cara_absensi_guru = 'keduanya'): utamakan
+    // wajah kalau sudah terdaftar (lebih cepat, tak perlu GPS), kalau belum fallback ke QR.
+    $metodeIzinDefault = $bolehQr && $bolehWajahMandiri
+        ? ($hasFace ? 'wajah' : 'qr')
+        : ($bolehQr ? 'qr' : 'wajah');
+@endphp
+<div class="max-w-4xl mx-auto space-y-5">
     <div>
         <h1 class="page-title">Absensi</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Riwayat jam masuk &amp; pulang, form keterlambatan, dan izin pulang awal.</p>
@@ -57,7 +71,7 @@
 
         {{-- ===== Izin Pulang Awal ===== --}}
         @if($today && $today->jam_masuk && !$today->jam_pulang)
-        <div class="card p-5 space-y-3">
+        <div class="card p-5 space-y-3" x-data="{ metodeIzin: '{{ $metodeIzinDefault }}' }">
             <div class="flex items-center gap-2">
                 <i data-lucide="door-open" class="w-4 h-4 text-amber-500"></i>
                 <h2 class="font-bold text-slate-800 dark:text-slate-100">Izin Pulang Awal</h2>
@@ -69,15 +83,28 @@
             </div>
             @endif
 
+            @if($bolehQr && $bolehWajahMandiri)
+            {{-- Metode absensi sekolah = 'keduanya' — guru bebas pilih jalur verifikasi. --}}
+            <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 w-fit">
+                <button type="button" @click="metodeIzin='wajah'" :class="metodeIzin==='wajah' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                    <i data-lucide="scan-face" class="w-3.5 h-3.5"></i> Wajah
+                </button>
+                <button type="button" @click="metodeIzin='qr'" :class="metodeIzin==='qr' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5">
+                    <i data-lucide="qr-code" class="w-3.5 h-3.5"></i> QR
+                </button>
+            </div>
+            @endif
+
             @if($bolehQr)
-                {{-- ===== Jalur QR (metode absensi aktif = Barcode/QR) ===== --}}
-                @if(!$qrLat || !$qrLng)
+            <div x-show="metodeIzin==='qr'" x-data="izinPulangQr({{ json_encode(['lat' => $qrLat, 'lng' => $qrLng, 'radius' => $qrRadius, 'geoWajib' => $geoWajib]) }})" class="space-y-3">
+                {{-- ===== Jalur QR (metode absensi aktif = Barcode/QR / keduanya) ===== --}}
+                @if($geoWajib && (!$qrLat || !$qrLng))
                 <p class="text-sm text-slate-500 dark:text-slate-400">Lokasi sekolah belum diatur admin, jadi izin pulang via QR belum bisa dipakai. Hubungi admin.</p>
                 @else
                 <template x-if="!scannedToken">
                     <div class="space-y-3">
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Pastikan Anda berada di area sekolah, lalu pindai QR absensi untuk mencatat jam pulang.</p>
-                        <div class="flex items-center justify-between text-sm px-1">
+                        <p class="text-xs text-slate-500 dark:text-slate-400" x-text="geoWajib ? 'Pastikan Anda berada di area sekolah, lalu pindai QR absensi untuk mencatat jam pulang.' : 'Pindai QR absensi untuk mencatat jam pulang.'"></p>
+                        <div class="flex items-center justify-between text-sm px-1" x-show="geoWajib">
                             <span class="text-slate-500 flex items-center gap-1.5"><i data-lucide="map-pin" class="w-4 h-4"></i> <span x-text="status"></span></span>
                             <button type="button" @click="locate()" class="text-xs text-primary font-semibold flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Perbarui</button>
                         </div>
@@ -103,10 +130,18 @@
                     </div>
                 </template>
                 @endif
-            @else
-                {{-- ===== Jalur Wajah (metode absensi aktif = Scan Wajah) ===== --}}
+            </div>
+            @endif
+
+            @if($bolehWajahMandiri)
+            <div x-show="metodeIzin==='wajah'" x-data="izinPulang({{ json_encode($hasFace) }})" class="space-y-3">
+                {{-- ===== Jalur Wajah (metode absensi aktif = Scan Wajah / keduanya) ===== --}}
                 @if(!$hasFace)
-                <p class="text-sm text-slate-500 dark:text-slate-400">Wajah Anda belum terdaftar, jadi izin pulang lewat kamera belum bisa dipakai. <a href="{{ route('face.self', ['ulang' => 1]) }}" class="text-primary font-semibold hover:underline">Daftarkan wajah</a> dulu.</p>
+                    @if($insightFaceActive)
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Verifikasi wajah izin pulang di halaman ini belum mendukung mesin InsightFace yg sedang aktif (Setting → Mesin Pengenalan Wajah). Pakai jalur QR, atau hubungi admin.</p>
+                    @else
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Wajah Anda belum terdaftar, jadi izin pulang lewat kamera belum bisa dipakai. <a href="{{ route('face.self', ['ulang' => 1]) }}" class="text-primary font-semibold hover:underline">Daftarkan wajah</a> dulu.</p>
+                    @endif
                 @else
                 <template x-if="!verified">
                     <div class="space-y-3">
@@ -143,6 +178,7 @@
                     </div>
                 </template>
                 @endif
+            </div>
             @endif
         </div>
         @endif
@@ -213,17 +249,20 @@ function izinPulangQr(cfg){
         schoolLat: cfg.lat ? parseFloat(cfg.lat) : null,
         schoolLng: cfg.lng ? parseFloat(cfg.lng) : null,
         radius: cfg.radius,
+        geoWajib: cfg.geoWajib !== false,
         softTolerance: (window.SimsGeo && SimsGeo.defaults.softToleranceM) || 50,
         lat:null, lng:null, accuracy:null, dist:null, distMeters:null, status:'', locating:false, scanning:false,
         scannedToken:null, alasan:'', sending:false, msg:'', msgErr:false,
         scanner:null,
 
         get dalamArea(){
+            if(!this.geoWajib) return true;
             if(this.distMeters===null) return false;
             return SimsGeo.withinRadius(this.distMeters, this.radius);
         },
 
         init(){
+            if(!this.geoWajib){ this.status = ''; return; }
             this.status = this.schoolLat ? 'Tekan "Perbarui" untuk membaca lokasi Anda.' : 'Lokasi sekolah belum diatur admin.';
         },
         haversine(la1,ln1,la2,ln2){
@@ -257,9 +296,11 @@ function izinPulangQr(cfg){
         },
         startScan(){
             if(this.locating || this.sending) return;
-            if(!this.lat){ this.locate(); showToast('Mengambil lokasi dulu, coba lagi sebentar','info'); return; }
-            if(!this.dalamArea){
-                showToast('Anda di luar area sekolah. Mendekat ke lokasi sekolah dulu.','error'); return;
+            if(this.geoWajib){
+                if(!this.lat){ this.locate(); showToast('Mengambil lokasi dulu, coba lagi sebentar','info'); return; }
+                if(!this.dalamArea){
+                    showToast('Anda di luar area sekolah. Mendekat ke lokasi sekolah dulu.','error'); return;
+                }
             }
             this.msg=''; this.msgErr=false; this.scanning=true;
             this.$nextTick(()=>{
@@ -279,17 +320,19 @@ function izinPulangQr(cfg){
         },
         async submitIzin(){
             if(!this.alasan.trim() || !this.scannedToken || this.sending) return;
-            this.sending=true; this.msgErr=false; this.msg='Membaca lokasi…';
+            this.sending=true; this.msgErr=false; this.msg = this.geoWajib ? 'Membaca lokasi…' : 'Menyimpan…';
             try {
-                // Fresh GPS saat submit — jangan pakai koordinat lama dari locate().
-                const fix = await SimsGeo.getLocationOnce({ timeout: 8000 });
-                this.applyFix(fix);
-                if(!this.dalamArea){
-                    this.msg = 'Anda di luar area sekolah (batas '+(this.radius + this.softTolerance)+' m).';
-                    this.msgErr = true;
-                    showToast(this.msg, 'error');
-                    this.sending=false;
-                    return;
+                if(this.geoWajib){
+                    // Fresh GPS saat submit — jangan pakai koordinat lama dari locate().
+                    const fix = await SimsGeo.getLocationOnce({ timeout: 8000 });
+                    this.applyFix(fix);
+                    if(!this.dalamArea){
+                        this.msg = 'Anda di luar area sekolah (batas '+(this.radius + this.softTolerance)+' m).';
+                        this.msgErr = true;
+                        showToast(this.msg, 'error');
+                        this.sending=false;
+                        return;
+                    }
                 }
                 const res = await fetch('{{ route('presensi-guru.izinPulang.qrStore') }}', {
                     method:'POST',
@@ -321,8 +364,9 @@ function izinPulangQr(cfg){
     }
 }
 </script>
-@else
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+@endif
+@if($bolehWajahMandiri)
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/dist/human.js"></script>
 <script>
 let humanIzin=null, humanIzinReady=false;
 async function loadHumanIzin(){

@@ -60,8 +60,12 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {{-- Jam khusus HANYA ditampilkan sbg banner kalau berlaku SEMUA kelas — kalau
+                         cakupannya sebagian kelas saja (istirahat bergilir), guru ini bisa saja
+                         sedang mengajar kelas lain yg TIDAK termasuk cakupan itu, jadi tetap
+                         tampilkan sel pelajaran biasa (jika ada) drpd banner istirahat yg salah. --}}
                     @foreach($rows as $jam)
-                        @if($jam->jenis!=='pelajaran')
+                        @if($jam->jenis!=='pelajaran' && $jam->untukSemuaKelas())
                         <tr>
                             <td class="px-3 py-1.5 text-xs font-bold text-amber-600">{{ $jam->nama_khusus }}</td>
                             <td colspan="6" class="px-3 py-1.5 text-center text-xs text-amber-600 font-semibold bg-amber-50/50 dark:bg-amber-900/10">

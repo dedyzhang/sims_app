@@ -51,10 +51,10 @@
     <div class="kg-banner" style="font-size: {{ $namaSize }};">{{ $namaTampil }}</div>
     <div class="kg-underline"></div>
 
-    {{-- Bawah: jabatan lengkap + nomor (kiri), QR (kanan) --}}
+    {{-- Bawah: jabatan lengkap + nomor, dipusatkan (QR dipindah ke sisi belakang kartu — lihat
+         _card-back.blade.php — supaya sisi depan fokus ke identitas & sisi belakang ke absensi). --}}
     <div class="kg-meta">
         <div class="kg-jb">{{ \Illuminate\Support\Str::limit($card['jabatan'], 36) }}</div>
         <div class="kg-no">{{ $card['nomor'] ?: ' ' }}</div>
     </div>
-    <div class="kg-qr"><img src="{{ $card['qrUri'] }}"></div>
 </div>

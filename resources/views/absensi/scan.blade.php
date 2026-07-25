@@ -27,6 +27,7 @@
     'isKiosk' => $isKiosk ?? false,
     'hasGuru' => ($gurus ?? collect())->isNotEmpty(),
     'scanKioskMode' => $scanKioskMode ?? 'keduanya',
+    'faceEngine' => \App\Support\FaceEngine::aktif(),
 ]))" x-init="init()">
 
     {{-- Header --}}
@@ -45,6 +46,9 @@
         </div>
         @unless($isKiosk ?? false)
         <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" @click="showDiag = !showDiag" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition" :class="showDiag ? 'border-primary text-primary bg-primary-50' : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'">
+                <i data-lucide="activity" class="w-4 h-4"></i> Info Diagnostik
+            </button>
             <a href="{{ route('wajah.ganda') }}" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-200 text-amber-700 hover:bg-amber-50 transition">
                 <i data-lucide="shield-alert" class="w-4 h-4"></i> Wajah Ganda
             </a>
@@ -55,7 +59,40 @@
         @endunless
     </div>
 
-    <div class="card p-4 flex flex-wrap gap-3 items-center">
+    {{-- Panel diagnostik: penyebab GAGAL pengenalan wajah selama sesi scan ini berjalan (angka
+         hidup, di-reset tiap buka halaman). Tujuannya supaya laporan "susah terdeteksi" berikutnya
+         bisa disertai data nyata (screenshot panel ini) drpd cuma deskripsi verbal — riwayat
+         kalibrasi ambang sudah berkali-kali dinaik-turunkan tanpa data konkret dan tak kunjung
+         beres; panel ini memutus siklus tebak-tebakan itu. --}}
+    @unless($isKiosk ?? false)
+    <div x-show="showDiag" x-cloak x-transition class="card p-4 text-xs space-y-2">
+        <p class="font-bold text-slate-600 dark:text-slate-300">Penyebab gagal kenali wajah (sesi ini) — total <span x-text="diagTotal"></span></p>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.small_face"></p>
+                <p class="text-slate-400">Wajah kecil/jauh</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.low_face_score"></p>
+                <p class="text-slate-400">Kualitas/cahaya</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.low_score"></p>
+                <p class="text-slate-400">Skor rendah</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.small_margin"></p>
+                <p class="text-slate-400">Mirip 2 orang</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2 text-center">
+                <p class="font-bold text-base text-slate-700 dark:text-slate-200" x-text="diag.low_support"></p>
+                <p class="text-slate-400">Sampel kurang</p>
+            </div>
+        </div>
+        <p class="text-slate-400">Kalau angka "Wajah kecil/jauh" paling tinggi → suruh piket mendekat ke kamera. Kalau "Kualitas/cahaya" tinggi → tambah pencahayaan. Kalau "Skor rendah" tinggi terus-menerus utk orang yang SAMA → kemungkinan wajah perlu didaftar ulang (foto lebih jelas, 3 posisi).</p>
+    </div>
+    @endunless
+    <div class="flex items-center gap-4 flex-wrap">
         <div class="min-w-44 flex-1 max-w-xs">
             <label class="form-label">Kelas</label>
             <select x-model="kelasFilter" @change="onKelasChange()" class="form-select">
@@ -86,11 +123,10 @@
              melewati viewport di HP (frame kamera "keluar layar"). Video juga diposisikan absolute
              supaya ukuran aslinya tidak pernah memengaruhi layout — tinggi stage dari aspect-video. --}}
         <div class="lg:col-span-3 space-y-3 min-w-0">
-            <div x-ref="stage" class="scan-stage card overflow-hidden relative bg-slate-900 aspect-video w-full max-w-full">
+            <div x-ref="stage" class="scan-stage card overflow-hidden relative bg-slate-900 aspect-[3/4] sm:aspect-video w-full max-w-full">
                 <video x-ref="video" autoplay muted playsinline
                     class="absolute inset-0 w-full h-full object-cover"
-                    :class="camOn?'':'opacity-0'"
-                    :style="(camOn && previewBrightness > 1 ? `filter: brightness(${previewBrightness.toFixed(2)});` : '') + 'transition:filter .35s ease'"></video>
+                    :class="camOn?'':'opacity-0'"></video>
                 <canvas x-ref="canvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
 
                 {{-- placeholder saat kamera mati --}}
@@ -116,23 +152,22 @@
                             </div>
                         </div>
 
-                        <div x-show="camOn" class="px-3 py-1.5 rounded-full backdrop-blur text-white text-xs font-bold whitespace-nowrap pointer-events-auto" :class="scanMode==='pulang' ? 'bg-amber-600/85' : 'bg-emerald-600/85'">
-                            <span x-text="scanMode==='pulang' ? '🏠 Mode Pulang' : '🚪 Mode Masuk'"></span>
+                        {{-- Mode Masuk/Pulang ini jadi niat awal utk Kartu ID DAN wajah guru — guru yg
+                             aksinya sudah tercatat tetap otomatis lompat ke aksi satunya (lihat onMatch()). --}}
+                        <div x-show="camOn && hasGuru && qrEnabled" class="px-3 py-1.5 rounded-full backdrop-blur text-white text-xs font-bold whitespace-nowrap pointer-events-auto" :class="scanMode==='pulang' ? 'bg-amber-600/85' : 'bg-emerald-600/85'">
+                            <span x-text="scanMode==='pulang' ? '🏠 Mode: Pulang' : '🚪 Mode: Masuk'"></span>
                         </div>
 
-                        <div class="flex items-center gap-2 pointer-events-auto">
+                        <div class="flex items-center gap-2 pointer-events-auto mr-11">
                             <div x-show="camOn" class="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-xs font-semibold flex items-center gap-1 whitespace-nowrap">
                                 <i data-lucide="users" class="w-3.5 h-3.5 flex-shrink-0"></i> <span x-text="totalHadir"></span>/<span x-text="totalEnrolled"></span> hadir
                             </div>
-                            <button @click="toggleFs()" class="p-2 rounded-full bg-black/55 backdrop-blur text-white hover:bg-black/70 transition flex-shrink-0" :title="fs?'Keluar layar penuh':'Layar penuh'">
-                                <i :data-lucide="fs?'minimize-2':'maximize-2'" class="w-4 h-4"></i>
-                            </button>
                         </div>
                     </div>
 
                     <div x-show="scanning && lowLight" x-cloak class="self-start flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/85 backdrop-blur text-white text-xs font-semibold pointer-events-auto max-w-full">
                         <i data-lucide="sun" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                        <span class="truncate" x-text="autoExposureOn ? 'Pencahayaan rendah — auto exposure & kecerahan aktif' : 'Pencahayaan rendah — kecerahan otomatis aktif'"></span>
+                        <span class="truncate">Pencahayaan rendah — kecerahan otomatis aktif</span>
                     </div>
 
                     {{-- Muncul kalau beberapa detik beruntun Human sama sekali tidak menemukan
@@ -143,6 +178,12 @@
                         <span class="truncate">Wajah tidak terlihat — pastikan wajah masuk kamera & cukup terang</span>
                     </div>
                 </div>
+
+                {{-- Selalu di pojok kanan atas stage, terpisah dari baris HUD yg boleh melipat —
+                     supaya posisinya tak pernah bergeser walau badge lain di baris itu bertambah/wrap. --}}
+                <button @click="toggleFs()" class="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/55 backdrop-blur text-white hover:bg-black/70 transition pointer-events-auto" :title="fs?'Keluar layar penuh':'Layar penuh'">
+                    <i :data-lucide="fs?'minimize-2':'maximize-2'" class="w-4 h-4"></i>
+                </button>
 
                 {{-- Flash nama besar saat dikenali --}}
                 <template x-if="lastMatch">
@@ -180,10 +221,13 @@
                         &bull; {{ \Carbon\Carbon::parse($tanggal)->isoFormat('dddd, D MMM') }}
                     </p>
                     <div class="flex items-center gap-2 flex-wrap">
-                        {{-- Mode pulang hanya berlaku utk guru via wajah — di mode QR saja tidak relevan --}}
-                        <div x-show="hasGuru && faceEnabled" class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800" title="Absen pulang guru — aturan agenda & jam tetap berlaku">
-                            <button @click="scanMode='masuk'" :class="scanMode==='masuk' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Masuk</button>
-                            <button @click="scanMode='pulang'" :class="scanMode==='pulang' ? 'bg-white dark:bg-slate-700 text-amber-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Pulang</button>
+                        {{-- Niat mode Masuk/Pulang guru — dipakai baik utk Kartu ID (barcode/QR) maupun
+                             wajah (lihat isFaceLocked()/onMatch() di script). Ditampilkan berdasar qrEnabled
+                             krn Kartu ID selalu butuh toggle ini scr eksplisit; wajah tetap auto-lompat kalau
+                             aksi yg dituju toggle sudah tercatat utk guru ybs. --}}
+                        <div x-show="hasGuru && qrEnabled" class="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800" title="Mode Masuk/Pulang guru — berlaku utk Kartu ID & wajah, agenda & jam tetap berlaku">
+                            <button @click="scanMode='masuk'; _streak={}" :class="scanMode==='masuk' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Masuk</button>
+                            <button @click="scanMode='pulang'; _streak={}" :class="scanMode==='pulang' ? 'bg-white dark:bg-slate-700 text-amber-600 shadow-sm' : 'text-slate-500'" class="px-3 py-1.5 rounded-lg text-xs font-bold transition">Pulang</button>
                         </div>
                         <button x-show="!camOn" @click="start()" :disabled="loading" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 disabled:opacity-50">
                             <i data-lucide="play" class="w-4 h-4"></i> <span x-text="loading ? 'Menyiapkan…' : 'Buka kamera'"></span>
@@ -332,7 +376,11 @@
 
 @push('scripts')
 @if(($scanKioskMode ?? 'keduanya') !== 'qr')
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+    @if(\App\Support\FaceEngine::isInsightFace())
+        @include('absensi._insightface_engine')
+    @else
+        <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/dist/human.js"></script>
+    @endif
 @endif
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 @if(($scanKioskMode ?? 'keduanya') !== 'wajah')
@@ -349,12 +397,17 @@ async function loadHuman(){
     human = new HumanLib({
         modelBasePath:'https://vladmandic.github.io/human-models/models/',
         backend: backend, cacheSensitivity: 0, warmup:'none',
-        // minConfidence diturunkan 0.45→0.35: ini ambang DETEKSI kotak wajah (ada wajah atau
-        // tidak), bukan ambang KECOCOKAN identitas — kalau kotaknya sendiri gagal muncul (sudut
-        // agak miring, sebagian tertutup hijab/masker di dagu-dahi, cahaya kurang), tidak ada
-        // proses pencocokan apa pun yang sempat jalan; pengguna cuma melihat kamera diam tanpa
-        // kotak sama sekali, jauh lebih membingungkan drpd kotak muncul tapi belum cocok.
-        face:{ enabled:true, detector:{ maxDetected:5, minConfidence:0.35 }, mesh:{enabled:true}, iris:{enabled:false},
+        // minConfidence DIKEMBALIKAN ke 0.45 (sempat diturunkan ke 0.35 utk kasus "kotak sama
+        // sekali tak muncul", tapi laporan lapangan setelahnya justru "makin susah/gray dash
+        // makin sering") — ambang 0.35 rupanya meloloskan terlalu banyak deteksi kotak wajah
+        // BERKUALITAS RENDAH (blur/miring/sebagian) sbg kandidat, yang lalu gagal di tahap
+        // KECOCOKAN (embedding dari kotak buruk pasti mirip siapa pun dgn skor rendah) —
+        // hasilnya wajah asli yg jelas pun "tenggelam" di antara deteksi sampah yg lebih sering
+        // muncul drpd sebelumnya. 0.45 adalah nilai lama yg terbukti bertahun-tahun sebelum
+        // sesi ini mulai mengubahnya — JANGAN turunkan lagi tanpa data diagnostik nyata (lihat
+        // panel "Info Diagnostik" di halaman ini) yg menunjukkan `small_face`/deteksi kosong
+        // sbg penyebab dominan, BUKAN cuma laporan verbal "susah terdeteksi".
+        face:{ enabled:true, detector:{ maxDetected:5, minConfidence:0.45 }, mesh:{enabled:true}, iris:{enabled:false},
                description:{enabled:true}, emotion:{enabled:false}, antispoof:{enabled:false}, liveness:{enabled:false} },
         body:{enabled:false}, hand:{enabled:false}, object:{enabled:false}, gesture:{enabled:false},
         filter:{enabled:false}, segmentation:{enabled:false},
@@ -364,9 +417,15 @@ async function loadHuman(){
     humanReady = true;
     return human;
 }
-// kemiripan embedding — pakai Human (terkalibrasi 0..1), fallback cosine
+// kemiripan embedding — pakai Human (terkalibrasi 0..1), fallback cosine. PENTING: kalibrasi
+// human.match.similarity() SPESIFIK utk ruang embedding library Human — kalau mesin aktif adalah
+// InsightFace (window.SIMS_FACE_ENGINE), JANGAN pernah pakai jalur itu walau library itu kebetulan
+// ikut termuat, langsung cosine murni saja (embedding InsightFace sudah dinormalisasi L2 di
+// ifEmbedFace(), jadi dot product = cosine — hasilnya benar tanpa perlu kalibrasi tambahan).
 function faceSim(a, b){
-    if(human && human.match && typeof human.match.similarity==='function'){ try { return human.match.similarity(a, b); } catch(e){} }
+    if(window.SIMS_FACE_ENGINE !== 'insightface' && human && human.match && typeof human.match.similarity==='function'){
+        try { return human.match.similarity(a, b); } catch(e){}
+    }
     let dot=0, na=0, nb=0; const n=Math.min(a.length,b.length);
     for(let i=0;i<n;i++){ dot+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; }
     return dot / (Math.sqrt(na*nb) + 1e-8);
@@ -380,33 +439,42 @@ function normalizeFaceDescriptors(desc){
 function faceScan(data, opts={}){
     return {
         loading:false, camOn:false, scanning:false, busy:false, fs:false, lowLight:false,
-        previewBrightness:1, autoExposureOn:false,
-        _lastExposureAdjustAt:0, _lastAvgLuma:128,
         status:'Menyiapkan kamera…',
         attendees: data.map(s=>({ ...s, marked: s.status==='hadir', justMarked:false, pulangMarked: !!s.pulangDone, jam_masuk: s.jam_masuk, jam_pulang: s.jam_pulang })),
         enrolled:[], stream:null, timer:null,
-        // ===== Ambang pencocokan =====
-        // Strategi: SKOR longgar + KONSISTENSI ketat. Riwayat kalibrasi:
-        // (1) ambang ketat → "susah terdeteksi"; (2) dilonggarkan + konfirmasi 1 frame →
-        // "mengabsenkan ORANG LAIN"; (3) semua dinaikkan → "susah terdeteksi" lagi.
-        // Pelajaran: pengaman salah-orang paling efektif adalah KONFIRMASI 2 FRAME pada orang
-        // yang sama (match salah tidak stabil antar frame, match benar stabil) + margin ke
-        // kandidat kedua — BUKAN ambang skor tinggi. Maka ambang skor dikembalikan ke level
-        // yang terbukti mudah mendeteksi, sementara confirmFrames:2 dipertahankan.
-        threshold:0.66,
-        confidentThreshold:0.82,
-        supportThreshold:0.62,
+        // ===== Ambang pencocokan wajah: dikembalikan persis ke kalibrasi 21 Juli 2026 malam
+        //       (commit "Perbaikan Face Recognation dan validasi wajah") atas permintaan
+        //       eksplisit — jangan naik/turunkan lagi tanpa data diagnostik nyata. =====
+        threshold:0.66,        // skor robust minimum; jangan turunkan tanpa uji lapangan
+        confidentThreshold:0.80,
+        supportThreshold:0.62, // minimal 2 sampel orang yang sama harus cukup mirip
         minSampleSupport:2,
-        singleSampleTop1:0.72, // 1 sampel cukup bila top1 sangat yakin
-        margin:0.06,           // jarak minimal ke kandidat kedua — nama mirip tidak boleh menang tipis
-        minFaceFrac:0.12,      // wajah boleh sedikit lebih jauh dari kamera (dulu 0.14)
-        minFaceScore:0.55,
-        confirmFrames:2,       // JANGAN turunkan ke 1 — ini penahan utama "salah orang"
+        margin:0.08,           // kandidat terbaik harus unggul jelas dari kandidat kedua
+        // ===== Ambang InsightFace/ArcFace — TERPISAH dari kalibrasi Human.js di atas =====
+        // faceSim() sengaja jatuh ke cosine MENTAH utk InsightFace (bukan human.match.similarity()
+        // yg terkalibrasi ke skala 0..1 "ramah"), dan skala cosine ArcFace jauh lebih rendah utk
+        // pasangan orang yg sama (umumnya ~0.3-0.6) dibanding skor Human.js di atas. Kalau ambang
+        // Human.js (0.66 dst) dipakai juga di sini, live scan InsightFace nyaris TAK PERNAH
+        // mengenali siapa pun walau registrasinya benar. Angka di bawah PERKIRAAN AWAL dari
+        // literatur umum ArcFace, BELUM diverifikasi dgn kamera sungguhan — wajib dikalibrasi
+        // ulang begitu ada data lapangan nyata (lihat panel Info Diagnostik).
+        IF_MATCH_THRESHOLD:0.38,
+        IF_MATCH_CONFIDENT:0.55,
+        IF_MATCH_SUPPORT:0.35,
+        IF_MATCH_MARGIN:0.05,
+        get effThreshold(){ return this.faceEngine==='insightface' ? this.IF_MATCH_THRESHOLD : this.threshold; },
+        get effConfidentThreshold(){ return this.faceEngine==='insightface' ? this.IF_MATCH_CONFIDENT : this.confidentThreshold; },
+        get effSupportThreshold(){ return this.faceEngine==='insightface' ? this.IF_MATCH_SUPPORT : this.supportThreshold; },
+        get effMargin(){ return this.faceEngine==='insightface' ? this.IF_MATCH_MARGIN : this.margin; },
+        minFaceFrac:0.14,      // wajah harus cukup besar di frame agar embedding stabil
+        minFaceScore:0.55,     // buang deteksi ragu/blur/pencahayaan buruk
+        confirmFrames:2,       // wajib stabil beberapa frame beruntun sebelum absen ditandai
         _streak:{},
         _faceLocked:{},
         _scanPauseUntil:0,
         recent:[], lastMatch:null, _seq:0, audioCtx:null,
         _noFaceStreak:0, noFaceHint:false,
+        showDiag:false,
         scanMode:'masuk',
         activeTab: 'siswa',
         siswaSearch: '',
@@ -423,6 +491,10 @@ function faceScan(data, opts={}){
         barcodeScanning:false, barcodeScanner:null, _faceWasOn:false, _scanGen:0,
         // Mode kamera kiosk (dari Pengaturan → Absensi): 'wajah' | 'qr' | 'keduanya'
         scanKioskMode: opts.scanKioskMode || 'keduanya',
+        // Mesin pengenalan wajah aktif (dari Pengaturan → Absensi): 'human' | 'insightface' —
+        // hanya menentukan JALUR DETEKSI yg dipakai (loadHuman/human.detect vs loadInsightFace/
+        // ifDetect); logika pencocokan (robustPersonSimilarity, gate, label) sama utk keduanya.
+        faceEngine: opts.faceEngine || 'human',
         _lastQrTryAt:0, _lastQrCode:'', _lastQrCodeAt:0, _qrDetector:undefined,
         failStreak:0,
         diag:{ low_score:0, small_margin:0, low_support:0, small_face:0, low_face_score:0 },
@@ -456,18 +528,24 @@ function faceScan(data, opts={}){
         },
 
         init(){
+            window.SIMS_FACE_ENGINE = this.faceEngine; // dibaca faceSim() — lihat komentar di sana
             this.attendees = this.attendees.map(s => ({ ...s, desc: normalizeFaceDescriptors(s.desc) }));
             this.rebuildEnrolled();
             document.addEventListener('fullscreenchange', ()=>{
                 this.fs = !!document.fullscreenElement;
                 setTimeout(()=> window.lucide && lucide.createIcons(), 60);
             });
-            // Buka kamera otomatis — pengguna tidak perlu klik tombol dulu.
-            // Mode dengan QR: kamera tetap berguna walau belum ada wajah terdaftar.
-            if(this.enrolled.length > 0 || this.qrEnabled){
-                this.$nextTick(()=> setTimeout(()=> this.start(), this.isKiosk ? 150 : 500));
-            } else {
+            // Buka kamera otomatis HANYA di kiosk sungguhan (link rahasia tanpa login, layar tak
+            // dijaga terus) — di situ tak ada orang yg bisa klik "Buka kamera". Di luar kiosk (staf
+            // buka halaman ini lewat app biasa, termasuk dari HP) kamera+model AI JANGAN langsung
+            // menyala saat halaman dimuat/reload — berat (kamera + unduh model AI) & belum tentu
+            // langsung dipakai. Tombol "Buka kamera" (sudah ada di bawah preview) cukup diklik manual.
+            if(this.isKiosk && (this.enrolled.length > 0 || this.qrEnabled)){
+                this.$nextTick(()=> setTimeout(()=> this.start(), 150));
+            } else if(!this.enrolled.length && !this.qrEnabled){
                 this.status = 'Belum ada wajah terdaftar.';
+            } else {
+                this.status = 'Klik "Buka kamera" untuk mulai memindai.';
             }
         },
 
@@ -477,7 +555,22 @@ function faceScan(data, opts={}){
         },
         isFaceLocked(uuid){
             const s = this.attendees.find(x=>x.uuid===uuid);
-            return !!(this._faceLocked[uuid] || s?.marked || s?.pulangMarked);
+            if(!s) return false;
+            if(this._faceLocked[uuid]) return true;
+            if(s.type==='guru'){
+                if(s.marked && s.pulangMarked) return true; // sudah lengkap hari ini
+                // Toggle Masuk/Pulang TAMPIL di layar → operator punya kendali eksplisit, wajah
+                // HANYA dikenali utk aksi yg SEDANG dipilih tab itu (dilaporkan user: tab "Datang"
+                // sempat ikut mencatat "Pulang" jg krn dulu auto-lompat ke aksi lain — sekarang
+                // dihapus, murni ikut tab). Toggle TAK tampil (sekolah cuma pakai wajah tanpa Kartu
+                // ID, scanKioskMode='wajah' → tak ada tab yg bisa dipilih sama sekali) → tetap
+                // terbuka spy onMatch() bisa auto-deteksi aksi yg belum tercatat.
+                if(this.hasGuru && this.qrEnabled){
+                    return this.scanMode === 'pulang' ? !!s.pulangMarked : !!s.marked;
+                }
+                return false;
+            }
+            return !!s.marked;
         },
         afterFaceMarkSuccess(){
             this._scanPauseUntil = Date.now() + 900;
@@ -509,7 +602,7 @@ function faceScan(data, opts={}){
             if(!sims.length) return { score:0, top1:0, top2:0, support:0 };
             const top1 = sims[0] || 0;
             const top2 = sims[1] || 0;
-            const support = sims.filter(v => v >= this.supportThreshold).length;
+            const support = sims.filter(v => v >= this.effSupportThreshold).length;
             // Skor = sampel TERBAIK orang ini, bukan dirata-rata dgn sampel ke-2 (dulu top1*0.58+top2*0.42).
             // Rata-rata itu bikin kecocokan kuat pada 1 sampel terdaftar "diseret turun" krn sampel lain
             // beda sudut/cahaya — makin banyak wajah didaftarkan (3 posisi), makin sering nyangkut di
@@ -521,9 +614,8 @@ function faceScan(data, opts={}){
 
         hasEnoughSampleAgreement(match){
             if(!match) return false;
-            if((match.sampleCount || 0) <= 1) return match.top1 >= this.threshold;
-            if(match.top1 >= this.singleSampleTop1) return true;
-            return match.support >= this.minSampleSupport || match.top1 >= this.confidentThreshold;
+            if((match.sampleCount || 0) <= 1) return match.top1 >= this.effThreshold;
+            return match.support >= this.minSampleSupport || match.top1 >= this.effConfidentThreshold;
         },
 
         recordDiag(reason, meta={}){
@@ -618,14 +710,15 @@ function faceScan(data, opts={}){
             if(this.camOn || this.loading) return;
             this.loading=true; this.status='Mengaktifkan kamera...';
             try {
-                this.stream = await navigator.mediaDevices.getUserMedia(this.getVideoConstraints());
+                this.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} } });
                 const v=this.$refs.video; v.srcObject=this.stream;
                 await new Promise(r=> v.onloadedmetadata = r); v.play();
                 this.camOn=true;
-                this.applyAutoExposure(); // exposure/WB kontinu + kompensasi awal bila didukung hardware
+                this.applyAutoExposure(); // aktifkan exposure/white-balance kontinu di kamera bila didukung perangkat
                 if(faceActive){
                     this.status='Memuat model AI (pertama kali agak lama, lalu tersimpan)...';
-                    await loadHuman();
+                    if(this.faceEngine === 'insightface') await loadInsightFace();
+                    else await loadHuman();
                 }
                 this.loading=false; this.scanning=true;
                 this.status = faceActive
@@ -638,94 +731,31 @@ function faceScan(data, opts={}){
             }
         },
 
-        // Constraint kamera: minta exposure/WB/focus kontinu sejak awal (browser boleh abaikan yg tak didukung).
-        getVideoConstraints(){
-            return {
-                video: {
-                    facingMode: 'user',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    exposureMode: { ideal: 'continuous' },
-                    whiteBalanceMode: { ideal: 'continuous' },
-                    focusMode: { ideal: 'continuous' },
-                },
-            };
-        },
-
-        // Estimasi kecerahan rata-rata frame (luma) — sampling jarang utk hemat CPU.
-        sampleAvgLuma(imageData, w, h){
-            const px = imageData.data;
-            let sum=0, n=0;
-            const stride = Math.max(160, Math.floor((w * h * 4) / 4000) * 4);
-            for(let i=0; i<px.length; i+=stride){ sum += 0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]; n++; }
-            return n ? sum/n : 128;
-        },
-
-        softwareBrightnessBoost(avgLuma){
-            if(avgLuma >= 90) return 1;
-            return Math.min(2.8, 1 + (90 - avgLuma) / 50);
-        },
-
-        // Hardware auto exposure: mode kontinu + kompensasi/ISO/brightness adaptif saat gelap.
-        applyAutoExposure(avgLuma){
+        // Coba nyalakan exposure/white-balance/focus KONTINU di kamera (bila hardware & browser mendukung).
+        // Tak semua webcam/HP mendukung — dibungkus try/catch, gagal diam-diam & tetap fallback ke enhanceFrame().
+        applyAutoExposure(){
             try {
                 const track = this.stream?.getVideoTracks()?.[0];
-                if(!track?.getCapabilities) return Promise.resolve();
+                if(!track || !track.getCapabilities) return;
                 const caps = track.getCapabilities();
                 const adv = {};
-                const luma = avgLuma ?? this._lastAvgLuma ?? 128;
-                const dark = luma < 90;
-                const darkT = dark ? Math.max(0, Math.min(1, (90 - luma) / 90)) : 0;
-
                 if(caps.exposureMode?.includes('continuous')) adv.exposureMode = 'continuous';
                 if(caps.whiteBalanceMode?.includes('continuous')) adv.whiteBalanceMode = 'continuous';
                 if(caps.focusMode?.includes('continuous')) adv.focusMode = 'continuous';
-
-                if(caps.exposureCompensation && (dark || adv.exposureMode)){
-                    const { min, max, step } = caps.exposureCompensation;
-                    const span = max - min;
-                    const target = dark
-                        ? min + span * darkT
-                        : min + span * 0.35;
-                    const stepVal = step || 0.1;
-                    adv.exposureCompensation = Math.round(target / stepVal) * stepVal;
+                // Kalau kamera cuma dukung exposure manual (tak ada mode continuous), dorong exposureTime/ISO ke arah lebih terang.
+                if(!adv.exposureMode && caps.exposureCompensation && caps.exposureCompensation.max > 0){
+                    adv.exposureCompensation = caps.exposureCompensation.max;
                 }
-
-                if(dark && caps.brightness){
-                    const { min, max } = caps.brightness;
-                    adv.brightness = min + (max - min) * darkT * 0.75;
-                }
-
-                if(dark && !adv.exposureMode && caps.iso){
-                    const { min, max } = caps.iso;
-                    adv.iso = Math.round(min + (max - min) * (0.35 + darkT * 0.55));
-                }
-
-                if(!Object.keys(adv).length) return Promise.resolve();
-                return track.applyConstraints({ advanced:[adv] }).then(()=>{ this.autoExposureOn = true; }).catch(()=>{});
-            } catch(e){
-                return Promise.resolve();
-            }
-        },
-
-        // Sesuaikan ulang exposure hardware tiap beberapa detik selama masih gelap.
-        maybeAdjustHardwareExposure(avgLuma){
-            this._lastAvgLuma = avgLuma;
-            const now = Date.now();
-            if(avgLuma >= 95){
-                if(this.lowLight) this.applyAutoExposure(avgLuma);
-                return;
-            }
-            if(avgLuma >= 90 || now - this._lastExposureAdjustAt < 2500) return;
-            this._lastExposureAdjustAt = now;
-            this.applyAutoExposure(avgLuma);
+                if(Object.keys(adv).length) track.applyConstraints({ advanced:[adv] }).catch(()=>{});
+            } catch(e){ /* browser/kamera tak dukung getCapabilities — abaikan, pakai enhanceFrame() saja */ }
         },
 
         // Pencerahan otomatis berbasis software (jalan di semua kamera/browser, tak tergantung dukungan hardware).
         // Sampling cepat kecerahan rata-rata frame → kalau gelap, naikkan brightness sebelum deteksi wajah.
-        // CATATAN: sengaja TIDAK dicampur dgn contrast() — contrast linear di sekitar titik tengah 128 justru
-        // menekan piksel gelap balik ke bawah, melawan efek brightness yg baru dinaikkan.
-        enhanceFrame(video){
+        // `computeOnly=true` (dipakai saat InsightFace aktif — deteksinya baca video mentah, bukan
+        // kanvas hasil fungsi ini) melewati redraw brightness-boost kedua yg hasilnya toh dibuang —
+        // this.lowLight (indikator UI) tetap dihitung krn itu satu2nya yg dipakai kedua mesin.
+        enhanceFrame(video, computeOnly){
             const w = video.videoWidth, h = video.videoHeight;
             if(!w || !h) return video;
             if(!this._ecv){ this._ecv = document.createElement('canvas'); this._ectx = this._ecv.getContext('2d', { willReadFrequently:true }); }
@@ -734,13 +764,16 @@ function faceScan(data, opts={}){
             ctx.filter = 'none';
             ctx.drawImage(video, 0, 0, w, h);
 
-            const avgLuma = this.sampleAvgLuma(ctx.getImageData(0, 0, w, h), w, h);
+            // Sampling jarang (tiap ~40px) — cukup akurat utk estimasi kecerahan, murah utk CPU tiap tick.
+            const px = ctx.getImageData(0, 0, w, h).data;
+            let sum=0, n=0;
+            for(let i=0; i<px.length; i+=160){ sum += 0.299*px[i] + 0.587*px[i+1] + 0.114*px[i+2]; n++; }
+            const avgLuma = n ? sum/n : 128;
             this.lowLight = avgLuma < 90;
-            this.previewBrightness = this.softwareBrightnessBoost(avgLuma);
-            this.maybeAdjustHardwareExposure(avgLuma);
 
-            if(this.lowLight){
-                ctx.filter = `brightness(${this.previewBrightness.toFixed(2)})`;
+            if(this.lowLight && !computeOnly){
+                const boost = Math.min(2.8, 1 + (90-avgLuma)/50).toFixed(2);
+                ctx.filter = `brightness(${boost})`;
                 ctx.drawImage(video, 0, 0, w, h);
                 ctx.filter = 'none';
             }
@@ -759,11 +792,12 @@ function faceScan(data, opts={}){
             if(!v || !v.videoWidth){ if(this.scanning && gen === this._scanGen) this.timer=setTimeout(()=>this.tick(), 300); return; }
             this.busy=true;
             const t0=performance.now();
-            const faceActive = this.faceEnabled && humanReady && this.enrolled.length > 0;
+            const modelReady = this.faceEngine === 'insightface' ? ifReady : humanReady;
+            const faceActive = this.faceEnabled && modelReady && this.enrolled.length > 0;
             try {
                 if(faceActive){
-                    const frame = this.enhanceFrame(v);
-                    const res = await human.detect(frame);
+                    const frame = this.enhanceFrame(v, this.faceEngine === 'insightface'); // side-effect: this.lowLight (dipakai kedua mesin)
+                    const res = this.faceEngine === 'insightface' ? await ifDetect(v) : await human.detect(frame);
                     if(gen !== this._scanGen || !this.scanning) return;
                     this.render(res);
                 }
@@ -874,9 +908,9 @@ function faceScan(data, opts={}){
                 const faceScore = (f.faceScore ?? f.score ?? f.boxScore ?? 1);
                 const bigEnough = Math.min(b[2], b[3]) >= (c.height * this.minFaceFrac);
                 const gap = bestSim - secondSim;
-                const clearGap  = gap >= this.margin || bestSim >= this.confidentThreshold;
+                const clearGap  = gap >= this.effMargin || bestSim >= this.effConfidentThreshold;
                 const sampleAgreement = this.hasEnoughSampleAgreement(bestMatch);
-                const strongMatch = bestSim >= this.threshold && clearGap && sampleAgreement && bigEnough && faceScore >= this.minFaceScore;
+                const strongMatch = bestSim >= this.effThreshold && clearGap && sampleAgreement && bigEnough && faceScore >= this.minFaceScore;
 
                 let label, color;
                 if(strongMatch){
@@ -889,7 +923,7 @@ function faceScan(data, opts={}){
                     const meta = { top1: bestMatch?.top1 ?? bestSim, gap, support: bestMatch?.support ?? 0 };
                     if(!bigEnough){ this.recordDiag('small_face', meta); }
                     else if(faceScore < this.minFaceScore){ this.recordDiag('low_face_score', meta); }
-                    else if(bestSim < this.threshold){ this.recordDiag('low_score', meta); }
+                    else if(bestSim < this.effThreshold){ this.recordDiag('low_score', meta); }
                     else if(!clearGap){ this.recordDiag('small_margin', meta); }
                     else if(!sampleAgreement){ this.recordDiag('low_support', meta); }
 
@@ -898,12 +932,18 @@ function faceScan(data, opts={}){
                     // jatuh ke '—' polos tanpa petunjuk apa pun, sementara "Dekatkan wajah" (yang
                     // seharusnya soal jarak) hanya muncul saat wajah SUDAH cukup besar. Pengguna
                     // yang berdiri di jarak wajar dari kiosk tidak pernah diberi tahu utk mendekat.
+                    const top1Val = bestMatch?.top1 ?? bestSim;
                     if(!bigEnough){
                         label='Mendekat ke kamera'; color='#f59e0b';
                     } else if(faceScore < this.minFaceScore){
                         label='Tahan diam, perbaiki cahaya'; color='#f59e0b';
-                    } else if((bestMatch?.top1 || bestSim) >= this.supportThreshold){
+                    } else if(top1Val >= this.effSupportThreshold){
                         label='Perjelas wajah'; color='#f59e0b';
+                    } else if(top1Val >= 0.45){
+                        // Skor sedang (0.45–0.62) — kemungkinan besar orang yg SAMA tapi sudut/
+                        // cahaya kurang pas, BUKAN "tidak dikenali sama sekali". Dulu kasus ini
+                        // ikut jatuh ke '—' polos, tak beda dgn wajah yg benar2 tak dikenal.
+                        label='Coba lagi, hadap lurus'; color='#f59e0b';
                     } else {
                         label='—'; color='#94a3b8';
                     }
@@ -933,52 +973,66 @@ function faceScan(data, opts={}){
         onMatch(uuid){
             const s=this.attendees.find(x=>x.uuid===uuid);
             if(!s) return;
-            if(this.isFaceLocked(uuid) && (s.marked || s.pulangMarked || s._masukBusy || s._pulangBusy)) return;
+            // Pengaman hanya utk request yg masih diproses (cegah double-submit) — status
+            // marked/pulangMarked ditangani oleh cabang GURU (auto-deteksi mode) & SISWA di bawah.
+            if(s._masukBusy || s._pulangBusy) return;
             this._faceLocked[uuid] = true;
 
-            // ===== Mode PULANG (khusus guru) =====
-            if(this.scanMode==='pulang'){
-                if(s.type!=='guru'){ delete this._faceLocked[uuid]; return; }
-                if(s.pulangMarked) return;
-                if(s._pulangBusy) return;
-                if(s._pulangBlockedAt && (Date.now()-s._pulangBlockedAt) < 8000) return; // jeda setelah ditolak
-                s._pulangBusy=true;
-                // Cek server DULU (agenda wajib lengkap) — baru tampilkan konfirmasi bila lolos.
-                fetch('{{ route('presensi-guru.mark') }}', {
-                    method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
-                    body: JSON.stringify({ id_guru: uuid, tanggal: '{{ $tanggal }}', mode:'pulang', _kiosk: @json($kioskToken ?? null) })
-                }).then(r=>r.json()).then(d=>{
-                    s._pulangBusy=false;
-                    if(!d || d.success===false){
-                        s._pulangBlockedAt = Date.now();
-                        delete this._faceLocked[uuid];
-                        this.rejectFeedback(s.nama, (d&&d.message) ? d.message : 'Tidak bisa absen pulang.');
-                        return;
-                    }
-                    // Lolos → tampilkan konfirmasi pulang
-                    s.pulangMarked=true; s.justMarked=true;
-                    const k=++this._seq;
-                    const jamK=d.jam || this.nowHM();
-                    s.jam_pulang = jamK;
-                    this.playDing();
-                    this.speak('pulang', s.nama);
-                    this.afterFaceMarkSuccess();
-                    this.lastMatch={ key, nama:s.nama, type:s.type, kelas:'Guru', mode:'pulang', jam:jamK, terlambat:false };
-                    this.recent.unshift({ key:k, nama:s.nama.split(' ')[0], type:s.type, kelas:'Pulang', mode:'pulang', jam:jamK });
-                    if(this.recent.length>5) this.recent.pop();
-                    setTimeout(()=> window.lucide && lucide.createIcons(), 40);
-                    setTimeout(()=>{ if(this.lastMatch && this.lastMatch.key===k) this.lastMatch=null; }, 1700);
-                    setTimeout(()=>{ s.justMarked=false; }, 1600);
-                    setTimeout(()=>{ this.recent = this.recent.filter(x=>x.key!==k); }, 6000); // auto-hilang
-                }).catch(()=>{ s._pulangBusy=false; delete this._faceLocked[uuid]; });
-                return;
-            }
-
-            // ===== Mode MASUK =====
-            if(s.marked) return;
-
-            // GURU: cek server dulu (metode wajah harus aktif) — baru konfirmasi.
+            // ===== GURU: mode masuk/pulang. Kalau toggle Masuk/Pulang TAMPIL, mode MURNI ikut tab
+            // yg sedang dipilih operator — TIDAK auto-lompat ke aksi lain lagi (sempat dicoba, tapi
+            // dilaporkan user: pas operator di tab "Datang", wajah guru yg discan malah IKUT
+            // tercatat "Pulang" jg — operator tak menyangka & tak menghendaki itu). Kalau tab-nya
+            // sendiri TAK ADA (sekolah cuma pakai wajah tanpa Kartu ID, scanKioskMode='wajah') maka
+            // tak ada niat eksplisit yg bisa diikuti, jadi tetap auto-deteksi dari status guru spy
+            // absen pulang tetap bisa tercatat tanpa operator perlu toggle yg memang tak pernah ada.
             if(s.type==='guru'){
+                if(s.marked && s.pulangMarked){ delete this._faceLocked[uuid]; return; } // sudah lengkap hari ini
+                const mode = (this.hasGuru && this.qrEnabled)
+                    ? (this.scanMode === 'pulang' ? 'pulang' : 'masuk')
+                    : (s.marked ? 'pulang' : 'masuk');
+
+                if(mode==='pulang'){
+                    if(s._pulangBusy) return;
+                    if(s._pulangBlockedAt && (Date.now()-s._pulangBlockedAt) < 8000) return; // jeda setelah ditolak
+                    s._pulangBusy=true;
+                    // Cek server DULU (agenda wajib lengkap) — baru tampilkan konfirmasi bila lolos.
+                    fetch('{{ route('presensi-guru.mark') }}', {
+                        method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
+                        body: JSON.stringify({ id_guru: uuid, tanggal: '{{ $tanggal }}', mode:'pulang', _kiosk: @json($kioskToken ?? null) })
+                    }).then(r=>r.json()).then(d=>{
+                        s._pulangBusy=false;
+                        if(!d || d.success===false){
+                            s._pulangBlockedAt = Date.now();
+                            delete this._faceLocked[uuid];
+                            this.rejectFeedback(s.nama, (d&&d.message) ? d.message : 'Tidak bisa absen pulang.');
+                            return;
+                        }
+                        // Lolos → tampilkan konfirmasi pulang. Lepas cache _faceLocked (bukan cuma
+                        // di jalur gagal) — kalau tidak, wajah guru ini TAK PERNAH terbaca kamera lagi
+                        // sepanjang sesi halaman ini, walau state s.marked/s.pulangMarked sudah benar,
+                        // krn isFaceLocked() short-circuit true dari cache ini duluan sebelum sempat
+                        // mengecek state aslinya (persis keluhan "cuma bisa absen datang, giliran mau
+                        // pulang tidak terdeteksi lagi").
+                        delete this._faceLocked[uuid];
+                        s.pulangMarked=true; s.justMarked=true;
+                        const key=++this._seq;
+                        const jam=d.jam || this.nowHM();
+                        s.jam_pulang = jam;
+                        this.playDing();
+                        this.speak('pulang', s.nama);
+                        this.afterFaceMarkSuccess();
+                        this.lastMatch={ key, nama:s.nama, type:s.type, kelas:'Guru', mode:'pulang', jam, terlambat:false };
+                        this.recent.unshift({ key, nama:s.nama.split(' ')[0], type:s.type, kelas:'Pulang', mode:'pulang', jam });
+                        if(this.recent.length>5) this.recent.pop();
+                        setTimeout(()=> window.lucide && lucide.createIcons(), 40);
+                        setTimeout(()=>{ if(this.lastMatch && this.lastMatch.key===key) this.lastMatch=null; }, 1700);
+                        setTimeout(()=>{ s.justMarked=false; }, 1600);
+                        setTimeout(()=>{ this.recent = this.recent.filter(x=>x.key!==key); }, 6000); // auto-hilang
+                    }).catch(()=>{ s._pulangBusy=false; delete this._faceLocked[uuid]; });
+                    return;
+                }
+
+                // mode==='masuk'
                 if(s._masukBusy) return;
                 if(s._masukBlockedAt && (Date.now()-s._masukBlockedAt) < 8000) return; // jeda setelah ditolak
                 s._masukBusy=true;
@@ -993,6 +1047,9 @@ function faceScan(data, opts={}){
                         this.rejectFeedback(s.nama, (d&&d.message) || 'Tidak bisa absen');
                         return;
                     }
+                    // Lepas cache _faceLocked sama spt cabang pulang di atas — guru ini masih perlu
+                    // dikenali lagi nanti utk absen pulang, jangan biarkan cache menguncinya permanen.
+                    delete this._faceLocked[uuid];
                     s.marked=true; s.justMarked=true;
                     const key=++this._seq; const jam=d.jam || this.nowHM();
                     s.jam_masuk = jam;
@@ -1041,7 +1098,7 @@ function faceScan(data, opts={}){
 
         stop(){
             this.scanning=false; this.camOn=false;
-            this.lowLight=false; this.previewBrightness=1; this.autoExposureOn=false;
+            this.lowLight=false;
             if(this.timer) clearTimeout(this.timer);
             if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
             if(document.fullscreenElement){ document.exitFullscreen?.(); }
@@ -1119,7 +1176,7 @@ function faceScan(data, opts={}){
                 return;
             }
             try {
-                this.stream = await navigator.mediaDevices.getUserMedia(this.getVideoConstraints());
+                this.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} } });
                 const v=this.$refs.video; v.srcObject=this.stream;
                 await new Promise(r=> v.onloadedmetadata = r); v.play();
                 this.camOn = true;
@@ -1254,7 +1311,11 @@ function faceScan(data, opts={}){
                     if(d.mode==='pulang'){ s.pulangMarked = true; s.jam_pulang = jamBaru; }
                     else { s.marked = true; s.jam_masuk = jamBaru; }
                     s.justMarked = true;
-                    this._faceLocked[d.uuid] = true;
+                    // TIDAK di-set _faceLocked di sini (beda dari sebelumnya) — kalau di-kunci di sini,
+                    // wajah guru ini jadi tak pernah terbaca kamera lagi utk aksi satunya yg masih
+                    // tersisa (mis. absen masuk pakai Kartu ID pagi → nanti wajah tak terdeteksi sama
+                    // sekali saat mau absen pulang sore). isFaceLocked() sudah cukup akurat dari state
+                    // s.marked/s.pulangMarked yg baru diset di atas, tak perlu cache tambahan di sini.
                     const key=++this._seq;
                     this.playDing(); this.speak(d.mode==='pulang' ? 'pulang' : 'masuk', s.nama);
                     this.lastMatch={ key, nama:s.nama, type:'guru', kelas:'Guru', mode:d.mode, jam:jamBaru, terlambat:!!d.terlambat };

@@ -15,12 +15,13 @@ class Guru extends Model
         'id_login', 'nama', 'nik', 'nip', 'jk', 'tempat_lahir',
         'tanggal_lahir', 'agama', 'alamat', 'tingkat_studi', 'program_studi',
         'universitas', 'tahun_tamat', 'tmt_ngajar', 'tmt_smp', 'no_telp', 'foto',
-        'face_descriptor', 'face_registered_at', 'face_photo', 'sekretaris_rapat',
+        'face_descriptor', 'face_descriptor_if', 'face_registered_at', 'face_photo', 'sekretaris_rapat',
         'jam_pulang_wajib',
     ];
 
     protected $casts = [
         'face_descriptor'    => 'array',
+        'face_descriptor_if' => 'array',
         'face_registered_at' => 'datetime',
         'sekretaris_rapat'   => 'boolean',
     ];
@@ -28,6 +29,19 @@ class Guru extends Model
     public function getFacePhotoUrlAttribute(): ?string
     {
         return \App\Support\FaceMatch::photoUrl($this->face_photo, $this->uuid);
+    }
+
+    /** Descriptor wajah utk mesin pengenalan yg SEDANG AKTIF (Human.js/InsightFace) — pakai ini
+     *  drpd baca face_descriptor/face_descriptor_if langsung, supaya otomatis ikut Setting →
+     *  Mesin Pengenalan Wajah tanpa perlu diingat manual di tiap tempat baru. */
+    public function getActiveFaceDescriptorAttribute()
+    {
+        return $this->{\App\Support\FaceEngine::kolomDescriptor()};
+    }
+
+    public function scopeWhereFaceRegistered($query)
+    {
+        return $query->whereNotNull(\App\Support\FaceEngine::kolomDescriptor());
     }
 
     public function user()

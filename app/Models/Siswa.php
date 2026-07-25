@@ -21,18 +21,32 @@ class Siswa extends Model
         'sekolah_asal', 'nama_ijazah', 'ortu_ijazah',
         'tempat_lahir_ijazah', 'tanggal_lahir_ijazah',
         'va', 'spp', 'foto',
-        'face_descriptor', 'face_registered_at', 'face_photo',
+        'face_descriptor', 'face_descriptor_if', 'face_registered_at', 'face_photo',
         'status', 'tahun_lulus', 'angkatan',
     ];
 
     protected $casts = [
         'face_descriptor'    => 'array',
+        'face_descriptor_if' => 'array',
         'face_registered_at' => 'datetime',
     ];
 
     public function getFacePhotoUrlAttribute(): ?string
     {
         return \App\Support\FaceMatch::photoUrl($this->face_photo, $this->uuid);
+    }
+
+    /** Descriptor wajah utk mesin pengenalan yg SEDANG AKTIF (Human.js/InsightFace) — pakai ini
+     *  drpd baca face_descriptor/face_descriptor_if langsung, supaya otomatis ikut Setting →
+     *  Mesin Pengenalan Wajah tanpa perlu diingat manual di tiap tempat baru. */
+    public function getActiveFaceDescriptorAttribute()
+    {
+        return $this->{\App\Support\FaceEngine::kolomDescriptor()};
+    }
+
+    public function scopeWhereFaceRegistered($query)
+    {
+        return $query->whereNotNull(\App\Support\FaceEngine::kolomDescriptor());
     }
 
     public function user()

@@ -14,6 +14,8 @@ use App\Models\User;
 use App\Notifications\ArenaLiveStartedNotification;
 use App\Policies\GameQuizPolicy;
 use App\Services\GameAnswerGrader;
+use App\Support\ArenaAccessToken;
+use App\Support\ArenaJoinQr;
 use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -44,7 +46,7 @@ class GameLiveController extends Controller implements HasMiddleware
         ];
     }
 
-    public function show(Classroom $classroom, GameQuiz $quiz)
+    public function show(Request $request, Classroom $classroom, GameQuiz $quiz)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('view', $quiz);
@@ -54,7 +56,39 @@ class GameLiveController extends Controller implements HasMiddleware
         $canHost = auth()->user()->can('manage', $quiz);
         $quiz->load(['questions' => fn ($q) => $q->orderBy('sort_order')]);
 
-        return view('arena-belajar.live', compact('classroom', 'quiz', 'session', 'canHost'));
+        $liveJoinUrl = ArenaJoinQr::liveJoinUrl($classroom, $quiz);
+        $liveJoinQrSvg = ($canHost && $quiz->allowsLive() && $quiz->access_token)
+            ? ArenaJoinQr::svg($liveJoinUrl, 200)
+            : null;
+        $liveBarcodePayload = ($canHost && $quiz->allowsLive() && $quiz->access_token)
+            ? ArenaJoinQr::liveBarcodePayload($quiz)
+            : null;
+
+        $requiresJoinToken = ArenaAccessToken::requiresToken($quiz);
+        $hasJoinUnlock = ArenaAccessToken::hasUnlock($quiz);
+        $prefillLiveToken = request('join') === 'live'
+            ? strtoupper(substr((string) request('t', ''), 0, 8))
+            : '';
+
+        if ($message = ArenaAccessToken::validateAndGrant($request, $quiz)) {
+            return redirect()->route('classroom.arena.live', [$classroom, $quiz])
+                ->with('error', $message);
+        }
+
+        $hasJoinUnlock = ArenaAccessToken::hasUnlock($quiz);
+
+        return view('arena-belajar.live', compact(
+            'classroom',
+            'quiz',
+            'session',
+            'canHost',
+            'liveJoinUrl',
+            'liveJoinQrSvg',
+            'liveBarcodePayload',
+            'requiresJoinToken',
+            'hasJoinUnlock',
+            'prefillLiveToken',
+        ));
     }
 
     public function start(Request $request, Classroom $classroom, GameQuiz $quiz)
@@ -161,6 +195,10 @@ class GameLiveController extends Controller implements HasMiddleware
         abort_unless(app(GameQuizPolicy::class)->view(auth()->user(), $quiz)
             || app(GameQuizPolicy::class)->play(auth()->user(), $quiz, $classroom), 403);
 
+        if ($denied = $this->denyLiveWithoutToken($quiz)) {
+            return $denied;
+        }
+
         $session = GameLiveSession::where('quiz_id', $quiz->uuid)
             ->where('classroom_id', $classroom->uuid)
             ->latest()
@@ -192,6 +230,10 @@ class GameLiveController extends Controller implements HasMiddleware
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('view', $quiz);
+
+        if ($denied = $this->denyLiveWithoutToken($quiz)) {
+            return $denied;
+        }
 
         $canManage = auth()->user()->can('manage', $quiz);
         $hideScores = $quiz->hide_scores && !$canManage;
@@ -239,6 +281,10 @@ class GameLiveController extends Controller implements HasMiddleware
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('play', [$quiz, $classroom]);
+
+        if ($denied = $this->denyLiveWithoutToken($quiz)) {
+            return $denied;
+        }
 
         $data = $request->validate([
             'question_id'        => ['required', 'uuid'],
@@ -611,5 +657,23 @@ class GameLiveController extends Controller implements HasMiddleware
         }
 
         return null;
+    }
+
+    /** Siswa tanpa unlock token tidak boleh polling/jawab live. */
+    private function denyLiveWithoutToken(GameQuiz $quiz)
+    {
+        $user = auth()->user();
+        if (! $user || $user->access !== 'siswa') {
+            return null;
+        }
+        if (! ArenaAccessToken::requiresToken($quiz) || ArenaAccessToken::hasUnlock($quiz)) {
+            return null;
+        }
+
+        return response()->json([
+            'ok' => false,
+            'message' => 'Token arena belum divalidasi.',
+            'requires_token' => true,
+        ], 403);
     }
 }

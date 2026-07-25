@@ -50,9 +50,13 @@ class EnsureFaceRegistered
         }
 
         // Selain ortu (siswa, guru, kepala, kurikulum, kesiswaan, sapras, admin, dll)
-        // wajib daftar wajah — descriptor disimpan di profil siswa/guru-nya
+        // wajib daftar wajah — descriptor disimpan di profil siswa/guru-nya. Kolom yg dicek
+        // ikut mesin pengenalan wajah yg AKTIF (Setting → Mesin Pengenalan Wajah): default
+        // 'human' → face_descriptor (perilaku lama, tidak berubah); 'insightface' →
+        // face_descriptor_if (konsisten dgn kios scan — orang yg baru pernah daftar via Human.js
+        // memang wajib daftar ulang sekali begitu mesin dipindah, sesuai yg sudah diberitahukan).
         $profile = $user->siswa ?: $user->guru;
-        if ($profile && empty($profile->face_descriptor)) {
+        if ($profile && empty($profile->{\App\Support\FaceEngine::kolomDescriptor()})) {
             return redirect()->route('face.self');
         }
 

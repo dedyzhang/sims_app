@@ -169,6 +169,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::controller(AiTeacherController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/quota', 'quota')->name('quota');
+            Route::get('/materials', 'materials')->middleware('throttle:60,1')->name('materials');
             Route::put('/gemini-key', 'updateGeminiKey')->middleware('throttle:20,1')->name('gemini-key');
             Route::post('/gemini-key', 'updateGeminiKey')->middleware('throttle:20,1');
             Route::delete('/gemini-key', 'destroyGeminiKey')->middleware('throttle:20,1')->name('gemini-key.destroy');
@@ -424,6 +425,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/{classroom}/arena-belajar/{quiz}/tutup', [GameQuizController::class, 'close'])->name('arena.close');
             Route::post('/{classroom}/arena-belajar/{quiz}/terbit-ulang', [GameQuizController::class, 'reopen'])->name('arena.reopen');
             Route::post('/{classroom}/arena-belajar/{quiz}/ke-draf', [GameQuizController::class, 'unpublishToDraft'])->name('arena.draft');
+            Route::post('/{classroom}/arena-belajar/{quiz}/token-gabung', [GameQuizController::class, 'unlockJoinToken'])->middleware('throttle:30,1')->name('arena.join-token');
             Route::post('/{classroom}/arena-belajar/{quiz}/token-solo', [GameQuizController::class, 'regenerateSoloToken'])->name('arena.solo-token');
             Route::post('/{classroom}/arena-belajar/{quiz}/salin', [GameQuizController::class, 'copyToClassrooms'])->middleware('throttle:20,1')->name('arena.copy');
             Route::delete('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'destroy'])->name('arena.destroy');
@@ -439,8 +441,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/{classroom}/arena-belajar/{quiz}/live/mulai', [GameLiveController::class, 'start'])->middleware('throttle:20,1')->name('arena.live.start');
             Route::post('/{classroom}/arena-belajar/{quiz}/live/maju', [GameLiveController::class, 'advance'])->middleware('throttle:60,1')->name('arena.live.advance');
             Route::post('/{classroom}/arena-belajar/{quiz}/live/akhiri', [GameLiveController::class, 'end'])->name('arena.live.end');
-            Route::get('/{classroom}/arena-belajar/{quiz}/live/state', [GameLiveController::class, 'state'])->middleware('throttle:120,1')->name('arena.live.state');
-            Route::get('/{classroom}/arena-belajar/{quiz}/live/podium', [GameLiveController::class, 'leaderboard'])->middleware('throttle:120,1')->name('arena.live.leaderboard');
+            Route::get('/{classroom}/arena-belajar/{quiz}/live/state', [GameLiveController::class, 'state'])->middleware('throttle:360,1')->name('arena.live.state');
+            Route::get('/{classroom}/arena-belajar/{quiz}/live/podium', [GameLiveController::class, 'leaderboard'])->middleware('throttle:360,1')->name('arena.live.leaderboard');
             Route::post('/{classroom}/arena-belajar/{quiz}/live/jawab', [GameLiveController::class, 'answer'])->middleware('throttle:60,1')->name('arena.live.answer');
             Route::post('/{classroom}/arena-belajar/{quiz}/template', [GameTemplateController::class, 'setTemplate'])->name('arena.template');
             Route::get('/{classroom}/arena-belajar/{quiz}/template/main', [GameTemplateController::class, 'playTemplate'])->name('arena.template.play');
@@ -886,6 +888,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/tanggal-rapor', 'setTanggalRapor')->name('setting.tanggalRapor');
             Route::post('/cara-absensi', 'setCaraAbsensi')->name('setting.caraAbsensi');
             Route::post('/scan-kiosk-mode', 'setScanKioskMode')->name('setting.scanKioskMode');
+            Route::post('/face-engine', 'setFaceEngine')->name('setting.faceEngine');
+            Route::post('/face-reset-all', 'resetAllFaceVerification')->name('setting.faceResetAll');
             Route::post('/kiosk-token/regenerate', 'regenerateKioskToken')->name('setting.kioskToken.regenerate');
             Route::post('/agenda-wajib-pulang', 'setAgendaWajibPulang')->name('setting.agendaWajibPulang');
             Route::post('/jenis-aturan', 'setJenisAturan')->name('setting.jenisAturan');

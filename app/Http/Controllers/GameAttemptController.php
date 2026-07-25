@@ -9,6 +9,7 @@ use App\Models\GameQuiz;
 use App\Models\GameQuizAssignment;
 use App\Policies\GameQuizPolicy;
 use App\Services\GameAnswerGrader;
+use App\Support\ArenaAccessToken;
 use App\Support\ArenaSoloShuffle;
 use App\Support\Audit;
 use Illuminate\Http\Request;
@@ -311,7 +312,7 @@ class GameAttemptController extends Controller implements HasMiddleware
 
     private function soloUnlockSessionKey(GameQuiz $quiz): string
     {
-        return 'arena_solo_unlock.'.$quiz->uuid;
+        return ArenaAccessToken::sessionKey($quiz, 'solo');
     }
 
     private function hasValidSoloUnlock(GameQuiz $quiz): bool
@@ -320,21 +321,12 @@ class GameAttemptController extends Controller implements HasMiddleware
             return true;
         }
 
-        $expected = trim((string) ($quiz->access_token ?? ''));
-        if ($expected === '') {
-            return false;
-        }
-
-        $stored = session($this->soloUnlockSessionKey($quiz));
-
-        return is_string($stored)
-            && $stored !== ''
-            && hash_equals($expected, $stored);
+        return ArenaAccessToken::hasUnlock($quiz);
     }
 
     private function grantSoloUnlock(GameQuiz $quiz): void
     {
-        session([$this->soloUnlockSessionKey($quiz) => (string) $quiz->access_token]);
+        ArenaAccessToken::grantUnlock($quiz);
     }
 
     /** Validasi token solo; return redirect error atau null jika OK. */
@@ -348,18 +340,13 @@ class GameAttemptController extends Controller implements HasMiddleware
             return null;
         }
 
-        $token = Str::upper(trim((string) $request->input('solo_token', '')));
-        $expected = Str::upper(trim((string) ($quiz->access_token ?? '')));
-        if ($expected === '' || $token === '' || ! hash_equals($expected, $token)) {
-            return back()->with(
-                'error',
-                $expected === ''
-                    ? 'Token solo belum diset guru. Minta guru generate token di panel experience.'
-                    : 'Token solo salah atau belum diisi. Minta token ke guru mapel.'
-            );
+        if ($message = ArenaAccessToken::validateAndGrant($request, $quiz)) {
+            return back()->with('error', $message);
         }
 
-        $this->grantSoloUnlock($quiz);
+        if (! ArenaAccessToken::hasUnlock($quiz)) {
+            return back()->with('error', 'Token salah atau belum diisi. Minta token ke guru mapel.');
+        }
 
         return null;
     }

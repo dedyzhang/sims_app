@@ -21,6 +21,13 @@ class Geofence
     /** Toleransi GPS tetap (meter) — tidak diambil dari request klien. */
     public const SOFT_TOLERANCE_M = 50;
 
+    /** Sekolah boleh matikan pelacakan GPS sepenuhnya (preferensi masing2 sekolah) — kalau
+     *  nonaktif, absen QR tak lagi meminta izin lokasi & server tak menolak berdasar jarak. */
+    public static function wajib(): bool
+    {
+        return Setting::get('qr_geo_wajib', '1') == '1';
+    }
+
     /** Jarak dua koordinat (meter) — Haversine. */
     public static function distanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
     {

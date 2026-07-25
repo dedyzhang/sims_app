@@ -148,44 +148,6 @@ final class SchoolLetterhead
     }
 
     /**
-     * Buang kop + stempel SUMBER DIGITAL · SCAN BUKU dari teks OCR.
-     * Dipakai saat generate soal/RPM: model hanya butuh isi materi buku,
-     * bukan header anti-plagiarisme (stempel tetap di Hasil/History/export).
-     */
-    public static function stripOcrAttribution(string $text): string
-    {
-        $text = preg_replace("/\r\n?/", "\n", $text) ?? $text;
-        $text = trim($text);
-        if ($text === '') {
-            return '';
-        }
-
-        $upper = mb_strtoupper($text);
-        if (! str_contains($upper, 'SUMBER DIGITAL') || ! str_contains($upper, 'SCAN BUKU')) {
-            return $text;
-        }
-
-        // Body biasanya setelah baris ═ penutup blok stempel.
-        if (preg_match('/SUMBER DIGITAL[^\n]*SCAN BUKU[\s\S]*?\n═{10,}\s*\n+/iu', $text, $m, PREG_OFFSET_CAPTURE)) {
-            $end = $m[0][1] + strlen($m[0][0]);
-            $body = trim(substr($text, $end));
-            if ($body !== '') {
-                return $body;
-            }
-        }
-
-        // Fallback: ambil setelah pemisah ═ kedua (kop…sep…stempel…sep…body).
-        if (preg_match('/(?:^|\n)═{10,}\s*\n[\s\S]*?\n═{10,}\s*\n+([\s\S]+)$/u', $text, $m)) {
-            $body = trim($m[1]);
-            if ($body !== '') {
-                return $body;
-            }
-        }
-
-        return $text;
-    }
-
-    /**
      * Pastikan teks diawali kop sekolah dari Setting.
      * Jika model sudah menulis nama sekolah yang benar, biarkan.
      * Jika ada kop lama/asing di atas, diganti.

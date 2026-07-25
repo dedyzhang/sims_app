@@ -24,6 +24,49 @@
     padding: 0.25rem 0.15rem 1.5rem;
 }
 
+.arena-stage-play {
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: 1.5rem;
+}
+
+.arena-play-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse 120% 80% at 50% -20%, rgba(0, 169, 157, 0.22), transparent 55%),
+        radial-gradient(ellipse 70% 50% at 100% 100%, rgba(245, 165, 36, 0.12), transparent 50%),
+        linear-gradient(165deg, #0a1628 0%, #0f1f2e 45%, #081018 100%);
+}
+.arena-play-bg-grid {
+    position: absolute;
+    inset: 0;
+    opacity: 0.35;
+    background-image:
+        linear-gradient(rgba(126, 200, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(126, 200, 255, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 40%, #000 20%, transparent 75%);
+}
+.arena-play-bg-glow {
+    position: absolute;
+    width: 14rem;
+    height: 14rem;
+    border-radius: 50%;
+    top: 8%;
+    right: -4%;
+    background: radial-gradient(circle, rgba(0, 200, 83, 0.18), transparent 70%);
+    animation: arena-play-float 8s ease-in-out infinite alternate;
+}
+@keyframes arena-play-float {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(-1.5rem, 1rem) scale(1.08); }
+}
+
 /* ─── Game lobby (Roblox-style Discover) ─── */
 .arena-lobby {
     --lobby-font: 'Fredoka', 'Plus Jakarta Sans', system-ui, sans-serif;
@@ -1434,6 +1477,61 @@
     border-color: rgba(245, 158, 11, .25);
 }
 
+.arena-rx-join-qr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: 1rem;
+}
+.arena-rx-join-qr-card {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1.5px solid rgba(20, 184, 166, .25);
+    background: linear-gradient(180deg, #f0fdfa, #ecfeff);
+}
+.dark .arena-rx-join-qr-card {
+    background: linear-gradient(180deg, #042f2e, #0f172a);
+    border-color: rgba(45, 212, 191, .2);
+}
+.arena-rx-join-qr-label {
+    margin: 0 0 .65rem;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #0d9488;
+}
+.arena-rx-join-qr-box {
+    display: inline-block;
+    padding: .5rem;
+    border-radius: .75rem;
+    background: #fff;
+    border: 1px solid rgba(15, 23, 42, .08);
+}
+.arena-rx-join-qr-box svg { display: block; width: 100%; height: auto; }
+.arena-rx-join-qr-hint {
+    margin: .5rem 0 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+}
+.arena-rx-join-barcode-wrap {
+    margin-top: .65rem;
+    padding: .45rem .5rem;
+    border-radius: .65rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+}
+.arena-rx-join-barcode-wrap .arena-join-barcode {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+.arena-rx-live-stage .arena-rx-join-barcode-wrap {
+    background: rgba(255,255,255,.95);
+    border-color: rgba(255,255,255,.25);
+}
+
 /* Coach: jari menunjuk Terbitkan */
 .arena-rx-publish-spot {
     position: relative;
@@ -2793,9 +2891,10 @@
 }
 
 .arena-play-shell {
+    position: relative;
     background:
-        radial-gradient(ellipse 90% 70% at 50% -10%, color-mix(in srgb, var(--cp) 35%, transparent), transparent 55%),
-        linear-gradient(180deg, #0c1a24 0%, #101f2a 40%, #0b1520 100%);
+        radial-gradient(ellipse 90% 70% at 50% -10%, color-mix(in srgb, var(--cp, #00a99d) 35%, transparent), transparent 55%),
+        linear-gradient(180deg, rgba(12, 26, 36, 0.92) 0%, rgba(16, 31, 42, 0.95) 40%, rgba(11, 21, 32, 0.98) 100%);
     border-radius: 1.5rem;
     color: #f8fafc;
     padding: 1.25rem;

@@ -386,10 +386,10 @@
         <form method="POST" action="{{ route('setting.caraAbsensi') }}" class="card p-6 space-y-4">
             @csrf
             <h2 class="font-bold text-slate-800 dark:text-slate-100">Cara Absensi (Guru &amp; Siswa)</h2>
-            <p class="text-xs text-slate-400 -mt-1">Pilih metode absen mandiri. Metode yang tidak dipilih <span class="font-semibold">dikunci</span> untuk guru &amp; siswa. Admin tetap bisa <span class="font-semibold">mengoreksi manual</span> kapan saja.</p>
-            @php $caraNow = in_array($settings['cara_absensi_guru'] ?? 'wajah', ['wajah','barcode']) ? ($settings['cara_absensi_guru'] ?? 'wajah') : 'wajah'; @endphp
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                @foreach(['wajah'=>['Scan Wajah','Pengenalan wajah (kiosk)','scan-face'],'barcode'=>['Barcode / QR','Scan QR Code','qr-code']] as $val => [$lbl,$desc,$icon])
+            <p class="text-xs text-slate-400 -mt-1">Pilih metode absen mandiri. Metode yang tidak dipilih <span class="font-semibold">dikunci</span> untuk guru &amp; siswa — kecuali "Wajah + Barcode/QR" dipilih, keduanya aktif bersamaan. Admin tetap bisa <span class="font-semibold">mengoreksi manual</span> kapan saja.</p>
+            @php $caraNow = in_array($settings['cara_absensi_guru'] ?? 'wajah', ['wajah','barcode','keduanya']) ? ($settings['cara_absensi_guru'] ?? 'wajah') : 'wajah'; @endphp
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                @foreach(['wajah'=>['Scan Wajah','Pengenalan wajah (kiosk)','scan-face'],'barcode'=>['Barcode / QR','Scan QR Code','qr-code'],'keduanya'=>['Wajah + Barcode/QR','Kedua metode aktif sekaligus','scan-eye']] as $val => [$lbl,$desc,$icon])
                 <label class="cursor-pointer">
                     <input type="radio" name="cara_absensi" value="{{ $val }}" @checked($caraNow===$val) class="hidden peer">
                     <div class="border-2 rounded-xl p-4 transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600 h-full">
@@ -427,6 +427,48 @@
             </div>
             <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
         </form>
+
+        {{-- Mesin Pengenalan Wajah (percobaan) --}}
+        <form method="POST" action="{{ route('setting.faceEngine') }}" class="card p-6 space-y-4">
+            @csrf
+            <h2 class="font-bold text-slate-800 dark:text-slate-100">Mesin Pengenalan Wajah</h2>
+            <p class="text-xs text-slate-400 -mt-1">InsightFace (ArcFace) berpotensi lebih akurat, tapi wajib diuji langsung dgn kamera sungguhan sebelum dipakai serius. Data wajah kedua mesin tersimpan TERPISAH — pindah ke sini atau balik ke Human.js tidak pernah menghapus wajah yang sudah terdaftar.</p>
+            @php $faceEngineNow = \App\Support\FaceEngine::aktif(); @endphp
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                @foreach(\App\Support\FaceEngine::ENGINES as $val => $lbl)
+                <label class="cursor-pointer">
+                    <input type="radio" name="face_engine" value="{{ $val }}" @checked($faceEngineNow===$val) class="hidden peer">
+                    <div class="border-2 rounded-xl p-4 transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600 h-full">
+                        <i data-lucide="{{ $val==='insightface' ? 'flask-conical' : 'scan-face' }}" class="w-5 h-5 text-slate-400 peer-checked:text-primary mb-1.5"></i>
+                        <p class="font-bold text-sm text-slate-700 dark:text-slate-200">{{ $lbl }}</p>
+                    </div>
+                </label>
+                @endforeach
+            </div>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
+        </form>
+
+        {{-- Zona Berbahaya: reset verifikasi wajah massal — sekali klik, SEMUA siswa & guru
+             (utk mesin yg sedang aktif saja) wajib daftar ulang wajah lewat EnsureFaceRegistered
+             sebelum bisa lanjut memakai aplikasi. Data mesin yg TIDAK aktif tidak ikut terhapus. --}}
+        <div class="card p-6 space-y-4 border-2 border-rose-200 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-900/10">
+            <div>
+                <h2 class="font-bold text-rose-700 dark:text-rose-300 flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Reset Verifikasi Wajah Massal</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                    Menghapus data wajah SEMUA siswa & guru sekaligus, hanya untuk mesin yang sedang aktif (<b>{{ \App\Support\FaceEngine::ENGINES[$faceEngineNow] ?? $faceEngineNow }}</b>). Setelah direset, semua orang WAJIB mendaftar ulang wajah sebelum bisa mengakses fitur lain di aplikasi. Data mesin lain (kalau ada) tidak ikut terhapus. Tindakan ini tidak bisa dibatalkan.
+                </p>
+            </div>
+            <p class="text-sm text-slate-600 dark:text-slate-300">
+                Saat ini <b class="text-rose-600 dark:text-rose-400">{{ $siswaFaceTerdaftar }}</b> siswa &amp; <b class="text-rose-600 dark:text-rose-400">{{ $guruFaceTerdaftar }}</b> guru terdaftar wajahnya — semuanya akan direset.
+            </p>
+            <form method="POST" action="{{ route('setting.faceResetAll') }}"
+                  onsubmit="return confirmAction(this, 'Reset wajah SEMUA siswa & guru ({{ $siswaFaceTerdaftar }} siswa + {{ $guruFaceTerdaftar }} guru, mesin {{ \App\Support\FaceEngine::ENGINES[$faceEngineNow] ?? $faceEngineNow }})? Mereka wajib daftar ulang wajah sebelum bisa memakai aplikasi lagi. Tindakan ini TIDAK BISA dibatalkan.', 'red')">
+                @csrf
+                <button type="submit" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-rose-600 text-white hover:bg-rose-700 transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Reset Semua Verifikasi Wajah
+                </button>
+            </form>
+        </div>
 
         {{-- Link Kiosk Absensi --}}
         <div class="card p-6 space-y-3" x-data="{ copied:false, url:'{{ $settings['kiosk_token'] ?? '' ? url('/kiosk-absensi/'.$settings['kiosk_token']) : '' }}',
@@ -643,6 +685,15 @@
                     </button>
                     <label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
                         <input type="checkbox" name="qr_absensi_aktif" value="1" @checked(($settings['qr_absensi_aktif'] ?? '1')=='1') class="accent-[color:var(--cp)] w-4 h-4"> Aktifkan Absen QR
+                    </label>
+                </div>
+                <div class="border-t border-slate-100 dark:border-slate-700 pt-3">
+                    <label class="flex items-start gap-2 text-sm font-medium cursor-pointer">
+                        <input type="checkbox" name="qr_geo_wajib" value="1" @checked(($settings['qr_geo_wajib'] ?? '1')=='1') class="accent-[color:var(--cp)] w-4 h-4 mt-0.5">
+                        <span>
+                            Wajibkan Lokasi GPS Saat Absen QR
+                            <span class="block text-xs font-normal text-slate-400 mt-0.5">Kalau dimatikan, siswa/guru bisa absen QR dari mana saja tanpa perlu izin/pelacakan GPS sama sekali — sekolah tidak lagi membatasi jarak.</span>
+                        </span>
                     </label>
                 </div>
                 <button type="submit" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><span x-ignore><i data-lucide="save" class="w-4 h-4"></i></span> Simpan Lokasi</button>

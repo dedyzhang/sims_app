@@ -21,6 +21,7 @@
      x-data="arenaLive({
         canHost: @js($canHost),
         isSiswa: @js($isSiswaLive),
+        tokenReady: @js($canHost || !($requiresJoinToken ?? false) || ($hasJoinUnlock ?? true)),
         stateUrl: @js(route('classroom.arena.live.state', [$classroom, $quiz])),
         boardUrl: @js(route('classroom.arena.live.leaderboard', [$classroom, $quiz])),
         advanceUrl: @js(route('classroom.arena.live.advance', [$classroom, $quiz])),
@@ -69,6 +70,47 @@
 
     @if(session('success'))
     <div class="rounded-2xl bg-emerald-50 dark:bg-emerald-900/40 border-2 border-emerald-300 text-emerald-800 dark:text-emerald-200 px-4 py-3 text-sm font-bold">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+    <div class="rounded-2xl bg-rose-50 dark:bg-rose-900/40 border-2 border-rose-300 dark:border-rose-700 text-rose-800 dark:text-rose-200 px-4 py-3 text-sm font-bold">{{ session('error') }}</div>
+    @endif
+
+    @if($isSiswaLive && ($requiresJoinToken ?? false) && !($hasJoinUnlock ?? true))
+    <div class="fixed inset-0 z-[70] grid place-items-center bg-slate-900/70 p-4"
+         x-data="arenaSoloJoin({
+            prefillLiveToken: @js($prefillLiveToken ?? ''),
+            autoOpenLive: true,
+            liveUrl: @js($liveJoinUrl ?? ''),
+            joinTokenUrl: @js(route('classroom.arena.join-token', [$classroom, $quiz])),
+            liveRedirect: @js(route('classroom.arena.live', [$classroom, $quiz])),
+         })"
+         x-init="init()">
+        <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-slate-200 dark:ring-slate-700 p-5 space-y-4">
+            <div>
+                <h3 class="m-0 text-lg font-black text-slate-800 dark:text-slate-100">Token Live Arena</h3>
+                <p class="m-0 mt-1 text-xs font-semibold text-slate-500">Ketik, pindai QR, atau scan barcode dari guru mapel.</p>
+            </div>
+            <form method="POST" :action="joinTokenUrl" class="space-y-3">
+                @csrf
+                <input type="hidden" name="redirect" :value="liveRedirect">
+                <input type="text" name="join_token" x-model="liveToken"
+                       maxlength="8" autocomplete="off"
+                       class="form-input font-mono text-center text-xl tracking-[0.35em] uppercase"
+                       placeholder="ABCD" required autofocus>
+                <div class="flex gap-2">
+                    <button type="button" class="btn-secondary flex-1 rounded-xl py-2.5 text-sm font-bold"
+                            @click="openScan()">
+                        <i data-lucide="qr-code" class="w-4 h-4 inline"></i> Pindai
+                    </button>
+                    <button type="submit" class="btn-primary flex-1 rounded-xl py-2.5 text-sm font-bold">
+                        Masuk Live
+                    </button>
+                </div>
+            </form>
+            @include('arena-belajar.partials.join-barcode-wedge')
+        </div>
+        @include('arena-belajar.partials.join-qr-scanner')
+    </div>
     @endif
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 relative z-[2]">
@@ -128,6 +170,15 @@
                         </ul>
                         <p x-show="session && session.status === 'lobby' && !(session.participants || []).length"
                            class="text-xs font-semibold text-slate-400 m-0">Menunggu siswa membuka halaman Live…</p>
+                        @if($canHost && ($liveJoinQrSvg ?? null))
+                        <div class="arena-rx-join-qr-live mx-auto mt-6 max-w-xs"
+                             x-init="$nextTick(() => window.arenaRenderJoinBarcodes && arenaRenderJoinBarcodes($el))">
+                            <p class="text-[11px] font-black uppercase tracking-wider text-teal-200/80 mb-2">QR &amp; barcode gabung siswa</p>
+                            <div class="arena-rx-join-qr-box inline-block bg-white p-2 rounded-xl">{!! $liveJoinQrSvg !!}</div>
+                            @include('arena-belajar.partials.join-barcode-display', ['payload' => $liveBarcodePayload ?? null])
+                            <p class="text-xs font-semibold text-slate-400 mt-2 m-0">Siswa pindai QR atau barcode untuk masuk lobi Live</p>
+                        </div>
+                        @endif
                     </div>
                 </template>
 
@@ -318,6 +369,9 @@ function arenaLive(cfg) {
         countdownTimer: null,
         countdown: null,
         pollSeq: 0,
+        pollMs: 4000,
+        pollBackoffMs: 0,
+        lastBoardFetch: 0,
         get advanceLabel() {
             if (!this.session) return 'Maju';
             if (this.session.status === 'lobby') return 'Mulai soal 1';
@@ -335,10 +389,9 @@ function arenaLive(cfg) {
         },
         boot() {
             this.initFs();
+            if (!this.tokenReady) return;
             this.poll();
-            this.timer = setInterval(() => this.poll(), 3000);
-            // Countdown kosmetik sisi klien (ticking tiap 1 detik) — keputusan maju sungguhan
-            // tetap di server (poll() tiap 3 detik memicu autoAdvanceIfNeeded()).
+            this.timer = setInterval(() => this.poll(), this.pollMs);
             this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
@@ -362,15 +415,32 @@ function arenaLive(cfg) {
             this.countdown = Math.max(0, remain);
         },
         async poll() {
+            if (!this.tokenReady) return;
             const seq = ++this.pollSeq;
+            const now = Date.now();
+            const wantBoard = !this.lastBoardFetch
+                || (now - this.lastBoardFetch) >= 12000
+                || ['standings', 'ended'].includes(this.session?.status);
             try {
-                const [sRes, bRes] = await Promise.all([
+                const fetches = [
                     fetch(this.stateUrl, { headers: { Accept: 'application/json' } }),
-                    fetch(this.boardUrl, { headers: { Accept: 'application/json' } }),
-                ]);
+                ];
+                if (wantBoard) {
+                    fetches.push(fetch(this.boardUrl, { headers: { Accept: 'application/json' } }));
+                }
+                const results = await Promise.all(fetches);
                 if (seq !== this.pollSeq) return;
+                const sRes = results[0];
+                if (sRes.status === 429) {
+                    this.scheduleBackoff(15000);
+                    return;
+                }
+                if (sRes.status === 403) {
+                    const err = await sRes.json().catch(() => ({}));
+                    if (err.requires_token) this.tokenReady = false;
+                    return;
+                }
                 const sData = await sRes.json();
-                const bData = await bRes.json();
                 if (seq !== this.pollSeq) return;
                 const prevQ = this.session?.current_question_id;
                 this.session = sData.session;
@@ -385,13 +455,32 @@ function arenaLive(cfg) {
                     this.feedbackOk = null;
                     this.$nextTick(() => window.lucide && lucide.createIcons());
                 }
-                this.leaderboard = bData.leaderboard || [];
-                this.me = bData.me;
+                if (wantBoard && results[1]) {
+                    const bRes = results[1];
+                    if (bRes.status === 429) {
+                        this.scheduleBackoff(15000);
+                    } else if (bRes.ok) {
+                        const bData = await bRes.json();
+                        if (seq !== this.pollSeq) return;
+                        this.leaderboard = bData.leaderboard || [];
+                        this.me = bData.me;
+                        this.lastBoardFetch = now;
+                    }
+                }
+                if (this.pollBackoffMs > 0) this.pollBackoffMs = 0;
                 const focusRoot = document.getElementById('arena-focus-root');
                 if (focusRoot && this.session?.uuid) {
                     focusRoot.dataset.sessionId = this.session.uuid;
                 }
             } catch (e) {}
+        },
+        scheduleBackoff(ms) {
+            this.pollBackoffMs = ms;
+            if (this.timer) clearInterval(this.timer);
+            this.timer = setTimeout(() => {
+                this.timer = setInterval(() => this.poll(), this.pollMs);
+                this.poll();
+            }, ms);
         },
         async advance() {
             if (!this.canHost) return;

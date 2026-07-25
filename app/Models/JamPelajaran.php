@@ -12,7 +12,9 @@ class JamPelajaran extends Model
 
     protected $primaryKey = 'uuid';
     protected $table = 'jam_pelajaran';
-    protected $fillable = ['hari', 'jam_ke', 'jam_mulai', 'jam_selesai', 'jenis', 'label', 'urutan'];
+    protected $fillable = ['hari', 'jam_ke', 'jam_mulai', 'jam_selesai', 'jenis', 'label', 'urutan', 'kelas_scope'];
+
+    protected $casts = ['kelas_scope' => 'array'];
 
     /** Jenis jam: pelajaran + berbagai jam khusus */
     public const JENIS = [
@@ -56,5 +58,28 @@ class JamPelajaran extends Model
     public function getIkonAttribute(): string
     {
         return self::IKON[$this->jenis] ?? 'star';
+    }
+
+    /** true bila jam ini (istirahat/upacara/dll) berlaku utk SEMUA kelas — kelas_scope kosong/null. */
+    public function untukSemuaKelas(): bool
+    {
+        return empty($this->kelas_scope);
+    }
+
+    /** true bila kelas ini termasuk cakupan jam khusus ini (atau cakupannya "semua kelas"). */
+    public function berlakuUntukKelas(string $idKelas): bool
+    {
+        return $this->untukSemuaKelas() || in_array($idKelas, $this->kelas_scope, true);
+    }
+
+    /**
+     * true bila, UNTUK KELAS INI, jam ini adalah slot khusus (bukan slot pelajaran biasa) —
+     * dipakai di semua tempat yg memutuskan apakah sebuah sel (jam, kelas) boleh diisi mapel
+     * atau harus tampil sbg istirahat/khusus. Kelas di luar cakupan tetap dapat slot pelajaran
+     * biasa pada jam yg sama (istirahat bergilir per-kelas).
+     */
+    public function isKhususUntukKelas(string $idKelas): bool
+    {
+        return !$this->isPelajaran() && $this->berlakuUntukKelas($idKelas);
     }
 }
