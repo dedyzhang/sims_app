@@ -80,6 +80,74 @@ final class SchoolLetterhead
     }
 
     /**
+     * Stempel identitas + sumber digital untuk hasil scan buku (OCR).
+     * Pertanggungjawaban anti-plagiarisme: jelas bahwa teks berasal dari
+     * fotografi halaman lewat Asisten Guru SIMS, bukan karya orisinal AI/guru.
+     *
+     * @param  array{pages?:int, recorded_at?:string}  $meta
+     */
+    public static function ocrScanStamp(array $meta = []): string
+    {
+        $timezone = config('app.timezone', 'Asia/Jakarta');
+        $recorded = trim((string) ($meta['recorded_at'] ?? ''));
+        if ($recorded === '') {
+            $recorded = now()->timezone($timezone)->format('d/m/Y H:i T');
+        }
+
+        $pages = isset($meta['pages']) ? max(1, (int) $meta['pages']) : 1;
+        $pageLine = $pages > 1
+            ? "Jumlah halaman difoto: {$pages}"
+            : 'Jumlah halaman difoto: 1';
+
+        $sep = str_repeat('═', 42);
+        $lines = array_merge(
+            self::lines(),
+            [
+                $sep,
+                'SUMBER DIGITAL · SCAN BUKU',
+                'Asisten Guru SIMS (B\'tive) · trademark sekolah',
+                'Teks diekstrak dari foto halaman buku/materi cetak.',
+                'Bukan karya orisinal AI. Gunakan untuk pembelajaran internal.',
+                'Saat mengutip, cantumkan judul/penulis buku asli.',
+                $pageLine,
+                'Dicatat sistem: '.$recorded,
+                $sep,
+            ],
+        );
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Prefiks kop + stempel sumber scan pada teks OCR (hindari dobel stempel).
+     *
+     * @param  array{pages?:int, recorded_at?:string}  $meta
+     */
+    public static function ensureOcrAttribution(string $body, array $meta = []): string
+    {
+        $body = preg_replace("/\r\n?/", "\n", $body) ?? $body;
+        $body = trim($body);
+        $stamp = self::ocrScanStamp($meta);
+
+        if ($body === '') {
+            return $stamp;
+        }
+
+        $upper = mb_strtoupper($body);
+        // Sudah distempel (history / OCR ulang) — jangan dobel.
+        if (str_contains($upper, 'SUMBER DIGITAL') && str_contains($upper, 'SCAN BUKU')) {
+            $firstLine = trim(explode("\n", $body, 2)[0] ?? '');
+            if ($firstLine !== '' && mb_strtoupper($firstLine) === mb_strtoupper(self::schoolName())) {
+                return $body;
+            }
+
+            return self::asPlainText()."\n\n".$body;
+        }
+
+        return $stamp."\n\n".$body;
+    }
+
+    /**
      * Pastikan teks diawali kop sekolah dari Setting.
      * Jika model sudah menulis nama sekolah yang benar, biarkan.
      * Jika ada kop lama/asing di atas, diganti.
