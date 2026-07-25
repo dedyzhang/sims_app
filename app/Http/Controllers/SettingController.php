@@ -50,8 +50,9 @@ class SettingController extends Controller
 
         $settings = Setting::pluck('value', 'key');
         $aturans = Aturan::orderBy('kode')->get();
+        $modulFitur = ModulAktif::semua();
 
-        return view('setting.index', compact('semester', 'semesterAktif', 'kelas', 'pelajarans', 'settings', 'aturans'));
+        return view('setting.index', compact('semester', 'semesterAktif', 'kelas', 'pelajarans', 'settings', 'aturans', 'modulFitur'));
     }
 
     public function updateSemester(Request $request)

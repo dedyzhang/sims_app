@@ -17,12 +17,16 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
+use Ludensa\Contracts\GeneratesAiJson;
+use App\Integrations\Ludensa\SimsGeminiAiJsonGenerator;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        if (interface_exists(GeneratesAiJson::class)) {
+            $this->app->singleton(GeneratesAiJson::class, SimsGeminiAiJsonGenerator::class);
+        }
     }
 
     public function boot(): void

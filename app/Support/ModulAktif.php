@@ -41,6 +41,11 @@ class ModulAktif
                 'deskripsi' => 'Kuis interaktif dan misi edukatif di Ruang Kelas (async, live, template).',
                 'ikon' => 'gamepad-2',
             ],
+            'ludensa' => [
+                'label' => 'Arena Petualangan SD',
+                'deskripsi' => 'Gamifikasi belajar untuk siswa SD kelas 1–6: kuis adaptif, quest harian, dan permainan edukatif. Matikan bila sekolah tidak memakai modul ini.',
+                'ikon' => 'sparkles',
+            ],
             'agenda' => [
                 'label' => 'Agenda Guru & Rapat',
                 'deskripsi' => 'Agenda mengajar, rekap, buku batas, dan agenda rapat.',

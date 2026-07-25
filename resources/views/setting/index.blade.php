@@ -10,13 +10,19 @@
 
     {{-- Tabs --}}
     <div class="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 mb-6 flex-wrap">
-        @foreach(['sekolah'=>['Identitas','building-2'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock'],'disiplin'=>['Kedisiplinan','shield-alert'],'sosmed'=>['Media Sosial','share-2'],'integrasi'=>['Integrasi','plug'],'aplikasi'=>['Aplikasi','smartphone']] as $key => [$label,$icon])
+        @foreach(['sekolah'=>['Identitas','building-2'],'fitur'=>['Fitur','toggle-left'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock'],'disiplin'=>['Kedisiplinan','shield-alert'],'sosmed'=>['Media Sosial','share-2'],'integrasi'=>['Integrasi','plug'],'aplikasi'=>['Aplikasi','smartphone']] as $key => [$label,$icon])
         <button @click="tab='{{ $key }}'"
                 :class="tab==='{{ $key }}' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
                 class="seg flex-1 min-w-fit flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition">
             <i data-lucide="{{ $icon }}" class="w-4 h-4"></i> {{ $label }}
         </button>
         @endforeach
+    </div>
+
+    {{-- Fitur Aktif (on/off modul, termasuk Arena Petualangan SD) --}}
+    <div x-show="tab==='fitur'" x-transition>
+        @include('settings.partials.fitur-aktif')
+        <p class="mt-3 text-xs text-slate-400">Daftar yang sama juga ada di menu <a href="{{ route('setting.roles') }}" class="text-primary font-semibold hover:underline">Hak Akses &amp; Fitur</a>.</p>
     </div>
 
     {{-- Identitas --}}

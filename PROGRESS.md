@@ -1,68 +1,98 @@
-# Progress — Arena Belajar
+# Progress — SIMS MW
+
+> **Agent:** baca file ini + `PRD.md` + `features/*.md` di awal sesi. Status task di `features/NN-*.md` (suffix `[DONE]`) harus sinkron dengan checklist di bawah. Setelah selesai satu task, centang di sini dan update baris task di file fitur terkait.
+
+**Verifikasi terakhir:** 2026-07-23 — `php artisan test --filter="GameQuiz|GameLive|GameTemplate|ArenaBelajar|MissionClassroom"` → **49 passed**; `--filter="Ludensa|SimsGemini"` → **15 passed**.
+
+---
 
 ## Fase 1: Bank Soal & Kuis Async — SELESAI
-- [x] UI + navigasi tab Ruang Kelas
-- [x] Migration `game_*` (6 tabel)
-- [x] Models + GameAnswerGrader + GameQuizImporter
-- [x] GameQuizController + GameAttemptController + routes
-- [x] GameQuizPolicy
-- [x] Transfer nilai + Audit::log
-- [x] Seeder + Feature test (5 passed)
+
+Ref: `features/01-bank-soal-kuis-async.md` (task 1–11 `[DONE]`)
+
+- [x] 1–5 UI dummy → navigasi → poles responsif
+- [x] 6 Migration & model `game_*` (6 tabel)
+- [x] 7 `GameQuizController` CRUD + assign + `DB::transaction()`
+- [x] 8 `GameAttemptController` + auto-grading + monitor
+- [x] 9 `GameQuizPolicy` + authorization
+- [x] 10 Transfer nilai + `Audit::log`
+- [x] 11 Seeder + `GameQuizTest` (19 tests)
 
 ## Fase 2: Live Session & Leaderboard — SELESAI
-- [x] `game_live_sessions` + model
-- [x] GameLiveController (start/advance/end/state/leaderboard/answer)
-- [x] Match Up + Short Answer (builder + grading fuzzy/proporsional)
-- [x] FCM `ArenaLiveStartedNotification` (best-effort)
-- [x] UI live host/siswa + polling 3d
-- [x] Feature test GameLiveTest (4 passed)
+
+Ref: `features/02-live-session-leaderboard.md` (task 1–11 `[DONE]`)
+
+- [x] 1–5 UI live lobby/podium + builder Match/Short Answer (dummy → poles)
+- [x] 6 Migration `game_live_sessions` + model
+- [x] 7 `GameLiveController` + leaderboard JSON + polling
+- [x] 8 Grading Match Up & Short Answer
+- [x] 9 Policy aksi live
+- [x] 10 FCM `ArenaLiveStartedNotification` + activity log
+- [x] 11 `GameLiveTest` (7 tests)
 
 ## Fase 3: Template Interaktif & Mode Tim — SELESAI
-- [x] Template switcher (quiz/match/flashcard/crossword/unjumble)
-- [x] Mode Tim (`game_teams` + members) + podium agregat
-- [x] PDF worksheet DomPDF (+ kunci guru-only)
-- [x] Offline queue localStorage + `syncOffline` endpoint
-- [x] Feature test GameTemplateTest (4 passed)
 
-**Total tes Arena: 13 passed (50 assertions)**
+Ref: `features/03-template-interaktif.md` (task 1–11 `[DONE]`)
 
-## Fase 4: Jagat Misi (migrasi dari JagatMISI) — SELESAI (inti)
-- [x] Migration `missions`, `mission_steps`, `mission_attempts`, `mission_attempt_responses`, `mission_badges`, `mission_student_badges`, `mission_collection_items`, `mission_activity_logs`
-- [x] Models + `MissionNalarScoringService` + `MissionProgressionService`
-- [x] Controllers: `MissionNalarController`, `MissionProgressController`
-- [x] Routes `/jagat-misi/*` + API JSON
-- [x] Blade views: katalog, player nalar, progres/leaderboard
-- [x] Assets CSS/JS dari prototype JagatMISI → `public/jagat-misi/`
-- [x] `JagatMisiSeeder` + Feature test (6 passed)
+- [x] 1–5 Template switcher, mode tim, PDF preview, navigasi, poles
+- [x] 6 Migration teams + template fields
+- [x] 7 `GameTemplateController` + team scoring
+- [x] 8 DomPDF worksheet + kunci guru
+- [x] 9 Policy tim & export
+- [x] 10 Offline queue localStorage + `syncOffline`
+- [x] 11 `GameTemplateTest` (6 tests)
 
-**Total tes Jagat Misi: 6 passed**
+**Subtotal Arena Belajar (kuis):** 32 tests (+ `ArenaBelajarDemoFlowTest` 2, `GameQuizImporterLooksLikeTest` 1)
 
-### Belum dimigrasi
+---
+
+## Jagat Misi (terintegrasi Arena Belajar) — SELESAI
+
+- [x] Fase 1–7: models, player, debrief, analytics, mission builder
+- [x] Fase 8: `MissionClassroomController` + assign/play/transfer di Ruang Kelas
+- [x] Merge branding: satu tab **Arena Belajar** (Kuis + Misi); `jagat_misi` → `arena_belajar`
+- [x] `MissionClassroomTest` (14 tests)
+
+### Sisa opsional
+
 - [ ] Admin dashboard khusus JagatMISI (SIMS sudah punya admin sendiri)
 
-## Fase 5–7 Jagat Misi — SELESAI
-- [x] Fase 2: Mission Player recall/quiz + matching + avatar config
-- [x] Fase 4: Debrief refleksi + gate server + panel guru
-- [x] Fase 5: Analytics concept_mastery + laporan PDF (print)
-- [x] Fase 7: Mission Builder CRUD + bank item + publish
-- [x] Feature test Jagat Misi: 14 passed (total dengan fase 3 & 6)
+---
 
-## Fase 8: Integrasi Ruang Kelas — SELESAI
-- [x] Migration `mission_assignments` + kolom `assignment_id` di `mission_attempts`
-- [x] Model `MissionAssignment` + relasi di `Mission` / `MissionAttempt`
-- [x] `MissionClassroomController` (index, assign, show, play, results, transferGrades)
-- [x] Routes `classroom.jagat.*` di group Ruang Kelas
-- [x] Tab Jagat Misi di `classroom/show.blade.php`
-- [x] Views `classroom/jagat-misi/*`
-- [x] `MissionPolicy` scoped ke classroom member (`playInClassroom`, `viewInClassroom`)
-- [x] Simpan `assignment_id` saat submit player/nalar dari konteks kelas
-- [x] Transfer nilai ke `NilaiFormatif` / `NilaiSumatif` (pola Arena Belajar)
-- [x] Feature test `MissionClassroomTest` (7 tests)
+## Integrasi Ludensa — DALAM PENGERJAAN (uncommitted)
 
-## Merge branding: Jagat Misi → Arena Belajar — SELESAI
-- [x] Satu tab Ruang Kelas: Arena Belajar (tab Jagat dihapus; `?tab=jagat` → arena)
-- [x] Hub `arena-belajar/index` menampilkan section Kuis + Misi
-- [x] Modul toggle tunggal `arena_belajar` (key `jagat_misi` dihapus dari registry)
-- [x] Route misi digate `modul:arena_belajar`; path internal `/jagat-misi/*` tetap
-- [x] Rebrand label user-facing; `classroom.jagat.index` redirect ke hub Arena
-- [x] Panduan + tes brand diperbarui
+Modul permainan edukatif SD (paket `ludensa/*`) terintegrasi ke SIMS via service provider.
+
+- [x] `config/ludensa.php` + `LudensaIntegrationServiceProvider`
+- [x] Adapter: `LudensaJenjang`, `LudensaSchool`, `InteractsWithLudensa`
+- [x] `SimsGeminiAiJsonGenerator` (binding AI JSON ke Ludensa)
+- [x] `ModulAktif` + toggle `fitur_ludensa_aktif` / middleware `modul:ludensa`
+- [x] Tab **Fitur** di Pengaturan Sistem (on/off Arena Petualangan SD + modul lain)
+- [x] Activity log migrations (Spatie)
+- [x] `SimsLudensaSeeder` + `LudensaIntegrationTest` (10 tests)
+- [x] Unit: `LudensaJenjangAnakTest`, `SimsGeminiAiJsonGeneratorTest` (5 tests)
+- [ ] Commit & deploy ke staging — **tunggu approval FL**
+- [x] Audit keamanan pre-rilis: **`laravel-security-audit`** — P1 avatar privat + tenant scope diperbaiki 2026-07-23
+- [ ] Dokumentasi admin: cara aktifkan modul Ludensa per sekolah
+
+---
+
+## Ringkasan tes
+
+| Area | Filter | Passed |
+|------|--------|--------|
+| Arena Belajar + Jagat Misi kelas | `GameQuiz\|GameLive\|GameTemplate\|ArenaBelajar\|MissionClassroom` | 49 |
+| Ludensa | `Ludensa\|SimsGemini` | 15 |
+
+---
+
+## Perintah kontrol (prd-generator)
+
+| Perintah | Aksi |
+|----------|------|
+| `lanjut` | Task berikutnya di fitur aktif |
+| `lanjut fase [n]` | Lompat ke fase/fitur |
+| `ulangi task ini` | Revisi task terakhir |
+| `skip` | Lewati task (sebut alasan) |
+
+**Gate approval FL** wajib sebelum task: migration/schema baru, uang/pembayaran, auth/policy, hapus data produksi.

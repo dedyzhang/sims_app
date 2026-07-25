@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android WebView App Builder"
+  short_description: "Build Android WebView and native apps"
+  default_prompt: "Use $android-webview-app-builder to plan and build an Android WebView or native app with senior engineering standards."
