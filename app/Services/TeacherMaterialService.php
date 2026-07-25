@@ -1,0 +1,157 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\AiDocument;
+use App\Models\User;
+use App\Support\DocumentText;
+use Illuminate\Http\UploadedFile;
+use RuntimeException;
+
+/*
+| Materi/buku guru untuk Generator Soal (RAG).
+| Controller hanya map hasil ini ke HTTP — tidak ada logika pipeline di controller.
+*/
+class TeacherMaterialService
+{
+    public function __construct(
+        private RagService $rag,
+        private AiDocumentRegistrar $registrar,
+    ) {}
+
+    /**
+     * @return list<array{uuid:string,title:string,status:string,status_label:string,chunk_count:int,ready:bool,awaiting_quota:bool,error:?string,updated_at:?string}>
+     */
+    public function listPayloads(string $ownerUuid): array
+    {
+        return AiDocument::query()
+            ->where('user_uuid', $ownerUuid)
+            ->where('source', AiDocument::SOURCE_TEACHER_MATERIAL)
+            ->latest()
+            ->limit(30)
+            ->get()
+            ->map(fn (AiDocument $doc) => $this->payload($doc))
+            ->values()
+            ->all();
+    }
+
+    /** @return array{uuid:string,title:string,status:string,status_label:string,chunk_count:int,ready:bool,awaiting_quota:bool,error:?string,updated_at:?string} */
+    public function payload(AiDocument $doc): array
+    {
+        return [
+            'uuid' => $doc->uuid,
+            'title' => $doc->title,
+            'status' => $doc->status,
+            'status_label' => match ($doc->status) {
+                AiDocument::STATUS_PENDING => 'Sedang diproses',
+                AiDocument::STATUS_PARTIAL => 'Sebagian siap — menunggu kuota, lanjut otomatis',
+                AiDocument::STATUS_PROCESSED => 'Siap dipakai',
+                AiDocument::STATUS_FAILED => 'Gagal diproses',
+                default => (string) $doc->status,
+            },
+            'chunk_count' => (int) ($doc->chunk_count ?? 0),
+            'ready' => in_array($doc->status, AiDocument::searchableStatuses(), true),
+            'awaiting_quota' => $doc->isAwaitingQuota(),
+            'error' => $doc->error,
+            'updated_at' => $doc->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Putuskan jalur unggahan: teks pendek inline, atau daftar dokumen RAG.
+     *
+     * @return array{0:string,1:?AiDocument}  [materi inline, dokumen RAG|null]
+     *
+     * @throws TeacherMaterialException
+     */
+    public function resolveUpload(User $owner, UploadedFile $file): array
+    {
+        $extension = (string) $file->getClientOriginalExtension();
+        $text = DocumentText::extract($file->getRealPath(), $extension);
+
+        if ($text === '') {
+            throw TeacherMaterialException::extractFailed(
+                'Teks tidak dapat diekstrak dari file. Pastikan PDF bukan hasil scan/gambar dan file Word berisi teks.'
+            );
+        }
+
+        // File yang muat di budget prompt: tanpa embedding (hemat kuota sekolah).
+        if (mb_strlen($text) <= (int) config('ai.max_input_chars')) {
+            return [$text, null];
+        }
+
+        $document = $this->registrar->register(
+            $owner->uuid,
+            $file,
+            AiDocument::SOURCE_TEACHER_MATERIAL,
+            $file->getClientOriginalName(),
+            (string) $file->getClientMimeType(),
+        );
+
+        return ['', $document];
+    }
+
+    /**
+     * @throws TeacherMaterialException
+     */
+    public function findOwned(User $owner, string $documentUuid): ?AiDocument
+    {
+        if ($documentUuid === '') {
+            return null;
+        }
+
+        $document = AiDocument::query()
+            ->where('uuid', $documentUuid)
+            ->where('user_uuid', $owner->uuid)
+            ->where('source', AiDocument::SOURCE_TEACHER_MATERIAL)
+            ->first();
+
+        if (! $document) {
+            throw TeacherMaterialException::notFound('Materi tidak ditemukan atau bukan milik Anda.');
+        }
+
+        return $document;
+    }
+
+    /**
+     * Ambil teks materi yang relevan untuk topik (retrieval), atau lempar bila belum siap.
+     *
+     * @throws TeacherMaterialException
+     */
+    public function retrieveForTopic(AiDocument $document, string $topik, string $ownerUuid): string
+    {
+        if (! in_array($document->status, AiDocument::searchableStatuses(), true)) {
+            $message = match ($document->status) {
+                AiDocument::STATUS_FAILED => 'Materi gagal diproses: '.($document->error ?: 'penyebab tidak diketahui.'),
+                AiDocument::STATUS_PENDING => 'Materi sedang diproses (embedding). Tunggu sebentar lalu buat soal lagi — Anda tidak perlu mengunggah ulang.',
+                default => 'Materi belum siap dipakai. Tunggu pemrosesan selesai.',
+            };
+
+            throw TeacherMaterialException::processing($message, $document);
+        }
+
+        try {
+            // Embed query: key guru (pemilik) dulu, sekolah hanya bila kuota guru habis.
+            $hits = $this->rag->search(
+                $topik,
+                (int) config('ai.rag.quiz_top_k', 12),
+                $document->uuid,
+                $ownerUuid,
+                $this->rag->embedOptionsForDocument($document),
+            );
+        } catch (RuntimeException $e) {
+            throw TeacherMaterialException::provider($e->getMessage());
+        }
+
+        if ($hits === []) {
+            throw TeacherMaterialException::noHits(
+                'Tidak ada bagian materi yang cocok dengan topik "'.$topik.'". '
+                .'Coba topik yang memakai istilah seperti tertulis di buku.'
+            );
+        }
+
+        $material = implode("\n\n---\n\n", array_column($hits, 'content'));
+
+        return mb_substr($material, 0, (int) config('ai.rag.quiz_material_chars', 24_000));
+    }
+}
