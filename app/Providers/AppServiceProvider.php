@@ -84,14 +84,8 @@ class AppServiceProvider extends ServiceProvider
                  ->with('sekolahLogoExt', $logoExt);
         });
 
-        // Popup "Apa yang Baru": ditandai sekali per sesi login lewat semua metode
-        // login (password, PIN, WebAuthn) karena semuanya bermuara ke Auth::login().
-        // Sengaja BUKAN flash session — beberapa middleware (wajib ganti password,
-        // wajib daftar wajah) bisa redirect dulu sebelum halaman pertama benar-benar
-        // tampil, yang akan "memakan" flash sebelum modal sempat dicek. Partial modal
-        // sendiri yang menghapus flag ini begitu ia benar-benar dievaluasi di halaman.
-        Event::listen(Login::class, function () {
-            session()->put('show_whats_new', true);
-        });
+        // Popup "Apa yang Baru" kini dievaluasi langsung di view layout (via whats-new-modal)
+        // memanfaatkan Cache yang jauh lebih ringan daripada mengandalkan flash session
+        // yang sering "termakan" oleh middleware redirect.
     }
 }

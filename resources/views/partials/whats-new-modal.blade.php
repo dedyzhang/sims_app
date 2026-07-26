@@ -4,9 +4,8 @@
      bila user mencentang "Jangan tampilkan lagi". --}}
 @php
     $pendingUpdate = null;
-    if (auth()->check() && session('show_whats_new')) {
+    if (auth()->check()) {
         $pendingUpdate = \App\Models\AppUpdate::pendingFor(auth()->user());
-        session()->forget('show_whats_new');
     }
 @endphp
 @if($pendingUpdate)

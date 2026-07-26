@@ -26,13 +26,26 @@ class AppUpdate extends Model
         return $this->belongsTo(User::class, 'created_by', 'uuid');
     }
 
+    protected static function booted()
+    {
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::forget('app_update_latest');
+        });
+
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::forget('app_update_latest');
+        });
+    }
+
     /** Update terbaru yang diterbitkan & belum ditutup permanen oleh user ini. */
     public static function pendingFor(User $user): ?self
     {
-        $latest = static::where('is_published', true)
-            ->orderByDesc('released_at')
-            ->orderByDesc('created_at')
-            ->first();
+        $latest = \Illuminate\Support\Facades\Cache::rememberForever('app_update_latest', function () {
+            return static::where('is_published', true)
+                ->orderByDesc('released_at')
+                ->orderByDesc('created_at')
+                ->first();
+        });
 
         if (!$latest || $latest->uuid === $user->dismissed_update_id) {
             return null;
