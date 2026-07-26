@@ -121,6 +121,12 @@ class RagService
 
         $done = 0;
         foreach ($pieces as $i => $piece) {
+            $freshStatus = AiDocument::query()->where('uuid', $doc->uuid)->value('status');
+            if ($freshStatus === AiDocument::STATUS_CANCELLED) {
+                $doc->chunks()->delete();
+                return 0;
+            }
+
             if (($existing[$i] ?? null) === $piece) {
                 $done++;
 
@@ -140,6 +146,12 @@ class RagService
                 throw $e;
             } catch (\Throwable $e) {
                 return $this->markFailed($doc, $e);
+            }
+
+            // Cek sekali lagi setelah HTTP request sebelum menyimpan ke database
+            if (AiDocument::query()->where('uuid', $doc->uuid)->value('status') === AiDocument::STATUS_CANCELLED) {
+                $doc->chunks()->delete();
+                return 0;
             }
 
             // updateOrCreate, bukan create: posisi ord ini mungkin sudah terisi hasil
@@ -162,6 +174,16 @@ class RagService
         ]);
 
         return $done;
+    }
+
+    /** Batalkan pemrosesan dokumen dan bersihkan chunk yang sudah dibuat. */
+    public function cancel(AiDocument $doc): void
+    {
+        $doc->update([
+            'status' => AiDocument::STATUS_CANCELLED,
+            'error' => 'Pemrosesan dibatalkan oleh pengguna.',
+        ]);
+        $doc->chunks()->delete();
     }
 
     /** Kuota harian habis di tengah jalan: simpan progres, tandai untuk dilanjutkan. */

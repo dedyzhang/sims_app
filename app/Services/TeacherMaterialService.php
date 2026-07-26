@@ -70,9 +70,7 @@ class TeacherMaterialService
         $text = DocumentText::extract($file->getRealPath(), $extension);
 
         if ($text === '') {
-            throw TeacherMaterialException::extractFailed(
-                'Teks tidak dapat diekstrak dari file. Pastikan PDF bukan hasil scan/gambar dan file Word berisi teks.'
-            );
+            throw TeacherMaterialException::extractFailed();
         }
 
         // File yang muat di budget prompt: tanpa embedding (hemat kuota sekolah).
@@ -153,5 +151,21 @@ class TeacherMaterialService
         $material = implode("\n\n---\n\n", array_column($hits, 'content'));
 
         return mb_substr($material, 0, (int) config('ai.rag.quiz_material_chars', 24_000));
+    }
+
+    /**
+     * Batalkan pemrosesan materi dan bersihkan dari database.
+     *
+     * @throws TeacherMaterialException
+     */
+    public function cancelMaterial(string $documentUuid, User $owner): bool
+    {
+        $document = $this->findOwned($owner, $documentUuid);
+        if ($document) {
+            $this->rag->cancel($document);
+            $document->delete();
+        }
+
+        return true;
     }
 }

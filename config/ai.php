@@ -236,8 +236,8 @@ return [
             penulisan soal, dan bebas ambigu. Ikuti persis jumlah, jenis, dan tingkat
             kesulitan yang diminta. Untuk pilihan ganda: beri opsi A–D, hanya satu
             jawaban benar, dan tulis KUNCI JAWABAN di bagian paling bawah. Untuk esai:
-            sertakan poin-poin jawaban ideal/rubrik singkat. Gunakan Bahasa Indonesia
-            baku. Jangan menambah pengantar berlebihan — langsung ke soal.
+            sertakan poin-poin jawaban ideal/rubrik singkat. Ikuti bahasa output yang
+            diminta di permintaan pengguna. Jangan menambah pengantar berlebihan — langsung ke soal.
             TXT,
         'summary' => <<<'TXT'
             Kamu asisten guru perangkum materi. Ringkas materi yang diberikan menjadi
@@ -259,7 +259,8 @@ return [
             TXT,
         'learning' => <<<'TXT'
             Kamu asisten guru penyusun perangkat ajar RPM (Perencanaan Pembelajaran Mendalam).
-            Hasil harus siap direview, diedit, dan diunduh guru. Gunakan Bahasa Indonesia baku.
+            Hasil harus siap direview, diedit, dan diunduh guru. Ikuti bahasa output yang
+            diminta di permintaan pengguna untuk isi narasi, soal lampiran, dan petunjuk.
             Ikuti PERSIS format dokumen acuan: kop sekolah, judul, identitas, IDENTIFIKASI,
             DESAIN PEMBELAJARAN, PENGALAMAN BELAJAR, ASESMEN PEMBELAJARAN, tanda tangan,
             dan LAMPIRAN 1-3. Bentuk tabel, DPL 8 baris, rubrik Kompetensi/Kriteria, dan
@@ -289,6 +290,18 @@ return [
             menekan "Kirim ke Arena" untuk impor ke Arena Belajar.
             Jangan mengarang data resmi sekolah (nilai, SPP, absensi) yang tidak diberikan.
             TXT,
+
+        /*
+        | Dokumen Asisten Guru (RPM, soal panjang) sering kena finishReason MAX_TOKENS.
+        | auto_continue: lanjutkan otomatis hingga max_continuations kali sebelum error.
+        */
+        'max_output_tokens' => (int) env('AI_TEACHER_MAX_OUTPUT_TOKENS', 8192),
+        'max_continuations' => (int) env('AI_TEACHER_MAX_CONTINUATIONS', 2),
+        // filter_var: string "false"/"0" di .env harus bisa mematikan (bukan (bool)"false" === true).
+        'auto_continue_on_max_tokens' => filter_var(
+            env('AI_TEACHER_AUTO_CONTINUE', true),
+            FILTER_VALIDATE_BOOLEAN
+        ),
     ],
 
     /*
@@ -319,8 +332,8 @@ return [
         'embed_model' => env('AI_EMBED_MODEL', 'gemini-embedding-001'),
         'chunk_chars' => (int) env('AI_RAG_CHUNK', 900),   // ukuran target per chunk
         'chunk_overlap' => (int) env('AI_RAG_OVERLAP', 150),
-        'max_chunks' => (int) env('AI_RAG_MAX_CHUNKS', 120), // batas chunk per dokumen (pilot aman)
-        'max_extract_chars' => (int) env('AI_RAG_MAX_EXTRACT_CHARS', 200_000),
+        'max_chunks' => (int) env('AI_RAG_MAX_CHUNKS', 100), // batas chunk per dokumen (~30 hal / 50 slide)
+        'max_extract_chars' => (int) env('AI_RAG_MAX_EXTRACT_CHARS', 90_000),
         'max_upload_kb' => (int) env('AI_RAG_MAX_UPLOAD_KB', 5120), // 5 MB
         'top_k' => (int) env('AI_RAG_TOPK', 5),        // chunk termirip yang dipakai
         // Pembuatan soal butuh bahan lebih banyak daripada tanya-jawab: 5 chunk cukup
