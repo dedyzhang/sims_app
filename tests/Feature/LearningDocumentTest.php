@@ -112,6 +112,24 @@ class LearningDocumentTest extends TestCase
         $this->assertNotSame('', $doc['text']);
     }
 
+    /** RPM Mandarin: judul bagian Indonesia, isi Hanzi — harus tetap terparse. */
+    public function test_rpm_mandarin_ringkas_terparse_dengan_hanzi(): void
+    {
+        $path = base_path('tests/Fixtures/rpm-mandarin-kelas1-ringkas.txt');
+        $this->assertFileExists($path);
+
+        $doc = LearningDocument::parse((string) file_get_contents($path));
+
+        $this->assertTrue($doc['parsed']);
+        $this->assertSame('PERENCANAAN PEMBELAJARAN MENDALAM', $doc['title']);
+        $this->assertSame('"第三课 打招呼"', $doc['subtitle']);
+        $this->assertCount(3, $doc['identifikasi']);
+        $this->assertStringContainsString('第三课 打招呼', $doc['identifikasi'][1]['lines'][0] ?? '');
+        $this->assertGreaterThanOrEqual(1, count($doc['desain']));
+        $this->assertGreaterThanOrEqual(1, count($doc['pengalaman']));
+        $this->assertCount(3, $doc['lampiran']);
+    }
+
     private function keluaranAi(): string
     {
         return <<<'TXT'

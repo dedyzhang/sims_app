@@ -25,6 +25,7 @@ class AiDocument extends Model
     public const STATUS_PARTIAL   = 'partial';
     public const STATUS_PROCESSED = 'processed';
     public const STATUS_FAILED    = 'failed';
+    public const STATUS_CANCELLED = 'cancelled';
 
     /** Dokumen yang diunggah admin lewat menu Dokumen AI (Analisis AI). */
     public const SOURCE_ADMIN_UPLOAD = 'admin_upload';

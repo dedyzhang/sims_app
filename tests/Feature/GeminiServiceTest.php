@@ -428,7 +428,7 @@ class GeminiServiceTest extends TestCase
         $this->assertStringNotContainsString('Need to double-check', $result['text']);
     }
 
-    public function test_jawaban_terpotong_max_tokens_dilaporkan_sebagai_error(): void
+    public function test_jawaban_terpotong_max_tokens_tanpa_auto_continue_mengembalikan_parsial(): void
     {
         Http::fake([
             '*' => Http::response([
@@ -440,10 +440,196 @@ class GeminiServiceTest extends TestCase
             ]),
         ]);
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('terpotong');
+        // Tanpa auto_continue: partial tetap dikembalikan (flag truncated) agar
+        // pemakaian token bisa dilog dan guru tidak kehilangan teks yang sudah dibayar.
+        $result = app(GeminiService::class)->generate('Buat RPM');
 
-        app(GeminiService::class)->generate('Buat RPM');
+        $this->assertStringContainsString('IDENTIFIKASI Murid: Fase C', $result['text']);
+        $this->assertTrue($result['truncated'] ?? false);
+        $this->assertSame(1, $result['api_calls'] ?? 0);
+        $this->assertCount(1, $result['chunks'] ?? []);
+    }
+
+    public function test_jawaban_terpotong_dilanjutkan_otomatis_bila_auto_continue_aktif(): void
+    {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push([
+                    'candidates' => [[
+                        'finishReason' => 'MAX_TOKENS',
+                        'content' => ['parts' => [['text' => 'IDENTIFIKASI Murid: Fase C']]],
+                    ]],
+                    'usageMetadata' => ['promptTokenCount' => 10, 'candidatesTokenCount' => 4000],
+                ])
+                ->push([
+                    'candidates' => [[
+                        'finishReason' => 'STOP',
+                        'content' => ['parts' => [['text' => "\nDESAIN PEMBELAJARAN\nTujuan pembelajaran lengkap."]]],
+                    ]],
+                    'usageMetadata' => ['promptTokenCount' => 12, 'candidatesTokenCount' => 120],
+                ]),
+        ]);
+
+        $result = app(GeminiService::class)->generate('Buat RPM', [
+            'auto_continue_on_max_tokens' => true,
+            'max_continuations' => 2,
+            'max_output_tokens' => 8192,
+        ]);
+
+        $this->assertStringContainsString('IDENTIFIKASI Murid: Fase C', $result['text']);
+        $this->assertStringContainsString('DESAIN PEMBELAJARAN', $result['text']);
+        $this->assertSame(1, $result['continuations'] ?? 0);
+        $this->assertSame(2, $result['api_calls'] ?? 0);
+        $this->assertCount(2, $result['chunks'] ?? []);
+        Http::assertSentCount(2);
+    }
+
+    public function test_lanjutan_tidak_mengirim_ulang_body_materi_penuh(): void
+    {
+        $marker = 'MARKER_MATERI_UNIK_XYZ_'.str_repeat('isi-materi-panjang-', 40);
+        $prompt = "Buat RPM siap pakai untuk guru.\n"
+            ."Fokus/topik RPM: \"Ekosistem\".\n"
+            ."Gunakan Bahasa Indonesia.\n\n"
+            ."MATERI FILE:\n{$marker}\n\n"
+            .'Format: IDENTIFIKASI + DESAIN + PENGALAMAN BELAJAR.';
+
+        Http::fake([
+            '*' => Http::sequence()
+                ->push([
+                    'candidates' => [[
+                        'finishReason' => 'MAX_TOKENS',
+                        'content' => ['parts' => [['text' => 'IDENTIFIKASI Murid: awal dokumen ']]],
+                    ]],
+                    'usageMetadata' => ['promptTokenCount' => 100, 'candidatesTokenCount' => 4000],
+                ])
+                ->push([
+                    'candidates' => [[
+                        'finishReason' => 'STOP',
+                        'content' => ['parts' => [['text' => 'DESAIN PEMBELAJARAN lengkap.']]],
+                    ]],
+                    'usageMetadata' => ['promptTokenCount' => 40, 'candidatesTokenCount' => 80],
+                ]),
+        ]);
+
+        $result = app(GeminiService::class)->generate($prompt, [
+            'auto_continue_on_max_tokens' => true,
+            'max_continuations' => 2,
+        ]);
+
+        $this->assertStringContainsString('DESAIN PEMBELAJARAN', $result['text']);
+        Http::assertSentCount(2);
+
+        $requests = Http::recorded();
+        $this->assertCount(2, $requests);
+
+        $firstBody = json_encode($requests[0][0]->data());
+        $secondBody = json_encode($requests[1][0]->data());
+
+        $this->assertStringContainsString($marker, $firstBody);
+        // Hop lanjutan: body materi diganti recap, bukan di-replay penuh.
+        $this->assertStringNotContainsString($marker, $secondBody);
+        $this->assertStringContainsString('Materi sumber dihilangkan', $secondBody);
+        $this->assertStringContainsString('Lanjutkan dokumen', $secondBody);
+    }
+
+    public function test_lanjutan_menyatukan_overlap_duplikat_di_teks(): void
+    {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push([
+                    'candidates' => [[
+                        'finishReason' => 'MAX_TOKENS',
+                        'content' => ['parts' => [['text' => 'LAMPIRAN 1: Soal pilihan ganda tentang ekosistem']]],
+                    ]],
+                    'usageMetadata' => ['promptTokenCount' => 10, 'candidatesTokenCount' => 100],
+                ])
+                ->push([
+                    'candidates' => [[
+                        'finishReason' => 'STOP',
+                        'content' => ['parts' => [['text' => 'tentang ekosistem hutan. 1. Pilihan A']]],
+                    ]],
+                    'usageMetadata' => ['promptTokenCount' => 8, 'candidatesTokenCount' => 20],
+                ]),
+        ]);
+
+        $result = app(GeminiService::class)->generate('Buat RPM', [
+            'auto_continue_on_max_tokens' => true,
+            'max_continuations' => 2,
+        ]);
+
+        $this->assertSame(
+            'LAMPIRAN 1: Soal pilihan ganda tentang ekosistem hutan. 1. Pilihan A',
+            $result['text'],
+        );
+    }
+
+    public function test_max_continuations_habis_mengembalikan_teks_parsial_dengan_flag_truncated(): void
+    {
+        Http::fake([
+            '*' => Http::sequence()
+                ->push([
+                    'candidates' => [[
+                        'finishReason' => 'MAX_TOKENS',
+                        'content' => ['parts' => [['text' => 'Bagian dokumen yang belum selesai']]],
+                    ]],
+                    'usageMetadata' => ['promptTokenCount' => 10, 'candidatesTokenCount' => 4096],
+                ])
+                ->push([
+                    'candidates' => [[
+                        'finishReason' => 'MAX_TOKENS',
+                        'content' => ['parts' => [['text' => ' lanjutan masih terpotong']]],
+                    ]],
+                    'usageMetadata' => ['promptTokenCount' => 12, 'candidatesTokenCount' => 4096],
+                ]),
+        ]);
+
+        $result = app(GeminiService::class)->generate('Buat RPM', [
+            'auto_continue_on_max_tokens' => true,
+            'max_continuations' => 1,
+        ]);
+
+        $this->assertStringContainsString('Bagian dokumen yang belum selesai', $result['text']);
+        $this->assertTrue($result['truncated'] ?? false);
+        $this->assertSame(2, $result['api_calls'] ?? 0);
+        $this->assertCount(2, $result['chunks'] ?? []);
+        Http::assertSentCount(2);
+    }
+
+    public function test_openrouter_length_dilanjutkan_otomatis(): void
+    {
+        config()->set('ai.provider', 'openrouter');
+
+        Http::fake([
+            'https://openrouter.ai/api/v1/chat/completions' => Http::sequence()
+                ->push([
+                    'choices' => [[
+                        'finish_reason' => 'length',
+                        'message' => ['content' => 'Bagian awal RPM'],
+                    ]],
+                    'usage' => ['prompt_tokens' => 20, 'completion_tokens' => 500],
+                    'model' => 'openrouter/free',
+                ])
+                ->push([
+                    'choices' => [[
+                        'finish_reason' => 'stop',
+                        'message' => ['content' => 'lanjutan sisa dokumen lengkap.'],
+                    ]],
+                    'usage' => ['prompt_tokens' => 30, 'completion_tokens' => 80],
+                    'model' => 'openrouter/free',
+                ]),
+        ]);
+
+        $result = app(GeminiService::class)->generate('Buat RPM', [
+            'auto_continue_on_max_tokens' => true,
+            'max_continuations' => 2,
+        ]);
+
+        $this->assertSame(
+            'Bagian awal RPMlanjutan sisa dokumen lengkap.',
+            $result['text'],
+        );
+        $this->assertSame(2, $result['api_calls'] ?? 0);
+        Http::assertSentCount(2);
     }
 
     public function test_thinking_level_dan_batas_token_diteruskan_ke_gemini(): void

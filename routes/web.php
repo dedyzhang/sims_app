@@ -170,6 +170,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/quota', 'quota')->name('quota');
             Route::get('/materials', 'materials')->middleware('throttle:60,1')->name('materials');
+            Route::delete('/materials/{uuid}', 'cancelMaterial')->middleware('throttle:30,1')->name('materials.cancel');
             Route::put('/gemini-key', 'updateGeminiKey')->middleware('throttle:20,1')->name('gemini-key');
             Route::post('/gemini-key', 'updateGeminiKey')->middleware('throttle:20,1');
             Route::delete('/gemini-key', 'destroyGeminiKey')->middleware('throttle:20,1')->name('gemini-key.destroy');

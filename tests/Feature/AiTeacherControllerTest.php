@@ -106,6 +106,254 @@ class AiTeacherControllerTest extends TestCase
         ]);
     }
 
+    public function test_upload_file_kosong_mengembalikan_petunjuk_foto_buku(): void
+    {
+        $user = User::create([
+            'username' => 'guru-ai-empty-file',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $filePath = tempnam(sys_get_temp_dir(), 'empty-docx');
+        $this->makeDocx($filePath, '   ');
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz'), [
+            'topik' => 'Uji file kosong',
+            'jumlah' => 1,
+            'jenis' => 'pg',
+            'tingkat' => 'sedang',
+            'file' => new UploadedFile(
+                $filePath,
+                'kosong.docx',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                null,
+                true,
+            ),
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('error_code', 'material_extract_failed')
+            ->assertJsonPath('suggest_camera', true);
+
+        $this->assertStringContainsString('Foto buku', (string) $response->json('hint'));
+    }
+
+    public function test_generator_soal_mandarin_menyertakan_instruksi_bahasa_dan_melewati_global_prompt(): void
+    {
+        $user = User::create([
+            'username' => 'guru-ai-mandarin',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $capturedPrompt = '';
+        $capturedOptions = [];
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt, &$capturedOptions) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt, array $options) use (&$capturedPrompt, &$capturedOptions) {
+                    $capturedPrompt = $prompt;
+                    $capturedOptions = $options;
+
+                    return str_contains($prompt, '简体中文')
+                        && str_contains((string) ($options['system'] ?? ''), '简体中文')
+                        && ($options['include_global_system_prompt'] ?? true) === false;
+                })
+                ->andReturn([
+                    'text' => "1. 你好\n\nKUNCI JAWABAN: A",
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 12,
+                    'completion_tokens' => 8,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz'), [
+            'topik' => '打招呼',
+            'jumlah' => 1,
+            'jenis' => 'pg',
+            'tingkat' => 'sedang',
+            'output_language' => 'zh-CN',
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringContainsString('简体中文', $capturedPrompt);
+        $this->assertFalse($capturedOptions['include_global_system_prompt'] ?? true);
+    }
+
+    public function test_generator_soal_mandarin_dari_docx_hanzi_memuat_materi(): void
+    {
+        $user = User::create([
+            'username' => 'guru-ai-mandarin-docx',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $filePath = tempnam(sys_get_temp_dir(), 'mandarin-quiz-docx');
+        $this->makeDocx($filePath, '第三课 打招呼：你好，我叫小明。');
+
+        $capturedPrompt = '';
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt) use (&$capturedPrompt) {
+                    $capturedPrompt = $prompt;
+
+                    return str_contains($prompt, 'MATERI FILE:')
+                        && str_contains($prompt, '你好')
+                        && str_contains($prompt, '小明');
+                })
+                ->andReturn([
+                    'text' => "1. 你好\n\nKUNCI JAWABAN: A",
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 12,
+                    'completion_tokens' => 8,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz'), [
+            'topik' => '第三课 打招呼',
+            'jumlah' => 1,
+            'jenis' => 'pg',
+            'tingkat' => 'sedang',
+            'output_language' => 'zh-CN',
+            'file' => new UploadedFile(
+                $filePath,
+                'materi-mandarin.docx',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                null,
+                true,
+            ),
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringContainsString('你好', $capturedPrompt);
+    }
+
+    public function test_generator_soal_mandarin_dengan_pinyin_menyertakan_instruksi(): void
+    {
+        $user = User::create([
+            'username' => 'guru-ai-pinyin',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $capturedPrompt = '';
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt) use (&$capturedPrompt) {
+                    $capturedPrompt = $prompt;
+
+                    return str_contains($prompt, 'Hanyu Pinyin');
+                })
+                ->andReturn([
+                    'text' => "1. 你好\nnǐ hǎo",
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 12,
+                    'completion_tokens' => 8,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz'), [
+            'topik' => '打招呼',
+            'jumlah' => 1,
+            'jenis' => 'pg',
+            'tingkat' => 'sedang',
+            'output_language' => 'zh-CN',
+            'include_pinyin' => true,
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringContainsString('Hanyu Pinyin', $capturedPrompt);
+    }
+
+    public function test_generator_rpm_english_menyertakan_instruksi_bahasa(): void
+    {
+        $user = User::create([
+            'username' => 'guru-ai-english-rpm',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $capturedPrompt = '';
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt, array $options) use (&$capturedPrompt) {
+                    $capturedPrompt = $prompt;
+
+                    return str_contains($prompt, 'Write the entire document content in English')
+                        && str_contains((string) ($options['system'] ?? ''), 'English')
+                        && ($options['include_global_system_prompt'] ?? true) === false;
+                })
+                ->andReturn([
+                    'text' => 'RPM English sample.',
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 20,
+                    'completion_tokens' => 30,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.learning'), [
+            'tool' => 'rpp',
+            'topik' => 'Linear Equations',
+            'mapel' => 'Mathematics',
+            'output_language' => 'en',
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringContainsString('Write the entire document content in English', $capturedPrompt);
+    }
+
+    public function test_generator_rpm_mandarin_menyertakan_instruksi_bahasa_dan_hints_km2026(): void
+    {
+        $user = User::create([
+            'username' => 'guru-ai-mandarin-rpm',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $capturedPrompt = '';
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt, array $options) use (&$capturedPrompt) {
+                    $capturedPrompt = $prompt;
+
+                    return str_contains($prompt, '简体中文')
+                        && str_contains($prompt, 'Petunjuk RPM Bahasa Mandarin')
+                        && str_contains($prompt, '听/说/读/写')
+                        && str_contains((string) ($options['system'] ?? ''), '简体中文')
+                        && ($options['include_global_system_prompt'] ?? true) === false;
+                })
+                ->andReturn([
+                    'text' => 'RPM Mandarin sample.',
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 20,
+                    'completion_tokens' => 30,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.learning'), [
+            'tool' => 'rpp',
+            'topik' => '第三课 打招呼',
+            'mapel' => 'Bahasa Mandarin',
+            'jenjang' => 'Kelas 1 SD',
+            'output_language' => 'zh-CN',
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringContainsString('Petunjuk RPM Bahasa Mandarin', $capturedPrompt);
+        $this->assertStringContainsString('第三课 打招呼', $capturedPrompt);
+    }
+
     public function test_generator_soal_bisa_memilih_beberapa_jenis_soal(): void
     {
         $user = User::create([
@@ -244,18 +492,20 @@ class AiTeacherControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('ai.teacher.index'));
 
         $response->assertOk()
-            ->assertSee('Generate Kuota')
+            ->assertSee('Kuota tersisa')
+            ->assertSee('AI Studio')
+            ->assertSee('AI Sekolah')
             ->assertDontSee('Keterangan Kuota Tersisa')
             ->assertDontSee('Angka resmi dihitung Google')
-            ->assertDontSee('quota.status_label', false)
             ->assertDontSee('gemini-3.5-flash', false)
             ->assertViewHas('canViewQuotaUsage', false)
             ->assertViewHas('quotaUsage', function (array $quota) {
                 return $quota['can_view_usage'] === false
                     && $quota['models'] === []
+                    && isset($quota['studio'], $quota['school'])
                     && $quota['remaining'] === 268
                     && $quota['remaining_percent'] === 99
-                    && $quota['remaining_label'] === '268 request tersisa'
+                    && str_contains((string) ($quota['remaining_label'] ?? ''), 'Studio')
                     && $quota['total']['remaining'] === 268
                     && $quota['total']['limit'] === 270;
             });
@@ -298,7 +548,9 @@ class AiTeacherControllerTest extends TestCase
         $response = $this->actingAs($user)->get(route('ai.teacher.index'));
 
         $response->assertOk()
-            ->assertSee('Generate Kuota')
+            ->assertSee('Kuota tersisa')
+            ->assertSee('AI Studio')
+            ->assertSee('AI Sekolah')
             ->assertDontSee('Keterangan Kuota Tersisa')
             ->assertDontSee('gemini-3.5-flash', false)
             ->assertDontSee('gemini-2.5-flash', false)
@@ -306,6 +558,7 @@ class AiTeacherControllerTest extends TestCase
             ->assertViewHas('quotaUsage', function (array $quota) {
                 return $quota['can_view_usage'] === false
                     && $quota['models'] === []
+                    && isset($quota['studio'], $quota['school'])
                     && $quota['remaining'] === 268
                     && $quota['remaining_percent'] === 99
                     && $quota['total']['limit'] === 270
@@ -348,9 +601,14 @@ class AiTeacherControllerTest extends TestCase
             ->assertJsonPath('quota.status', 'ok')
             ->assertJsonPath('quota.remaining', 4)
             ->assertJsonPath('quota.remaining_percent', 80)
-            ->assertJsonPath('quota.remaining_label', '4 request tersisa')
+            ->assertJsonPath('quota.school.remaining', 4)
             ->assertJsonPath('quota.total.remaining', 4)
-            ->assertJsonPath('quota.total.limit', 5);
+            ->assertJsonPath('quota.total.limit', 5)
+            ->assertJson(fn (\Illuminate\Testing\Fluent\AssertableJson $json) => $json
+                ->where('quota.remaining_label', fn (string $label) => str_contains($label, 'Studio')
+                    && str_contains($label, 'Sekolah')
+                    && str_contains($label, '4 tersisa'))
+                ->etc());
     }
 
     public function test_respons_generate_admin_tidak_membawa_detail_model(): void
@@ -447,7 +705,10 @@ class AiTeacherControllerTest extends TestCase
             ->assertJsonPath('quota.total.used', 1)
             ->assertJsonPath('quota.total.limit', 50)
             ->assertJsonPath('quota.remaining', 49)
-            ->assertJsonPath('quota.remaining_label', '49 request tersisa');
+            ->assertJson(fn (\Illuminate\Testing\Fluent\AssertableJson $json) => $json
+                ->where('quota.remaining_label', fn (string $label) => str_contains($label, 'Studio')
+                    && str_contains($label, '49 tersisa'))
+                ->etc());
     }
 
     public function test_hasil_generator_soal_bisa_dieksport_ke_word(): void
@@ -671,7 +932,7 @@ class AiTeacherControllerTest extends TestCase
                 ->withArgs(function (string $prompt, array $options) use (&$capturedPrompt) {
                     $capturedPrompt = $prompt;
 
-                    return str_contains($prompt, 'Buat RPM Learning siap pakai untuk guru berdasarkan materi dari file')
+                    return str_contains($prompt, 'Buat RPM Learning siap pakai untuk guru berdasarkan materi dari file berikut')
                         && str_contains($prompt, 'Fokus/topik RPM: "Energi Terbarukan"')
                         && str_contains($prompt, 'MATERI FILE:')
                         && str_contains($prompt, 'panel surya, turbin angin, biomassa')
@@ -1239,6 +1500,111 @@ class AiTeacherControllerTest extends TestCase
             ->get(route('ai.teacher.index'))
             ->assertForbidden();
     }
+
+    public function test_generator_quiz_mencatat_log_per_panggilan_api_saat_auto_lanjut(): void
+    {
+        $user = User::create([
+            'username' => 'guru-quota-log',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $this->mock(GeminiService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->andReturn([
+                    'text' => "SOAL EVALUASI\n1. Contoh soal\nKUNCI JAWABAN\n1. A",
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 100,
+                    'completion_tokens' => 200,
+                    'api_calls' => 2,
+                    'chunks' => [
+                        [
+                            'model' => 'gemini-test',
+                            'prompt_tokens' => 60,
+                            'completion_tokens' => 120,
+                            'finish_reason' => 'MAX_TOKENS',
+                        ],
+                        [
+                            'model' => 'gemini-test',
+                            'prompt_tokens' => 40,
+                            'completion_tokens' => 80,
+                            'finish_reason' => 'STOP',
+                        ],
+                    ],
+                ]);
+        });
+
+        $before = AiUsageLog::query()->count();
+        $rateKey = 'ai:teacher_quiz:'.$user->uuid;
+        \Illuminate\Support\Facades\RateLimiter::clear($rateKey);
+
+        $this->actingAs($user)->postJson(route('ai.teacher.quiz'), [
+            'topik' => 'Pecahan',
+            'jenjang' => 'Kelas 5 SD',
+            'jenis' => 'pg',
+            'jumlah' => 5,
+            'tingkat' => 'sedang',
+        ])->assertOk();
+
+        $this->assertSame($before + 2, AiUsageLog::query()->count());
+        $this->assertSame(2, AiUsageLog::query()->where('feature', 'teacher_quiz')->count());
+        // 1 hit di aiRateLimited + 1 extra untuk api_calls=2 (auto-continue).
+        $this->assertSame(2, \Illuminate\Support\Facades\RateLimiter::attempts($rateKey));
+    }
+
+    public function test_auto_lanjut_dua_hop_men_charge_rate_limit_dua_kali(): void
+    {
+        config()->set('ai.rate_limit', 3);
+
+        $user = User::create([
+            'username' => 'guru-rate-multi',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $rateKey = 'ai:teacher_quiz:'.$user->uuid;
+        \Illuminate\Support\Facades\RateLimiter::clear($rateKey);
+
+        $this->mock(GeminiService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('generate')
+                ->twice()
+                ->andReturn([
+                    'text' => "SOAL EVALUASI\n1. Contoh\nKUNCI JAWABAN\n1. A",
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 50,
+                    'completion_tokens' => 80,
+                    'api_calls' => 2,
+                    'chunks' => [
+                        ['model' => 'gemini-test', 'prompt_tokens' => 30, 'completion_tokens' => 40],
+                        ['model' => 'gemini-test', 'prompt_tokens' => 20, 'completion_tokens' => 40],
+                    ],
+                ]);
+        });
+
+        $payload = [
+            'topik' => 'Pecahan',
+            'jenjang' => 'Kelas 5 SD',
+            'jenis' => 'pg',
+            'jumlah' => 5,
+            'tingkat' => 'sedang',
+        ];
+
+        // 2 generate × 2 api_calls = 4 hits, limit 3 → request kedua lolos (charge setelah sukses),
+        // request ketiga harus 429. Charge post-sukses: after first ok attempts=2; after second ok attempts=4.
+        $this->actingAs($user)->postJson(route('ai.teacher.quiz'), $payload)->assertOk();
+        $this->assertSame(2, \Illuminate\Support\Facades\RateLimiter::attempts($rateKey));
+
+        $this->actingAs($user)->postJson(route('ai.teacher.quiz'), $payload)->assertOk();
+        $this->assertSame(4, \Illuminate\Support\Facades\RateLimiter::attempts($rateKey));
+
+        $this->actingAs($user)->postJson(route('ai.teacher.quiz'), $payload)
+            ->assertStatus(429)
+            ->assertJsonPath('ok', false);
+    }
+
     private function makeDocx(string $path, string $body): void
     {
         $zip = new ZipArchive;

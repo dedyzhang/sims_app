@@ -1436,6 +1436,30 @@
         </div>
     </div>
 
+    @if(!empty($launcherAktif))
+    <div class="card p-4 space-y-3" x-show="!needsApiKeySetup" x-cloak>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0 flex-1">
+                <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                    <span class="grid place-items-center w-8 h-8 rounded-xl bg-primary/15 text-primary">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    </span>
+                    Nalar Guru
+                </h2>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Generate di SIMS memakai API key akun Google Anda.
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2 flex-shrink-0">
+                <button type="button" @click="selectTab('gemini')"
+                        class="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold min-h-[44px]">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i> Buka Nalar Guru
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- Canva Pendidikan (belajar.id, gratis) --}}
     <div class="card p-4 space-y-3" x-show="!needsApiKeySetup && canva.feature_enabled" x-cloak>
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1651,11 +1675,35 @@
             <div x-show="tab === 'quiz'" class="space-y-4">
                 <div>
                     <label class="form-label">Topik / Fokus Materi <span class="text-rose-500">*</span></label>
-                    <input type="text" x-model="quiz.topik" placeholder="mis. Bab 5 — Ekosistem, Fotosintesis, Pecahan..." class="form-input">
+                    <input type="text" x-model="quiz.topik" :placeholder="topicPlaceholder(quiz.output_language)" class="form-input">
                     <p class="text-[11px] text-slate-400 mt-1" x-show="quiz.source === 'ai'" x-cloak>Topik menjadi sumber soal bila generate tanpa file.</p>
                     <p class="text-[11px] text-slate-400 mt-1" x-show="quiz.source === 'file'" x-cloak>
-                        Wajib diisi. Topik dipakai untuk mencari bagian buku yang relevan (bukan hanya halaman awal). Contoh: <span class="font-medium text-slate-500">Bab 5 — Ekosistem</span>.
+                        Wajib diisi. Topik dipakai untuk mencari bagian buku yang relevan (bukan hanya halaman awal). Contoh: <span class="font-medium text-slate-500" x-text="quiz.output_language === 'zh-CN' ? '第三课 打招呼' : 'Bab 5 — Ekosistem'"></span>.
                     </p>
+                    <ul class="mt-1.5 list-disc pl-4 text-[11px] text-slate-500 space-y-0.5" x-show="quiz.output_language === 'zh-CN'" x-cloak>
+                        <template x-for="(example, idx) in hsk1TopicExamples" :key="'quiz-hsk-' + idx">
+                            <li x-text="example"></li>
+                        </template>
+                    </ul>
+                </div>
+
+                <div>
+                    <label class="form-label">Bahasa output <span class="text-rose-500">*</span></label>
+                    <select x-model="quiz.output_language" class="form-input">
+                        <template x-for="opt in outputLanguageOptions" :key="opt.value">
+                            <option :value="opt.value" x-text="opt.label"></option>
+                        </template>
+                    </select>
+                    <p class="text-[11px] text-slate-400 mt-1">Kop sekolah dan identitas resmi tetap dari data SIMS.</p>
+                    <label class="mt-2 flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700"
+                           x-show="quiz.output_language === 'zh-CN'" x-cloak
+                           :class="quiz.include_pinyin ? 'border-primary bg-primary/5' : ''">
+                        <input type="checkbox" x-model="quiz.include_pinyin" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary">
+                        <span>
+                            <span class="font-semibold text-slate-700 dark:text-slate-200">Sertakan pinyin</span>
+                            <span class="mt-0.5 block text-[11px] text-slate-500">Tambahkan baris Hanyu Pinyin di bawah teks Hanzi pada soal dan lampiran.</span>
+                        </span>
+                    </label>
                 </div>
 
                 <div>
@@ -1678,23 +1726,28 @@
                         <label class="form-label">Buku yang sudah diunggah</label>
                         <div class="space-y-2 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
                             <template x-for="m in materials" :key="m.uuid">
-                                <button type="button"
-                                        @click="selectMaterial(m)"
-                                        class="flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left transition"
-                                        :class="quiz.document_uuid === m.uuid ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-primary/40 dark:border-slate-700'">
-                                    <i data-lucide="book-open" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
-                                    <span class="min-w-0 flex-1">
-                                        <span class="block truncate text-xs font-semibold text-slate-700 dark:text-slate-200" x-text="m.title"></span>
-                                        <span class="mt-0.5 block text-[11px]"
-                                              :class="{
-                                                  'text-emerald-600 dark:text-emerald-400': m.status === 'processed',
-                                                  'text-amber-600 dark:text-amber-400': m.status === 'partial' || m.status === 'pending',
-                                                  'text-rose-600 dark:text-rose-400': m.status === 'failed',
-                                                  'text-slate-400': !['processed','partial','pending','failed'].includes(m.status)
-                                              }"
-                                              x-text="m.status_label + (m.chunk_count ? ' · ' + m.chunk_count + ' bagian' : '')"></span>
-                                    </span>
-                                </button>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button"
+                                            @click="selectMaterial(m)"
+                                            class="flex flex-1 items-start gap-2 rounded-lg border px-3 py-2 text-left transition"
+                                            :class="quiz.document_uuid === m.uuid ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-primary/40 dark:border-slate-700'">
+                                        <i data-lucide="book-open" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-xs font-semibold text-slate-700 dark:text-slate-200" x-text="m.title"></span>
+                                            <span class="mt-0.5 block text-[11px]"
+                                                  :class="{
+                                                      'text-emerald-600 dark:text-emerald-400': m.status === 'processed',
+                                                      'text-amber-600 dark:text-amber-400': m.status === 'partial' || m.status === 'pending',
+                                                      'text-rose-600 dark:text-rose-400': m.status === 'failed',
+                                                      'text-slate-400': !['processed','partial','pending','failed'].includes(m.status)
+                                                  }"
+                                                  x-text="m.status_label + (m.chunk_count ? ' · ' + m.chunk_count + ' bagian' : '')"></span>
+                                        </span>
+                                    </button>
+                                    <button type="button" @click.stop="cancelMaterial(m.uuid)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition shrink-0" title="Batalkan / Hapus materi ini">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
                             </template>
                         </div>
                         <p class="mt-1 text-[11px] text-slate-400">Pilih buku lama agar tidak perlu unggah ulang. Status "menunggu kuota" dilanjutkan otomatis keesokan hari (free tier).</p>
@@ -1712,6 +1765,10 @@
                             <span class="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200" x-text="quiz.fileName || 'Unggah PDF atau Word'"></span>
                             <span class="mt-1 text-[11px] text-slate-400">File besar diindeks (RAG) agar soal diambil dari bab yang diminta. Maks. 10 MB.</span>
                         </label>
+                        <div class="mt-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] leading-relaxed text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100">
+                            <p class="font-semibold">PDF hasil scan atau buku foto?</p>
+                            <p class="mt-0.5 opacity-90">Upload hanya untuk PDF/Word yang teksnya bisa disalin. Buku scan/Hanzi → pilih <strong>Foto buku</strong>.</p>
+                        </div>
                         <div x-show="quiz.file" x-cloak class="mt-2 flex items-center justify-between gap-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                             <span class="truncate" x-text="quiz.fileName"></span>
                             <button type="button" @click="clearQuizFile()" class="inline-flex items-center gap-1 text-rose-600 hover:text-rose-700 dark:text-rose-300">
@@ -1733,6 +1790,20 @@
                         <template x-if="selectedMaterial()?.awaiting_quota">
                             <span class="block mt-1 opacity-90">Kuota embedding harian habis — sisa bagian dilanjutkan otomatis setelah reset (gratis). Bagian yang sudah siap tetap bisa dipakai untuk membuat soal.</span>
                         </template>
+                    </div>
+                    <div x-show="materialError && materialError.tool === 'quiz'" x-cloak
+                         class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[11px] leading-relaxed text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">
+                        <p class="font-semibold" x-text="materialError.message"></p>
+                        <p class="mt-1 opacity-90" x-show="materialError.hint" x-text="materialError.hint"></p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <button type="button" class="ai-btn ai-btn--solid min-h-[36px] text-[11px]"
+                                    x-show="materialError.suggest_camera"
+                                    @click="switchToCameraFromMaterialError()">
+                                <i data-lucide="camera" class="w-3.5 h-3.5"></i> Pakai Foto buku
+                            </button>
+                            <button type="button" class="ai-btn ai-btn--ghost min-h-[36px] text-[11px]"
+                                    @click="clearMaterialError()">Tutup</button>
+                        </div>
                     </div>
                 </div>
 
@@ -1855,8 +1926,31 @@
             <div x-show="tab === 'learning'" class="space-y-4" x-cloak>
                 <div>
                     <label class="form-label">Topik / Judul RPM <span class="text-rose-500" x-show="learning.source === 'ai'" x-cloak>*</span></label>
-                    <input type="text" x-model="learning.topik" placeholder="mis. Ekosistem, Persamaan Linear, Teks Prosedur..." class="form-input">
+                    <input type="text" x-model="learning.topik" :placeholder="topicPlaceholder(learning.output_language)" class="form-input">
                     <p class="text-[11px] text-slate-400 mt-1">Jika upload/foto materi, topik boleh dipakai sebagai fokus/judul RPM.</p>
+                    <ul class="mt-1.5 list-disc pl-4 text-[11px] text-slate-500 space-y-0.5" x-show="learning.output_language === 'zh-CN'" x-cloak>
+                        <template x-for="(example, idx) in hsk1TopicExamples" :key="'learning-hsk-' + idx">
+                            <li x-text="example"></li>
+                        </template>
+                    </ul>
+                </div>
+                <div>
+                    <label class="form-label">Bahasa output <span class="text-rose-500">*</span></label>
+                    <select x-model="learning.output_language" class="form-input">
+                        <template x-for="opt in outputLanguageOptions" :key="opt.value">
+                            <option :value="opt.value" x-text="opt.label"></option>
+                        </template>
+                    </select>
+                    <p class="text-[11px] text-slate-400 mt-1">Kop sekolah dan identitas resmi tetap dari data SIMS.</p>
+                    <label class="mt-2 flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700"
+                           x-show="learning.output_language === 'zh-CN'" x-cloak
+                           :class="learning.include_pinyin ? 'border-primary bg-primary/5' : ''">
+                        <input type="checkbox" x-model="learning.include_pinyin" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary">
+                        <span>
+                            <span class="font-semibold text-slate-700 dark:text-slate-200">Sertakan pinyin</span>
+                            <span class="mt-0.5 block text-[11px] text-slate-500">Tambahkan baris Hanyu Pinyin di bawah teks Hanzi pada narasi RPM dan lampiran.</span>
+                        </span>
+                    </label>
                 </div>
                 <div>
                     <label class="form-label">Sumber Materi <span class="text-rose-500">*</span></label>
@@ -1864,7 +1958,7 @@
                         <button type="button" @click="learning.source = 'ai'"
                                 :class="learning.source === 'ai' ? 'bg-white text-primary shadow-sm dark:bg-slate-900' : 'text-slate-500 dark:text-slate-300'"
                                 class="rounded-lg px-2 py-2 text-[11px] font-semibold transition">Dari topik</button>
-                        <button type="button" @click="learning.source = 'file'"
+                        <button type="button" @click="learning.source = 'file'; loadMaterials()"
                                 :class="learning.source === 'file' ? 'bg-white text-primary shadow-sm dark:bg-slate-900' : 'text-slate-500 dark:text-slate-300'"
                                 class="rounded-lg px-2 py-2 text-[11px] font-semibold transition">Upload file</button>
                         <button type="button" @click="learning.source = 'camera'; $nextTick(() => lucide && lucide.createIcons())"
@@ -1872,19 +1966,84 @@
                                 class="rounded-lg px-2 py-2 text-[11px] font-semibold transition">Foto buku</button>
                     </div>
                 </div>
-                <div x-show="learning.source === 'file'" x-cloak>
-                    <label class="form-label">File Materi RPM <span class="text-rose-500">*</span></label>
-                    <label class="flex min-h-[104px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-primary hover:bg-primary/5 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-primary/70">
-                        <input x-ref="learningFile" type="file" class="sr-only" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" @change="setLearningFile($event)">
-                        <i data-lucide="upload-cloud" class="w-7 h-7 text-slate-400"></i>
-                        <span class="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200" x-text="learning.fileName || 'Unggah PDF atau Word'"></span>
-                        <span class="mt-1 text-[11px] text-slate-400">AI akan menyusun RPM berdasarkan isi file agar tidak melenceng. Maks. 10 MB.</span>
-                    </label>
-                    <div x-show="learning.file" x-cloak class="mt-2 flex items-center justify-between gap-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        <span class="truncate" x-text="learning.fileName"></span>
-                        <button type="button" @click="clearLearningFile()" class="inline-flex items-center gap-1 text-rose-600 hover:text-rose-700 dark:text-rose-300">
-                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus
-                        </button>
+                <div x-show="learning.source === 'file'" x-cloak class="space-y-3">
+                    <div x-show="materials.length" x-cloak>
+                        <label class="form-label">Buku yang sudah diunggah</label>
+                        <div class="space-y-2 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">
+                            <template x-for="m in materials" :key="'learning-' + m.uuid">
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button"
+                                            @click="selectLearningMaterial(m)"
+                                            class="flex flex-1 items-start gap-2 rounded-lg border px-3 py-2 text-left transition"
+                                            :class="learning.document_uuid === m.uuid ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-primary/40 dark:border-slate-700'">
+                                        <i data-lucide="book-open" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-xs font-semibold text-slate-700 dark:text-slate-200" x-text="m.title"></span>
+                                            <span class="mt-0.5 block text-[11px]"
+                                                  :class="{
+                                                      'text-emerald-600 dark:text-emerald-400': m.status === 'processed',
+                                                      'text-amber-600 dark:text-amber-400': m.status === 'partial' || m.status === 'pending',
+                                                      'text-rose-600 dark:text-rose-400': m.status === 'failed',
+                                                      'text-slate-400': !['processed','partial','pending','failed'].includes(m.status)
+                                                  }"
+                                                  x-text="m.status_label + (m.chunk_count ? ' · ' + m.chunk_count + ' bagian' : '')"></span>
+                                        </span>
+                                    </button>
+                                    <button type="button" @click.stop="cancelMaterial(m.uuid)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition shrink-0" title="Batalkan / Hapus materi ini">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-400">Pilih buku lama + isi topik agar RPM diambil dari bab yang relevan (RAG).</p>
+                    </div>
+                    <div>
+                        <label class="form-label">
+                            Unggah materi baru
+                            <span class="text-rose-500" x-show="!learning.document_uuid" x-cloak>*</span>
+                            <span class="text-slate-400 font-normal" x-show="learning.document_uuid" x-cloak>(opsional, ganti buku terpilih)</span>
+                        </label>
+                        <label class="flex min-h-[104px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-center transition hover:border-primary hover:bg-primary/5 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-primary/70">
+                            <input x-ref="learningFile" type="file" class="sr-only" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" @change="setLearningFile($event)">
+                            <i data-lucide="upload-cloud" class="w-7 h-7 text-slate-400"></i>
+                            <span class="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200" x-text="learning.fileName || 'Unggah PDF atau Word'"></span>
+                            <span class="mt-1 text-[11px] text-slate-400">File besar diindeks (RAG) agar RPM diambil dari bab yang diminta. Maks. 10 MB.</span>
+                        </label>
+                        <div class="mt-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] leading-relaxed text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100">
+                            <p class="font-semibold">PDF hasil scan atau buku foto?</p>
+                            <p class="mt-0.5 opacity-90">Upload hanya untuk PDF/Word ber-teks. Buku scan/Hanzi → pilih <strong>Foto buku</strong>.</p>
+                        </div>
+                        <div x-show="learning.file" x-cloak class="mt-2 flex items-center justify-between gap-3 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            <span class="truncate" x-text="learning.fileName"></span>
+                            <button type="button" @click="clearLearningFile()" class="inline-flex items-center gap-1 text-rose-600 hover:text-rose-700 dark:text-rose-300">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus
+                            </button>
+                        </div>
+                    </div>
+                    <div x-show="selectedLearningMaterial()" x-cloak
+                         class="rounded-xl border px-3 py-2 text-[11px]"
+                         :class="selectedLearningMaterial()?.ready
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-200'
+                            : (selectedLearningMaterial()?.status === 'failed'
+                                ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200'
+                                : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100')">
+                        <span class="font-semibold" x-text="selectedLearningMaterial()?.title"></span>
+                        <span class="mx-1">·</span>
+                        <span x-text="selectedLearningMaterial()?.status_label"></span>
+                    </div>
+                    <div x-show="materialError && materialError.tool === 'learning'" x-cloak
+                         class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[11px] leading-relaxed text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-100">
+                        <p class="font-semibold" x-text="materialError.message"></p>
+                        <p class="mt-1 opacity-90" x-show="materialError.hint" x-text="materialError.hint"></p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <button type="button" class="ai-btn ai-btn--solid min-h-[36px] text-[11px]"
+                                    x-show="materialError.suggest_camera"
+                                    @click="switchToCameraFromMaterialError()">
+                                <i data-lucide="camera" class="w-3.5 h-3.5"></i> Pakai Foto buku
+                            </button>
+                            <button type="button" class="ai-btn ai-btn--ghost min-h-[36px] text-[11px]"
+                                    @click="clearMaterialError()">Tutup</button>
+                        </div>
                     </div>
                 </div>
                 <div x-show="learning.source === 'camera'" x-cloak class="space-y-3">
@@ -2088,7 +2247,15 @@
                         </div>
                     </div>
 
-                    <div x-show="error && !loading" x-cloak class="rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-800 px-4 py-3 text-sm" x-text="error"></div>
+                    <div x-show="error && !loading" x-cloak class="rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-800 px-4 py-3 text-sm space-y-2">
+                        <p x-text="error"></p>
+                        <p class="text-[12px] opacity-90" x-show="materialError && materialError.hint" x-text="materialError.hint"></p>
+                        <button type="button" class="ai-btn ai-btn--solid min-h-[36px] text-xs"
+                                x-show="materialError && materialError.suggest_camera"
+                                @click="switchToCameraFromMaterialError()">
+                            <i data-lucide="camera" class="w-3.5 h-3.5"></i> Pakai Foto buku sebagai gantinya
+                        </button>
+                    </div>
 
                     <div x-show="!loading && !ocr.loading && !result && !error && !externalFlow" x-cloak
                          class="ai-teacher-hasil__empty text-slate-300 dark:text-slate-600">
@@ -2331,10 +2498,20 @@
                 { value: 'mencocokkan', label: 'Mencocokkan' },
                 { value: 'isian', label: 'Isian' },
             ],
-            quiz:     { topik: '', jumlah: 5, jenis_soal: ['pg'], tingkat: 'sedang', jenjang: '', source: 'ai', file: null, fileName: '', document_uuid: '', soal_bergambar: false },
+            outputLanguageOptions: @json(
+                collect(\App\Support\TeacherOutputLanguage::OPTIONS)
+                    ->map(fn ($label, $code) => ['value' => $code, 'label' => $label])
+                    ->values()
+            ),
+            hsk1TopicExamples: @json(\App\Support\TeacherOutputLanguage::hsk1TopicExamples()),
+            // Seq guards: ignore stale async generate/preview after tab switch or newer request.
+            generateSeq: 0,
+            previewSeq: 0,
+            quiz:     { topik: '', jumlah: 5, jenis_soal: ['pg'], tingkat: 'sedang', jenjang: '', source: 'ai', file: null, fileName: '', document_uuid: '', soal_bergambar: false, output_language: 'id', include_pinyin: false },
             materials: @json($teacherMaterials ?? []),
             materialsTimer: null,
-            learning: { tool: 'rpp', topik: '', mapel: '', jenjang: '', durasi: '', source: 'ai', file: null, fileName: '' },
+            learning: { tool: 'rpp', topik: '', mapel: '', jenjang: '', durasi: '', source: 'ai', file: null, fileName: '', document_uuid: '', output_language: 'id', include_pinyin: false },
+            materialError: null,
             summary:  { materi: '' },
             feedback: { nama: '', konteks: '' },
             ocr: {
@@ -2361,6 +2538,7 @@
                 feedback: '{{ route('ai.teacher.feedback') }}',
                 quota:    '{{ route('ai.teacher.quota') }}',
                 materials: '{{ route('ai.teacher.materials') }}',
+                materialsCancel: '{{ url('/ai/teacher/materials') }}',
                 ocr: '{{ route('ai.teacher.ocr') }}',
                 historyBase: '{{ url('ai/teacher/history') }}',
                 quizPreview: '{{ route('ai.teacher.quiz.preview') }}',
@@ -2396,6 +2574,54 @@
                 });
             },
 
+            topicPlaceholder(lang) {
+                const map = {
+                    id: 'mis. Bab 5 — Ekosistem, Fotosintesis, Pecahan...',
+                    'zh-CN': 'mis. 第三课 打招呼, 数字和时间, 我的爱好',
+                    en: 'e.g. Linear Equations, Photosynthesis, Reading Comprehension',
+                    ja: '例: 自己紹介, 数字と時間',
+                };
+                return map[lang] || map.id;
+            },
+
+            applyMaterialErrorPayload(d, tool) {
+                if (d.suggest_camera || d.error_code === 'material_extract_failed') {
+                    this.materialError = {
+                        message: d.message || 'File tidak bisa dibaca.',
+                        hint: d.hint || '',
+                        suggest_camera: !!d.suggest_camera,
+                        tool: tool,
+                    };
+                    if (tool === 'quiz' && this.quiz.source === 'file') {
+                        this.tab = 'quiz';
+                    }
+                    if (tool === 'learning' && this.learning.source === 'file') {
+                        this.tab = 'learning';
+                    }
+                } else {
+                    this.materialError = null;
+                }
+            },
+
+            clearMaterialError() {
+                this.materialError = null;
+            },
+
+            switchToCameraFromMaterialError() {
+                const tool = this.materialError?.tool || (this.tab === 'learning' ? 'learning' : 'quiz');
+                if (tool === 'learning') {
+                    this.learning.source = 'camera';
+                    this.clearLearningFile();
+                } else {
+                    this.quiz.source = 'camera';
+                    this.quiz.document_uuid = '';
+                    this.clearQuizFile();
+                }
+                this.materialError = null;
+                this.error = '';
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+
             canSubmitQuiz() {
                 if ((this.quiz.topik || '').trim() === '') return false;
                 if (this.quiz.source === 'file') return !!(this.quiz.file || this.quiz.document_uuid);
@@ -2416,6 +2642,19 @@
                 this.error = '';
                 this.scheduleMaterialPolling();
                 this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+
+            selectLearningMaterial(m) {
+                this.learning.document_uuid = m.uuid;
+                this.clearLearningFile(false);
+                this.error = '';
+                this.scheduleMaterialPolling();
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+
+            selectedLearningMaterial() {
+                if (!this.learning.document_uuid) return null;
+                return this.materials.find((m) => m.uuid === this.learning.document_uuid) || null;
             },
 
             async loadMaterials() {
@@ -2832,6 +3071,10 @@
             selectTab(key) {
                 this.tab = key;
                 if (this.isToolTab) {
+                    // Batalkan writer dari generate/preview yang masih in-flight.
+                    this.generateSeq++;
+                    this.previewSeq++;
+                    this.loading = false;
                     this.clearResult();
                     this.error = '';
                 }
@@ -2842,8 +3085,10 @@
                 const file = event.target.files[0] || null;
                 this.quiz.file = file;
                 this.quiz.fileName = file ? file.name : '';
-                // Unggah baru menggantikan pilihan buku lama.
-                if (file) this.quiz.document_uuid = '';
+                if (file) {
+                    this.quiz.document_uuid = '';
+                    this.clearMaterialError();
+                }
                 this.error = '';
                 this.$nextTick(() => window.lucide && lucide.createIcons());
             },
@@ -2860,19 +3105,26 @@
                 const file = event.target.files[0] || null;
                 this.learning.file = file;
                 this.learning.fileName = file ? file.name : '';
+                if (file) {
+                    this.learning.document_uuid = '';
+                    this.clearMaterialError();
+                }
                 this.error = '';
                 this.$nextTick(() => window.lucide && lucide.createIcons());
             },
 
-            clearLearningFile() {
+            clearLearningFile(keepDocument = true) {
                 this.learning.file = null;
                 this.learning.fileName = '';
+                // keepDocument=false: document_uuid sudah di-set pemanggil (select material)
+                // — jangan dihapus, samakan perilaku clearQuizFile.
+                if (!keepDocument) { /* document_uuid sudah di-set pemanggil */ }
                 if (this.$refs.learningFile) this.$refs.learningFile.value = '';
                 this.$nextTick(() => window.lucide && lucide.createIcons());
             },
 
             learningSourceReady() {
-                if (this.learning.source === 'file') return !!this.learning.file;
+                if (this.learning.source === 'file') return !!(this.learning.file || this.learning.document_uuid);
                 if (this.learning.source === 'camera') return !!(this.ocr.learning.text || '').trim();
                 return (this.learning.topik || '').trim() !== '';
             },
@@ -3269,7 +3521,10 @@
                     form.append('mapel', this.learning.mapel || '');
                     form.append('jenjang', this.learning.jenjang || '');
                     form.append('durasi', this.learning.durasi || '');
+                    form.append('output_language', this.learning.output_language || 'id');
+                    if (this.learning.include_pinyin) form.append('include_pinyin', '1');
                     if (this.learning.source === 'file' && this.learning.file) form.append('file', this.learning.file);
+                    if (this.learning.source === 'file' && this.learning.document_uuid) form.append('document_uuid', this.learning.document_uuid);
                     if (this.learning.source === 'camera' && (this.ocr.learning.text || '').trim()) {
                         form.append('material_text', this.ocr.learning.text.trim());
                     }
@@ -3280,6 +3535,8 @@
                     form.append('tingkat', this.quiz.tingkat);
                     form.append('jenjang', this.quiz.jenjang || '');
                     form.append('soal_bergambar', this.quiz.soal_bergambar ? '1' : '0');
+                    form.append('output_language', this.quiz.output_language || 'id');
+                    if (this.quiz.include_pinyin) form.append('include_pinyin', '1');
                     if (this.quiz.source === 'file' && this.quiz.file) {
                         form.append('file', this.quiz.file);
                     } else if (this.quiz.source === 'file' && this.quiz.document_uuid) {
@@ -3303,9 +3560,11 @@
                     this.error = 'Simpan API key Gemini terlebih dahulu.';
                     return;
                 }
+                const seq = ++this.generateSeq;
                 this.loading = true;
                 this.result = '';
                 this.error = '';
+                this.materialError = null;
                 this.copied = false;
                 this.editing = false;
                 this.externalFlow = false;
@@ -3317,6 +3576,7 @@
                     // itu apa adanya tanpa OCR ulang.
                     if (tool === 'quiz' && this.quiz.source === 'camera' && !(this.ocr.quiz.text || '').trim()) {
                         const ok = await this.runOcr('quiz');
+                        if (seq !== this.generateSeq) return;
                         if (!ok || !(this.ocr.quiz.text || '').trim()) {
                             this.error = this.ocr.quiz.error || 'Gagal membaca teks dari foto.';
                             return;
@@ -3329,6 +3589,8 @@
                         body: payload.body,
                     });
                     const d = await r.json().catch(() => ({}));
+                    // Tab diganti / generate baru: jangan tulis ulang panel hasil.
+                    if (seq !== this.generateSeq) return;
                     this.updateQuota(d.quota);
                     if (r.ok && d.ok) {
                         this.result = d.answer;
@@ -3338,25 +3600,49 @@
                         if (tool === 'quiz' && (d.history?.metadata?.document_uuid || d.history?.meta?.document_uuid)) {
                             this.quiz.document_uuid = d.history.metadata?.document_uuid || d.history.meta.document_uuid;
                         }
+                        if (tool === 'learning' && (d.history?.metadata?.document_uuid || d.history?.meta?.document_uuid)) {
+                            this.learning.document_uuid = d.history.metadata?.document_uuid || d.history.meta.document_uuid;
+                        }
                         if (tool === 'learning' || tool === 'quiz') await this.refreshPreview();
+                        if (seq !== this.generateSeq) return;
                         if (tool === 'quiz' && this.quiz.source === 'file') await this.loadMaterials();
+                        if (tool === 'learning' && this.learning.source === 'file') await this.loadMaterials();
                         await this.refreshQuota(true);
                     } else if (r.status === 422) {
                         if (d.needs_api_key) this.needsApiKeySetup = true;
                         if (d.document_uuid) {
-                            this.quiz.document_uuid = d.document_uuid;
-                            this.clearQuizFile(false);
+                            if (tool === 'learning') {
+                                this.learning.document_uuid = d.document_uuid;
+                                this.clearLearningFile(false);
+                            } else {
+                                this.quiz.document_uuid = d.document_uuid;
+                                this.clearQuizFile(false);
+                            }
                             await this.loadMaterials();
+                        }
+                        if (seq !== this.generateSeq) return;
+                        this.applyMaterialErrorPayload(d, tool);
+                        if (d.processing) {
+                            this.error = 'Materi sedang diproses (embedding). Menunggu 4 detik lalu mencoba membuat soal lagi secara otomatis… (tidak perlu unggah ulang)';
+                            setTimeout(() => {
+                                if (seq === this.generateSeq) {
+                                    this.doGenerate(tool);
+                                }
+                            }, 4000);
+                            return;
                         }
                         this.error = d.message || 'Periksa isian form: ' + Object.values(d.errors || {}).flat().join(' ');
                     } else {
                         this.error = d.message || 'Terjadi kesalahan. Coba lagi.';
                     }
                 } catch (_) {
+                    if (seq !== this.generateSeq) return;
                     this.error = 'Gagal terhubung. Periksa koneksi lalu coba lagi.';
                 } finally {
-                    this.loading = false;
-                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                    if (seq === this.generateSeq) {
+                        this.loading = false;
+                        this.$nextTick(() => window.lucide && lucide.createIcons());
+                    }
                 }
             },
 
@@ -3365,6 +3651,7 @@
                 this.loading = true;
                 this.result = '';
                 this.error = '';
+                this.materialError = null;
                 this.copied = false;
                 this.editing = false;
                 this.externalFlow = false;
@@ -3414,7 +3701,10 @@
                     form.append('mapel', this.learning.mapel || '');
                     form.append('jenjang', this.learning.jenjang || '');
                     form.append('durasi', this.learning.durasi || '');
+                    form.append('output_language', this.learning.output_language || 'id');
+                    if (this.learning.include_pinyin) form.append('include_pinyin', '1');
                     if (this.learning.source === 'file' && this.learning.file) form.append('file', this.learning.file);
+                    if (this.learning.source === 'file' && this.learning.document_uuid) form.append('document_uuid', this.learning.document_uuid);
                 } else {
                     form.append('topik', this.quiz.topik || '');
                     form.append('jumlah', this.quiz.jumlah || 1);
@@ -3422,6 +3712,8 @@
                     form.append('tingkat', this.quiz.tingkat);
                     form.append('jenjang', this.quiz.jenjang || '');
                     form.append('soal_bergambar', this.quiz.soal_bergambar ? '1' : '0');
+                    form.append('output_language', this.quiz.output_language || 'id');
+                    if (this.quiz.include_pinyin) form.append('include_pinyin', '1');
                     if (this.quiz.source === 'file' && this.quiz.file) {
                         form.append('file', this.quiz.file);
                     } else if (this.quiz.source === 'file' && this.quiz.document_uuid) {
@@ -3727,11 +4019,14 @@
                     this.previewHtml = '';
                     return;
                 }
+                const seq = ++this.previewSeq;
+                const tab = this.tab;
+                const content = this.result;
                 this.previewLoading = true;
                 try {
-                    const body = this.tab === 'learning'
-                        ? { tool: this.learning.tool, content: this.result }
-                        : { content: this.result };
+                    const body = tab === 'learning'
+                        ? { tool: this.learning.tool, content }
+                        : { content };
                     const r = await fetch(url, {
                         method: 'POST',
                         headers: {
@@ -3741,17 +4036,23 @@
                         },
                         body: JSON.stringify(body),
                     });
-                    const d = await r.json();
+                    const d = await r.json().catch(() => ({}));
+                    // Latest-wins: respons lama tidak menimpa pratinjau terbaru.
+                    if (seq !== this.previewSeq) return;
+                    if (this.tab !== tab || this.result !== content) return;
                     // Gagal pratinjau bukan kegagalan fatal: teks hasil tetap tampil apa adanya.
-                    this.previewHtml = (r.ok && d.ok) ? d.html : '';
+                    this.previewHtml = (r.ok && d.ok) ? (d.html || '') : '';
                 } catch (_) {
+                    if (seq !== this.previewSeq) return;
                     this.previewHtml = '';
                 } finally {
-                    this.previewLoading = false;
-                    this.$nextTick(() => {
-                        window.lucide && lucide.createIcons();
-                        if (this.$refs.hasilScrollBody) this.$refs.hasilScrollBody.scrollTop = 0;
-                    });
+                    if (seq === this.previewSeq) {
+                        this.previewLoading = false;
+                        this.$nextTick(() => {
+                            window.lucide && lucide.createIcons();
+                            if (this.$refs.hasilScrollBody) this.$refs.hasilScrollBody.scrollTop = 0;
+                        });
+                    }
                 }
             },
             updateQuota(quota) {

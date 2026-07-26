@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\AiDailyQuotaExhaustedException;
 use App\Exceptions\AiProviderUnavailableException;
 use App\Exceptions\AiRateLimitedException;
+use App\Support\TeacherGenerationText;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Arr;
@@ -142,6 +143,32 @@ class GeminiService
      */
     public function visionText(array $images, array $options = []): array
     {
+        $instruction = trim((string) ($options['prompt'] ?? ''));
+        if ($instruction === '') {
+            $instruction = 'Ekstrak SEMUA teks terbaca dari foto halaman buku/materi ajar berikut. '
+                .'Keluarkan teks polos Bahasa Indonesia (atau bahasa asli di halaman), urut dari atas ke bawah. '
+                .'Pertahankan nomor, judul, dan struktur paragraf. '
+                .'Jangan menerjemahkan kecuali teks campur dan perlu kejelasan. '
+                .'Jangan menambahkan penjelasan, markdown, atau komentar di luar isi halaman. '
+                .'Jika multi-halaman, awali tiap bagian dengan baris [Halaman n]. '
+                .'Jika gambar tidak terbaca/buram, tulis tepat: TIDAK_TERBACA';
+        }
+
+        return $this->wrapWithAutoContinuation(
+            $instruction,
+            $options + ['_vision_source' => true],
+            function (string $chunkPrompt, array $chunkOptions) use ($images): array {
+                // Lanjutan tetap kirim foto agar model tidak mengarang isi di luar buku.
+                return $this->visionTextOnce($images, $chunkOptions + ['prompt' => $chunkPrompt]);
+            },
+        );
+    }
+
+    /**
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string,sources?:array}
+     */
+    private function visionTextOnce(array $images, array $options = []): array
+    {
         $apiKey = $this->resolveApiKey($options);
         if ($apiKey === '') {
             throw new RuntimeException('Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).');
@@ -190,10 +217,10 @@ class GeminiService
         $modelChain = $this->modelChain($options);
         $this->ensureFreeTierQuotaIsOpen($modelChain, $apiKey);
 
-        $system = trim(
-            (string) ($options['system'] ?? 'Anda adalah mesin OCR akurat untuk buku pelajaran sekolah Indonesia.')
-            ."\n\n".(string) config('ai.system_prompt')
-        );
+        if (trim((string) ($options['system'] ?? '')) === '') {
+            $options['system'] = 'Anda adalah mesin OCR akurat untuk buku pelajaran sekolah Indonesia.';
+        }
+        $system = $this->composeSystemPrompt($options, '');
 
         $timeout = (int) ($options['timeout'] ?? config('ai.ocr.timeout', 60));
         $lastQuotaError = null;
@@ -550,10 +577,24 @@ class GeminiService
      */
     private function generateGemini(string $prompt, array $options = []): array
     {
+        return $this->wrapWithAutoContinuation(
+            $prompt,
+            $options,
+            fn (string $chunkPrompt, array $chunkOptions) => $this->generateGeminiOnce($chunkPrompt, $chunkOptions),
+        );
+    }
+
+    /**
+     * Satu panggilan Gemini (bisa mencoba beberapa model dalam chain) tanpa auto-lanjut.
+     *
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string,sources?:array}
+     */
+    private function generateGeminiOnce(string $prompt, array $options = []): array
+    {
         // answer_style bisa dikosongkan per-request: keluaran dokumen (RPM/LKPD) harus
         // teks polos, sedangkan gaya global justru menyuruh model memakai Markdown.
         $answerStyle = $options['answer_style'] ?? config('ai.answer_style');
-        $system = trim(($options['system'] ?? '')."\n\n".config('ai.system_prompt')."\n\n".$answerStyle);
+        $system = $this->composeSystemPrompt($options, $answerStyle);
         $contents = $this->buildContents($prompt, $options['history'] ?? []);
         $modelChain = $this->modelChain($options);
         $apiKey = $this->resolveApiKey($options);
@@ -648,8 +689,20 @@ class GeminiService
      */
     private function generateOpenRouter(string $prompt, array $options = []): array
     {
+        return $this->wrapWithAutoContinuation(
+            $prompt,
+            $options,
+            fn (string $chunkPrompt, array $chunkOptions) => $this->generateOpenRouterOnce($chunkPrompt, $chunkOptions),
+        );
+    }
+
+    /**
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string,sources?:array}
+     */
+    private function generateOpenRouterOnce(string $prompt, array $options = []): array
+    {
         $answerStyle = $options['answer_style'] ?? config('ai.answer_style');
-        $system = trim(($options['system'] ?? '')."\n\n".config('ai.system_prompt')."\n\n".$answerStyle);
+        $system = $this->composeSystemPrompt($options, $answerStyle);
         $messages = $this->buildOpenRouterMessages($system, $prompt, $options['history'] ?? []);
         $modelChain = $this->openRouterModelChain($options);
 
@@ -720,8 +773,20 @@ class GeminiService
      */
     private function generateNinerouter(string $prompt, array $options = []): array
     {
+        return $this->wrapWithAutoContinuation(
+            $prompt,
+            $options,
+            fn (string $chunkPrompt, array $chunkOptions) => $this->generateNinerouterOnce($chunkPrompt, $chunkOptions),
+        );
+    }
+
+    /**
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string,sources?:array}
+     */
+    private function generateNinerouterOnce(string $prompt, array $options = []): array
+    {
         $answerStyle = $options['answer_style'] ?? config('ai.answer_style');
-        $system = trim(($options['system'] ?? '')."\n\n".config('ai.system_prompt')."\n\n".$answerStyle);
+        $system = $this->composeSystemPrompt($options, $answerStyle);
         $messages = $this->buildOpenRouterMessages($system, $prompt, $options['history'] ?? []);
         $modelChain = $this->ninerouterModelChain($options);
         $lastQuotaError = null;
@@ -1172,6 +1237,17 @@ class GeminiService
         return $payload;
     }
 
+    private function composeSystemPrompt(array $options, string $answerStyle): string
+    {
+        $parts = array_filter([
+            trim((string) ($options['system'] ?? '')),
+            ($options['include_global_system_prompt'] ?? true) ? trim((string) config('ai.system_prompt')) : '',
+            trim($answerStyle),
+        ]);
+
+        return trim(implode("\n\n", $parts));
+    }
+
     private function buildOpenRouterMessages(string $system, string $prompt, array $history): array
     {
         $messages = [];
@@ -1203,14 +1279,17 @@ class GeminiService
         $choice = $json['choices'][0] ?? null;
         $finishReason = $choice['finish_reason'] ?? null;
         $content = $choice['message']['content'] ?? '';
-        $text = is_array($content) ? $this->openRouterContentToText($content) : trim((string) $content);
-
-        if ($text === '') {
-            throw new RuntimeException("{$label} tidak mengembalikan jawaban. Coba lagi.");
-        }
+        $rawText = is_array($content) ? $this->openRouterContentToText($content, false) : (string) $content;
 
         if ($finishReason === 'length') {
-            throw new RuntimeException("Jawaban {$label} terpotong karena terlalu panjang. Persempit topik atau coba lagi.");
+            $finishReason = 'MAX_TOKENS';
+        }
+
+        $finishReason = $finishReason ?? 'STOP';
+        $text = $this->isTruncatedFinishReason($finishReason) ? rtrim($rawText) : trim($rawText);
+
+        if ($text === '' && ! $this->isTruncatedFinishReason($finishReason)) {
+            throw new RuntimeException("{$label} tidak mengembalikan jawaban. Coba lagi.");
         }
 
         $usage = $json['usage'] ?? [];
@@ -1220,11 +1299,12 @@ class GeminiService
             'model' => (string) ($json['model'] ?? $model),
             'prompt_tokens' => (int) ($usage['prompt_tokens'] ?? 0),
             'completion_tokens' => (int) ($usage['completion_tokens'] ?? 0),
+            'finish_reason' => $finishReason,
             'sources' => [],
         ];
     }
 
-    private function openRouterContentToText(array $content): string
+    private function openRouterContentToText(array $content, bool $trim = true): string
     {
         $text = '';
 
@@ -1232,7 +1312,7 @@ class GeminiService
             $text .= is_array($part) ? (string) ($part['text'] ?? '') : (string) $part;
         }
 
-        return trim($text);
+        return $trim ? trim($text) : $text;
     }
 
     private function normalizeOpenRouterError(int $status, ?array $json): string
@@ -1492,6 +1572,233 @@ class GeminiService
         return array_map('floatval', $values);
     }
 
+    /**
+     * Lanjutkan otomatis bila keluaran mentok di MAX_TOKENS/length.
+     *
+     * @param  callable(string, array): array{text:string,model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string,sources?:array}  $generateOnce
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,continuations?:int,api_calls?:int,chunks?:list<array{model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string}>,sources?:array}
+     */
+    private function wrapWithAutoContinuation(string $originalPrompt, array $options, callable $generateOnce): array
+    {
+        $maxContinuations = $this->maxContinuationsFor($options);
+        $baseHistory = $options['history'] ?? [];
+        $prompt = $originalPrompt;
+        $history = $baseHistory;
+        $accumulated = null;
+        $continuations = 0;
+        $chunks = [];
+
+        while (true) {
+            $chunkOptions = $options + [
+                'history' => $history,
+                '_is_continuation' => $continuations > 0,
+            ];
+
+            try {
+                $chunk = $generateOnce($prompt, $chunkOptions);
+            } catch (\Throwable $e) {
+                // Chunk sebelumnya sudah dibayar provider — kembalikan partial + log chunks,
+                // jangan buang teks yang sudah berhasil.
+                if ($this->hasUsableGenerationText($accumulated)) {
+                    return $this->finalizeAutoContinuationResult(
+                        $accumulated,
+                        $chunks,
+                        $continuations,
+                        truncated: true,
+                    );
+                }
+
+                throw $e;
+            }
+
+            $chunks[] = [
+                'model' => $chunk['model'],
+                'prompt_tokens' => $chunk['prompt_tokens'],
+                'completion_tokens' => $chunk['completion_tokens'],
+                'finish_reason' => $chunk['finish_reason'] ?? 'STOP',
+            ];
+
+            $accumulated = $accumulated === null
+                ? $chunk
+                : $this->mergeGenerationResults($accumulated, $chunk);
+
+            if (! $this->isTruncatedFinishReason($chunk['finish_reason'] ?? null)) {
+                return $this->finalizeAutoContinuationResult(
+                    $accumulated,
+                    $chunks,
+                    $continuations,
+                    truncated: false,
+                );
+            }
+
+            if ($maxContinuations <= 0 || $continuations >= $maxContinuations) {
+                // Lebih baik serahkan partial dokumen + flag truncated daripada gagal total
+                // (quota chunk tetap tercatat lewat `chunks`).
+                if ($this->hasUsableGenerationText($accumulated)) {
+                    return $this->finalizeAutoContinuationResult(
+                        $accumulated,
+                        $chunks,
+                        $continuations,
+                        truncated: true,
+                    );
+                }
+
+                throw new RuntimeException($this->truncatedOutputMessage($maxContinuations > 0));
+            }
+
+            $continuations++;
+            $history = $this->continuationHistory($baseHistory, $originalPrompt, $accumulated['text']);
+            $prompt = $this->continuationPrompt($accumulated['text'], $options);
+        }
+    }
+
+    /**
+     * @param  array{text?:string,model?:string,prompt_tokens?:int,completion_tokens?:int}|null  $result
+     */
+    private function hasUsableGenerationText(?array $result): bool
+    {
+        return $result !== null && trim((string) ($result['text'] ?? '')) !== '';
+    }
+
+    /**
+     * @param  array{text:string,model:string,prompt_tokens:int,completion_tokens:int,sources?:array}  $accumulated
+     * @param  list<array{model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string}>  $chunks
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,continuations?:int,api_calls?:int,chunks?:list<array{model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string}>,sources?:array,truncated?:bool}
+     */
+    private function finalizeAutoContinuationResult(
+        array $accumulated,
+        array $chunks,
+        int $continuations,
+        bool $truncated,
+    ): array {
+        $accumulated['api_calls'] = count($chunks);
+        $accumulated['chunks'] = $chunks;
+        if ($continuations > 0) {
+            $accumulated['continuations'] = $continuations;
+        }
+        if ($truncated) {
+            $accumulated['truncated'] = true;
+        }
+        unset($accumulated['finish_reason']);
+
+        return $accumulated;
+    }
+
+    private function maxContinuationsFor(array $options): int
+    {
+        if (! ($options['auto_continue_on_max_tokens'] ?? false)) {
+            return 0;
+        }
+
+        return max(0, (int) ($options['max_continuations'] ?? config('ai.teacher.max_continuations', 2)));
+    }
+
+    private function isTruncatedFinishReason(?string $finishReason): bool
+    {
+        return in_array($finishReason, ['MAX_TOKENS', 'length'], true);
+    }
+
+    private function truncatedOutputMessage(bool $afterAutoContinue): string
+    {
+        if ($afterAutoContinue) {
+            return 'Jawaban AI masih terpotong setelah dilanjutkan otomatis. Kurangi cakupan topik, jumlah soal, atau lampiran lalu coba lagi.';
+        }
+
+        return 'Jawaban AI terpotong karena terlalu panjang. Persempit topik atau coba lagi.';
+    }
+
+    /**
+     * History untuk lanjutan: ringkas tugas + ekor partial — JANGAN replay materi penuh
+     * (MATERI FILE / RAG) agar tiap hop tidak menggandakan token input.
+     *
+     * @param  list<array{role:string,text?:string,content?:string}>  $baseHistory
+     * @return list<array{role:string,text:string}>
+     */
+    private function continuationHistory(array $baseHistory, string $originalPrompt, string $partialText): array
+    {
+        return array_merge($baseHistory, [
+            ['role' => 'user', 'text' => $this->continuationTaskRecap($originalPrompt)],
+            ['role' => 'assistant', 'text' => $this->continuationAssistantTail($partialText)],
+        ]);
+    }
+
+    /**
+     * Ringkas prompt awal: buang blok materi besar, jaga instruksi format/bahasa.
+     */
+    private function continuationTaskRecap(string $originalPrompt): string
+    {
+        $prompt = trim($originalPrompt);
+        if ($prompt === '') {
+            return 'Lanjutkan dokumen Asisten Guru yang diminta sebelumnya. Pertahankan format dan bahasa yang sama.';
+        }
+
+        // Buang body materi inline (paling boros token) — model sudah punya partial dokumen.
+        $stripped = preg_replace(
+            '/\n(?:MATERI (?:FILE|SCAN BUKU)|MATERI FILE|MATERI SCAN BUKU|MATERI|RAG CONTEXT|KONTEN MATERI|ISI MATERI)\s*:[\s\S]*$/iu',
+            "\n[Materi sumber dihilangkan pada lanjutan — jaga konsistensi format/isi yang sudah ditulis; jangan mengarang di luar cakupan.]",
+            $prompt,
+            1,
+        );
+
+        $stripped = is_string($stripped) && $stripped !== '' ? trim($stripped) : $prompt;
+        $max = 1200;
+        if (mb_strlen($stripped) <= $max) {
+            return $stripped;
+        }
+
+        return rtrim(mb_substr($stripped, 0, $max))."\n…[ringkasan tugas dipotong untuk lanjutan]";
+    }
+
+    /** Ekor partial di history: cukup konteks sambungan, bukan seluruh dokumen. */
+    private function continuationAssistantTail(string $partialText): string
+    {
+        $text = trim($partialText);
+        $max = 2400;
+        if (mb_strlen($text) <= $max) {
+            return $text;
+        }
+
+        return '…'.mb_substr($text, -$max);
+    }
+
+    private function continuationPrompt(string $partialText, array $options = []): string
+    {
+        $tail = mb_substr($partialText, -900);
+
+        $prefix = '';
+        if ($options['_vision_source'] ?? false) {
+            $prefix = "Catatan: bagian awal dokumen dibuat dari foto buku. Pertahankan konsistensi isi dan format.\n\n";
+        }
+
+        return $prefix."Lanjutkan dokumen dari potongan terakhir TANPA mengulang kop, judul, atau bagian yang sudah ditulis.\n"
+            ."Mulai persis dari kalimat berikutnya setelah:\n\n"
+            ."\"{$tail}\"\n\n"
+            .'Tulis hanya sisa dokumen yang belum ada. Jangan menambahkan penjelasan di luar isi dokumen.';
+    }
+
+    /**
+     * @param  array{text:string,model:string,prompt_tokens:int,completion_tokens:int,sources?:array}  $accumulated
+     * @param  array{text:string,model:string,prompt_tokens:int,completion_tokens:int,sources?:array}  $chunk
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,sources?:array}
+     */
+    private function mergeGenerationResults(array $accumulated, array $chunk): array
+    {
+        $accumulated['text'] = TeacherGenerationText::stitchContinuation(
+            $accumulated['text'],
+            $chunk['text'],
+        );
+        $accumulated['prompt_tokens'] += $chunk['prompt_tokens'];
+        $accumulated['completion_tokens'] += $chunk['completion_tokens'];
+        $accumulated['model'] = $chunk['model'];
+        $accumulated['finish_reason'] = $chunk['finish_reason'] ?? null;
+
+        if (! empty($chunk['sources'])) {
+            $accumulated['sources'] = array_values(array_merge($accumulated['sources'] ?? [], $chunk['sources']));
+        }
+
+        return $accumulated;
+    }
+
     /** Susun contents Gemini: riwayat opsional + giliran user terakhir. */
     private function buildContents(string $prompt, array $history): array
     {
@@ -1529,16 +1836,15 @@ class GeminiService
             $text .= $part['text'] ?? '';
         }
 
-        $text = trim($text);
-        if ($text === '') {
+        $finishReason = $finishReason ?? 'STOP';
+        $text = $this->isTruncatedFinishReason($finishReason) ? rtrim($text) : trim($text);
+
+        if ($text === '' && ! $this->isTruncatedFinishReason($finishReason)) {
             throw new RuntimeException('AI tidak mengembalikan jawaban. Coba lagi.');
         }
 
-        // Jawaban terpotong karena kehabisan jatah token: lebih baik gagal terang-terangan
-        // daripada mengembalikan dokumen setengah jadi yang tampak benar.
-        if ($finishReason === 'MAX_TOKENS') {
-            throw new RuntimeException('Jawaban AI terpotong karena terlalu panjang. Persempit topik atau coba lagi.');
-        }
+        // Jawaban terpotong karena kehabisan jatah token — selesaikan di lapisan auto-lanjut
+        // atau lempar error bila pemanggil tidak mengaktifkan auto_continue_on_max_tokens.
 
         $usage = $json['usageMetadata'] ?? [];
 
@@ -1547,6 +1853,7 @@ class GeminiService
             'model' => $model,
             'prompt_tokens' => (int) ($usage['promptTokenCount'] ?? 0),
             'completion_tokens' => (int) ($usage['candidatesTokenCount'] ?? 0),
+            'finish_reason' => $finishReason,
             'sources' => $this->extractSources($candidate),
         ];
     }

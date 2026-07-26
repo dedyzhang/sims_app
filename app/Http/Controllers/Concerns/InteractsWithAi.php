@@ -18,6 +18,9 @@ trait InteractsWithAi
 {
     /**
      * Cek & tambah hitungan rate limit per user per fitur.
+     * Satu panggilan HTTP = 1 hit di sini; hop auto-continue tambahan
+     * di-charge lewat {@see aiRateLimitChargeExtra} / {@see logAiGenerationUsage}.
+     *
      * @return JsonResponse|null  Response 429 bila lewat batas; null bila boleh lanjut.
      */
     protected function aiRateLimited(string $feature, ?string $userId): ?JsonResponse
@@ -40,6 +43,20 @@ trait InteractsWithAi
         return null;
     }
 
+    /**
+     * Charge hit rate-limit tambahan setelah multi-chunk API (auto-continue).
+     * Hit pertama sudah dihitung di {@see aiRateLimited}.
+     */
+    protected function aiRateLimitChargeExtra(string $feature, ?string $userId, int $extraHits): void
+    {
+        if ($userId === null || $userId === '' || $extraHits <= 0) {
+            return;
+        }
+
+        $key = "ai:{$feature}:{$userId}";
+        RateLimiter::increment($key, 60, $extraHits);
+    }
+
     /** Simpan satu baris audit; gagal-diam agar tak menjatuhkan response utama. */
     protected function logAiUsage(?string $userId, string $feature, ?string $model, int $promptTokens, int $completionTokens, string $status): void
     {
@@ -55,6 +72,46 @@ trait InteractsWithAi
         } catch (\Throwable) {
             // Audit tak boleh menggagalkan fitur; abaikan bila gagal tulis.
         }
+    }
+
+    /**
+     * Catat pemakaian AI per panggilan HTTP (termasuk auto-lanjut MAX_TOKENS).
+     * Satu baris log = satu hit API — selaras kuota provider & progress bar guru.
+     * Multi-chunk juga men-charge rate-limit per-menit agar 1 aksi ≠ N provider hit gratis.
+     *
+     * @param  array{model?:string,prompt_tokens?:int,completion_tokens?:int,api_calls?:int,chunks?:list<array{model?:string,prompt_tokens?:int,completion_tokens?:int}>}  $result
+     */
+    protected function logAiGenerationUsage(?string $userId, string $feature, array $result, string $status): void
+    {
+        $chunks = $result['chunks'] ?? null;
+
+        if (! is_array($chunks) || $chunks === []) {
+            $this->logAiUsage(
+                $userId,
+                $feature,
+                $result['model'] ?? config('ai.model'),
+                (int) ($result['prompt_tokens'] ?? 0),
+                (int) ($result['completion_tokens'] ?? 0),
+                $status,
+            );
+
+            return;
+        }
+
+        foreach ($chunks as $chunk) {
+            $this->logAiUsage(
+                $userId,
+                $feature,
+                $chunk['model'] ?? $result['model'] ?? config('ai.model'),
+                (int) ($chunk['prompt_tokens'] ?? 0),
+                (int) ($chunk['completion_tokens'] ?? 0),
+                $status,
+            );
+        }
+
+        // aiRateLimited sudah charge 1 hit; hop lanjutan (api_calls-1) ikut dihitung.
+        $apiCalls = (int) ($result['api_calls'] ?? count($chunks));
+        $this->aiRateLimitChargeExtra($feature, $userId, max(0, $apiCalls - 1));
     }
 
     /**

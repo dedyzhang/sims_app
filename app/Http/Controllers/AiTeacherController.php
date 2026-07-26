@@ -20,6 +20,7 @@ use App\Support\QuizDocument;
 use App\Support\QuizDocxBuilder;
 use App\Support\QuizImageEnricher;
 use App\Support\SchoolLetterhead;
+use App\Support\TeacherOutputLanguage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
@@ -757,6 +758,9 @@ class AiTeacherController extends Controller
             return $built;
         }
 
+        // Samakan dengan learning: multi-chunk auto-continue butuh wall-clock lebih longgar.
+        @set_time_limit($this->teacherExecutionTimeLimit());
+
         $jumlah = (int) ($built['history']['metadata']['jumlah'] ?? 10);
         $tingkat = (string) ($built['history']['metadata']['tingkat'] ?? 'sedang');
         $soalBergambar = (bool) ($built['soal_bergambar'] ?? false);
@@ -779,22 +783,24 @@ class AiTeacherController extends Controller
         try {
             // Foto buku: multimodal lewat key AI Studio pribadi guru (bukan OCR dulu).
             if (is_array($visionImages) && $visionImages !== []) {
-                $result = $this->gemini->visionText($visionImages, [
+                $result = $this->gemini->visionText($visionImages, $this->teacherGenerateOptions() + [
                     'api_key' => $apiKey,
                     'prompt' => $built['prompt'],
                     'system' => trim($built['system']."\n\n".$built['answer_style']),
                     'max_output_tokens' => $maxOut,
                     'temperature' => 0.4,
                     'timeout' => (int) config('ai.long_timeout'),
+                    'include_global_system_prompt' => $built['include_global_system_prompt'] ?? true,
                 ]);
             } else {
-                $result = $this->gemini->generate($built['prompt'], [
+                $result = $this->gemini->generate($built['prompt'], $this->teacherGenerateOptions() + [
                     'system' => $built['system'],
                     'max_output_tokens' => $maxOut,
                     'api_key' => $apiKey,
                     'answer_style' => $built['answer_style'],
                     'thinking_level' => 'low',
                     'timeout' => (int) config('ai.long_timeout'),
+                    'include_global_system_prompt' => $built['include_global_system_prompt'] ?? true,
                 ]);
             }
         } catch (RuntimeException $e) {
@@ -834,12 +840,10 @@ class AiTeacherController extends Controller
             }
         }
 
-        $this->logAiUsage(
+        $this->logAiGenerationUsage(
             $userId,
             'teacher_quiz',
-            $result['model'],
-            $result['prompt_tokens'],
-            $result['completion_tokens'],
+            $result,
             'success',
         );
 
@@ -857,13 +861,23 @@ class AiTeacherController extends Controller
             'quota' => $this->aiPublicQuotaUsage(),
         ];
 
+        if (! empty($result['truncated'])) {
+            $payload['warning'] = 'Jawaban AI masih terpotong setelah dilanjutkan otomatis. Kurangi cakupan topik, jumlah soal, atau lampiran lalu coba lagi. Teks parsial tetap disimpan.';
+        }
+
         if ($soalBergambar) {
             $payload['images'] = $images;
             $payload['image_meta'] = $imageMeta;
             if (($imageMeta['generated'] ?? 0) === 0 && ($imageMeta['failed'] ?? 0) > 0) {
-                $payload['warning'] = 'Soal teks berhasil, tetapi generate gambar gagal. Penanda [GAMBAR: ...] tetap di dokumen agar bisa dilampirkan manual.';
+                $imageWarning = 'Soal teks berhasil, tetapi generate gambar gagal. Penanda [GAMBAR: ...] tetap di dokumen agar bisa dilampirkan manual.';
+                $payload['warning'] = isset($payload['warning'])
+                    ? $payload['warning'].' '.$imageWarning
+                    : $imageWarning;
             } elseif (($imageMeta['generated'] ?? 0) > 0 && ($imageMeta['failed'] ?? 0) > 0) {
-                $payload['warning'] = "Berhasil membuat {$imageMeta['generated']} gambar; {$imageMeta['failed']} gagal.";
+                $imageWarning = "Berhasil membuat {$imageMeta['generated']} gambar; {$imageMeta['failed']} gagal.";
+                $payload['warning'] = isset($payload['warning'])
+                    ? $payload['warning'].' '.$imageWarning
+                    : $imageWarning;
             }
         }
 
@@ -883,7 +897,30 @@ class AiTeacherController extends Controller
             default => 260,
         };
 
-        return min(8192, max(4096, ($jumlah * $perItem) + 1600));
+        return min($this->teacherMaxOutputTokens(), max(4096, ($jumlah * $perItem) + 1600));
+    }
+
+    /** Opsi generate untuk dokumen panjang Asisten Guru (RPM, soal). */
+    private function teacherGenerateOptions(): array
+    {
+        return [
+            'auto_continue_on_max_tokens' => (bool) config('ai.teacher.auto_continue_on_max_tokens', true),
+            'max_continuations' => (int) config('ai.teacher.max_continuations', 2),
+        ];
+    }
+
+    private function teacherMaxOutputTokens(int $fallback = 8192): int
+    {
+        return max(1024, (int) config('ai.teacher.max_output_tokens', $fallback));
+    }
+
+    /** Batas waktu PHP untuk generate dokumen panjang + auto-lanjut. */
+    private function teacherExecutionTimeLimit(): int
+    {
+        $longTimeout = (int) config('ai.long_timeout');
+        $maxCalls = 1 + max(0, (int) config('ai.teacher.max_continuations', 2));
+
+        return ($longTimeout * $maxCalls) + 60;
     }
 
     /**
@@ -967,7 +1004,7 @@ class AiTeacherController extends Controller
         }
 
         // Dokumen RPM utuh (+3 lampiran) butuh ~3.500 token dan ~45 detik.
-        @set_time_limit((int) config('ai.long_timeout') + 60);
+        @set_time_limit($this->teacherExecutionTimeLimit());
 
         $visionImages = $built['vision_images'] ?? [];
         if (is_array($visionImages) && $visionImages !== []) {
@@ -985,13 +1022,14 @@ class AiTeacherController extends Controller
             }
 
             try {
-                $result = $this->gemini->visionText($visionImages, [
+                $result = $this->gemini->visionText($visionImages, $this->teacherGenerateOptions() + [
                     'api_key' => $apiKey,
                     'prompt' => $built['prompt'],
                     'system' => trim($built['system']."\n\n".$built['answer_style']),
-                    'max_output_tokens' => 8192,
+                    'max_output_tokens' => $this->teacherMaxOutputTokens(),
                     'temperature' => 0.35,
                     'timeout' => (int) config('ai.long_timeout'),
+                    'include_global_system_prompt' => $built['include_global_system_prompt'] ?? true,
                 ]);
             } catch (RuntimeException $e) {
                 $this->logAiUsage($userId, $action, config('ai.model'), 0, 0, 'error');
@@ -1004,22 +1042,25 @@ class AiTeacherController extends Controller
             }
 
             $answer = SchoolLetterhead::ensurePrefix($result['text']);
-            $this->logAiUsage(
+            $this->logAiGenerationUsage(
                 $userId,
                 $action,
-                $result['model'] ?? config('ai.model'),
-                $result['prompt_tokens'] ?? 0,
-                $result['completion_tokens'] ?? 0,
+                $result,
                 'success',
             );
             $history = $this->storeHistory($userId, $built['history'], $answer);
 
-            return response()->json([
+            $payload = [
                 'ok' => true,
                 'answer' => $answer,
                 'history' => $history,
                 'quota' => $this->aiPublicQuotaUsage(),
-            ]);
+            ];
+            if (! empty($result['truncated'])) {
+                $payload['warning'] = 'Jawaban AI masih terpotong setelah dilanjutkan otomatis. Kurangi cakupan topik atau lampiran lalu coba lagi. Teks parsial tetap disimpan.';
+            }
+
+            return response()->json($payload);
         }
 
         return $this->respond(
@@ -1027,12 +1068,13 @@ class AiTeacherController extends Controller
             'teacher_learning_'.$built['learning_tool'],
             $built['system'],
             $built['prompt'],
-            8192,
-            [
+            $this->teacherMaxOutputTokens(),
+            $this->teacherGenerateOptions() + [
                 'thinking_level' => 'low',
                 'timeout' => (int) config('ai.long_timeout'),
                 'retries' => 1,
                 'answer_style' => $built['answer_style'],
+                'include_global_system_prompt' => $built['include_global_system_prompt'] ?? true,
             ],
             $built['history'],
         );
@@ -1196,9 +1238,17 @@ class AiTeacherController extends Controller
             'document_uuid' => ['nullable', 'string', 'max:64'],
             'material_text' => ['nullable', 'string', 'max:'.$maxMaterial],
             'soal_bergambar' => ['sometimes', 'boolean'],
+            'output_language' => TeacherOutputLanguage::validationRules(),
+            'include_pinyin' => ['sometimes', 'boolean'],
         ]);
         $data['jenis_soal'] = array_values(array_unique($data['jenis_soal']));
         $data['soal_bergambar'] = $request->boolean('soal_bergambar');
+        $outputLanguage = TeacherOutputLanguage::normalize($data['output_language'] ?? null);
+        $includePinyin = $request->boolean('include_pinyin') && $outputLanguage === 'zh-CN';
+        $langLine = TeacherOutputLanguage::promptLine($outputLanguage);
+        if ($pinyinLine = TeacherOutputLanguage::pinyinLine($includePinyin)) {
+            $langLine .= "\n".$pinyinLine;
+        }
 
         $topik = trim((string) $data['topik']);
         $user = $request->user();
@@ -1247,23 +1297,27 @@ class AiTeacherController extends Controller
                 ."{$data['tingkat']} {$jenjang} berdasarkan materi dari {$sumber} berikut.\n"
                 ."Fokus topik: \"{$topik}\".\n"
                 ."JANGAN keluar dari cakupan {$label}. Bila sebuah fakta tidak ada di "
-                ."dalamnya, jangan mengarang — susun soal dari bagian yang tersedia saja.\n\n"
+                ."dalamnya, jangan mengarang — susun soal dari bagian yang tersedia saja.\n"
+                .$langLine."\n\n"
                 ."{$label}:\n{$material}\n\n"
                 .$formatInstruction;
         } else {
             $prompt = "Buat {$data['jumlah']} soal ({$jenis}) dengan tingkat kesulitan "
-                ."{$data['tingkat']} tentang topik: \"{$topik}\" {$jenjang}.\n\n"
+                ."{$data['tingkat']} tentang topik: \"{$topik}\" {$jenjang}.\n"
+                .$langLine."\n\n"
                 .$formatInstruction;
         }
 
         $title = $topik;
 
         return [
-            'system' => (string) config('ai.teacher.quiz'),
+            'system' => TeacherOutputLanguage::appendSystemNote((string) config('ai.teacher.quiz'), $outputLanguage),
             'prompt' => $prompt,
             'answer_style' => 'Tulis sebagai dokumen soal teks polos siap cetak sesuai format yang diminta. JANGAN memakai Markdown, heading #, atau bullet dekoratif.',
             'title' => (string) $title,
             'soal_bergambar' => (bool) $data['soal_bergambar'],
+            'output_language' => $outputLanguage,
+            'include_global_system_prompt' => TeacherOutputLanguage::usesGlobalSystemPrompt($outputLanguage),
             'history' => [
                 'type' => 'quiz',
                 'type_label' => 'Generator Soal',
@@ -1274,6 +1328,8 @@ class AiTeacherController extends Controller
                     'tingkat' => $data['tingkat'],
                     'jenjang' => $data['jenjang'] ?? null,
                     'soal_bergambar' => (bool) $data['soal_bergambar'],
+                    'output_language' => $outputLanguage,
+                    'include_pinyin' => $includePinyin,
                     'file' => $request->file('file')?->getClientOriginalName() ?? $document?->title,
                     'document_uuid' => $document?->uuid,
                     'source' => $materialSource ?? 'topic',
@@ -1291,30 +1347,58 @@ class AiTeacherController extends Controller
         $maxMaterial = max(4000, (int) config('ai.max_input_chars', 8000) * 2);
         $data = $request->validate([
             'tool' => ['required', 'in:rpp'],
-            'topik' => ['nullable', 'required_without_all:file,material_text', 'string', 'max:500'],
+            'topik' => ['nullable', 'required_without_all:file,material_text,document_uuid', 'string', 'max:500'],
             'mapel' => ['nullable', 'string', 'max:100'],
             'jenjang' => ['nullable', 'string', 'max:100'],
             'durasi' => ['nullable', 'string', 'max:100'],
             'file' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
+            'document_uuid' => ['nullable', 'string', 'max:64'],
             'material_text' => ['nullable', 'string', 'max:'.$maxMaterial],
+            'output_language' => TeacherOutputLanguage::validationRules(),
+            'include_pinyin' => ['sometimes', 'boolean'],
         ]);
 
-        $documentText = '';
+        $outputLanguage = TeacherOutputLanguage::normalize($data['output_language'] ?? null);
+        $includePinyin = $request->boolean('include_pinyin') && $outputLanguage === 'zh-CN';
+        $langLine = TeacherOutputLanguage::promptLine($outputLanguage);
+        if ($pinyinLine = TeacherOutputLanguage::pinyinLine($includePinyin)) {
+            $langLine .= "\n".$pinyinLine;
+        }
+        if ($outputLanguage === 'zh-CN') {
+            $langLine .= "\n".TeacherOutputLanguage::rpmMandarinHints();
+        }
+        $user = $request->user();
+        $document = null;
+        $inlineMaterial = '';
         $materialSource = null;
-        if ($request->hasFile('file')) {
-            $file = $request->file('file');
-            $documentText = $this->extractQuizDocumentText($file->getRealPath(), $file->getClientOriginalExtension(), true);
-            $materialSource = 'file';
 
-            if ($documentText === '') {
-                return response()->json([
-                    'ok' => false,
-                    'message' => 'Teks tidak dapat diekstrak dari file. Pastikan PDF bukan hasil scan/gambar dan file Word berisi teks.',
-                ], 422);
+        try {
+            if ($request->hasFile('file')) {
+                [$inlineMaterial, $document] = $this->materials->resolveUpload($user, $request->file('file'));
+                $materialSource = 'file';
+            } elseif (! empty($data['document_uuid'])) {
+                $document = $this->materials->findOwned($user, (string) $data['document_uuid']);
+                $materialSource = 'file';
+            } elseif (trim((string) ($data['material_text'] ?? '')) !== '') {
+                $inlineMaterial = trim((string) $data['material_text']);
+                $materialSource = 'camera_ocr';
             }
-        } elseif (trim((string) ($data['material_text'] ?? '')) !== '') {
-            $documentText = trim((string) $data['material_text']);
-            $materialSource = 'camera_ocr';
+
+            $material = $inlineMaterial;
+            if ($material === '' && $document) {
+                $topikForRag = trim((string) ($data['topik'] ?? ''));
+                if ($topikForRag === '') {
+                    return response()->json([
+                        'ok' => false,
+                        'message' => 'Topik wajib diisi saat memakai buku/file besar agar bagian yang relevan bisa dicari.',
+                        // Supaya UI bisa resume tanpa unggah ulang setelah resolveUpload.
+                        'document_uuid' => $document->uuid,
+                    ], 422);
+                }
+                $material = $this->materials->retrieveForTopic($document, $topikForRag, $user->uuid);
+            }
+        } catch (TeacherMaterialException $e) {
+            return response()->json($e->toArray(), $e->httpStatus);
         }
 
         $toolLabel = $this->learningToolLabel($data['tool']);
@@ -1332,43 +1416,32 @@ class AiTeacherController extends Controller
         $detailText = $details ? implode("\n", $details)."\n" : '';
         $topicLine = $topik !== '' ? "Fokus/topik RPM: \"{$topik}\".\n" : '';
 
-        if ($materialSource === 'camera_photo') {
-            $pageCount = count($visionImages);
-            $prompt = "Baca materi dari foto halaman buku/materi ajar yang dilampirkan ({$pageCount} gambar). "
-                ."Buat {$toolLabel} siap pakai untuk guru HANYA berdasarkan isi yang terbaca di foto.\n"
-                .$topicLine
-                .$detailText
-                ."Gunakan Bahasa Indonesia baku, praktis, dan langsung bisa direview guru.\n"
-                ."Jangan mengarang di luar materi di foto. Jika sebagian buram, pakai bagian yang jelas; jika perlu info yang tidak ada di foto, gunakan placeholder yang jelas.\n"
-                ."Jika seluruh foto tidak terbaca, tulis tepat: TIDAK_TERBACA.\n\n"
-                .$this->learningFormatInstruction($data['tool']);
-        } elseif ($documentText !== '') {
-            $maxChars = (int) config('ai.max_input_chars');
-            $material = mb_substr($documentText, 0, $maxChars);
-            $topicLine = $topik !== '' ? "Fokus/topik RPM: \"{$topik}\".\n" : '';
+        if ($material !== '') {
             $label = $materialSource === 'camera_ocr' ? 'MATERI SCAN BUKU' : 'MATERI FILE';
-            $prompt = "Buat {$toolLabel} siap pakai untuk guru berdasarkan materi dari "
-                .($materialSource === 'camera_ocr' ? 'scan/foto buku' : 'file')." berikut.\n"
+            $sumber = $materialSource === 'camera_ocr' ? 'scan/foto halaman buku' : 'file';
+            $prompt = "Buat {$toolLabel} siap pakai untuk guru berdasarkan materi dari {$sumber} berikut.\n"
                 .$topicLine
                 .$detailText
-                ."Gunakan Bahasa Indonesia baku, praktis, dan langsung bisa direview guru.\n"
+                .$langLine."\n"
                 ."JANGAN keluar dari cakupan {$label}. Jika ada informasi yang belum ada di materi, gunakan placeholder yang jelas, bukan mengarang.\n\n"
                 ."{$label}:\n{$material}\n\n"
                 .$this->learningFormatInstruction($data['tool']);
         } else {
             $prompt = "Buat {$toolLabel} siap pakai untuk guru dengan topik: \"{$topik}\".\n"
                 .$detailText
-                ."Gunakan Bahasa Indonesia baku, praktis, dan langsung bisa direview guru.\n\n"
+                .$langLine."\n\n"
                 .$this->learningFormatInstruction($data['tool']);
         }
 
         return [
-            'system' => (string) config('ai.teacher.learning'),
+            'system' => TeacherOutputLanguage::appendSystemNote((string) config('ai.teacher.learning'), $outputLanguage),
             'prompt' => $prompt,
             'answer_style' => 'Tulis sebagai dokumen teks polos siap cetak. JANGAN memakai Markdown '
                 .'(tanpa **tebal**, tanpa heading #, tanpa tabel pipa selain yang diminta format).',
             'title' => (string) $title,
             'learning_tool' => $data['tool'],
+            'output_language' => $outputLanguage,
+            'include_global_system_prompt' => TeacherOutputLanguage::usesGlobalSystemPrompt($outputLanguage),
             'history' => [
                 'type' => $data['tool'],
                 'type_label' => $toolLabel,
@@ -1377,7 +1450,10 @@ class AiTeacherController extends Controller
                     'mapel' => $data['mapel'] ?? null,
                     'jenjang' => $data['jenjang'] ?? null,
                     'durasi' => $data['durasi'] ?? null,
-                    'file' => $request->file('file')?->getClientOriginalName(),
+                    'output_language' => $outputLanguage,
+                    'include_pinyin' => $includePinyin,
+                    'file' => $request->file('file')?->getClientOriginalName() ?? $document?->title,
+                    'document_uuid' => $document?->uuid,
                     'source' => $materialSource ?? 'topic',
                     'via' => 'sims',
                 ],
@@ -1554,12 +1630,10 @@ class AiTeacherController extends Controller
             ], 502);
         }
 
-        $this->logAiUsage(
+        $this->logAiGenerationUsage(
             $userId,
             $feature,
-            $result['model'],
-            $result['prompt_tokens'],
-            $result['completion_tokens'],
+            $result,
             'success',
         );
 
@@ -1569,12 +1643,17 @@ class AiTeacherController extends Controller
             ? $this->storeHistory($userId, $historyData, $answer)
             : null;
 
-        return response()->json([
+        $payload = [
             'ok' => true,
             'answer' => $answer,
             'history' => $history,
             'quota' => $this->aiPublicQuotaUsage(),
-        ]);
+        ];
+        if (! empty($result['truncated'])) {
+            $payload['warning'] = 'Jawaban AI masih terpotong setelah dilanjutkan otomatis. Kurangi cakupan topik atau lampiran lalu coba lagi. Teks parsial tetap disimpan.';
+        }
+
+        return response()->json($payload);
     }
 
 
@@ -1964,6 +2043,21 @@ TXT;
         $runProperties = $bold ? '<w:rPr><w:b/><w:sz w:val="32"/></w:rPr>' : '';
 
         return '<w:p><w:r>'.$runProperties.'<w:t xml:space="preserve">'.$escaped.'</w:t></w:r></w:p>';
+    }
+
+    /** DELETE /ai/teacher/materials/{uuid} - Batalkan dan hapus materi guru. */
+    public function cancelMaterial(string $uuid, Request $request): JsonResponse
+    {
+        try {
+            $this->materials->cancelMaterial($uuid, $request->user());
+
+            return response()->json([
+                'ok' => true,
+                'message' => 'Pemrosesan materi berhasil dibatalkan dan dibersihkan.',
+            ]);
+        } catch (TeacherMaterialException $e) {
+            return response()->json($e->toArray(), $e->httpStatus);
+        }
     }
 
     private function extractQuizDocumentText(string $path, string $extension, bool $preserveNewlines = false): string
