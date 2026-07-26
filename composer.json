@@ -15,7 +15,6 @@
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "livewire/livewire": "^3.5",
-        "ludensa/ludensa": "@dev",
         "maatwebsite/excel": "^3.1",
         "mavinoo/laravel-batch": "^2.4",
         "simplesoftwareio/simple-qrcode": "^4.2",

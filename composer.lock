@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1cba1b72abdb83a42a7df3f7427bf0ca",
+    "content-hash": "73c209b4f2ed001a68809022505f350e",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -4209,44 +4209,6 @@
                 }
             ],
             "time": "2026-06-27T03:14:20+00:00"
-        },
-        {
-            "name": "ludensa/ludensa",
-            "version": "dev-main",
-            "dist": {
-                "type": "path",
-                "url": "../Ludensa GAMIFIKASI/packages/ludensa",
-                "reference": "143296bb06c9bf4b4df12bc5538d7ec5d66ec9ac"
-            },
-            "require": {
-                "laravel/framework": "^12.0",
-                "livewire/livewire": "^3.5",
-                "php": "^8.2",
-                "spatie/laravel-activitylog": "^4.8",
-                "spatie/laravel-permission": "^6.9"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Ludensa\\LudensaServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Ludensa\\": "src/",
-                    "Ludensa\\Database\\Seeders\\": "database/seeders/"
-                }
-            },
-            "license": [
-                "proprietary"
-            ],
-            "description": "Modul gamifikasi pembelajaran lintas jenjang untuk ekosistem B'tive (SIMS) dan Edutive/AsahJenjang",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
         },
         {
             "name": "maatwebsite/excel",
@@ -11861,14 +11823,12 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "ludensa/ludensa": 20
-    },
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": "^8.2"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.6.0"
 }
