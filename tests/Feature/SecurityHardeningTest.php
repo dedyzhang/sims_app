@@ -193,7 +193,13 @@ class SecurityHardeningTest extends TestCase
         $this->assertNull(FaceMatch::saveFromDataUrl('uploads/chat/evil.jpg', $owner, null));
     }
 
-    public function test_registrasi_wajah_duplikat_ditolak(): void
+    /** Diminta user: matikan total pengecekan wajah duplikat saat registrasi — sebelumnya wajah
+     *  baru yg terlalu mirip wajah lain yg SUDAH terdaftar akan DITOLAK (422, duplicate=true, pesan
+     *  "Wajah ini mirip ..."), yg ternyata sering salah tangkap (false-positive) utk wajah anak-anak
+     *  yg belum terlalu khas. Sekarang registrasi SELALU diterima berapa pun mirip-nya dgn wajah lain
+     *  yg sudah terdaftar — audit "wajah ganda" tetap ada di halaman admin (FaceController::
+     *  duplicates()) buat ditinjau belakangan, cuma tak lagi memblokir siswa/guru saat itu juga. */
+    public function test_registrasi_wajah_mirip_tetap_diterima(): void
     {
         $existing = Siswa::create([
             'nama' => 'Siswa Lama',
@@ -219,42 +225,11 @@ class SecurityHardeningTest extends TestCase
                 'descriptors' => $this->descriptors(3, 0.5),
                 'photo' => null,
             ])
-            ->assertUnprocessable()
-            ->assertJsonPath('duplicate', true);
+            ->assertOk()
+            ->assertJson(['success' => true]);
 
-        $this->assertNull($siswa->fresh()->face_descriptor);
+        $this->assertNotNull($siswa->fresh()->face_descriptor);
         $this->assertNotNull($existing->fresh()->face_descriptor);
-    }
-
-    public function test_force_true_tidak_bypass_duplikat_wajah(): void
-    {
-        Siswa::create([
-            'nama' => 'Siswa Lama',
-            'nis' => 'FRC001',
-            'jk' => 'L',
-            'face_descriptor' => $this->descriptors(3, 0.7),
-        ]);
-
-        $user = User::create([
-            'username' => 'siswa_force',
-            'password' => Hash::make('password'),
-            'access' => 'siswa',
-        ]);
-        Siswa::create([
-            'id_login' => $user->getKey(),
-            'nama' => 'Siswa Baru',
-            'nis' => 'FRC002',
-            'jk' => 'P',
-        ]);
-
-        $this->actingAs($user)
-            ->postJson('/wajah-saya', [
-                'descriptors' => $this->descriptors(3, 0.7),
-                'photo' => null,
-                'force' => true,
-            ])
-            ->assertUnprocessable()
-            ->assertJsonPath('duplicate', true);
     }
 
     public function test_rag_destroy_ditolak_untuk_dokumen_orang_lain(): void

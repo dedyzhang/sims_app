@@ -227,18 +227,6 @@ class SiswaController extends Controller
         // Kolom & mesin descriptor tergantung Setting → Mesin Pengenalan Wajah yg AKTIF sekarang.
         $descCol = \App\Support\FaceEngine::kolomDescriptor();
 
-        // Deteksi wajah ganda: cocok dengan orang lain yang sudah terdaftar (di mesin yg sama)?
-        $dup = \App\Support\FaceMatch::bestMatch($request->descriptors, $uuid, $descCol);
-        if ($dup && $dup['similarity'] >= \App\Support\FaceMatch::thresholdFor($descCol)) {
-            return response()->json([
-                'duplicate'  => true,
-                'nama'       => $dup['nama'],
-                'tipe'       => $dup['tipe'],
-                'similarity' => round($dup['similarity'] * 100),
-                'message'    => 'Wajah ini mirip ' . $dup['nama'] . ' (' . $dup['tipe'] . ').',
-            ], 422);
-        }
-
         // face_registered_at & foto profil dipakai BERSAMA lintas mesin (bukan data per-mesin
         // spt descriptor) — selalu diperbarui di SETIAP registrasi sukses, apa pun mesin yg aktif.
         // Dulu hanya diisi saat $descCol==='face_descriptor' (atau pendaftaran pertama), jadi
