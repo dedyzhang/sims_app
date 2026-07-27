@@ -138,34 +138,36 @@ class FaceScanMatchingTest extends TestCase
 
     public function test_guru_tetap_bisa_dikenali_utk_pulang_setelah_absen_masuk(): void
     {
-        // Regresi konkret dilaporkan user (round 1): guru yg sudah absen MASUK (s.marked=true) jadi
-        // tak pernah dikenali kamera LAGI walau kiosk sudah dipindah ke mode Pulang — krn isFaceLocked()
-        // dan awal onMatch() dulu sama2 mengunci berdasar s.marked TANPA peduli scanMode saat ini.
+        // Round 1: guru yg sudah absen MASUK jadi tak pernah dikenali kamera lagi walau kiosk sudah
+        // dipindah ke mode Pulang. Round 2: dibuat auto-detect PENUH (scanMode diabaikan total).
+        // Round 3: toggle "Pulang" yg SENGAJA dipilih jadi kepaksa nyoba masuk dulu — dicoba pakai
+        // auto-flip. Round 4: auto-flip ITU SENDIRI jadi masalah baru — tab "Datang" ikut mencatat
+        // "Pulang" jg. Diperbaiki dgn mode MURNI ikut tab, isFaceLocked() jg dibuat tab-aware.
+        // Round 5: isFaceLocked() yg tab-aware itu dipakai render() utk MENYARING KANDIDAT WAJAH sama
+        // sekali (bukan cuma menahan aksi) — guru yg tab-nya "salah" jadi TAK PERNAH DICOBA DIKENALI
+        // kamera (kotak abu2 "—") sampai reload. Sempat "diperbaiki" dgn isFaceLocked() balik murni
+        // "terkunci hanya kalau dua2nya tercatat" (tak tab-aware sama sekali).
         //
-        // Round 2: operator sering lupa pindah toggle, jadi mode sempat dibuat auto-detect PENUH dari
-        // status guru (scanMode diabaikan total). Round 3: itu kebalikannya jadi salah — toggle "Pulang"
-        // yg SENGAJA dipilih operator jadi kepaksa nyoba masuk dulu buat guru yg blm absen masuk pagi;
-        // dicoba diperbaiki dgn auto-flip (mode ikut toggle, tapi lompat ke aksi lain kalau aksi yg
-        // dituju toggle sudah tercatat).
-        //
-        // Round 4 (dilaporkan lagi): auto-flip round 3 ITU SENDIRI jadi masalah baru — pas operator di
-        // tab "Datang" scan guru yg (entah kenapa) s.marked-nya sudah true, wajahnya malah IKUT
-        // tercatat "Pulang" jg — operator sama sekali tak minta itu. Fix final: kalau toggle Masuk/
-        // Pulang TAMPIL di layar (qrEnabled true), mode MURNI ikut tab yg dipilih, TANPA auto-flip
-        // sama sekali — isFaceLocked() jg jadi tab-aware (guru yg aksinya utk tab AKTIF sudah tercatat
-        // dianggap terkunci, tak diproses ulang, apalagi diproses sbg aksi lain). Auto-deteksi dari
-        // status guru HANYA dipakai kalau toggle-nya sendiri TAK ADA (sekolah cuma pakai wajah tanpa
-        // Kartu ID) — di situ tak ada tab yg bisa "disalahi" krn memang tak ada tab sama sekali.
+        // Round 6 (diminta user scr eksplisit): isFaceLocked() tab-aware itu ternyata BUKAN cuma bug
+        // — juga fitur performa yg diinginkan: guru yg sudah absen MASUK tak perlu terus dicocokkan
+        // kamera selama tab masih "Masuk" (mengurangi jumlah wajah yg dibandingkan tiap frame). Jadi
+        // tab-aware DIKEMBALIKAN, TAPI harus tetap menjamin: begitu tab pindah ke "Pulang", guru yg
+        // BELUM absen pulang harus tetap bisa dikenali TERUS-MENERUS sampai sukses — termasuk yg
+        // sempat ditolak krn agenda belum diisi (jangan ikut disaring keluar hanya krn riwayat gagal;
+        // itu ditangani _pulangBlockedAt di onMatch(), bukan di isFaceLocked()).
         $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
 
-        // isFaceLocked(): guru terkunci total kalau masuk & pulang dua2nya tercatat; kalau toggle
-        // tampil, terkunci jg utk tab aktif yg aksinya sudah tercatat (tab-aware, bukan auto-flip).
-        $this->assertStringContainsString('if(s.marked && s.pulangMarked) return true; // sudah lengkap hari ini', $source);
-        $this->assertStringContainsString("if(this.hasGuru && this.qrEnabled){\n                    return this.scanMode === 'pulang' ? !!s.pulangMarked : !!s.marked;\n                }", $source);
+        // isFaceLocked(): terkunci total kalau dua2nya tercatat; kalau toggle tampil, tab-aware lagi
+        // (skip kandidat yg aksi tab-nya sudah tercatat) — TAPI komentarnya harus menegaskan syarat
+        // "tetap terbaca sampai sukses" di tab Pulang, bukan sekadar kode telanjang tanpa penjelasan.
+        $this->assertStringContainsString(
+            "if(this.hasGuru && this.qrEnabled){\n                    return this.scanMode === 'pulang' ? !!s.pulangMarked : !!s.marked;\n                }",
+            $source
+        );
         $this->assertStringContainsString('return !!s.marked;', $source);
 
         // onMatch(): mode MURNI ikut toggle scanMode saat toggle tampil — TAK ADA lagi auto-flip
-        // (behavior round 3 yg jadi sumber bug round 4 harus sudah hilang).
+        // (behavior round 3 yg jadi sumber bug round 4 harus tetap hilang).
         $this->assertStringContainsString(
             "const mode = (this.hasGuru && this.qrEnabled)\n"
             . "                    ? (this.scanMode === 'pulang' ? 'pulang' : 'masuk')\n"
@@ -176,9 +178,25 @@ class FaceScanMatchingTest extends TestCase
         $this->assertStringNotContainsString("if(mode === 'masuk' && s.marked) mode = 'pulang';", $source);
         $this->assertStringContainsString('if(s._masukBusy || s._pulangBusy) return;', $source);
 
+        // Cabang pulang: jeda 8 detik setelah ditolak (mis. agenda belum diisi) TIDAK boleh ikut
+        // menyaring dari isFaceLocked() — supaya percobaan berikutnya di tab Pulang tetap terbaca.
+        $this->assertStringContainsString('if(s._pulangBlockedAt && (Date.now()-s._pulangBlockedAt) < 8000) return;', $source);
+
         // Toggle scanMode kini dipakai bareng utk Kartu ID (barcode/QR) DAN wajah — tetap reset streak.
         $this->assertStringContainsString("@click=\"scanMode='masuk'; _streak={}\"", $source);
         $this->assertStringContainsString("@click=\"scanMode='pulang'; _streak={}\"", $source);
+    }
+
+    /** Diminta user scr eksplisit (round 6): begitu tab kiosk pindah ke "Pulang", guru yg BELUM
+     *  sukses absen pulang harus tetap jadi kandidat wajah — termasuk yg berkali-kali ditolak krn
+     *  agenda belum diisi. isFaceLocked() tak boleh mengunci mereka hanya krn s.pulangMarked masih
+     *  false; satu2nya syarat lock di tab Pulang adalah s.pulangMarked SUDAH true (sukses). */
+    public function test_isFaceLocked_tetap_membuka_kandidat_pulang_walau_pernah_ditolak_agenda(): void
+    {
+        $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
+        // Syarat lock di tab pulang murni `!!s.pulangMarked` — tak ada embel2 lain (mis. cek
+        // _pulangBlockedAt atau riwayat gagal) yg bisa membuatnya terkunci padahal belum sukses.
+        $this->assertStringContainsString("this.scanMode === 'pulang' ? !!s.pulangMarked : !!s.marked;", $source);
     }
 
     public function test_guru_yg_belum_absen_masuk_langsung_dicatat_pulang_saat_toggle_pulang(): void

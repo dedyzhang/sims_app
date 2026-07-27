@@ -559,12 +559,16 @@ function faceScan(data, opts={}){
             if(this._faceLocked[uuid]) return true;
             if(s.type==='guru'){
                 if(s.marked && s.pulangMarked) return true; // sudah lengkap hari ini
-                // Toggle Masuk/Pulang TAMPIL di layar → operator punya kendali eksplisit, wajah
-                // HANYA dikenali utk aksi yg SEDANG dipilih tab itu (dilaporkan user: tab "Datang"
-                // sempat ikut mencatat "Pulang" jg krn dulu auto-lompat ke aksi lain — sekarang
-                // dihapus, murni ikut tab). Toggle TAK tampil (sekolah cuma pakai wajah tanpa Kartu
-                // ID, scanKioskMode='wajah' → tak ada tab yg bisa dipilih sama sekali) → tetap
-                // terbuka spy onMatch() bisa auto-deteksi aksi yg belum tercatat.
+                // Toggle Masuk/Pulang TAMPIL → dipakai jg sbg sinyal performa: guru yg SUDAH absen
+                // masuk tak perlu terus dicocokkan kamera selama tab masih "Masuk" (mengurangi
+                // jumlah wajah yg dibandingkan tiap frame — makin banyak guru terdaftar, makin
+                // berat kalau semua tetap jadi kandidat sepanjang hari). TAPI begitu tab pindah ke
+                // "Pulang", guru yg BELUM absen pulang tetap harus bisa dikenali TERUS-MENERUS
+                // sampai benar2 sukses — termasuk yg sempat ditolak krn agenda belum diisi (jangan
+                // ikut dikunci hanya krn pernah gagal; itu bug lain yg sudah diperbaiki di onMatch()
+                // via _pulangBlockedAt, bukan di sini). Kalau toggle-nya sendiri TAK ADA (sekolah
+                // cuma pakai wajah tanpa Kartu ID), tak ada sinyal tab yg bisa dipakai buat
+                // menghemat — tetap terbuka sampai benar2 lengkap dua2nya.
                 if(this.hasGuru && this.qrEnabled){
                     return this.scanMode === 'pulang' ? !!s.pulangMarked : !!s.marked;
                 }
@@ -990,6 +994,20 @@ function faceScan(data, opts={}){
                 const mode = (this.hasGuru && this.qrEnabled)
                     ? (this.scanMode === 'pulang' ? 'pulang' : 'masuk')
                     : (s.marked ? 'pulang' : 'masuk');
+
+                // Wajahnya tetap DIKENALI (isFaceLocked tak lagi menyaring berdasar tab — lihat
+                // komentarnya), tapi aksi yg diminta tab itu ternyata sudah tercatat duluan utk
+                // guru ini (mis. tab masih "Masuk" padahal dia sudah absen masuk & mau pulang).
+                // Jangan kirim ulang ke server (bakal no-op tapi tetap muncul toast "Selamat
+                // datang" berulang, membingungkan) — cukup kasih tahu operator pindah tab.
+                if((mode==='masuk' && s.marked) || (mode==='pulang' && s.pulangMarked)){
+                    delete this._faceLocked[uuid];
+                    if(!s._tabHintBlockedAt || (Date.now()-s._tabHintBlockedAt) >= 8000){
+                        s._tabHintBlockedAt = Date.now();
+                        this.rejectFeedback(s.nama, 'Sudah absen ' + (mode==='masuk' ? 'masuk' : 'pulang') + ' — pindah ke tab ' + (mode==='masuk' ? 'Pulang' : 'Masuk') + ' utk lanjut.');
+                    }
+                    return;
+                }
 
                 if(mode==='pulang'){
                     if(s._pulangBusy) return;
