@@ -137,9 +137,21 @@ class FileCompressionService
         if ($configured && @is_executable($configured)) {
             return $configured;
         }
+
+        // Banyak shared hosting (cPanel dkk) mematikan shell_exec() lewat disable_functions
+        // di php.ini demi keamanan — memanggilnya lalu menjadi ERROR FATAL "Call to undefined
+        // function", BUKAN sekadar warning, jadi `@` di depan tak cukup meredamnya (beda dari
+        // kegagalan biasa spt command tak ditemukan). Cek function_exists() dulu supaya di host
+        // spt itu cukup dianggap "Ghostscript tak tersedia" → fallback simpan PDF asli (sudah
+        // ada di handlePdf()), bukan bikin seluruh upload gagal 500.
+        if (!function_exists('shell_exec')) {
+            return null;
+        }
+
         foreach (['gs', 'gswin64c', 'gswin32c'] as $bin) {
             $which = PHP_OS_FAMILY === 'Windows' ? "where {$bin}" : "command -v {$bin}";
-            $out = @shell_exec($which . ' 2>nul');
+            $redirect = PHP_OS_FAMILY === 'Windows' ? '2>nul' : '2>/dev/null';
+            $out = @shell_exec($which . ' ' . $redirect);
             if ($out && trim($out) !== '') {
                 return trim(strtok($out, "\r\n"));
             }

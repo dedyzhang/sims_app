@@ -45,6 +45,22 @@ return [
     ],
 
     /*
+    | Kunci rahasia bersama tingkat-yayasan — kalau diisi (SAMA persis di file .env tiap
+    | instalasi/domain sekolah dalam satu yayasan), QR absen harian (mode "harian") jadi
+    | ditandatangani pakai kunci ini, BUKAN APP_KEY masing-masing instalasi — sehingga QR
+    | yg ditampilkan/dicetak di satu sekolah tetap valid dipindai & diproses di sekolah lain
+    | dalam yayasan yg sama (guru yg mengajar di >1 sekolah naungan yg sama tak perlu QR
+    | terpisah per sekolah). Guru TETAP wajib login & terdaftar sbg guru di sekolah yg
+    | bersangkutan saat scan — kunci ini hanya menyamakan validitas TOKEN QR-nya, bukan
+    | sesi login/identitas (lihat App\Http\Controllers\QrAbsensiController::qrSigningKey()).
+    | KOSONGKAN (default) utk sekolah yg berdiri sendiri / bukan bagian yayasan multi-sekolah
+    | — perilaku lama (QR terisolasi per instalasi via APP_KEY) tetap jalan tanpa perubahan.
+    */
+    'yayasan' => [
+        'qr_key' => env('YAYASAN_QR_KEY'),
+    ],
+
+    /*
     | Canva Connect (Public) — OAuth per-guru, jalur gratis Canva Pendidikan.
     | Guru login dengan akun belajar.id di layar Canva. Bukan Enterprise/Private.
     */

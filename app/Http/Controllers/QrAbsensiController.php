@@ -20,7 +20,7 @@ class QrAbsensiController extends Controller
 {
     /**
      * Token QR aktif — dua mode (diatur admin lewat Pengaturan > Absensi):
-     * - "harian": deterministik per tanggal (HMAC + APP_KEY), otomatis berubah tiap hari.
+     * - "harian": deterministik per tanggal (HMAC + kunci penandatangan), otomatis berubah tiap hari.
      * - "tetap" : satu token permanen tersimpan di Setting, tidak berubah sampai admin
      *             membuatnya ulang secara manual (cocok utk QR yang dicetak & ditempel).
      */
@@ -30,7 +30,22 @@ class QrAbsensiController extends Controller
             return $this->tokenTetap();
         }
         $date = $date ?: now()->toDateString();
-        return substr(hash_hmac('sha256', 'qrabsen|' . $date, (string) config('app.key')), 0, 12);
+        return substr(hash_hmac('sha256', 'qrabsen|' . $date, $this->qrSigningKey()), 0, 12);
+    }
+
+    /**
+     * Kunci penandatangan token QR harian. Default: APP_KEY instalasi ini (perilaku lama,
+     * QR terisolasi per sekolah/domain — tak berubah kalau services.yayasan.qr_key kosong).
+     * Kalau diisi (config/services.php, env YAYASAN_QR_KEY) — dipakai SEBAGAI GANTI APP_KEY,
+     * supaya QR yg dihasilkan sekolah ini valid jg dipindai di sekolah lain yg berbagi
+     * kunci yayasan yg SAMA (lihat komentar di config/services.php). Bukan menghapus
+     * keamanan — cuma memindah lingkup isolasinya dari "per sekolah" ke "per yayasan".
+     */
+    private function qrSigningKey(): string
+    {
+        $yayasan = (string) (config('services.yayasan.qr_key') ?? '');
+
+        return $yayasan !== '' ? $yayasan : (string) config('app.key');
     }
 
     /** Token mode tetap — dibuat sekali (lazy) & disimpan; admin bisa buat ulang lewat Pengaturan. */
