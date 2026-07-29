@@ -180,7 +180,8 @@ class FaceScanMatchingTest extends TestCase
 
         // Cabang pulang: jeda 8 detik setelah ditolak (mis. agenda belum diisi) TIDAK boleh ikut
         // menyaring dari isFaceLocked() — supaya percobaan berikutnya di tab Pulang tetap terbaca.
-        $this->assertStringContainsString('if(s._pulangBlockedAt && (Date.now()-s._pulangBlockedAt) < 8000) return;', $source);
+        // (Cache _faceLocked jg WAJIB dilepas di jalur ini — lihat test_cache_face_locked_dilepas_saat_cooldown_aktif.)
+        $this->assertStringContainsString("if(s._pulangBlockedAt && (Date.now()-s._pulangBlockedAt) < 8000){ delete this._faceLocked[uuid]; return; }", $source);
 
         // Toggle scanMode kini dipakai bareng utk Kartu ID (barcode/QR) DAN wajah — tetap reset streak.
         $this->assertStringContainsString("@click=\"scanMode='masuk'; _streak={}\"", $source);
@@ -249,5 +250,41 @@ class FaceScanMatchingTest extends TestCase
         // sebelumnya ini jg jadi sumber bug yg sama kalau guru absen masuk via kartu lalu wajahnya
         // tak pernah terbaca lagi utk absen pulang.
         $this->assertStringNotContainsString("s.justMarked = true;\n                    this._faceLocked[d.uuid] = true;", $source);
+    }
+
+    /** Bug nyata dilaporkan user: guru yang BARU SELESAI mengisi agenda tetap tidak bisa absen
+     *  pulang — harus reload halaman dulu baru wajahnya terbaca lagi. Root cause: 3 early-return
+     *  di onMatch() (jeda 8 detik setelah ditolak, utk cabang pulang-guru, masuk-guru, & masuk-
+     *  siswa) TIDAK melepas this._faceLocked[uuid] sebelum return — padahal flag itu SUDAH ditulis
+     *  true oleh render() SEBELUM onMatch() dipanggil. Begitu percobaan kedua (dalam 8 detik
+     *  setelah percobaan pertama ditolak) memicu onMatch() lagi, ia langsung kena early-return ini
+     *  TANPA sempat menghapus cache-nya lagi — beda dari jalur fetch (yg selalu menghapusnya di
+     *  .then()/.catch()). Cache itu lalu nyangkut PERMANEN krn tak ada kode lain yg menghapusnya,
+     *  jadi isFaceLocked() short-circuit true selamanya utk orang ini (baris paling atas fungsi
+     *  itu) — wajahnya tak pernah dicocokkan kamera lagi sepanjang sesi halaman, walau agenda sudah
+     *  diisi & cooldown 8 detik sudah lewat lama. Satu-satunya jalan keluar sebelumnya: reload. */
+    public function test_cache_face_locked_dilepas_saat_cooldown_aktif(): void
+    {
+        $source = file_get_contents(resource_path('views/absensi/scan.blade.php'));
+
+        $this->assertStringContainsString(
+            "if(s._pulangBlockedAt && (Date.now()-s._pulangBlockedAt) < 8000){ delete this._faceLocked[uuid]; return; }",
+            $source,
+            'Cabang pulang (guru) harus melepas cache _faceLocked selama masih dlm jeda cooldown, bukan cuma di jalur fetch.'
+        );
+        $this->assertStringContainsString(
+            "if(s._masukBlockedAt && (Date.now()-s._masukBlockedAt) < 8000){ delete this._faceLocked[uuid]; return; }",
+            $source,
+            'Cabang masuk (guru & siswa) harus melepas cache _faceLocked selama masih dlm jeda cooldown.'
+        );
+        // Pastikan pola LAMA yg jadi sumber bug (return polos tanpa delete) sudah tak ada lagi.
+        $this->assertStringNotContainsString(
+            "if(s._pulangBlockedAt && (Date.now()-s._pulangBlockedAt) < 8000) return;",
+            $source
+        );
+        $this->assertStringNotContainsString(
+            "if(s._masukBlockedAt && (Date.now()-s._masukBlockedAt) < 8000) return;",
+            $source
+        );
     }
 }

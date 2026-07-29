@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Jobs\SendFcmNotificationJob;
+use App\Models\Guru;
 use App\Models\Kelas;
 use App\Models\Orangtua;
 use App\Models\Setting;
 use App\Models\Siswa;
 use App\Models\User;
+use App\Models\Walikelas;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -424,6 +426,49 @@ class AbsensiParentNotificationTest extends TestCase
                 && $job->payload['title'] === 'Anak sudah masuk sekolah'
                 && str_contains($job->payload['message'], '07:30');
         });
+    }
+
+    /** Diminta user scr eksplisit: absensi manual yg diisi WALI KELAS cukup status "hadir" saja,
+     *  TANPA jam — beda dari admin/manage_absensi yg jam_masuk-nya tetap otomatis diisi krn dianggap
+     *  input resmi. Manual wali kelas bukan bukti waktu kedatangan sungguhan (beda dari scan wajah/QR). */
+    public function test_form_manual_hadir_wali_kelas_tidak_mengisi_jam_masuk(): void
+    {
+        Queue::fake();
+        Carbon::setTestNow(Carbon::parse('2026-07-13 07:30:00'));
+        [$siswa, $kelas, $parentUser] = $this->siswaDenganOrangtua();
+
+        $waliUser = User::create([
+            'username' => 'wali_absensi_manual',
+            'password' => Hash::make('password'),
+            'access'   => 'guru',
+        ]);
+        $guru = Guru::create([
+            'id_login'        => $waliUser->getKey(),
+            'nama'            => 'Wali Kelas Absensi Manual',
+            'nik'             => 'WALI-ABS-MANUAL-001',
+            'face_descriptor' => [array_map(fn ($i) => $i % 2 === 0 ? 1.0 : -1.0, range(0, 63))],
+        ]);
+        Walikelas::create(['id_kelas' => $kelas->uuid, 'id_guru' => $guru->uuid]);
+
+        $this->actingAs($waliUser)->post('/absensi', [
+            'id_kelas' => $kelas->uuid,
+            'tanggal' => '2026-07-13',
+            'status' => [$siswa->uuid => 'hadir'],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('absensis', [
+            'id_siswa' => $siswa->uuid,
+            'tanggal' => '2026-07-13',
+            'status' => 'hadir',
+            'jam_masuk' => null,
+        ]);
+
+        // Notifikasi ortu tetap terkirim seperti biasa — hanya jam_masuk yg sengaja dikosongkan.
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_type' => User::class,
+            'notifiable_id' => $parentUser->uuid,
+            'type' => 'App\\Notifications\\StudentAttendanceRecorded',
+        ]);
     }
 
     public function test_form_manual_izin_mengirim_notifikasi_ke_orang_tua(): void

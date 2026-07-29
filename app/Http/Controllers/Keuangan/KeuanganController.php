@@ -124,6 +124,7 @@ class KeuanganController extends Controller
             'tanggal_bayar'    => 'required_unless:status,belum|nullable|date',
             'jatuh_tempo'      => 'nullable|date',
             'catatan'          => 'nullable|string|max:500',
+            'catatan_bendahara'=> 'nullable|string|max:500',
             'selected_bulans'  => 'nullable|array',
             'selected_bulans.*'=> 'integer|between:1,12',
         ]);
@@ -144,6 +145,12 @@ class KeuanganController extends Controller
             }
             if (array_key_exists('catatan', $data)) {
                 $p->catatan = $data['catatan'];
+            }
+            // catatan_bendahara SENGAJA tak ikut ditimpa oleh applyStatus()/status manapun di
+            // bawah — beda dari `catatan` (alasan tolak, dihapus otomatis tiap transisi status).
+            // Ini catatan bebas per bulan utk orang tua, harus bertahan lintas status.
+            if (array_key_exists('catatan_bendahara', $data)) {
+                $p->catatan_bendahara = $data['catatan_bendahara'];
             }
 
             if (!empty($data['status'])) {
@@ -387,6 +394,7 @@ class KeuanganController extends Controller
             'tanggal_bayar' => $p->tanggal_bayar?->toDateString(),
             'jatuh_tempo'   => $p->jatuh_tempo?->toDateString(),
             'catatan'       => $p->catatan,
+            'catatan_bendahara' => $p->catatan_bendahara,
         ];
     }
 }

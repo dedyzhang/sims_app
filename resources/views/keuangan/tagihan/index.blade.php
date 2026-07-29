@@ -156,6 +156,9 @@
                     @if($p && in_array($p->status, ['menunggu','terverifikasi']))
                         <p class="text-[11px] text-slate-400 mt-1">{{ $ket }}</p>
                     @endif
+                    @if($p && $p->catatan_bendahara)
+                        <p class="text-[11px] text-sky-600 dark:text-sky-400 mt-1 flex items-start gap-1"><i data-lucide="message-square-text" class="w-3 h-3 flex-shrink-0 mt-0.5"></i> {{ $p->catatan_bendahara }}</p>
+                    @endif
                 </div>
                 <div class="text-right flex-shrink-0">
                     <p class="font-bold text-slate-700 dark:text-slate-200">Rp {{ number_format($p?->nominal ?? 0,0,',','.') }}</p>

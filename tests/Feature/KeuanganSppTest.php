@@ -187,6 +187,71 @@ class KeuanganSppTest extends TestCase
         $this->assertSame(180000, $p->nominal);
     }
 
+    public function test_bendahara_isi_catatan_bendahara_via_cell(): void
+    {
+        $bendahara = $this->makeUser('bendahara', 'bendahara_catatan');
+        $kelas = $this->makeKelas();
+        $siswa = $this->makeSiswa($kelas);
+
+        $p = SppPembayaran::create([
+            'id_siswa' => $siswa->uuid,
+            'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 5,
+            'nominal' => 150000,
+            'status' => 'belum',
+        ]);
+
+        $this->actingAs($bendahara)->postJson('/keuangan/pembayaran/' . $p->uuid . '/cell', [
+            'status'            => 'belum',
+            'catatan_bendahara' => 'Sudah dapat potongan yatim piatu',
+        ])->assertOk()->assertJsonPath('ok', true);
+
+        $p->refresh();
+        $this->assertSame('Sudah dapat potongan yatim piatu', $p->catatan_bendahara);
+    }
+
+    public function test_catatan_bendahara_bertahan_lintas_transisi_status(): void
+    {
+        $bendahara = $this->makeUser('bendahara', 'bendahara_catatan_persist');
+        $kelas = $this->makeKelas();
+        $siswa = $this->makeSiswa($kelas);
+
+        $p = SppPembayaran::create([
+            'id_siswa' => $siswa->uuid,
+            'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 6,
+            'nominal' => 150000,
+            'status' => 'menunggu',
+            'catatan_bendahara' => 'Termasuk biaya study tour',
+        ]);
+
+        $this->actingAs($bendahara)->post('/keuangan/verifikasi/verify', ['ids' => [$p->uuid]])->assertRedirect();
+        $p->refresh();
+        $this->assertSame('terverifikasi', $p->status);
+        $this->assertSame('Termasuk biaya study tour', $p->catatan_bendahara);
+
+        $this->actingAs($bendahara)->post('/keuangan/verifikasi/validate', ['ids' => [$p->uuid]])->assertRedirect();
+        $p->refresh();
+        $this->assertSame('lunas', $p->status);
+        $this->assertSame('Termasuk biaya study tour', $p->catatan_bendahara, 'catatan_bendahara tidak boleh ikut terhapus saat status berubah, beda dari catatan alasan tolak');
+    }
+
+    public function test_ortu_melihat_catatan_bendahara_di_daftar_dan_detail_tagihan(): void
+    {
+        $ortu = $this->makeUser('orangtua', 'ortu_catatan');
+        $kelas = $this->makeKelas();
+        $siswa = $this->makeSiswa($kelas);
+        Orangtua::create(['id_login' => $ortu->uuid, 'id_siswa' => $siswa->uuid]);
+
+        $this->actingAs($ortu)->get('/tagihan-spp')->assertOk();
+        $p = SppPembayaran::where('id_siswa', $siswa->uuid)->where('bulan', 1)->firstOrFail();
+        $p->catatan_bendahara = 'Info khusus utk bulan ini';
+        $p->save();
+
+        $this->actingAs($ortu)->get('/tagihan-spp')->assertOk()->assertSee('Info khusus utk bulan ini');
+        $this->actingAs($ortu)->get('/tagihan-spp/' . $p->uuid)->assertOk()->assertSee('Info khusus utk bulan ini');
+    }
+
     public function test_bendahara_update_beberapa_sel_pembayaran_sekaligus(): void
     {
         $bendahara = $this->makeUser('bendahara', 'bendahara_bulk_cell');

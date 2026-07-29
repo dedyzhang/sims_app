@@ -22,7 +22,7 @@ class SppPembayaran extends Model
 
     protected $fillable = [
         'id_siswa', 'tahun_ajaran', 'bulan', 'batch_id', 'nominal', 'status',
-        'bank', 'bukti_path', 'tanggal_bayar', 'jatuh_tempo', 'catatan',
+        'bank', 'bukti_path', 'tanggal_bayar', 'jatuh_tempo', 'catatan', 'catatan_bendahara',
         'diverifikasi_oleh', 'diverifikasi_pada',
     ];
 

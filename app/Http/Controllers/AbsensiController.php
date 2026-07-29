@@ -92,8 +92,10 @@ class AbsensiController extends Controller
             if ($ket !== null && $ket !== '') {
                 $row->keterangan = $ket;
             }
-            // Isi jam_masuk hanya saat pertama kali ditandai hadir (jangan timpa hasil scan).
-            if ($status === 'hadir' && empty($row->jam_masuk)) {
+            // Isi jam_masuk hanya saat pertama kali ditandai hadir (jangan timpa hasil scan) —
+            // KECUALI diisi wali kelas: wali kelas cukup tandai "hadir" saja tanpa jam, krn absensi
+            // manual wali kelas bukan bukti waktu kedatangan sungguhan (beda dari scan wajah/QR).
+            if ($status === 'hadir' && empty($row->jam_masuk) && !$walikelasKelas) {
                 $row->jam_masuk = now()->format('H:i:s');
             }
             $row->save();

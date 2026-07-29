@@ -75,6 +75,16 @@
             </div>
             @endif
 
+            @if($pembayaran->catatan_bendahara)
+            <div class="card p-4 border-l-4 border-sky-400 flex items-start gap-3">
+                <i data-lucide="message-square-text" class="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5"></i>
+                <div>
+                    <p class="font-semibold text-slate-800 dark:text-slate-100">Catatan dari bendahara</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">{{ $pembayaran->catatan_bendahara }}</p>
+                </div>
+            </div>
+            @endif
+
             {{-- Bukti --}}
             <div class="card p-4">
                 <p class="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-1.5"><i data-lucide="receipt-text" class="w-4 h-4"></i> Bukti Pembayaran</p>
@@ -106,6 +116,16 @@
                     <div>
                         <p class="font-semibold text-slate-800 dark:text-slate-100">Pembayaran sebelumnya ditolak</p>
                         <p class="text-xs text-rose-500">{{ $pembayaran->catatan ?? 'Silakan unggah ulang bukti yang benar.' }}</p>
+                    </div>
+                </div>
+                @endif
+
+                @if($pembayaran->catatan_bendahara)
+                <div class="card p-4 border-l-4 border-sky-400 flex items-start gap-3">
+                    <i data-lucide="message-square-text" class="w-5 h-5 text-sky-500 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <p class="font-semibold text-slate-800 dark:text-slate-100">Catatan dari bendahara</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">{{ $pembayaran->catatan_bendahara }}</p>
                     </div>
                 </div>
                 @endif

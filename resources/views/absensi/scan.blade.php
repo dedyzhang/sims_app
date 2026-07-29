@@ -1011,7 +1011,13 @@ function faceScan(data, opts={}){
 
                 if(mode==='pulang'){
                     if(s._pulangBusy) return;
-                    if(s._pulangBlockedAt && (Date.now()-s._pulangBlockedAt) < 8000) return; // jeda setelah ditolak
+                    // PENTING: lepas _faceLocked sebelum return di sini — kalau tidak, flag ini
+                    // (yg sudah ditulis true oleh render() SEBELUM onMatch dipanggil) nyangkut
+                    // permanen krn tak ada .then()/.catch() yg jalan utk melepasnya. Akibatnya
+                    // isFaceLocked() short-circuit true selamanya utk guru ini (baris paling atas
+                    // fungsi itu), wajahnya TAK PERNAH dicocokkan kamera lagi walau agenda sudah
+                    // diisi & cooldown 8 detik sudah lewat — persis keluhan "harus reload halaman".
+                    if(s._pulangBlockedAt && (Date.now()-s._pulangBlockedAt) < 8000){ delete this._faceLocked[uuid]; return; }
                     s._pulangBusy=true;
                     // Cek server DULU (agenda wajib lengkap) — baru tampilkan konfirmasi bila lolos.
                     fetch('{{ route('presensi-guru.mark') }}', {
@@ -1052,7 +1058,9 @@ function faceScan(data, opts={}){
 
                 // mode==='masuk'
                 if(s._masukBusy) return;
-                if(s._masukBlockedAt && (Date.now()-s._masukBlockedAt) < 8000) return; // jeda setelah ditolak
+                // Sama spt cabang pulang di atas — lepas _faceLocked sebelum return, jangan
+                // biarkan nyangkut permanen selama jeda cooldown.
+                if(s._masukBlockedAt && (Date.now()-s._masukBlockedAt) < 8000){ delete this._faceLocked[uuid]; return; }
                 s._masukBusy=true;
                 fetch('{{ route('presensi-guru.mark') }}', {
                     method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},
@@ -1086,7 +1094,8 @@ function faceScan(data, opts={}){
 
             // SISWA: cek server dulu (metode & kalender) — baru tampilkan konfirmasi.
             if(s._masukBusy) return;
-            if(s._masukBlockedAt && (Date.now()-s._masukBlockedAt) < 8000) return; // jeda setelah ditolak
+            // Sama spt guru — lepas _faceLocked sebelum return, jangan sampai nyangkut permanen.
+            if(s._masukBlockedAt && (Date.now()-s._masukBlockedAt) < 8000){ delete this._faceLocked[uuid]; return; }
             s._masukBusy=true;
             fetch('{{ route('absensi.mark') }}', {
                 method:'POST', headers:{'Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name=csrf-token]').attr('content'),Accept:'application/json'},

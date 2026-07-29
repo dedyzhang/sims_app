@@ -97,6 +97,7 @@
                                 'nominal'       => (int) $p->nominal,
                                 'tanggal_bayar' => optional($p->tanggal_bayar)->format('Y-m-d'),
                                 'catatan'       => $p->catatan,
+                                'catatan_bendahara' => $p->catatan_bendahara,
                                 'bukti'         => $p->bukti_url,
                                 'bank'          => $p->bank,
                             ] : null;
@@ -200,7 +201,12 @@
                     <label class="form-label">Catatan / alasan tolak</label>
                     <input type="text" x-model="cell.catatan" maxlength="500" class="form-input text-sm" placeholder="mis. Nominal kurang / bukti buram">
                 </div>
-                
+                <div class="col-span-2">
+                    <label class="form-label">Catatan untuk orang tua (opsional)</label>
+                    <textarea x-model="cell.catatan_bendahara" maxlength="500" rows="2" class="form-input text-sm" placeholder="mis. Sudah dapat potongan yatim piatu / termasuk biaya study tour bulan ini"></textarea>
+                    <p class="text-[11px] text-slate-400 mt-1">Tampil ke orang tua di halaman tagihan bulan ini, apa pun statusnya. Tidak ikut terhapus saat status diubah.</p>
+                </div>
+
                 {{-- Pilihan Bulan Pembayaran (Bulk) --}}
                 <div class="col-span-2 border-t border-slate-100 dark:border-slate-700/60 pt-3">
                     <div class="flex justify-between items-center mb-2">
@@ -271,6 +277,7 @@ function sppGrid() {
                         nominal: this.cell.nominal,
                         tanggal_bayar: this.cell.tanggal_bayar || null,
                         catatan: this.cell.catatan || null,
+                        catatan_bendahara: this.cell.catatan_bendahara || null,
                         selected_bulans: this.selectedBulans.map(x => parseInt(x)),
                     }),
                 });

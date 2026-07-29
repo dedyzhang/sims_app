@@ -2341,8 +2341,13 @@
     </div>{{-- /blur wrapper --}}
 
     {{-- Live kamera HP (getUserMedia rear camera) --}}
+    {{-- h-[100dvh] WAJIB, bukan cuma inset-0/fixed: di banyak browser mobile, fixed+inset-0 tanpa
+         ini dihitung thd viewport BESAR (termasuk area di belakang address bar/gesture nav yg lagi
+         disembunyikan) — flex-col jadi lebih tinggi dari layar yg BENAR2 terlihat, dan tombol
+         "Ambil foto" di footer (baris paling bawah) ikut terdorong ke bawah, tertutup/tertimpa di
+         belakang UI sistem HP. Pola sama dipakai di partials/ai-assistant.blade.php & layouts/app.blade.php. --}}
     <div x-show="ocr.cameraOpen" x-cloak
-         class="fixed inset-0 z-[90] flex flex-col bg-black"
+         class="fixed inset-0 z-[90] h-screen h-[100dvh] flex flex-col bg-black"
          @keydown.escape.window="if (ocr.cameraOpen) stopOcrCamera()">
         <div class="flex items-center justify-between gap-2 px-4 py-3 text-white safe-top">
             <div class="min-w-0">
@@ -2361,7 +2366,9 @@
             <p class="absolute bottom-24 left-0 right-0 text-center text-xs font-semibold text-white drop-shadow"
                x-show="ocr.cameraError" x-text="ocr.cameraError"></p>
         </div>
-        <div class="flex items-center justify-center gap-6 px-4 py-5 pb-8 bg-black">
+        {{-- shrink-0 mencegah baris tombol ini ikut "digilas" oleh area video flex-1 di atasnya;
+             pb pakai env(safe-area-inset-bottom) supaya tombol shutter tak tertutup gesture-bar HP. --}}
+        <div class="flex items-center justify-center gap-6 px-4 py-5 pb-[max(2rem,env(safe-area-inset-bottom))] bg-black shrink-0">
             <button type="button" @click="stopOcrCamera()"
                     class="inline-flex h-12 items-center gap-2 rounded-full bg-white/15 px-5 text-sm font-bold text-white">
                 Batal
