@@ -617,7 +617,7 @@ class AiTeacherController extends Controller
             return $blocked;
         }
 
-        $maxImages = max(1, (int) config('ai.ocr.max_images', 3));
+        $maxImages = max(1, (int) config('ai.ocr.max_images', 5));
         $maxKb = max(256, (int) ceil(((int) config('ai.ocr.max_bytes', 4 * 1024 * 1024)) / 1024));
 
         $request->validate([

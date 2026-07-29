@@ -141,7 +141,7 @@ return [
     | Kompres client: edge-first + JPEG ~0.9 (jaga ketajaman). Blur dicek di client.
     */
     'ocr' => [
-        'max_images' => (int) env('AI_OCR_MAX_IMAGES', 3),
+        'max_images' => (int) env('AI_OCR_MAX_IMAGES', 5),
         'max_bytes' => (int) env('AI_OCR_MAX_BYTES', 4 * 1024 * 1024),
         'max_edge' => (int) env('AI_OCR_MAX_EDGE', 1920),
         'jpeg_quality' => (int) env('AI_OCR_JPEG_QUALITY', 90),

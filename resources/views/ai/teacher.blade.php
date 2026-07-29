@@ -2341,15 +2341,21 @@
     </div>{{-- /blur wrapper --}}
 
     {{-- Live kamera HP (getUserMedia rear camera) --}}
-    {{-- JANGAN tambah h-screen/h-[100dvh] di sini lagi — sempat dicoba supaya footer tak ketutup
-         address bar/gesture-nav, TAPI height eksplisit + inset-0 sekaligus jadi over-constrained:
-         browser boleh ABAIKAN 'bottom:0' dari inset-0 & pakai top:0+height murni, jadi kalau
-         100vh/100dvh perangkat itu ternyata LEBIH TINGGI dari layar yg benar2 terlihat, footer
-         (tombol "Ambil foto") malah terdorong TOTAL ke luar layar & tak bisa di-scroll sama sekali
-         — dilaporkan user via screenshot nyata, regresi lebih parah drpd sebelumnya. inset-0 SAJA
-         (tanpa height) sudah cukup & paling aman: elemen fixed otomatis pas 4 sisi ke viewport
-         sungguhan tanpa perlu hitung vh/dvh sama sekali. overflow-y-auto ditambah sbg jaring
-         pengaman terakhir — kalau suatu saat tetap kepanjangan, minimal masih bisa di-scroll. --}}
+    {{-- x-teleport="body" WAJIB: sebelumnya modal ini dicoba diperbaiki 2x dgn utak-atik viewport
+         unit (h-screen/h-[100dvh]/inset-0 polos) tapi tombol "Ambil foto" TETAP hilang di HP user
+         — akar masalah sebenarnya BUKAN soal vh/dvh sama sekali, tapi karena modal ini masih
+         nempel di DALAM pohon DOM halaman (di bawah wrapper "blur" & elemen lain). Kalau ADA SATU
+         SAJA leluhurnya yg punya transform/filter/backdrop-filter/perspective/will-change/contain
+         (mis. transisi Alpine, kartu dgn efek hover, atau `blur-[1px]` yg dipasang kondisional di
+         wrapper konten saat needsApiKeySetup) itu jadi containing block BARU utk elemen `fixed`,
+         BUKAN viewport asli — jadi `inset-0` cuma pas ke kotak leluhur itu (bisa jauh lbh kecil/
+         beda posisi dari layar sungguhan), persis kenapa footer tombolnya seperti raib. File ini
+         SUDAH punya kasus identik sebelumnya (lihat komentar "Modal Arena" di bawah, yg SENGAJA
+         dipindah keluar dari card Hasil krn masalah yg sama). x-teleport="body" menghilangkan
+         SELURUH kelas bug ini sekali & untuk selamanya: elemen ini dipindah jadi anak langsung
+         <body> saat dirender, jadi TAK PERNAH lagi bergantung pada leluhur apa pun di halaman —
+         data & $refs Alpine (mis. $refs.ocrCameraVideo) tetap terhubung normal ke komponen ini. --}}
+    <template x-teleport="body">
     <div x-show="ocr.cameraOpen" x-cloak
          class="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-black"
          @keydown.escape.window="if (ocr.cameraOpen) stopOcrCamera()">
@@ -2388,6 +2394,7 @@
             </button>
         </div>
     </div>
+    </template>
 
     {{-- Modal Arena di luar card Hasil agar fixed tidak ter-clip overflow --}}
     <div x-show="showArenaModal" x-cloak class="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" @keydown.escape.window="showArenaModal = false">
@@ -2529,7 +2536,7 @@
                 loading: false,
                 quiz: { images: [], text: '', error: '', notice: '' },
                 learning: { images: [], text: '', error: '', notice: '' },
-                maxImages: {{ (int) config('ai.ocr.max_images', 3) }},
+                maxImages: {{ (int) config('ai.ocr.max_images', 5) }},
                 blurMin: {{ (int) config('ai.ocr.blur_variance_min', 100) }},
                 maxEdge: {{ (int) config('ai.ocr.client_max_edge', 1920) }},
                 jpegQuality: {{ (float) config('ai.ocr.client_jpeg_quality', 0.90) }},
