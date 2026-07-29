@@ -2341,13 +2341,17 @@
     </div>{{-- /blur wrapper --}}
 
     {{-- Live kamera HP (getUserMedia rear camera) --}}
-    {{-- h-[100dvh] WAJIB, bukan cuma inset-0/fixed: di banyak browser mobile, fixed+inset-0 tanpa
-         ini dihitung thd viewport BESAR (termasuk area di belakang address bar/gesture nav yg lagi
-         disembunyikan) — flex-col jadi lebih tinggi dari layar yg BENAR2 terlihat, dan tombol
-         "Ambil foto" di footer (baris paling bawah) ikut terdorong ke bawah, tertutup/tertimpa di
-         belakang UI sistem HP. Pola sama dipakai di partials/ai-assistant.blade.php & layouts/app.blade.php. --}}
+    {{-- JANGAN tambah h-screen/h-[100dvh] di sini lagi — sempat dicoba supaya footer tak ketutup
+         address bar/gesture-nav, TAPI height eksplisit + inset-0 sekaligus jadi over-constrained:
+         browser boleh ABAIKAN 'bottom:0' dari inset-0 & pakai top:0+height murni, jadi kalau
+         100vh/100dvh perangkat itu ternyata LEBIH TINGGI dari layar yg benar2 terlihat, footer
+         (tombol "Ambil foto") malah terdorong TOTAL ke luar layar & tak bisa di-scroll sama sekali
+         — dilaporkan user via screenshot nyata, regresi lebih parah drpd sebelumnya. inset-0 SAJA
+         (tanpa height) sudah cukup & paling aman: elemen fixed otomatis pas 4 sisi ke viewport
+         sungguhan tanpa perlu hitung vh/dvh sama sekali. overflow-y-auto ditambah sbg jaring
+         pengaman terakhir — kalau suatu saat tetap kepanjangan, minimal masih bisa di-scroll. --}}
     <div x-show="ocr.cameraOpen" x-cloak
-         class="fixed inset-0 z-[90] h-screen h-[100dvh] flex flex-col bg-black"
+         class="fixed inset-0 z-[90] flex flex-col overflow-y-auto bg-black"
          @keydown.escape.window="if (ocr.cameraOpen) stopOcrCamera()">
         <div class="flex items-center justify-between gap-2 px-4 py-3 text-white safe-top">
             <div class="min-w-0">
