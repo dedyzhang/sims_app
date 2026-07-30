@@ -33,7 +33,12 @@ class FeedbackController extends Controller
     {
         $canManage = $this->canManage();
 
-        $query = UserFeedback::with(['user', 'responder'])->latest();
+        $query = UserFeedback::with([
+            'user:uuid,username,access',
+            'user.guru:uuid,id_login,nama',
+            'user.siswa:uuid,id_login,nama',
+            'responder',
+        ])->latest();
 
         if (! $canManage) {
             $query->where('user_uuid', $request->user()->uuid);

@@ -632,6 +632,7 @@ class SettingController extends Controller
 
         DB::transaction(function () use ($perms, $validRoles, $validPermissions) {
             RolePermission::query()->delete();
+            RolePermission::clearCache(); // query()->delete() bypass event model, tak ikut hapus memo
             foreach ($perms as $role => $rolePerms) {
                 // Whitelist role & pastikan nilainya array — abaikan entri di luar itu
                 // (mencegah role/permission sembarang tersimpan ke tabel hak akses).

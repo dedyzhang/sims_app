@@ -81,6 +81,69 @@ class AgendaController extends Controller
         return array_values($grup);
     }
 
+    /**
+     * Versi bulk dari slotHari() — hitung slot utk SEMUA tanggal dlm satu rentang sekaligus
+     * lewat 2 query (bukan 2 query PER TANGGAL spt slotHari() dipanggil di dalam loop harian).
+     * N+1 nyata ini dulu bikin /agenda (guru dgn riwayat 30 hari) & /agenda/rekap (admin,
+     * rentang custom) sampai ratusan query — terukur 177 query di /agenda/rekap sebulan.
+     * Jadwal guru per HARI-DALAM-MINGGU itu tetap (tak beda per tanggal spesifik), jadi cukup
+     * dimuat sekali lalu dipakai ulang tiap tanggal yg jatuh di hari-dalam-minggu yg sama.
+     * Return: [ 'YYYY-MM-DD' => [slot, slot, ...] ] persis format slotHari() per tanggal.
+     */
+    private function slotHariBulk(Guru $guru, string $dari, string $sampai): array
+    {
+        $jadwalByHari = Jadwal::with(['kelas', 'pelajaran', 'jam'])
+            ->where('id_guru', $guru->uuid)
+            ->whereNotNull('id_pelajaran')
+            ->get()
+            ->sortBy('jam_mulai')
+            ->groupBy('hari');
+
+        $agendaByTanggal = Agenda::where('id_guru', $guru->uuid)
+            ->whereBetween('tanggal', [$dari, $sampai])
+            ->get()
+            ->groupBy(fn ($a) => $a->tanggal->format('Y-m-d'));
+
+        $result = [];
+        $start = \Carbon\Carbon::parse($dari);
+        $end = \Carbon\Carbon::parse($sampai);
+        for ($d = $start->copy(); $d <= $end; $d->addDay()) {
+            $tgl = $d->toDateString();
+            $hariKe = $d->dayOfWeekIso; // 1=Senin..7=Minggu, sama spt date('N', ...) di slotHari()
+            if ($hariKe > 6) {
+                $result[$tgl] = [];
+                continue;
+            }
+
+            $jadwals = $jadwalByHari->get($hariKe, collect());
+            $sudah = ($agendaByTanggal->get($tgl) ?? collect())
+                ->keyBy(fn ($a) => $a->id_kelas . '|' . $a->id_pelajaran);
+
+            $grup = [];
+            foreach ($jadwals as $j) {
+                $key = $j->id_kelas . '|' . $j->id_pelajaran;
+                if (!isset($grup[$key])) {
+                    $grup[$key] = [
+                        'id_jadwal'    => $j->uuid,
+                        'id_kelas'     => $j->id_kelas,
+                        'id_pelajaran' => $j->id_pelajaran,
+                        'kelas'        => $j->kelas ? $j->kelas->tingkat . $j->kelas->kelas : '-',
+                        'pelajaran'    => $j->pelajaran?->nama ?? '-',
+                        'kode'         => $j->pelajaran?->kode,
+                        'jam_mulai'    => substr((string) $j->jam_mulai, 0, 5),
+                        'jam_selesai'  => substr((string) $j->jam_selesai, 0, 5),
+                        'agenda'       => $sudah->get($key),
+                    ];
+                } else {
+                    $grup[$key]['jam_selesai'] = substr((string) $j->jam_selesai, 0, 5);
+                }
+            }
+            $result[$tgl] = array_values($grup);
+        }
+
+        return $result;
+    }
+
     /** Halaman utama: satu daftar jam mengajar (N hari terakhir) + status pengisian agenda. */
     public function index(Request $request)
     {
@@ -134,9 +197,11 @@ class AgendaController extends Controller
         $end = now()->startOfDay();
         $start = (clone $end)->subDays($hari - 1);
 
+        $slotsByTanggal = $this->slotHariBulk($guru, $start->toDateString(), $end->toDateString());
+
         for ($d = clone $start; $d <= $end; $d->addDay()) {
             $tgl = $d->toDateString();
-            foreach ($this->slotHari($guru, $tgl) as $s) {
+            foreach ($slotsByTanggal[$tgl] ?? [] as $s) {
                 $list[] = [
                     'tanggal'       => $tgl,
                     'tanggal_label' => $d->locale('id')->isoFormat('ddd, D MMM'),
@@ -364,11 +429,12 @@ class AgendaController extends Controller
         if ($selectedGuru && ($guru = Guru::find($selectedGuru))) {
             $start = \Carbon\Carbon::parse($dari);
             $end   = \Carbon\Carbon::parse($sampai);
+            $slotsByTanggal = $this->slotHariBulk($guru, $dari, $sampai);
             $i = 0;
             for ($d = $start->copy(); $d <= $end && $i < 92; $d->addDay(), $i++) {
                 $tgl = $d->toDateString();
                 $wajib = \App\Support\KalenderAbsensi::agendaWajib($tgl);
-                foreach ($this->slotHari($guru, $tgl) as $s) {
+                foreach ($slotsByTanggal[$tgl] ?? [] as $s) {
                     $daftar->push([
                         'tanggal'       => $tgl,
                         'tanggal_label' => $d->locale('id')->isoFormat('dddd, D MMMM Y'),

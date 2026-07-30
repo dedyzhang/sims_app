@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Kelas;
+use App\Models\Orangtua;
+use App\Models\Siswa;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -47,6 +50,68 @@ class AuthTest extends TestCase
 
         $response->assertRedirect(route('dashboard'));
         $this->assertAuthenticatedAs($user->fresh());
+    }
+
+    /** Buat siswa + akun ortu (default username persis "P.<nis>", sesuai SiswaController::store()). */
+    private function siswaDenganOrtu(string $nis, string $passwordOrtu = 'ortu12345'): array
+    {
+        $kelas = Kelas::create(['tingkat' => 7, 'kelas' => 'X-' . $nis]);
+        $siswa = Siswa::create(['nama' => 'Siswa ' . $nis, 'nis' => $nis, 'id_kelas' => $kelas->uuid, 'jk' => 'L']);
+        $userOrtu = User::create([
+            'username' => 'P.' . $nis,
+            'identifier' => $nis . '-ortu',
+            'password' => $passwordOrtu,
+            'access' => 'orangtua',
+        ]);
+        Orangtua::create(['id_siswa' => $siswa->uuid, 'id_login' => $userOrtu->uuid]);
+
+        return [$siswa, $userOrtu];
+    }
+
+    public function test_login_ortu_bisa_pakai_format_p_titik_nis(): void
+    {
+        [, $userOrtu] = $this->siswaDenganOrtu('55501');
+
+        $response = $this->post('/login', [
+            'credential' => 'P.55501',
+            'password'   => 'ortu12345',
+        ]);
+
+        $response->assertRedirect(route('dashboard'));
+        $this->assertAuthenticatedAs($userOrtu->fresh());
+    }
+
+    /** Inti fitur yg diminta: P.<NIS> harus TETAP jalan walau ortu sudah ganti username sendiri
+     *  jadi sesuatu yg lain sama sekali — bukan cuma kebetulan cocok krn belum diganti. */
+    public function test_login_ortu_pakai_p_titik_nis_tetap_jalan_walau_username_sudah_diganti(): void
+    {
+        [, $userOrtu] = $this->siswaDenganOrtu('55502');
+        $userOrtu->update(['username' => 'bunda.rahmawati']);
+
+        $response = $this->post('/login', [
+            'credential' => 'P.55502',
+            'password'   => 'ortu12345',
+        ]);
+
+        $response->assertRedirect(route('dashboard'));
+        $this->assertAuthenticatedAs($userOrtu->fresh());
+
+        // Username barunya jg tetap berfungsi normal (tidak ada yg rusak).
+        $this->post('/login', [
+            'credential' => 'bunda.rahmawati',
+            'password'   => 'ortu12345',
+        ])->assertRedirect(route('dashboard'));
+    }
+
+    public function test_login_p_titik_nis_untuk_nis_tak_dikenal_gagal(): void
+    {
+        $response = $this->post('/login', [
+            'credential' => 'P.99999999',
+            'password'   => 'apapun',
+        ]);
+
+        $response->assertSessionHasErrors('credential');
+        $this->assertGuest();
     }
 
     public function test_login_gagal_dengan_password_salah_tidak_terautentikasi(): void

@@ -254,8 +254,10 @@ class ForumController extends Controller
     {
         $this->authorize('view', $topic);
 
+        $participants = $this->participants($topic);
+
         return response()->json([
-            'participants' => collect($this->participants($topic))->map(fn ($u) => [
+            'participants' => $participants->map(fn ($u) => [
                 'id'     => $u->uuid,
                 'nama'   => $u->displayName(),
                 'inisial' => $u->initial(),
@@ -263,7 +265,7 @@ class ForumController extends Controller
                 'status' => $u->presenceStatus(),
                 'label'  => $u->presenceLabel(),
             ])->values(),
-            'online'  => collect($this->participants($topic))->filter->isOnline()->count(),
+            'online'  => $participants->filter->isOnline()->count(),
             'replies' => $topic->replies_count,
         ]);
     }
@@ -274,7 +276,9 @@ class ForumController extends Controller
         $ids = ForumComment::where('topic_id', $topic->uuid)->pluck('user_id')
             ->push($topic->created_by)->filter()->unique()->all();
 
-        return User::whereIn('uuid', $ids)->get()
+        return User::whereIn('uuid', $ids)
+            ->with(['guru:uuid,id_login,nama', 'siswa:uuid,id_login,nama'])
+            ->get()
             ->sortByDesc(fn ($u) => $u->last_seen_at?->timestamp ?? 0)
             ->sortByDesc(fn ($u) => $u->isOnline() ? 1 : 0)
             ->take(10)->values();

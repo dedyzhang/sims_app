@@ -48,12 +48,44 @@ class SppService
     }
 
     /**
-     * Pastikan baris ada untuk seluruh siswa di satu kelas.
+     * Pastikan baris ada untuk seluruh siswa di satu kelas — SEKALIGUS (2 query total: 1 select
+     * + 1 insert bulk), bukan ensureRows() dipanggil per-siswa di dalam loop spt sebelumnya (N+1
+     * nyata: /keuangan/kelas/{kelas} terukur 78 query utk kelas berisi puluhan siswa).
      */
     public function ensureRowsForKelas(Kelas $kelas, string $ta): void
     {
-        foreach ($kelas->siswa as $siswa) {
-            $this->ensureRows($siswa, $ta);
+        $siswaList = $kelas->siswa()->get(['uuid', 'spp']);
+        if ($siswaList->isEmpty()) {
+            return;
+        }
+
+        $existingByStudent = SppPembayaran::whereIn('id_siswa', $siswaList->pluck('uuid'))
+            ->where('tahun_ajaran', $ta)
+            ->get(['id_siswa', 'bulan'])
+            ->groupBy('id_siswa')
+            ->map(fn ($rows) => $rows->pluck('bulan')->all());
+
+        $missing = [];
+        foreach ($siswaList as $siswa) {
+            $existing = $existingByStudent->get($siswa->uuid, []);
+            $nominal = (int) preg_replace('/\D/', '', (string) ($siswa->spp ?? '')) ?: 0;
+            foreach (array_keys(TahunAjaran::BULAN) as $idx) {
+                if (!in_array($idx, $existing, true)) {
+                    $missing[] = [
+                        'uuid'         => (string) \Illuminate\Support\Str::uuid(),
+                        'id_siswa'     => $siswa->uuid,
+                        'tahun_ajaran' => $ta,
+                        'bulan'        => $idx,
+                        'nominal'      => $nominal,
+                        'status'       => SppPembayaran::STATUS_BELUM,
+                        'created_at'   => now(),
+                        'updated_at'   => now(),
+                    ];
+                }
+            }
+        }
+        if ($missing) {
+            SppPembayaran::insert($missing);
         }
     }
 

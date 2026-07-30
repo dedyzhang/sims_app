@@ -77,6 +77,63 @@ class KeuanganSppTest extends TestCase
         $this->assertDatabaseHas('spp_pembayaran', ['nominal' => 200000, 'status' => 'belum']);
     }
 
+    /** Bug nyata terukur: /keuangan/kelas/{kelas} sempat memicu 78 query — ensureRowsForKelas()
+     *  memanggil ensureRows() SATU PER SATU per siswa di dalam loop (1+ query/panggilan), bukan
+     *  sekali secara bulk. Fix: 1 query select baris yg sudah ada utk SEMUA siswa + 1 insert bulk
+     *  utk baris yg kurang. Test ini mengunci baik KEBENARAN datanya (baris yg SUDAH ada tak boleh
+     *  ikut ke-duplikat/ke-reset) maupun jumlah query-nya (tak boleh naik seiring jumlah siswa). */
+    public function test_grid_kelas_tidak_duplikat_baris_yg_sudah_ada_dan_query_tak_naik(): void
+    {
+        $bendahara = $this->makeUser('bendahara', 'bendahara_bulk_spp');
+        $kelas = $this->makeKelas();
+        $ta = TahunAjaran::current();
+
+        // Siswa 1 SUDAH punya baris bulan 1 (lunas) — harus tetap ada, tak boleh ke-reset/dobel.
+        $siswa1 = $this->makeSiswa($kelas, null, 150000, '8810BULKSPP1');
+        SppPembayaran::create([
+            'id_siswa' => $siswa1->uuid, 'tahun_ajaran' => $ta, 'bulan' => 1,
+            'nominal' => 150000, 'status' => 'lunas',
+        ]);
+
+        for ($i = 0; $i < 9; $i++) {
+            $this->makeSiswa($kelas, null, 150000, '8810BULKSPP2' . $i);
+        }
+
+        $countQuery = function () use ($kelas, $bendahara) {
+            \Illuminate\Support\Facades\DB::flushQueryLog();
+            \Illuminate\Support\Facades\DB::enableQueryLog();
+            $this->actingAs($bendahara)->get('/keuangan/kelas/' . $kelas->uuid)->assertOk();
+            $count = count(\Illuminate\Support\Facades\DB::getQueryLog());
+            \Illuminate\Support\Facades\DB::disableQueryLog();
+
+            return $count;
+        };
+
+        // Panggil sekali dulu supaya SEMUA baris 12-bulan utk 10 siswa ini benar2 sudah tercipta
+        // (insert bulk "sekali jalan" itu sendiri wajar nambah 1 query PAS SAAT baris itu baru
+        // dibuat pertama kali — bukan N+1, itu memang query nyata yg perlu terjadi). Perbandingan
+        // yg adil harus di kondisi "steady state" (tak ada baris yg masih kurang) utk KEDUA sisi.
+        $countQuery();
+        $with10Siswa = $countQuery();
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->makeSiswa($kelas, null, 150000, '8810BULKSPP3' . $i);
+        }
+        $countQuery(); // bikin dulu baris 12-bulan utk 10 siswa baru (steady state lagi)
+        $with20Siswa = $countQuery();
+
+        $this->assertSame(
+            $with10Siswa,
+            $with20Siswa,
+            'Jumlah query /keuangan/kelas (steady state, tanpa baris yg masih kurang) harus SAMA persis walau siswa naik dari 10 ke 20 — kalau naik, N+1 balik lagi.'
+        );
+
+        // Siswa 1 tetap cuma 12 baris (bulan 1 tak ke-duplikat), status lunas-nya tak ke-reset.
+        $baris = SppPembayaran::where('id_siswa', $siswa1->uuid)->where('tahun_ajaran', $ta)->get();
+        $this->assertCount(12, $baris);
+        $this->assertSame('lunas', $baris->firstWhere('bulan', 1)->status);
+    }
+
     public function test_ortu_melihat_tagihan_anak_12_bulan(): void
     {
         $ortu = $this->makeUser('orangtua', 'ortu1');

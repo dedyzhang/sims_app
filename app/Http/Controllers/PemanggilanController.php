@@ -76,7 +76,12 @@ class PemanggilanController extends Controller
 
         [$sort, $dir] = TableSort::resolve($request, ['tanggal', 'nama', 'dipanggil'], 'tanggal', 'desc');
 
-        $items = Pemanggilan::with(['siswa.kelas', 'pencatat'])
+        $items = Pemanggilan::with([
+            'siswa.kelas',
+            'pencatat:uuid,username,access',
+            'pencatat.guru:uuid,id_login,nama',
+            'pencatat.siswa:uuid,id_login,nama',
+        ])
             ->when($selectedKelas, fn ($q) => $q->whereHas('siswa', fn ($q2) => $q2->where('id_kelas', $selectedKelas)))
             ->when($request->filled('dari'), fn ($q) => $q->whereDate('tanggal', '>=', $request->query('dari')))
             ->when($request->filled('sampai'), fn ($q) => $q->whereDate('tanggal', '<=', $request->query('sampai')))

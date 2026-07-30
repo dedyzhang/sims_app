@@ -19,19 +19,55 @@ class MissionProgressionService
             $summary = $this->summaryFor($user);
             $this->awardRewards($user, $summary);
 
-            return $this->snapshotFor($user, $this->summaryFor($user));
+            // Pakai $summary yg SUDAH dihitung di atas — sebelumnya summaryFor() dipanggil
+            // LAGI di sini (2x query yg sama utk user yg sama, tanpa alasan).
+            return $this->snapshotFor($user, $summary);
         });
     }
 
     public function leaderboard(int $limit = 10): array
     {
+        // Eager-load siswa/guru: displayName() lazy-load kedua relasi ini kalau tak dimuat
+        // di muka — 2 query PER siswa (N+1 lain yg sempat luput, di samping summaryFor()
+        // di atas), krn User::guru() tetap dicoba dieksekusi dulu (balikan null) sebelum
+        // fallback ke User::siswa() walau access-nya sudah pasti 'siswa'.
         $students = User::query()
             ->where('access', 'siswa')
             ->where('leaderboard_visible', true)
+            ->with(['guru:uuid,id_login,nama', 'siswa:uuid,id_login,nama'])
             ->get();
 
-        $rows = $students->map(function (User $student) {
-            $summary = $this->summaryFor($student);
+        $studentIds = $students->pluck('uuid');
+
+        // Muat SEMUA data ringkasan sekaligus (3 query bulk), BUKAN per-siswa lewat
+        // summaryFor() spt sebelumnya — itu 3 query x N siswa (N+1 nyata, terukur 1600+
+        // query total di halaman ini utk ratusan siswa terdaftar).
+        $attemptsByUser = MissionAttempt::query()
+            ->whereIn('user_id', $studentIds)
+            ->where('status', 'completed')
+            ->whereNotNull('completed_at')
+            ->orderBy('completed_at')
+            ->get()
+            ->groupBy('user_id');
+
+        $badgesCountByUser = MissionStudentBadge::query()
+            ->whereIn('user_id', $studentIds)
+            ->selectRaw('user_id, count(*) as aggregate')
+            ->groupBy('user_id')
+            ->pluck('aggregate', 'user_id');
+
+        $collectionCountByUser = MissionCollectionItem::query()
+            ->whereIn('user_id', $studentIds)
+            ->selectRaw('user_id, count(*) as aggregate')
+            ->groupBy('user_id')
+            ->pluck('aggregate', 'user_id');
+
+        $rows = $students->map(function (User $student) use ($attemptsByUser, $badgesCountByUser, $collectionCountByUser) {
+            $summary = $this->summaryFromAttempts(
+                $attemptsByUser->get($student->uuid, collect()),
+                (int) ($badgesCountByUser[$student->uuid] ?? 0),
+                (int) ($collectionCountByUser[$student->uuid] ?? 0)
+            );
 
             return [
                 'user_id' => $student->uuid,
@@ -159,18 +195,26 @@ class MissionProgressionService
             ->orderBy('completed_at')
             ->get();
 
-        $xp = (int) $attempts->sum('score');
-        $missionsCompleted = $attempts->count();
-        $streakDays = $this->calculateStreak($attempts);
-        $level = max(1, intdiv($xp, 100) + 1);
-        $nextLevelXp = $level * 100;
-        $averageScore = $missionsCompleted > 0 ? (int) round($xp / $missionsCompleted) : 0;
         $badgesCount = MissionStudentBadge::query()
             ->where('user_id', $user->uuid)
             ->count();
         $collectionCount = MissionCollectionItem::query()
             ->where('user_id', $user->uuid)
             ->count();
+
+        return $this->summaryFromAttempts($attempts, $badgesCount, $collectionCount);
+    }
+
+    /** Bagian murni-komputasi (tanpa query) dari summaryFor() — diekstrak supaya leaderboard()
+     *  bisa pakai data yg SUDAH dimuat bulk (per-user via groupBy), bukan query ulang per siswa. */
+    private function summaryFromAttempts(Collection $attempts, int $badgesCount, int $collectionCount): array
+    {
+        $xp = (int) $attempts->sum('score');
+        $missionsCompleted = $attempts->count();
+        $streakDays = $this->calculateStreak($attempts);
+        $level = max(1, intdiv($xp, 100) + 1);
+        $nextLevelXp = $level * 100;
+        $averageScore = $missionsCompleted > 0 ? (int) round($xp / $missionsCompleted) : 0;
 
         return [
             'xp' => $xp,

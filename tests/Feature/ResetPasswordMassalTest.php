@@ -128,4 +128,56 @@ class ResetPasswordMassalTest extends TestCase
         $this->actingAs($this->admin)->post(route('siswa.resetOrtu', $this->siswa->uuid))->assertRedirect();
         $this->assertMatchesRegularExpression('/^[a-z2-9]{6}$/', session('reset_account')['password']);
     }
+
+    public function test_halaman_detail_siswa_menampilkan_tombol_ganti_username_ortu(): void
+    {
+        $this->actingAs($this->admin)->get(route('siswa.show', $this->siswa->uuid))
+            ->assertOk()
+            ->assertSee('Ganti Username')
+            ->assertSee('P.' . $this->siswa->nis);
+    }
+
+    public function test_admin_bisa_ganti_username_ortu(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('siswa.usernameOrtu', $this->siswa->uuid), ['username' => 'bunda.rahmawati'])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->userOrtu->refresh();
+        $this->assertSame('bunda.rahmawati', $this->userOrtu->username);
+        // Password tidak boleh ikut berubah — ini murni ganti username, bukan reset.
+        $this->assertTrue(Hash::check('lama-ortu', $this->userOrtu->password));
+    }
+
+    public function test_ganti_username_ortu_ditolak_bila_sudah_dipakai_user_lain(): void
+    {
+        User::create(['username' => 'sudah.dipakai', 'password' => Hash::make('x'), 'access' => 'orangtua']);
+
+        $this->actingAs($this->admin)
+            ->post(route('siswa.usernameOrtu', $this->siswa->uuid), ['username' => 'sudah.dipakai'])
+            ->assertSessionHasErrors('username');
+
+        $this->assertSame('ortu_reset', $this->userOrtu->fresh()->username);
+    }
+
+    /** Inti alasan fitur ini dibuat: ganti username ortu TIDAK BOLEH mengunci mereka dari
+     *  login — P.<NIS> harus tetap bisa dipakai sesudahnya (lihat LoginController). */
+    public function test_setelah_ganti_username_ortu_tetap_bisa_login_pakai_p_titik_nis(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('siswa.usernameOrtu', $this->siswa->uuid), ['username' => 'bunda.rahmawati']);
+        // Lepas sesi admin scr eksplisit — activingAs() menempel di guard yg sama sepanjang
+        // proses tes; tanpa logout, guard bisa tetap balikan admin sbg user aktif meski
+        // request /login berikutnya sungguhan login sbg akun lain (bukan bug fitur, murni
+        // kuirk sesi/guard antar-request dalam satu metode tes).
+        $this->post('/logout');
+
+        $this->post('/login', [
+            'credential' => 'P.' . $this->siswa->nis,
+            'password'   => 'lama-ortu',
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($this->userOrtu->fresh());
+    }
 }

@@ -104,7 +104,11 @@
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.js"></script>
-    <script src="https://unpkg.com/lucide@0.468.0"></script>
+    {{-- defer: lucide cuma dipakai lewat lucide.createIcons(), yg di HAMPIR semua tempat sudah
+         dijaga `if(window.lucide)`/`window.lucide &&` (aman kalau belum sempat load) — dipanggil
+         ULANG scr penuh di DOMContentLoaded paling bawah (lihat script utama), jadi ikon tetap
+         muncul walau sempat "telat" krn defer. --}}
+    <script defer src="https://unpkg.com/lucide@0.468.0"></script>
     @php
         // Perf R1: muat library berat hanya di halaman yang memakainya (bukan global).
         $path = request()->path();
@@ -128,16 +132,23 @@
             || str_contains($path, 'kiosk-absensi')
             || str_contains($path, 'wajah-saya');
     @endphp
+    {{-- defer di ke-3 library kondisional ini: sudah diaudit SEMUA halaman pemakainya (TomSelect:
+         guru/pelajaran, kelas/walikelas, pemanggilan/create, poin/guru & poin/siswa/create;
+         Sortable: dashboard, pelajaran/index; DataTables: hanya dipakai inline di layout ini) —
+         yg manggil lib-nya scr LANGSUNG (bukan di dalam Alpine init()/DOMContentLoaded) sudah
+         ikut diberi `defer` jg di script tag halamannya masing2, supaya urutan eksekusi tetap
+         benar (defer menjaga urutan dokumen antar-script defer, tapi tidak menunggu script BUKAN
+         defer yg posisinya lebih akhir). --}}
     @if($needsTomSelect)
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
     @endif
     @if($needsSortable)
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     @endif
     @if($needsDataTables)
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script defer src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     @endif
     <script>
         // Polling bijak: skip saat tab hidden; refresh saat kembali visible.
@@ -175,6 +186,11 @@
         }
         .dataTables_wrapper .dataTables_paginate .paginate_button { border-radius: 0.375rem; padding: 0.25rem 0.75rem; }
     </style>
+    {{-- `defer` di <script> INLINE tak ada efeknya di browser (cuma diabaikan) — script ini aman
+         BUKAN krn defer, tapi krn $(document).ready() sendiri sudah menunda ISI callback-nya sampai
+         DOM siap (setelah semua <script defer src="..."> beneran selesai, termasuk DataTables yg
+         kini defer). Yang jalan lgsg cuma pendaftaran ready()-nya, itu cuma butuh $ yg TETAP
+         blocking/tak di-defer di layout ini, jadi sudah pasti tersedia. --}}
     <script>
         $(document).ready(function() {
             if (window.location.pathname.includes('/sarpras') && typeof $.fn.DataTable === 'function') {
