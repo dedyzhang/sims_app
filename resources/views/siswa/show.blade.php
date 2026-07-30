@@ -272,17 +272,43 @@
                     </button>
                 </form>
             </div>
-            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+            <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50" x-data="{ editUsernameOrtu: {{ $errors->has('username') ? 'true' : 'false' }} }">
                 <div>
                     <p class="text-xs text-slate-400">Akun Orang Tua</p>
                     <p class="font-mono font-semibold text-slate-700 dark:text-slate-200 text-sm">{{ $siswa->orangtua?->user?->username ?? '-' }}</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Login alternatif: <span class="font-mono">P.{{ $siswa->nis }}</span> (berlaku terus, apa pun username-nya)</p>
                 </div>
-                <form method="POST" action="{{ route('siswa.resetOrtu', $siswa->uuid) }}" onsubmit="return confirmAction(this, 'Reset password orang tua?')">
-                    @csrf
-                    <button class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-600 hover:bg-amber-100 transition">
-                        <i data-lucide="key-round" class="w-3 h-3"></i> Reset
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <button type="button" @click="editUsernameOrtu = true" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sky-50 dark:bg-sky-900/30 text-sky-600 hover:bg-sky-100 transition">
+                        <i data-lucide="pencil" class="w-3 h-3"></i> Ganti Username
                     </button>
-                </form>
+                    <form method="POST" action="{{ route('siswa.resetOrtu', $siswa->uuid) }}" onsubmit="return confirmAction(this, 'Reset password orang tua?')">
+                        @csrf
+                        <button class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-600 hover:bg-amber-100 transition">
+                            <i data-lucide="key-round" class="w-3 h-3"></i> Reset
+                        </button>
+                    </form>
+                </div>
+
+                {{-- Modal ganti username orang tua --}}
+                <div x-show="editUsernameOrtu" x-cloak class="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" @keydown.escape.window="editUsernameOrtu=false">
+                    <form method="POST" action="{{ route('siswa.usernameOrtu', $siswa->uuid) }}" @click.outside="editUsernameOrtu=false" class="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-slate-200 dark:ring-slate-700 p-5 space-y-3 text-left">
+                        @csrf
+                        <h3 class="font-bold text-slate-800 dark:text-slate-100">Ganti Username Orang Tua</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                            Orang tua tetap bisa login pakai <span class="font-mono font-semibold">P.{{ $siswa->nis }}</span> kapan pun sebagai cadangan, apa pun username barunya.
+                        </p>
+                        <div>
+                            <label class="form-label text-xs">Username baru</label>
+                            <input type="text" name="username" value="{{ old('username', $siswa->orangtua?->user?->username) }}" required minlength="4" maxlength="50" pattern="[a-zA-Z0-9_.]+" class="form-input text-sm" placeholder="mis. bpk.andi">
+                            @error('username') <p class="text-xs text-rose-500 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="flex gap-2 justify-end pt-1">
+                            <button type="button" @click="editUsernameOrtu=false" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">Batal</button>
+                            <button type="submit" class="btn-primary px-3 py-1.5 rounded-lg text-xs font-bold">Simpan</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

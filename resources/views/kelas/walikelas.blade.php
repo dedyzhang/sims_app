@@ -45,8 +45,12 @@
 </div>
 
 @push('scripts')
+{{-- `defer` di <script> INLINE (tanpa src) tak ada efeknya di browser — cara yg benar utk
+     menunda kode ini sampai TomSelect (skrg defer, external) selesai load adalah DOMContentLoaded. --}}
 <script>
-    document.querySelectorAll('[data-tom]').forEach(el => new TomSelect(el, { create:false }));
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-tom]').forEach(el => new TomSelect(el, { create:false }));
+    });
 </script>
 @endpush
 @endsection

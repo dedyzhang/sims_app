@@ -605,7 +605,11 @@ class GameLiveController extends Controller implements HasMiddleware
         $onlineCutoff = now()->subSeconds(self::ONLINE_SECONDS);
         $participants = $session->isActive()
             ? GameLiveParticipant::where('session_id', $session->uuid)
-                ->with('user')
+                ->with([
+                    'user:uuid,username,access',
+                    'user.guru:uuid,id_login,nama',
+                    'user.siswa:uuid,id_login,nama',
+                ])
                 ->orderBy('joined_at')
                 ->get()
                 ->map(function (GameLiveParticipant $p) use ($onlineCutoff) {

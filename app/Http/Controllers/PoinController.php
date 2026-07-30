@@ -116,6 +116,44 @@ class PoinController extends Controller
         ];
     }
 
+    /**
+     * Versi bulk dari hitung() — hitung sisa/totalTambah/adaAktivitas utk BANYAK siswa
+     * sekaligus lewat 1 query (bukan hitung() dipanggil per-siswa di dalam loop, yg dulu
+     * jadi N+1 nyata: 300+ query terukur di /poin/siswa & /poin/dashboard utk ratusan siswa).
+     * Dipakai rankingAktif()/poinIndex() yg cuma butuh angka ringkas, bukan ledger detail
+     * lengkap (itu tetap lewat hitung() biasa, dipakai poinShow() dkk utk 1 siswa).
+     */
+    public static function hitungBulk(iterable $siswaUuids): array
+    {
+        $rowsBySiswa = Poin::with('aturan')
+            ->whereIn('id_siswa', $siswaUuids)
+            ->orderBy('tanggal')->orderBy('created_at')
+            ->get()
+            ->groupBy('id_siswa');
+
+        $result = [];
+        foreach ($siswaUuids as $uuid) {
+            $rows = $rowsBySiswa->get($uuid, collect());
+            $sisa = 100;
+            $totalTambah = 0;
+            foreach ($rows as $r) {
+                $delta = $r->aturan?->jenis === 'kurang' ? -($r->aturan->poin ?? 0) : ($r->aturan->poin ?? 0);
+                $sisa += $delta;
+                if ($delta > 0) {
+                    $totalTambah += $delta;
+                }
+            }
+            $result[$uuid] = [
+                'sisa' => $sisa,
+                'totalTambah' => $totalTambah,
+                'peringatan' => self::peringatan($sisa),
+                'adaAktivitas' => $rows->isNotEmpty(),
+            ];
+        }
+
+        return $result;
+    }
+
     public static function peringatan(int $sisa): string
     {
         if ($sisa < 25) return 'Peringatan 3';
@@ -138,9 +176,11 @@ class PoinController extends Controller
     /** Urutkan siswa yang punya rekam jejak poin: sisa poin desc, lalu total tambah desc, lalu nama. */
     private static function rankingAktif(\Illuminate\Support\Collection $siswas): \Illuminate\Support\Collection
     {
+        $bulk = self::hitungBulk($siswas->pluck('uuid'));
+
         return $siswas
-            ->map(function ($s) {
-                $h = self::hitung($s->uuid);
+            ->map(function ($s) use ($bulk) {
+                $h = $bulk[$s->uuid] ?? ['sisa' => 100, 'totalTambah' => 0, 'adaAktivitas' => false];
                 return ['siswa' => $s, 'sisa' => $h['sisa'], 'totalTambah' => $h['totalTambah'], 'adaAktivitas' => $h['adaAktivitas']];
             })
             ->filter(fn ($r) => $r['adaAktivitas'])
@@ -308,9 +348,10 @@ class PoinController extends Controller
                 ->where('nama', 'like', '%' . $request->search . '%')
                 ->orWhere('nis', 'like', '%' . $request->search . '%')))
             ->get();
+        $bulk = self::hitungBulk($siswas->pluck('uuid'));
         $sisaMap = [];
         foreach ($siswas as $s) {
-            $sisaMap[$s->uuid] = self::hitung($s->uuid)['sisa'];
+            $sisaMap[$s->uuid] = $bulk[$s->uuid]['sisa'] ?? 100;
         }
 
         $sorted = $siswas->sortBy(function ($s) use ($sort, $sisaMap) {

@@ -83,13 +83,18 @@ class ChatbotAdminController extends Controller
      */
     public function queue(Request $request): JsonResponse
     {
-        $conversations = ChatbotConversation::with('user')
-            ->whereIn('status', ['waiting', 'assigned'])
-            ->orderByRaw("CASE status WHEN 'waiting' THEN 0 ELSE 1 END")
-            ->orderBy('updated_at')
-            ->limit(100)
-            ->get()
-            ->map(fn (ChatbotConversation $c) => $this->summarize($c));
+        $conversations = $this->summarizeMany(
+            ChatbotConversation::with([
+                'user:uuid,username,access',
+                'user.guru:uuid,id_login,nama',
+                'user.siswa:uuid,id_login,nama',
+            ])
+                ->whereIn('status', ['waiting', 'assigned'])
+                ->orderByRaw("CASE status WHEN 'waiting' THEN 0 ELSE 1 END")
+                ->orderBy('updated_at')
+                ->limit(100)
+                ->get()
+        );
 
         return response()->json([
             'conversations' => $conversations,
@@ -239,17 +244,22 @@ class ChatbotAdminController extends Controller
     {
         $q = trim((string) $request->query('q', ''));
 
-        $conversations = ChatbotConversation::with('user')
-            ->where('status', 'closed')
-            ->when($q !== '', function ($query) use ($q) {
-                $query->whereHas('user', function ($u) use ($q) {
-                    $u->where('username', 'like', "%{$q}%");
-                });
-            })
-            ->orderByDesc('closed_at')
-            ->limit(200)
-            ->get()
-            ->map(fn (ChatbotConversation $c) => $this->summarize($c));
+        $conversations = $this->summarizeMany(
+            ChatbotConversation::with([
+                'user:uuid,username,access',
+                'user.guru:uuid,id_login,nama',
+                'user.siswa:uuid,id_login,nama',
+            ])
+                ->where('status', 'closed')
+                ->when($q !== '', function ($query) use ($q) {
+                    $query->whereHas('user', function ($u) use ($q) {
+                        $u->where('username', 'like', "%{$q}%");
+                    });
+                })
+                ->orderByDesc('closed_at')
+                ->limit(200)
+                ->get()
+        );
 
         return response()->json([
             'conversations' => $conversations,
@@ -262,6 +272,52 @@ class ChatbotAdminController extends Controller
         $last = $c->messages()->orderByDesc('created_at')->first();
         $unread = $c->messages()->where('sender', 'user')->whereNull('read_at')->count();
 
+        return $this->summarizeRow($c, $last, $unread);
+    }
+
+    /**
+     * Ringkas BANYAK percakapan sekaligus — dipakai queue() (polling tiap 5 detik, sampai
+     * 100 percakapan) & history() (sampai 200). summarize() versi single dulu memanggil 2
+     * query per percakapan (pesan terakhir + hitung belum-dibaca) LEWAT $c->messages(), jadi
+     * ratusan query per satu polling. Di sini pesan terakhir & hitungan belum-dibaca
+     * masing2 diambil SEKALI utk semua percakapan sekaligus.
+     */
+    private function summarizeMany(\Illuminate\Support\Collection $conversations): \Illuminate\Support\Collection
+    {
+        if ($conversations->isEmpty()) {
+            return collect();
+        }
+
+        $ids = $conversations->pluck('id');
+
+        $unreadByConv = ChatbotMessage::whereIn('conversation_id', $ids)
+            ->where('sender', 'user')->whereNull('read_at')
+            ->selectRaw('conversation_id, count(*) as aggregate')
+            ->groupBy('conversation_id')
+            ->pluck('aggregate', 'conversation_id');
+
+        $latestPerConv = DB::table('chatbot_messages')
+            ->select('conversation_id', DB::raw('MAX(created_at) as max_created_at'))
+            ->whereIn('conversation_id', $ids)
+            ->groupBy('conversation_id');
+
+        $lastByConv = ChatbotMessage::joinSub($latestPerConv, 'latest', function ($join) {
+                $join->on('chatbot_messages.conversation_id', '=', 'latest.conversation_id')
+                     ->on('chatbot_messages.created_at', '=', 'latest.max_created_at');
+            })
+            ->select('chatbot_messages.*')
+            ->get()
+            ->keyBy('conversation_id');
+
+        return $conversations->map(fn (ChatbotConversation $c) => $this->summarizeRow(
+            $c,
+            $lastByConv->get($c->id),
+            (int) ($unreadByConv->get($c->id) ?? 0)
+        ))->values();
+    }
+
+    private function summarizeRow(ChatbotConversation $c, ?ChatbotMessage $last, int $unread): array
+    {
         return [
             'id' => $c->id,
             'user_name' => $c->user?->displayName() ?? 'Pengguna',

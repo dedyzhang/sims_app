@@ -32,11 +32,7 @@ class LoginController extends Controller
         ]);
 
         $credential = trim($request->credential);
-
-        // Cari user berdasarkan username ATAU identifier (NIK/NIP/NIS)
-        $user = User::where('username', $credential)
-            ->orWhere('identifier', $credential)
-            ->first();
+        $user = $this->resolveUserByCredential($credential);
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return back()->withErrors(['credential' => 'Username / NIK / NIS atau password salah.'])->withInput(['credential' => $credential]);
@@ -57,9 +53,7 @@ class LoginController extends Controller
             'pin'        => 'required|digits:6',
         ]);
 
-        $user = User::where('username', $request->credential)
-            ->orWhere('identifier', $request->credential)
-            ->first();
+        $user = $this->resolveUserByCredential($request->credential);
 
         if (!$user || !$user->pin || !Hash::check($request->pin, $user->pin)) {
             return response()->json(['message' => 'Kredensial atau PIN salah.'], 401);
@@ -190,9 +184,7 @@ class LoginController extends Controller
     {
         $request->validate(['credential' => 'required']);
 
-        $user = User::where('username', $request->credential)
-            ->orWhere('identifier', $request->credential)
-            ->first();
+        $user = $this->resolveUserByCredential($request->credential);
 
         if (!$user) {
             return back()->withErrors(['credential' => 'Akun tidak ditemukan.']);
@@ -213,6 +205,34 @@ class LoginController extends Controller
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    /**
+     * Cari user login berdasarkan username ATAU identifier (NIK/NIP/NIS) — DITAMBAH pengecualian
+     * khusus format "P.<NIS>" utk akun orang tua: dicoba dulu sbg username/identifier literal (jaga2
+     * ada orang yg sungguhan pakai username itu), baru kalau tak ketemu, "P.<NIS>" ditafsir ULANG
+     * lewat relasi Siswa->orangtua->user SAAT ITU JUGA. Ini penting krn saat registrasi, username
+     * default ortu memang persis "P.<nis>" (lihat SiswaController::store()) — TAPI begitu orang tua
+     * mengganti username-nya sendiri (wajib di login pertama) atau admin menggantinya (lihat
+     * SiswaController::updateUsernameOrtu()), "P.<nis>" berhenti cocok krn bukan lagi username
+     * literalnya. Dgn resolusi dinamis ini, "P.<NIS>" tetap jadi cara login yg PERMANEN & tak
+     * pernah kadaluwarsa utk orang tua, terlepas dari username apa pun yg sedang mereka pakai.
+     */
+    private function resolveUserByCredential(string $credential): ?User
+    {
+        $user = User::where('username', $credential)
+            ->orWhere('identifier', $credential)
+            ->first();
+        if ($user) {
+            return $user;
+        }
+
+        if (preg_match('/^p\.(.+)$/i', $credential, $m)) {
+            $siswa = Siswa::where('nis', $m[1])->first();
+            return $siswa?->orangtua?->user;
+        }
+
+        return null;
+    }
 
     private function redirectAfterLogin(User $user)
     {

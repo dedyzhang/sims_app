@@ -98,29 +98,37 @@
 
 @push('scripts')
 <script>
-    const ngTakenMap = @js($takenMap ?? []);
-    // Saat pilih pelajaran → nonaktifkan kelas yang SUDAH diajar guru lain (anti-bentrok)
-    function ngApplyTaken(pel){
-        const taken = ngTakenMap[pel] || {};
-        document.querySelectorAll('.ng-lbl').forEach(lbl => {
-            const k = lbl.dataset.kelas;
-            const cb = lbl.querySelector('.ng-kelas');
-            const note = lbl.querySelector('.ng-note');
-            if(taken[k]){
-                cb.checked = false; cb.disabled = true;
-                lbl.classList.add('opacity-50','cursor-not-allowed','pointer-events-none');
-                lbl.title = 'Sudah diajar: ' + taken[k];
-                note.textContent = taken[k];
-            } else {
-                cb.disabled = false;
-                lbl.classList.remove('opacity-50','cursor-not-allowed','pointer-events-none');
-                lbl.title = '';
-                note.textContent = '';
-            }
-        });
-    }
-    const ngPelTom = new TomSelect('#ngPelajaran', { create:false, onChange: ngApplyTaken });
-    ngApplyTaken(ngPelTom.getValue());
+    // PENTING: `defer` di tag <script> TIDAK ADA EFEKNYA di script INLINE (tanpa src) — browser
+    // diam2 mengabaikannya & tetap menjalankannya SEKARANG JUGA saat parser sampai sini (sempat
+    // salah kira ini "cukup ditambah defer" sebelum diverifikasi langsung di browser & ternyata
+    // TomSelect belum tentu sempat termuat). Cara yg BENAR utk menunda kode INLINE spt ini adalah
+    // membungkusnya dgn DOMContentLoaded — itu dijamin baru jalan SETELAH semua <script defer
+    // src="..."> (termasuk TomSelect, yg beneran defer krn dia external) selesai dieksekusi.
+    document.addEventListener('DOMContentLoaded', () => {
+        const ngTakenMap = @js($takenMap ?? []);
+        // Saat pilih pelajaran → nonaktifkan kelas yang SUDAH diajar guru lain (anti-bentrok)
+        function ngApplyTaken(pel){
+            const taken = ngTakenMap[pel] || {};
+            document.querySelectorAll('.ng-lbl').forEach(lbl => {
+                const k = lbl.dataset.kelas;
+                const cb = lbl.querySelector('.ng-kelas');
+                const note = lbl.querySelector('.ng-note');
+                if(taken[k]){
+                    cb.checked = false; cb.disabled = true;
+                    lbl.classList.add('opacity-50','cursor-not-allowed','pointer-events-none');
+                    lbl.title = 'Sudah diajar: ' + taken[k];
+                    note.textContent = taken[k];
+                } else {
+                    cb.disabled = false;
+                    lbl.classList.remove('opacity-50','cursor-not-allowed','pointer-events-none');
+                    lbl.title = '';
+                    note.textContent = '';
+                }
+            });
+        }
+        const ngPelTom = new TomSelect('#ngPelajaran', { create:false, onChange: ngApplyTaken });
+        ngApplyTaken(ngPelTom.getValue());
+    });
 </script>
 @endpush
 @endsection

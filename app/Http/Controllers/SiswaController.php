@@ -287,6 +287,35 @@ class SiswaController extends Controller
         ])->with('success', "Password orang tua direset: {$password}");
     }
 
+    /**
+     * Admin ganti username akun orang tua (mis. orang tua lupa username custom-nya, atau admin
+     * ingin menyeragamkan format). Login tetap bisa lewat P.<NIS> apa pun username-nya sekarang —
+     * lihat LoginController::resolveUserByCredential(), jadi mengganti ini TIDAK mengunci orang tua.
+     */
+    public function updateUsernameOrtu(Request $request, string $uuid)
+    {
+        $siswa = Siswa::findOrFail($uuid);
+        abort_unless($siswa->orangtua?->user, 404, 'Akun orang tua belum ada untuk siswa ini.');
+
+        $userOrtu = $siswa->orangtua->user;
+        $data = $request->validate([
+            'username' => [
+                'required', 'string', 'min:4', 'max:50',
+                'unique:users,username,' . $userOrtu->uuid . ',uuid',
+                'regex:/^[a-zA-Z0-9_.]+$/',
+            ],
+        ], [
+            'username.required' => 'Username wajib diisi.',
+            'username.unique' => 'Username sudah digunakan pengguna lain. Pilih username lain.',
+            'username.regex' => 'Username hanya boleh berisi huruf, angka, titik (.), dan underscore (_).',
+            'username.min' => 'Username minimal terdiri dari 4 karakter.',
+        ]);
+
+        $userOrtu->update(['username' => trim($data['username'])]);
+
+        return back()->with('success', "Username orang tua diperbarui: {$userOrtu->username}");
+    }
+
     /** Reset password akun siswa+ortu massal (semua/tingkat/kelas) — kredensial baru diunduh sekali. */
     public function resetBulk(Request $request)
     {

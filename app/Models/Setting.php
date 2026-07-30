@@ -12,19 +12,24 @@ class Setting extends Model
 
     protected $fillable = ['key', 'value'];
 
-    /** Penanda "baris tidak ada" di memo — dibedakan dari nilai null yang sah. */
-    private const ABSENT = false;
-
     /**
-     * Memo per-request. Satu render halaman membaca puluhan setting (layout saja
-     * mengecek 22 modul), dan tiap pembacaan sebelumnya = 1 query. Memo disimpan
-     * di container agar otomatis segar tiap request — dan tiap test, karena
-     * Laravel membangun ulang aplikasi per test.
+     * Memo per-request, dimuat SEKALIGUS (1 query utk semua baris) begitu get() pertama
+     * dipanggil — bukan 1 query per key spt sebelumnya. Satu render halaman membaca
+     * puluhan setting berbeda (layout saja mengecek 22 modul, + macam2 toggle fitur di
+     * berbagai blok dashboard/halaman) — dgn memo per-key lama, itu jadi puluhan query
+     * kecil terpisah tiap page load (nyata: dashboard admin turun dari 67 query jadi
+     * jauh lebih sedikit setelah ini). Karena SEMUA baris sudah termuat di awal, key yg
+     * memang tak ada di tabel otomatis tak pernah ketemu di memo — tak perlu lagi
+     * penanda ABSENT terpisah spt sebelumnya. Memo disimpan di container agar otomatis
+     * segar tiap request — dan tiap test, krn Laravel membangun ulang aplikasi per test.
      */
     private static function memo(): ArrayObject
     {
         if (! app()->bound('setting.memo')) {
-            app()->instance('setting.memo', new ArrayObject());
+            $rows = static::query()->get(['key', 'value'])
+                ->mapWithKeys(fn (self $s) => [$s->key => ['value' => $s->value]])
+                ->all();
+            app()->instance('setting.memo', new ArrayObject($rows));
         }
 
         return app('setting.memo');
@@ -49,14 +54,7 @@ class Setting extends Model
     {
         $memo = self::memo();
 
-        if (! $memo->offsetExists($key)) {
-            $setting = static::where('key', $key)->first();
-            $memo[$key] = $setting ? ['value' => $setting->value] : self::ABSENT;
-        }
-
-        $hit = $memo[$key];
-
-        return $hit === self::ABSENT ? $default : $hit['value'];
+        return $memo->offsetExists($key) ? $memo[$key]['value'] : $default;
     }
 
     public static function set(string $key, mixed $value): void

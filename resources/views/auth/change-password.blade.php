@@ -117,7 +117,9 @@
 
 @push('scripts')
 <script>
-    lucide.createIcons();
+    // lucide sekarang defer (lihat layouts/app.blade.php) — dijaga spt konvensi file lain di
+    // codebase ini, ikon halaman ini tetap ter-render ulang penuh lewat DOMContentLoaded di layout.
+    if (window.lucide) lucide.createIcons();
 
     async function registerBiometric() {
         try {

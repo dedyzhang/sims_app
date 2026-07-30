@@ -26,7 +26,11 @@ class PengumumanController extends Controller
         $user = $request->user();
         $kelola = $this->bolehKelola();
 
-        $query = Pengumuman::with('pembuat')->latest();
+        $query = Pengumuman::with([
+            'pembuat:uuid,username,access',
+            'pembuat.guru:uuid,id_login,nama',
+            'pembuat.siswa:uuid,id_login,nama',
+        ])->latest();
 
         // Pengelola melihat SEMUA pengumuman (termasuk yang bertarget peran lain);
         // user biasa hanya yang menyasar perannya atau ditujukan ke semua.
