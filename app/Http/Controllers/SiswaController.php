@@ -8,6 +8,7 @@ use App\Models\Orangtua;
 use App\Models\Siswa;
 use App\Models\User;
 use App\Services\ClassroomService;
+use App\Services\GrupChatService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -17,8 +18,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SiswaController extends Controller
 {
-    public function __construct(private ClassroomService $classroomService)
-    {
+    public function __construct(
+        private ClassroomService $classroomService,
+        private GrupChatService $grupChatService,
+    ) {
     }
 
     public function index(Request $request)
@@ -126,6 +129,10 @@ class SiswaController extends Controller
             'id_login' => $userOrtu->uuid,
         ]);
 
+        // WAJIB setelah Orangtua::create — kalau dipanggil lebih awal, akun ortu
+        // belum ada dan ia tidak akan masuk grup paguyuban kelasnya.
+        $this->grupChatService->syncSiswa($siswa);
+
         return redirect()->route('siswa.index')
             ->with('success', "Siswa ditambah. NIS: {$nis} | Login Siswa: {$username}/{$password} | Login Ortu: {$usernameOrtu}/{$passwordOrtu}");
     }
@@ -191,11 +198,17 @@ class SiswaController extends Controller
         // Kelas bisa berubah di sini (pindah kelas) — pastikan langsung jadi anggota ruang
         // kelas yg sudah ada utk kelas barunya (lihat catatan di store()).
         $this->classroomService->enrollStudentInKelasClassrooms($siswa);
+        // Grup chat ikut berpindah: siswa keluar dari grup kelas lama, masuk grup
+        // kelas baru, dan orang tuanya berpindah paguyuban.
+        $this->grupChatService->syncSiswa($siswa);
         return redirect()->route('siswa.show', $uuid)->with('success', 'Data siswa diperbarui.');
     }
 
     public function destroy(string $uuid)
     {
+        // Keanggotaan grup chat tidak perlu disentuh di sini: grup_chat_members.user_id
+        // memakai FK cascadeOnDelete ke users, jadi baris siswa & ortunya ikut terhapus
+        // begitu kedua akun di bawah dihapus.
         $siswa = Siswa::findOrFail($uuid);
         $siswa->user?->delete();
         $siswa->orangtua?->user?->delete();

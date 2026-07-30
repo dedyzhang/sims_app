@@ -57,6 +57,7 @@ use App\Http\Controllers\GameAttemptController;
 use App\Http\Controllers\GameLiveController;
 use App\Http\Controllers\GameQuizController;
 use App\Http\Controllers\GameTemplateController;
+use App\Http\Controllers\GrupChatController;
 use App\Http\Controllers\MissionAnalyticsController;
 use App\Http\Controllers\MissionBuilderController;
 use App\Http\Controllers\MissionClassroomController;
@@ -369,6 +370,25 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/{topic}/presence', [ForumController::class, 'presence'])->name('presence');
         Route::post('/{topic}/komentar', [ForumCommentController::class, 'store'])->middleware('throttle:30,1')->name('comment.store');
     });
+
+    // ─── Grup Chat (Grup Kelas & Paguyuban Orang Tua) ───
+    // Keanggotaan diturunkan otomatis dari struktur sekolah (App\Services\GrupChatService);
+    // tidak ada endpoint undang/keluarkan anggota secara manual.
+    Route::middleware('modul:grup_chat')->prefix('grup')->name('grup.')
+        ->controller(GrupChatController::class)->scopeBindings()->group(function () {
+            Route::get('/', 'index')->name('index');
+            // Badge sidebar (poll 30 detik) — murni aritmatika, tak menyentuh tabel pesan.
+            Route::get('/badge', 'badge')->middleware('throttle:120,1')->name('badge');
+            Route::get('/{grup}', 'show')->name('show');
+            // Poll 4 detik + burst saat tab kembali fokus; setara arena.live.state.
+            Route::get('/{grup}/poll', 'poll')->middleware('throttle:360,1')->name('poll');
+            // 1/detik: di atas kecepatan mengetik manusia, sekaligus membatasi
+            // kontensi lockForUpdate pada counter seq.
+            Route::post('/{grup}/pesan', 'store')->middleware('throttle:60,1')->name('pesan');
+            Route::post('/{grup}/lampiran', 'lampiran')->middleware('throttle:20,1')->name('lampiran');
+            Route::get('/{grup}/lampiran/{pesan}', 'unduhLampiran')->name('lampiran.unduh');
+            Route::delete('/{grup}/pesan/{pesan}', 'hapus')->middleware('throttle:30,1')->name('pesan.hapus');
+        });
 
     // ─── Ruang Kelas (Classroom) — modul kelas digital B'tive ───
     Route::middleware('modul:akademik')->prefix('ruang-kelas')->name('classroom.')->group(function () {

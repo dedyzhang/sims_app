@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\ChatbotConversation;
 use App\Models\Classroom;
 use App\Models\ClassroomMember;
+use App\Models\GrupChatMember;
 use App\Models\Orangtua;
 use App\Models\Pengumuman;
 use App\Models\User;
@@ -56,7 +57,8 @@ class NotificationGate
      *   conversations: array<string, string>,
      *   classrooms: array<string, Classroom>,
      *   classroom_member_ids: array<string, true>,
-     *   parent_siswa_ids: array<string, true>
+     *   parent_siswa_ids: array<string, true>,
+     *   grup_chat_member_ids: array<string, true>
      * }
      */
     public static function preload(User $user, Collection $notifications): array
@@ -65,6 +67,7 @@ class NotificationGate
         $conversationIds = [];
         $classroomIds = [];
         $siswaIds = [];
+        $grupChatIds = [];
 
         foreach ($notifications as $n) {
             $data = (array) ($n->data ?? []);
@@ -81,6 +84,13 @@ class NotificationGate
             }
             if ($type === 'absensi_siswa' && is_string($data['siswa_id'] ?? null)) {
                 $siswaIds[] = $data['siswa_id'];
+            }
+            if ($type === 'grup_chat_digest') {
+                foreach ((array) ($data['groups'] ?? []) as $g) {
+                    if (is_string($g['grup_id'] ?? null)) {
+                        $grupChatIds[] = $g['grup_id'];
+                    }
+                }
             }
         }
 
@@ -123,12 +133,25 @@ class NotificationGate
                 ->all();
         }
 
+        $grupChatMemberIds = [];
+        if ($grupChatIds !== []) {
+            $grupChatMemberIds = GrupChatMember::query()
+                ->whereIn('grup_id', array_unique($grupChatIds))
+                ->where('user_id', $user->getKey())
+                ->whereNull('left_at')
+                ->pluck('grup_id')
+                ->flip()
+                ->map(fn () => true)
+                ->all();
+        }
+
         return [
             'pengumuman' => $pengumuman,
             'conversations' => $conversations,
             'classrooms' => $classrooms,
             'classroom_member_ids' => $memberIds,
             'parent_siswa_ids' => $parentSiswaIds,
+            'grup_chat_member_ids' => $grupChatMemberIds,
         ];
     }
 
@@ -143,6 +166,7 @@ class NotificationGate
             'pengumuman' => self::canViewPengumuman($user, $data['pengumuman_id'] ?? null, $preload),
             'absensi_siswa' => self::canViewAbsensiSiswa($user, $data['siswa_id'] ?? null, $preload),
             'arena_live' => self::isClassroomMember($user, $data['classroom_id'] ?? null, $preload),
+            'grup_chat_digest' => self::isGrupChatMemberOfAny($user, $data['groups'] ?? [], $preload),
             'sarpras_kerusakan', 'sarpras_pemeliharaan' => self::canViewSarpras($user),
             'presensi_terlambat', 'presensi_izin_pulang' => in_array($user->access, ['kepala', 'admin', 'superadmin'], true),
             default => self::canViewByUrl($user, $data),
@@ -229,6 +253,31 @@ class NotificationGate
         return ClassroomMember::query()
             ->where('classroom_id', $classroomId)
             ->where('user_id', $user->getKey())
+            ->exists();
+    }
+
+    /**
+     * Defense-in-depth: anggota bisa saja keluar dari grup setelah digest
+     * dikirim (lulus/pindah kelas) sebelum ia sempat membuka bell notifikasi.
+     *
+     * @param  list<array{grup_id?: mixed}>  $groups
+     */
+    private static function isGrupChatMemberOfAny(User $user, mixed $groups, ?array $preload): bool
+    {
+        $grupIds = collect((array) $groups)->pluck('grup_id')->filter(fn ($v) => is_string($v))->values();
+
+        if ($grupIds->isEmpty()) {
+            return true; // notifikasi lama tanpa metadata
+        }
+
+        if ($preload !== null) {
+            return $grupIds->contains(fn ($id) => isset($preload['grup_chat_member_ids'][$id]));
+        }
+
+        return GrupChatMember::query()
+            ->whereIn('grup_id', $grupIds->all())
+            ->where('user_id', $user->getKey())
+            ->whereNull('left_at')
             ->exists();
     }
 

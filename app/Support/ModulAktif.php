@@ -81,6 +81,11 @@ class ModulAktif
                 'deskripsi' => 'Widget chat handoff dan inbox admin.',
                 'ikon' => 'message-circle',
             ],
+            'grup_chat' => [
+                'label' => 'Grup Chat Kelas',
+                'deskripsi' => 'Grup percakapan otomatis per kelas (siswa) dan paguyuban (orang tua).',
+                'ikon' => 'users-round',
+            ],
             'cetak' => [
                 'label' => 'Cetak Data',
                 'deskripsi' => 'Export Excel data siswa, guru, kelas, absensi, dan nilai.',
