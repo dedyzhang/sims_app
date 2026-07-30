@@ -6,7 +6,6 @@ use App\Models\GrupChat;
 use App\Models\GrupChatMember;
 use App\Models\Guru;
 use App\Models\Kelas;
-use App\Models\Ngajar;
 use App\Models\Orangtua;
 use App\Models\Semester;
 use App\Models\Siswa;
@@ -23,8 +22,14 @@ use Illuminate\Support\Facades\DB;
  * kelas lamanya selamanya. Karena itu syncKelas() di sini melakukan diff DUA ARAH.
  *
  * Keanggotaan diturunkan dari:
- *   Grup Kelas     = walikelas + guru pengajar (ngajars) + siswa aktif di kelas itu
+ *   Grup Kelas     = walikelas + siswa aktif di kelas itu (guru pengajar/mapel
+ *                     TIDAK ikut — grup ini murni jalur walikelas ke siswanya)
  *   Grup Paguyuban = walikelas + orang tua dari siswa aktif di kelas itu
+ *
+ * Grup Kelas SELALU mode pengumuman (lihat GrupChat::MODE_PENGUMUMAN): satu-satunya
+ * staf di grup ini adalah walikelas, jadi hanya walikelas yang bisa menulis pesan
+ * baru — siswa hanya bisa membalas pesan walikelas (lihat GrupChatPolicy::reply()).
+ * Grup Paguyuban TETAP mode diskusi biasa — walikelas & orang tua bebas mengobrol.
  */
 class GrupChatService
 {
@@ -44,6 +49,7 @@ class GrupChatService
                 [
                     'nama' => GrupChat::namaDefault($tipe, $kelas),
                     'id_semester' => $semester?->getKey(),
+                    'mode' => $tipe === GrupChat::TIPE_KELAS ? GrupChat::MODE_PENGUMUMAN : GrupChat::MODE_DISKUSI,
                 ]
             );
         };
@@ -64,6 +70,16 @@ class GrupChatService
             ->get(['uuid', 'id_login']);
 
         DB::transaction(function () use ($kelas, $grupKelas, $grupPaguyuban, $siswa) {
+            // Sabuk dan bretel untuk grup yang sudah ada sebelum aturan "Grup Kelas
+            // selalu pengumuman" berlaku — provisionKelas() di atas hanya menyetel mode
+            // saat grup BARU dibuat (firstOrCreate tak menyentuh baris yang sudah ada).
+            // Di dalam transaksi yang sama dengan reconcile() supaya keduanya
+            // commit/rollback bersamaan, bukan dua write terpisah yang bisa pincang
+            // kalau reconcile() di bawah gagal.
+            if ($grupKelas->mode !== GrupChat::MODE_PENGUMUMAN) {
+                $grupKelas->update(['mode' => GrupChat::MODE_PENGUMUMAN]);
+            }
+
             $this->reconcile($grupKelas, $this->anggotaGrupKelas($kelas, $siswa));
             $this->reconcile($grupPaguyuban, $this->anggotaGrupPaguyuban($kelas, $siswa));
         });
@@ -178,13 +194,8 @@ class GrupChatService
     {
         $out = [];
 
-        // Guru pengajar dulu, walikelas belakangan supaya peran 'walikelas' menang
-        // kalau orangnya sama (dia memang mengajar di kelas yang ia walikelasi).
-        $guruIds = Ngajar::where('id_kelas', $kelas->uuid)->pluck('id_guru')->filter()->unique();
-        foreach (Guru::whereIn('uuid', $guruIds)->pluck('id_login')->filter() as $userId) {
-            $out[$userId] = ['peran' => 'guru', 'id_siswa' => null];
-        }
-
+        // Guru pengajar/mapel SENGAJA tidak dimasukkan — Grup Kelas murni jalur
+        // walikelas ke siswanya (lihat docblock kelas ini).
         if ($waliUserId = $this->walikelasUserId($kelas)) {
             $out[$waliUserId] = ['peran' => 'walikelas', 'id_siswa' => null];
         }

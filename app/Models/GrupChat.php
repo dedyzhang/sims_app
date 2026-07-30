@@ -24,8 +24,15 @@ class GrupChat extends Model
     public const MODE_DISKUSI = 'diskusi';
     public const MODE_PENGUMUMAN = 'pengumuman';
 
-    /** Peran yang boleh menulis walau grup sedang mode pengumuman. */
-    public const PERAN_STAF = ['walikelas', 'guru', 'admin'];
+    /**
+     * Peran yang boleh menulis walau grup sedang mode pengumuman.
+     *
+     * 'guru' SENGAJA tidak ada di sini: guru pengajar/mapel tidak lagi jadi
+     * anggota Grup Kelas (lihat GrupChatService) — kalau ada baris lama peran
+     * 'guru' yang belum sempat direkonsiliasi syncKelas(), ia harus diperlakukan
+     * SEBAGAI NON-STAF (sabuk dan bretel), bukan diam-diam tetap punya hak staf.
+     */
+    public const PERAN_STAF = ['walikelas', 'admin'];
 
     protected $fillable = [
         'tipe', 'id_kelas', 'tahun_ajaran', 'id_semester',

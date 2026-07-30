@@ -82,18 +82,64 @@ class GrupChatAksesTest extends TestCase
             ->assertOk();
     }
 
-    public function test_guru_pengajar_masuk_grup_kelas_bukan_paguyuban(): void
+    public function test_guru_pengajar_tidak_masuk_grup_kelas_maupun_paguyuban(): void
     {
+        // Grup Kelas murni jalur walikelas-siswa; guru mapel/pengajar sengaja
+        // tidak diikutkan (lihat docblock GrupChatService).
         $guru = $this->buatGuruPengajar($this->kelas7a, 'guru_mtk', 'Pak Mat', '3200000009');
         $this->sinkron();
 
         $this->actingAs($guru)
             ->get(route('grup.show', $this->grupKelas($this->kelas7a)))
-            ->assertOk();
+            ->assertForbidden();
 
         $this->actingAs($guru)
             ->get(route('grup.show', $this->grupPaguyuban($this->kelas7a)))
             ->assertForbidden();
+    }
+
+    /**
+     * Dokumentasi celah rilis: baris keanggotaan lama peran 'guru' (dari sebelum
+     * perubahan ini, atau dari jalur yang lolos GrupChatService) tetap bisa MELIHAT
+     * grup sampai syncKelas() berikutnya jalan -- lihat catatan "Fase 6" di
+     * PROGRESS.md soal jendela rilis ini. Tapi ia TIDAK lagi diperlakukan sebagai
+     * staf untuk mengirim pesan baru di mode pengumuman (GrupChat::PERAN_STAF
+     * sengaja tidak lagi memuat 'guru' -- sabuk & bretel), dan begitu syncKelas()
+     * jalan, baris itu dikeluarkan sepenuhnya.
+     */
+    public function test_baris_keanggotaan_guru_lama_kehilangan_hak_staf_dan_akhirnya_dikeluarkan(): void
+    {
+        $guru = $this->buatGuruPengajar($this->kelas7a, 'guru_lama', 'Bu Lama', '3200000077');
+        $grup = $this->grupKelas($this->kelas7a);
+
+        // Simulasikan baris lama yang belum sempat direkonsiliasi -- dibuat
+        // langsung, bukan lewat GrupChatService (yang sekarang tidak akan pernah
+        // menghasilkan baris seperti ini lagi).
+        GrupChatMember::create([
+            'grup_id' => $grup->uuid,
+            'user_id' => $guru->uuid,
+            'peran' => 'guru',
+            'joined_at' => now(),
+            'joined_seq' => (int) $grup->last_seq,
+            'last_read_seq' => (int) $grup->last_seq,
+            'last_notified_seq' => (int) $grup->last_seq,
+        ]);
+
+        // Masih bisa membaca -- inilah jendela rilis yang perlu ditutup lewat
+        // grupchat:sinkron sesegera mungkin, bukan menunggu jadwal malam.
+        $this->actingAs($guru)->get(route('grup.show', $grup))->assertOk();
+
+        // TAPI tidak lagi diperlakukan sebagai staf: grup ini selalu mode
+        // pengumuman, dan 'guru' bukan lagi bagian dari GrupChat::PERAN_STAF.
+        $this->actingAs($guru)
+            ->postJson(route('grup.pesan', $grup), ['body' => 'mencoba kirim walau baris lama'])
+            ->assertForbidden();
+
+        // syncKelas() (dipicu manual di sini; di produksi lewat perubahan
+        // walikelas/siswa lain atau grupchat:sinkron malam) membersihkannya.
+        app(\App\Services\GrupChatService::class)->syncKelas($this->kelas7a);
+
+        $this->actingAs($guru)->get(route('grup.show', $grup))->assertForbidden();
     }
 
     public function test_walikelas_masuk_kedua_grup(): void

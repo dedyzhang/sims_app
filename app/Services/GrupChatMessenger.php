@@ -8,6 +8,7 @@ use App\Models\GrupChatMessage;
 use App\Models\User;
 use App\Support\ChatAttachments;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 /**
@@ -29,6 +30,12 @@ class GrupChatMessenger
      * Tulis satu pesan. Counter `seq` diambil di bawah lockForUpdate supaya dua
      * pengirim bersamaan tidak pernah menghasilkan seq kembar (unique grup_id+seq
      * akan menolak keras kalau sampai bocor).
+     *
+     * Otorisasi dicek DI SINI juga (bukan cuma di GrupChatController), sengaja
+     * redundan: ini satu-satunya primitive yang benar-benar menulis pesan, jadi
+     * pemanggil MANA PUN — controller sekarang, atau command/tool/agent lain nanti
+     * yang memanggil service ini langsung — tidak bisa melewati aturan mode
+     * pengumuman/reply-ke-staf hanya karena ia tidak lewat controller.
      */
     public function kirim(
         GrupChat $grup,
@@ -38,6 +45,10 @@ class GrupChatMessenger
         ?GrupChatMessage $replyTo = null,
         array $attachment = []
     ): GrupChatMessage {
+        $replyTo
+            ? Gate::forUser($user)->authorize('reply', [$grup, $replyTo])
+            : Gate::forUser($user)->authorize('send', $grup);
+
         $nama = $user->displayName();
 
         return DB::transaction(function () use ($grup, $user, $peran, $body, $replyTo, $attachment, $nama) {
@@ -88,9 +99,13 @@ class GrupChatMessenger
      * kutipan balasan yang mengutipnya, dan perbarui preview grup bila pesan ini
      * yang terakhir — supaya daftar grup & kutipan balasan tidak membocorkan isi
      * pesan yang sudah dimoderasi.
+     *
+     * Sama seperti kirim(): otorisasi dicek di sini juga, bukan cuma di controller.
      */
     public function hapus(GrupChat $grup, GrupChatMessage $pesan, User $penghapus): GrupChatMessage
     {
+        Gate::forUser($penghapus)->authorize('hapus', [$grup, $pesan]);
+
         $pathLama = null;
 
         $locked = DB::transaction(function () use ($grup, $pesan, $penghapus, &$pathLama) {

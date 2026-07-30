@@ -136,6 +136,14 @@ class ModulAktif
             return true;
         }
 
+        // Integrasi ludensa/ludensa (composer path repo) belum terpasang di vendor/ —
+        // dijeda sementara FL lanjutkan pemasangannya. Default NONAKTIF supaya menu/
+        // route tak pernah muncul secara tak sengaja; sekolah yang sudah pasang
+        // paketnya tetap bisa menyalakan manual lewat Setting.
+        if ($kode === 'ludensa') {
+            return Setting::get(self::settingKey($kode), '0') === '1';
+        }
+
         return Setting::get(self::settingKey($kode), '1') === '1';
     }
 

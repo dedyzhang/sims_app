@@ -8,6 +8,8 @@ use App\Models\Kelas;
 use App\Models\Semester;
 use App\Services\GrupChatService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Backfill & rekonsiliasi keanggotaan Grup Chat.
@@ -61,8 +63,21 @@ class GrupChatSinkron extends Command
         $bar = $this->output->createProgressBar($kelas->count());
         $bar->start();
 
+        // Isolasi per kelas: satu kelas gagal (query timeout, deadlock, data
+        // anomali) tidak boleh menggagalkan seluruh batch dan membuat kelas-kelas
+        // SETELAHNYA ikut terlewat malam itu — command ini ada justru supaya
+        // celah sync tidak pernah lebih dari ~24 jam (lihat docblock kelas ini).
+        $gagal = [];
         foreach ($kelas as $k) {
-            $service->syncKelas($k, $tahun);
+            try {
+                $service->syncKelas($k, $tahun);
+            } catch (Throwable $e) {
+                $gagal[] = $k->nama_lengkap;
+                Log::error("grupchat:sinkron gagal untuk kelas {$k->nama_lengkap}: {$e->getMessage()}", [
+                    'kelas_uuid' => $k->uuid,
+                    'exception' => $e,
+                ]);
+            }
             $bar->advance();
         }
 
@@ -75,6 +90,12 @@ class GrupChatSinkron extends Command
             GrupChat::count(),
             GrupChatMember::whereNull('left_at')->count(),
         ));
+
+        if ($gagal !== []) {
+            $this->error(sprintf('Gagal disinkron (%d kelas): %s', count($gagal), implode(', ', $gagal)));
+
+            return self::FAILURE;
+        }
 
         return self::SUCCESS;
     }

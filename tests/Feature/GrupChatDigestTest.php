@@ -115,8 +115,14 @@ class GrupChatDigestTest extends TestCase
 
         // wali7a anggota KEDUA grup kelas 7a sekaligus (walikelas masuk grup
         // kelas & paguyuban yang sama) -- pesan dari orang lain di masing-masing
-        // grup membuatnya punya unread di dua tempat sekaligus.
-        $this->actingAs($this->siswa7a)->postJson(route('grup.pesan', $grupKelas), ['body' => 'tugas kelas']);
+        // grup membuatnya punya unread di dua tempat sekaligus. Grup Kelas kini
+        // selalu mode pengumuman, jadi siswa harus MEMBALAS pesan wali7a dulu
+        // (tidak bisa mengirim pesan bebas) -- lihat GrupChatService.
+        $awal = $this->actingAs($this->wali7a)
+            ->postJson(route('grup.pesan', $grupKelas), ['body' => 'ada tugas hari ini?'])
+            ->json('message');
+        $this->actingAs($this->siswa7a)
+            ->postJson(route('grup.pesan', $grupKelas), ['body' => 'tugas kelas', 'reply_to_id' => $awal['uuid']]);
         $this->actingAs($this->ortu7a)->postJson(route('grup.pesan', $grupPaguyuban), ['body' => 'izin ortu']);
 
         $this->artisan('grupchat:kirim-notif');

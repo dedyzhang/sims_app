@@ -11,6 +11,18 @@ use Tests\TestCase;
 
 class SimsGeminiAiJsonGeneratorTest extends TestCase
 {
+    // Integrasi ludensa/ludensa (composer path repo) belum terpasang di vendor/
+    // di checkout ini -- dijeda atas permintaan FL sampai paketnya dipasang &
+    // pekerjaannya dilanjutkan. Hapus skip ini begitu vendor/ludensa ada.
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        if (! interface_exists(\Ludensa\Contracts\GeneratesAiJson::class)) {
+            $this->markTestSkipped('Integrasi Ludensa dijeda -- paket ludensa/ludensa belum terpasang.');
+        }
+    }
+
     public function test_tersedia_mengikuti_gemini_service(): void
     {
         $this->mock(GeminiService::class, function (MockInterface $mock) {

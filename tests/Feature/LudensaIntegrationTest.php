@@ -25,6 +25,14 @@ class LudensaIntegrationTest extends TestCase
     {
         parent::setUp();
 
+        // Integrasi ludensa/ludensa (composer path repo) belum terpasang di
+        // vendor/ di checkout ini -- dijeda atas permintaan FL sampai paketnya
+        // dipasang & pekerjaannya dilanjutkan. Hapus skip ini begitu vendor/ludensa
+        // sudah ada (lihat composer.json repositories.ludensa).
+        if (! class_exists(\Ludensa\Livewire\Siswa\DasborSiswa::class)) {
+            $this->markTestSkipped('Integrasi Ludensa dijeda -- paket ludensa/ludensa belum terpasang.');
+        }
+
         Setting::create(['key' => 'nama_sekolah', 'value' => 'SD Integrasi Test']);
         Setting::create(['key' => 'fitur_ludensa_aktif', 'value' => '1']);
     }

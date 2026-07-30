@@ -96,6 +96,51 @@ modul ini — dibangun langsung via sesi chat, dilacak di sini saja.
         `{grup}/{pesan}` yang tak nyambung sekarang 404 di level routing, bukan
         cuma lewat `abort_unless()` manual di controller (yang tetap dipertahankan
         sebagai guard redundan). 2 test baru untuk cross-grup 404.
+- [x] Fase 6: perombakan aturan keanggotaan & kirim pesan Grup Kelas atas permintaan FL —
+      - **Guru pengajar/mapel dikeluarkan dari Grup Kelas.** `GrupChatService::anggotaGrupKelas()`
+        kini hanya wali kelas + siswa aktif. `NgajarObserver` tidak lagi memanggil
+        `GrupChatService` sama sekali (dulu men-sync Grup Kelas tiap Ngajar
+        dibuat/dihapus) — penugasan mengajar tak lagi berpengaruh ke grup chat.
+      - **Grup Kelas SELALU mode pengumuman** (hanya wali kelas boleh kirim pesan baru,
+        siswa hanya boleh membalas) — di-enforce di `provisionKelas()` (grup baru)
+        dan `syncKelas()` (self-healing utk grup lama tiap kali sync jalan, termasu
+        nightly `grupchat:sinkron`). Grup Paguyuban TETAP mode diskusi bebas (tidak
+        diubah — walikelas & orang tua tetap bebas kirim pesan; keputusan FL).
+      - DB dev lokal direkonsiliasi via `php artisan grupchat:sinkron` (26 grup,
+        471 anggota — belum ada data grup chat produksi sebelumnya, jadi tidak perlu
+        migrasi/backfill terpisah).
+      - Test lama yang berasumsi guru pengajar jadi anggota / siswa bisa kirim pesan
+        bebas di Grup Kelas ditulis ulang (`GrupChatAksesTest`,
+        `GrupChatSinkronTest`, `GrupChatLampiranTest`, `GrupChatDigestTest`) + 2 test
+        baru (guru tidak pernah masuk grup kelas; mode grup kelas vs paguyuban
+        self-healing). Total sekarang 72 test grup chat.
+      - `docs/PANDUAN_PENGGUNAAN_SIMS_APP.md` bagian 15 diperbarui (keanggotaan +
+        siapa boleh kirim pesan baru vs hanya balas).
+- [x] Code review Fase 6 (`/compound-engineering:ce-code-review`, 9 reviewer) — semua temuan
+      diterapkan langsung, tidak ada yang menunggu:
+      - Update mode `syncKelas()` dipindah ke DALAM `DB::transaction()` yang sama dgn
+        rekonsiliasi keanggotaan (dulu dua write terpisah, non-atomik).
+      - `grupchat:sinkron` kini isolasi-per-kelas (try/catch + log) — satu kelas gagal
+        tidak lagi menggagalkan sisa batch semalam.
+      - **`GrupChat::PERAN_STAF` tidak lagi memuat `'guru'`** (sabuk & bretel): baris
+        keanggotaan lama peran `guru` yang belum sempat direkonsiliasi kini otomatis
+        diperlakukan sebagai NON-staf (tidak bisa kirim pesan baru di mode pengumuman),
+        bukan diam-diam tetap punya hak staf sampai `syncKelas()` berikutnya jalan.
+      - **`GrupChatMessenger::kirim()` & `hapus()` kini mengecek otorisasi sendiri**
+        (`Gate::forUser(...)->authorize(...)`), bukan cuma dipercaya sudah dicek
+        `GrupChatController` — primitive-nya sendiri jadi aman dipanggil pemanggil
+        mana pun (command lain, tool/agent masa depan), bukan cuma lewat controller.
+      - Komentar migration `create_grup_chats_table` yang masih bilang "guru pengajar"
+        diperbaiki supaya tidak menyesatkan.
+      - 5 test baru: `provisionKelas()` set mode tanpa bantuan `syncKelas()`;
+        `NgajarObserver` terbukti tidak lagi memanggil `GrupChatService` sama sekali
+        (mock `shouldNotReceive`); baris keanggotaan `guru` lama kehilangan hak staf lalu
+        dikeluarkan; `GrupChatMessenger::kirim()` menolak panggilan langsung tanpa lewat
+        controller untuk siswa, dan menerima untuk wali kelas. Total sekarang 77 test.
+      - Sisa non-blocking (didokumentasikan, sengaja tidak diterapkan — taste call):
+        `ModulAktif::aktif()` mulai menumpuk special-case per modul (`arena_belajar`,
+        `ludensa`) — pertimbangkan ekstrak jadi peta default kalau ada modul ketiga
+        yang butuh override serupa.
 
 ### Sisa
 
@@ -103,7 +148,30 @@ modul ini — dibangun langsung via sesi chat, dilacak di sini saja.
 
 ---
 
-## Integrasi Ludensa — DALAM PENGERJAAN (uncommitted)
+## Integrasi Ludensa — DIJEDA (uncommitted)
+
+**2026-07-31 — dijeda atas permintaan FL** sampai dilanjutkan manual: paket
+`ludensa/ludensa` (composer path repo ke `../Ludensa GAMIFIKASI/packages/ludensa`)
+belum terpasang di `vendor/` pada checkout ini, dan `config/ludensa.php` belum
+lengkap (`jenjang_label`, `permainan`, dll. belum ada). Yang sudah diubah supaya
+modul ini tidak "terpanggil" tanpa sengaja:
+
+- `ModulAktif::aktif('ludensa')` sekarang default **NONAKTIF** (dulu default
+  aktif seperti modul lain) — sekolah/dev yang sudah pasang paketnya tetap bisa
+  menyalakan manual lewat Setting. Menu sidebar sendiri sebenarnya sudah aman
+  (sudah ada guard `Route::has('ludensa.beranda')` sejak awal), perubahan ini
+  cuma mempertegas defaultnya.
+- 3 file test (`LudensaIntegrationTest`, `LudensaJenjangAnakTest`,
+  `SimsGeminiAiJsonGeneratorTest` — 22 test) di-skip otomatis lewat
+  `markTestSkipped()` berbasis `class_exists()`/`interface_exists()` ke kelas
+  paket `Ludensa\*` — begitu `vendor/ludensa` terpasang, skip ini otomatis
+  berhenti aktif tanpa perlu diedit manual.
+- `ModulAktifTest::test_default_semua_modul_aktif` dikecualikan utk 'ludensa' +
+  test baru `test_ludensa_default_nonaktif`.
+
+**Untuk melanjutkan nanti:** pasang paket (`composer install` dgn path repo di
+atas tersedia), lengkapi `config/ludensa.php`, lalu boleh langsung hapus semua
+blok skip di atas — semuanya sudah ditandai jelas di tiap file.
 
 Modul permainan edukatif SD (paket `ludensa/*`) terintegrasi ke SIMS via service provider.
 
@@ -127,7 +195,7 @@ Modul permainan edukatif SD (paket `ludensa/*`) terintegrasi ke SIMS via service
 |------|--------|--------|
 | Arena Belajar + Jagat Misi kelas | `GameQuiz\|GameLive\|GameTemplate\|ArenaBelajar\|MissionClassroom` | 49 |
 | Ludensa | `Ludensa\|SimsGemini` | 15 |
-| Grup Chat | `GrupChat` | 70 |
+| Grup Chat | `GrupChat` | 77 |
 
 ---
 

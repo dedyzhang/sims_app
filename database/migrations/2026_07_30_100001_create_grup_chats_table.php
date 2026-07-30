@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Schema;
 /**
  * Modul "Grup Chat" — grup percakapan otomatis per kelas.
  * - Tanpa school_id (single-school, konsisten dgn classrooms/forum).
- * - Dua tipe per kelas: 'kelas' (walikelas + guru pengajar + siswa) dan
+ * - Dua tipe per kelas: 'kelas' (walikelas + siswa saja — guru pengajar/mapel
+ *   SENGAJA tidak diikutkan, lihat App\Services\GrupChatService) dan
  *   'paguyuban' (walikelas + orang tua siswa kelas itu).
  *
  * SCOPE grup = (id_kelas, tipe, tahun_ajaran) — BUKAN id_semester. Tabel `kelas`

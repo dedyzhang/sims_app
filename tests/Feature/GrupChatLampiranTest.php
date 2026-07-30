@@ -129,13 +129,58 @@ class GrupChatLampiranTest extends TestCase
             ->assertJsonPath('boleh_kirim', true)
             ->assertJsonPath('boleh_balas_pengumuman', false);
 
-        // Mode biasa (bukan pengumuman): siswa boleh kirim bebas, flag tetap false.
-        $grupBiasa = $this->grupKelas($this->kelas7b);
-        $this->actingAs($this->siswa7b)
+        // Mode biasa (bukan pengumuman): Grup Paguyuban tetap diskusi bebas
+        // (Grup Kelas kini SELALU pengumuman -- lihat GrupChatService), jadi
+        // ortu boleh kirim bebas dan flag balas-pengumuman tetap false.
+        $grupBiasa = $this->grupPaguyuban($this->kelas7b);
+        $this->actingAs($this->ortu7b)
             ->getJson(route('grup.poll', $grupBiasa).'?after=0')
             ->assertOk()
             ->assertJsonPath('boleh_kirim', true)
             ->assertJsonPath('boleh_balas_pengumuman', false);
+    }
+
+    /**
+     * Grup yang diarsipkan SEKALIGUS bermode pengumuman: boleh_kirim sudah false
+     * karena arsip (bukan karena bukan-staf), jadi tanpa cek isArsip() terpisah
+     * di bolehBalasPengumuman() komposer akan salah terbuka — read-only harus
+     * tetap total, walau grup itu mode pengumuman & member masih can_write.
+     */
+    public function test_grup_arsip_dan_pengumuman_tidak_membuka_jalur_balas(): void
+    {
+        $grup = $this->grupKelas($this->kelas7a);
+        $grup->update(['mode' => GrupChat::MODE_PENGUMUMAN, 'status' => 'arsip']);
+
+        $this->actingAs($this->siswa7a)
+            ->getJson(route('grup.poll', $grup).'?after=0')
+            ->assertOk()
+            ->assertJsonPath('boleh_kirim', false)
+            ->assertJsonPath('boleh_balas_pengumuman', false);
+    }
+
+    /**
+     * GrupChatMessenger::kirim()/hapus() sekarang mengecek otorisasi SENDIRI,
+     * bukan cuma dipercaya sudah dicek controller — di sini dibuktikan dengan
+     * memanggil service-nya langsung, melewati GrupChatController sama sekali.
+     * Sebelum perbaikan ini, panggilan langsung seperti ini akan lolos begitu
+     * saja walau siswa tidak berhak menulis pesan bebas di Grup Kelas.
+     */
+    public function test_grup_chat_messenger_menolak_kirim_tanpa_lewat_controller(): void
+    {
+        $grup = $this->grupKelas($this->kelas7a); // selalu mode pengumuman
+
+        $this->expectException(\Illuminate\Auth\Access\AuthorizationException::class);
+
+        app(\App\Services\GrupChatMessenger::class)->kirim($grup, $this->siswa7a, 'siswa', 'coba lewati controller');
+    }
+
+    public function test_grup_chat_messenger_mengizinkan_kirim_dari_walikelas_tanpa_lewat_controller(): void
+    {
+        $grup = $this->grupKelas($this->kelas7a);
+
+        $pesan = app(\App\Services\GrupChatMessenger::class)->kirim($grup, $this->wali7a, 'walikelas', 'sah dari walikelas');
+
+        $this->assertSame('sah dari walikelas', $pesan->body);
     }
 
     // ─────────────────────── Lampiran ───────────────────────
@@ -209,8 +254,13 @@ class GrupChatLampiranTest extends TestCase
     {
         $grup = $this->grupKelas($this->kelas7a);
 
+        // Grup Kelas selalu pengumuman: siswa hanya bisa membalas pesan wali.
+        $awal = $this->actingAs($this->wali7a)
+            ->postJson(route('grup.pesan', $grup), ['body' => 'ada pertanyaan?'])
+            ->json('message');
+
         $pesan = $this->actingAs($this->siswa7a)
-            ->postJson(route('grup.pesan', $grup), ['body' => 'salah ketik'])
+            ->postJson(route('grup.pesan', $grup), ['body' => 'salah ketik', 'reply_to_id' => $awal['uuid']])
             ->json('message');
 
         $this->actingAs($this->siswa7a)
@@ -239,8 +289,13 @@ class GrupChatLampiranTest extends TestCase
     {
         $grup = $this->grupKelas($this->kelas7a);
 
+        // Grup Kelas selalu pengumuman: siswa hanya bisa membalas pesan wali.
+        $awal = $this->actingAs($this->wali7a)
+            ->postJson(route('grup.pesan', $grup), ['body' => 'ada pertanyaan?'])
+            ->json('message');
+
         $pesan = $this->actingAs($this->siswa7a)
-            ->postJson(route('grup.pesan', $grup), ['body' => 'kata kasar'])
+            ->postJson(route('grup.pesan', $grup), ['body' => 'kata kasar', 'reply_to_id' => $awal['uuid']])
             ->json('message');
 
         $this->actingAs($this->wali7a)

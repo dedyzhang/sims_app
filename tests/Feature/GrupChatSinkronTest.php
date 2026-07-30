@@ -8,6 +8,7 @@ use App\Models\Guru;
 use App\Models\Kelas;
 use App\Models\Orangtua;
 use App\Models\Siswa;
+use App\Models\User;
 use App\Models\Walikelas;
 use App\Services\GrupChatService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,7 +44,27 @@ class GrupChatSinkronTest extends TestCase
         $grup = $this->grupKelas($this->kelas7a);
         $this->assertSame('Grup Kelas 7 A', $grup->nama);
         $this->assertSame('2025/2026', $grup->tahun_ajaran);
-        $this->assertSame('diskusi', $grup->mode);
+        $this->assertSame(GrupChat::MODE_PENGUMUMAN, $grup->mode);
+
+        $paguyuban = $this->grupPaguyuban($this->kelas7a);
+        $this->assertSame(GrupChat::MODE_DISKUSI, $paguyuban->mode);
+    }
+
+    /**
+     * Isolasi dari syncKelas(): setiap test lain memanggil provisionKelas() lewat
+     * syncKelas(), yang langsung menjalankan self-heal mode sesudahnya -- itu bisa
+     * menutupi create-array provisionKelas() sendiri kalau ternyata salah. Di sini
+     * provisionKelas() dipanggil SENDIRIAN pada kelas baru, tanpa syncKelas() sama
+     * sekali, supaya nilai mode yang diperiksa murni dari create-array-nya.
+     */
+    public function test_provision_kelas_menyetel_mode_tanpa_bantuan_sync_kelas(): void
+    {
+        $kelasBaru = Kelas::create(['tingkat' => 9, 'kelas' => 'Y']);
+
+        [$grupKelas, $grupPaguyuban] = app(GrupChatService::class)->provisionKelas($kelasBaru);
+
+        $this->assertSame(GrupChat::MODE_PENGUMUMAN, $grupKelas->mode);
+        $this->assertSame(GrupChat::MODE_DISKUSI, $grupPaguyuban->mode);
     }
 
     public function test_command_sinkron_idempoten(): void
@@ -226,18 +247,79 @@ class GrupChatSinkronTest extends TestCase
         $this->assertSame($joinedSeqAwal, (int) $member->joined_seq);
     }
 
-    public function test_guru_pengajar_keluar_saat_penugasan_dicabut(): void
+    public function test_guru_pengajar_tidak_pernah_masuk_grup_kelas(): void
     {
+        // Grup Kelas murni jalur walikelas-siswa; penugasan Ngajar (dibuat ATAU
+        // dicabut) tidak pernah memicu apa pun di Grup Chat — lihat NgajarObserver.
         $guru = $this->buatGuruPengajar($this->kelas7a, 'guru_ipa', 'Pak IPA', '3200001234');
         $grup = $this->grupKelas($this->kelas7a);
 
-        $this->assertContains($guru->uuid, $this->anggotaAktif($grup));
+        $this->assertNotContains($guru->uuid, $this->anggotaAktif($grup));
+
+        app(GrupChatService::class)->syncKelas($this->kelas7a);
+        $this->assertNotContains($guru->uuid, $this->anggotaAktif($grup));
 
         \App\Models\Ngajar::where('id_kelas', $this->kelas7a->uuid)
             ->whereIn('id_guru', Guru::where('id_login', $guru->uuid)->pluck('uuid'))
             ->get()->each->delete();
 
         $this->assertNotContains($guru->uuid, $this->anggotaAktif($grup));
+    }
+
+    /**
+     * Bukti langsung bahwa NgajarObserver sudah tidak menyentuh GrupChatService
+     * sama sekali -- test_guru_pengajar_tidak_pernah_masuk_grup_kelas() di atas
+     * cuma membuktikan guru tidak ADA di keanggotaan (yang tetap benar walau
+     * observer-nya masih memanggil syncKelas()), bukan bahwa hook-nya sendiri
+     * sudah dihapus. Di sini GrupChatService di-mock dan dilarang menerima
+     * panggilan apa pun selama Ngajar dibuat & dihapus.
+     */
+    public function test_ngajar_created_dan_deleted_tidak_memanggil_grup_chat_service(): void
+    {
+        $this->mock(GrupChatService::class, function ($mock) {
+            $mock->shouldNotReceive('syncKelas', 'provisionKelas', 'syncSiswa', 'syncOrangtuaUser');
+        });
+
+        $guruLogin = User::create([
+            'username' => 'guru_observer_test',
+            'password' => bcrypt('password'),
+            'access' => 'guru',
+        ]);
+        $guru = Guru::create([
+            'id_login' => $guruLogin->uuid,
+            'nama' => 'Guru Observer Test',
+            'nik' => '3200009999',
+            'jk' => 'L',
+            'face_descriptor' => [0.7, 0.8],
+        ]);
+        $pelajaran = \App\Models\Pelajaran::create(['nama' => 'Observer Test', 'kkm' => 75]);
+
+        $ngajar = \App\Models\Ngajar::create([
+            'id_guru' => $guru->uuid,
+            'id_kelas' => $this->kelas7a->uuid,
+            'id_pelajaran' => $pelajaran->uuid,
+        ]);
+
+        $ngajar->delete();
+
+        // Tidak ada assertion eksplisit di sini -- Mockery memverifikasi
+        // shouldNotReceive() otomatis di akhir test lewat tearDown TestCase.
+        $this->assertTrue(true);
+    }
+
+    public function test_grup_kelas_selalu_mode_pengumuman_grup_paguyuban_diskusi(): void
+    {
+        $grupKelas = $this->grupKelas($this->kelas7a);
+        $grupPaguyuban = $this->grupPaguyuban($this->kelas7a);
+
+        $this->assertSame(GrupChat::MODE_PENGUMUMAN, $grupKelas->mode);
+        $this->assertSame(GrupChat::MODE_DISKUSI, $grupPaguyuban->mode);
+
+        // Grup lama yang masih 'diskusi' (dibuat sebelum aturan ini) harus
+        // otomatis dibetulkan begitu syncKelas() jalan lagi (nightly/observer).
+        $grupKelas->update(['mode' => GrupChat::MODE_DISKUSI]);
+        app(GrupChatService::class)->syncKelas($this->kelas7a);
+        $this->assertSame(GrupChat::MODE_PENGUMUMAN, $grupKelas->fresh()->mode);
     }
 
     public function test_kelas_dihapus_menghapus_grupnya(): void

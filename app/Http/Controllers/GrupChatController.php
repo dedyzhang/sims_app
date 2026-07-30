@@ -258,10 +258,15 @@ class GrupChatController extends Controller
      * Boleh membalas (bukan menulis bebas) walau `send` ditolak: mode pengumuman
      * membolehkan siswa/ortu membalas pesan staf saja — lihat GrupChatPolicy::reply().
      * Kalau member staf, $bolehKirim sudah true, jadi ini otomatis false untuknya.
+     *
+     * isArsip() dicek terpisah dari $bolehKirim: grup yang diarsipkan SEKALIGUS
+     * bermode pengumuman membuat $bolehKirim false karena arsip, bukan karena
+     * bukan-staf — tanpa cek ini komposer akan terbuka untuk membalas padahal
+     * reply() di GrupChatPolicy tetap menolaknya (grup arsip = read-only total).
      */
     private function bolehBalasPengumuman(GrupChat $grup, ?GrupChatMember $member, bool $bolehKirim): bool
     {
-        return ! $bolehKirim && $grup->isModePengumuman() && ($member?->can_write ?? false);
+        return ! $bolehKirim && ! $grup->isArsip() && $grup->isModePengumuman() && ($member?->can_write ?? false);
     }
 
     private function member(GrupChat $grup, User $user): ?GrupChatMember
