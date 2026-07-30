@@ -985,13 +985,19 @@ Route::middleware(['auth', 'chatbot.user', 'modul:chatbot'])->group(function () 
     Route::post('/chatbot/upload', [ChatbotController::class, 'upload'])->middleware('throttle:30,1')->name('chatbot.upload');
     Route::post('/chatbot/upload-file', [ChatbotController::class, 'uploadFile'])->middleware('throttle:30,1')->name('chatbot.upload-file');
     Route::get('/chatbot/poll', [ChatbotController::class, 'poll'])->middleware('throttle:60,1')->name('chatbot.poll');
-    Route::get('/chatbot/attachment/{message}', [ChatbotController::class, 'attachment'])->name('chatbot.attachment');
     Route::get('/chatbot/unread', [ChatbotController::class, 'unread'])->name('chatbot.unread');
 
     // Handoff sisi user.
     Route::post('/chatbot/{conversation}/request-human', [ChatbotController::class, 'requestHuman'])->name('chatbot.request-human');
     Route::post('/chatbot/{conversation}/back-to-bot', [ChatbotController::class, 'backToBot'])->name('chatbot.back-to-bot');
 });
+
+// Lampiran chat: TANPA middleware chatbot.user, karena admin (yg dikecualikan chatbot.user)
+// juga wajib bisa buka foto/file yg dikirim user dari Inbox. Izin per-pesan sudah dicek
+// di controller sendiri (ChatAttachments::userCanAccess — pemilik percakapan ATAU admin).
+Route::middleware(['auth', 'modul:chatbot'])
+    ->get('/chatbot/attachment/{message}', [ChatbotController::class, 'attachment'])
+    ->name('chatbot.attachment');
 
 // Inbox admin (hanya admin/superadmin).
 Route::middleware(['auth', 'role:admin', 'modul:chatbot'])->prefix('chatbot/admin')->name('chatbot.admin.')->group(function () {
