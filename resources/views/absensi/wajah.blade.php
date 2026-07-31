@@ -320,6 +320,13 @@ function faceEnroll(opts){
                 this.msg='Posisikan wajah dalam bingkai, lalu tekan Spasi / klik Ambil Sampel.';
             } catch(e){
                 this.loading=false;
+                // Kalau kamera sudah nyala tapi model AI gagal dimuat (mis. jaringan
+                // putus di tengah unduh), JANGAN biarkan tombol Ambil Sampel tetap
+                // aktif — itu akan crash "Cannot read properties of null (reading 'run')"
+                // begitu diklik krn sesi modelnya belum ada. Matikan kamera & balik ke
+                // status gagal supaya pengguna bisa coba lagi dari awal.
+                this.streaming=false;
+                this.stream?.getTracks().forEach(t => t.stop());
                 this.status='Gagal: ' + (e.name==='NotAllowedError' ? 'akses kamera ditolak' : e.message);
             }
         },

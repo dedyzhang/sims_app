@@ -41,12 +41,20 @@ async function loadInsightFace(){
     if(ifReady) return;
     if(ifLoadingPromise) return ifLoadingPromise;
     ifLoadingPromise = (async () => {
-        ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
-        [ifDetSession, ifRecSession] = await Promise.all([
-            ort.InferenceSession.create(IF_DET_URL, { executionProviders:['wasm'] }),
-            ort.InferenceSession.create(IF_REC_URL, { executionProviders:['wasm'] }),
-        ]);
-        ifReady = true;
+        try {
+            ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+            [ifDetSession, ifRecSession] = await Promise.all([
+                ort.InferenceSession.create(IF_DET_URL, { executionProviders:['wasm'] }),
+                ort.InferenceSession.create(IF_REC_URL, { executionProviders:['wasm'] }),
+            ]);
+            ifReady = true;
+        } catch (e) {
+            // Reset supaya percobaan berikutnya (mis. buka ulang kamera) betul2 mencoba
+            // lagi — tanpa ini, promise gagal ini akan dipakai ulang selamanya (sesi
+            // permanen macet sampai halaman di-reload) walau jaringan sudah pulih.
+            ifDetSession = null; ifRecSession = null; ifLoadingPromise = null;
+            throw e;
+        }
     })();
     return ifLoadingPromise;
 }

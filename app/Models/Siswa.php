@@ -79,6 +79,23 @@ class Siswa extends Model
         return $this->hasOne(Sekretaris::class, 'id_siswa', 'uuid');
     }
 
+    /**
+     * uuid kelas yang diampu siswa ini sbg sekretaris, atau null. Pakai property access
+     * ($this->sekretaris, bukan sekretaris()) supaya Eloquent memo hasilnya di instance
+     * ini — dipanggil berkali-kali per request (guard beberapa controller + sidebar)
+     * tanpa query berulang, ganti pola lama yg query Sekretaris::where(...) mentah di
+     * tiap titik panggil.
+     */
+    public function sekretarisKelasId(): ?string
+    {
+        return $this->sekretaris?->id_kelas;
+    }
+
+    public function isSekretarisKelas(): bool
+    {
+        return $this->sekretaris !== null;
+    }
+
     public function pembayaran()
     {
         return $this->hasMany(SppPembayaran::class, 'id_siswa', 'uuid');

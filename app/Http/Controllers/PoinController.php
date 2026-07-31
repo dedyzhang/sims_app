@@ -8,7 +8,6 @@ use App\Models\Aturan;
 use App\Models\Orangtua;
 use App\Models\Poin;
 use App\Models\PoinTemp;
-use App\Models\Sekretaris;
 use App\Models\Siswa;
 use App\Support\ExcelWatermark;
 use Illuminate\Http\Request;
@@ -59,9 +58,7 @@ class PoinController extends Controller
     private function bisaAjukan(): bool
     {
         $u = auth()->user();
-        if ($u->guru) return true;
-        if ($u->siswa && Sekretaris::where('id_siswa', $u->siswa->uuid)->exists()) return true;
-        return false;
+        return (bool) ($u->guru || $u->siswa?->isSekretarisKelas());
     }
 
     private function guardAjukan(): void
@@ -83,9 +80,8 @@ class PoinController extends Controller
         if ($u->guru?->walikelas) {
             return Siswa::where('id_kelas', $u->guru->walikelas->id_kelas);
         }
-        if ($u->siswa) {
-            $sek = Sekretaris::where('id_siswa', $u->siswa->uuid)->first();
-            if ($sek) return Siswa::where('id_kelas', $sek->id_kelas);
+        if ($kelasId = $u->siswa?->sekretarisKelasId()) {
+            return Siswa::where('id_kelas', $kelasId);
         }
         return Siswa::query();
     }

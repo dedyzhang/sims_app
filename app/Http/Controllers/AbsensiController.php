@@ -10,8 +10,10 @@ use App\Models\PresensiGuru;
 use App\Models\Setting;
 use App\Support\AbsensiGuru;
 use App\Support\AttendanceParentNotifier;
+use App\Support\KalenderAbsensi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 class AbsensiController extends Controller
 {
@@ -19,6 +21,22 @@ class AbsensiController extends Controller
     private function walikelasKelasId(): ?string
     {
         return auth()->user()->canAccess('manage_absensi') ? null : auth()->user()->guru?->walikelas?->id_kelas;
+    }
+
+    /** Kelas yg diampu siswa ini sbg sekretaris kelas, atau null bila bukan sekretaris. */
+    private function sekretarisKelasId(): ?string
+    {
+        return auth()->user()->siswa?->sekretarisKelasId();
+    }
+
+    /**
+     * Kelas yg boleh diisi user saat ini via jalur non-admin: wali kelas ATAU sekretaris
+     * kelasnya sendiri. null berarti tak terikat kelas manapun lewat jalur ini (baik krn
+     * admin — cek canAccess terpisah — maupun krn bukan keduanya).
+     */
+    private function scopedKelasId(): ?string
+    {
+        return $this->walikelasKelasId() ?? $this->sekretarisKelasId();
     }
 
     /**
@@ -44,11 +62,12 @@ class AbsensiController extends Controller
     {
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
         $walikelasKelas = $this->walikelasKelasId();
-        abort_if(!auth()->user()->canAccess('manage_absensi') && !$walikelasKelas, 403, 'Hanya admin/wali kelas yang dapat mengakses absensi.');
-        if ($walikelasKelas) {
-            $kelasList = $kelasList->where('uuid', $walikelasKelas)->values();
+        $scopedKelas = $this->scopedKelasId();
+        abort_if(!auth()->user()->canAccess('manage_absensi') && !$scopedKelas, 403, 'Hanya admin/wali kelas/sekretaris kelas yang dapat mengakses absensi.');
+        if ($scopedKelas) {
+            $kelasList = $kelasList->where('uuid', $scopedKelas)->values();
         }
-        $selectedKelas = $walikelasKelas ?: ($request->kelas ?: optional($kelasList->first())->uuid);
+        $selectedKelas = $scopedKelas ?: ($request->kelas ?: optional($kelasList->first())->uuid);
         $tanggal = $request->tanggal ?: now()->toDateString();
 
         $siswas = collect();
@@ -65,6 +84,14 @@ class AbsensiController extends Controller
         return view('absensi.index', compact('kelasList', 'selectedKelas', 'tanggal', 'siswas', 'existing', 'batas', 'walikelasKelas'));
     }
 
+    /**
+     * Simpan absensi satu kelas sekaligus. Ditulis sbg bulk upsert (BUKAN firstOrNew()+save()
+     * per siswa spt sebelumnya) supaya submit kelas 30+ siswa TETAP jumlah query TETAP kecil
+     * (bukan 2×N+): satu query baca baris existing, satu query baca siswa+ortu (utk
+     * notifikasi), satu query upsert utk SEMUA baris sekaligus, dan notifikasi ortu hanya utk
+     * baris yg statusnya benar2 berubah (bukan re-fetch dari DB, model disintesis di memori
+     * dari data yg sudah ada).
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -73,48 +100,120 @@ class AbsensiController extends Controller
             'status'   => 'nullable|array',   // hanya siswa yang ditandai yang disimpan
         ]);
 
+        $isAdmin = auth()->user()->canAccess('manage_absensi');
         $walikelasKelas = $this->walikelasKelasId();
-        abort_if(!auth()->user()->canAccess('manage_absensi') && $request->id_kelas !== $walikelasKelas, 403, 'Anda hanya dapat mengisi absensi kelas Anda sendiri.');
+        $sekretarisKelas = $this->sekretarisKelasId();
+        $scopedKelas = $walikelasKelas ?? $sekretarisKelas;
+        abort_if(!$isAdmin && $request->id_kelas !== $scopedKelas, 403, 'Anda hanya dapat mengisi absensi kelas Anda sendiri.');
 
         $tanggal = $request->tanggal;
-        $count = 0;
-        foreach (($request->status ?? []) as $siswaUuid => $status) {
-            if (!in_array($status, array_keys(Absensi::STATUS))) continue;
 
-            $row = Absensi::firstOrNew(['id_siswa' => $siswaUuid, 'tanggal' => $tanggal]);
-            $previousStatus = $row->exists ? $row->status : null;
-            $row->id_kelas     = $request->id_kelas;
-            $row->status       = $status;
-            $row->dicatat_oleh = auth()->id();
-            if (!$row->exists) $row->id_semester = \App\Models\Semester::aktif()?->id;
-            // keterangan: jangan timpa dengan kosong (pertahankan mis. "Scan wajah")
-            $ket = $request->keterangan[$siswaUuid] ?? null;
-            if ($ket !== null && $ket !== '') {
-                $row->keterangan = $ket;
-            }
-            // Isi jam_masuk hanya saat pertama kali ditandai hadir (jangan timpa hasil scan) —
-            // KECUALI diisi wali kelas: wali kelas cukup tandai "hadir" saja tanpa jam, krn absensi
-            // manual wali kelas bukan bukti waktu kedatangan sungguhan (beda dari scan wajah/QR).
-            if ($status === 'hadir' && empty($row->jam_masuk) && !$walikelasKelas) {
-                $row->jam_masuk = now()->format('H:i:s');
-            }
-            $row->save();
-            AttendanceParentNotifier::notifyIfStatusChanged($previousStatus, $row);
-            $count++;
+        // Sekretaris (siswa) ikut gerbang kalender absensi spt jalur kios/scan — admin & wali
+        // kelas TETAP tidak digerbang di sini (perilaku lama dipertahankan; sengaja tak
+        // diperluas ke keduanya krn itu perubahan perilaku di luar permintaan fitur ini).
+        if ($sekretarisKelas && !$walikelasKelas && !$isAdmin) {
+            abort_unless(
+                KalenderAbsensi::absenSiswaDibuka($tanggal),
+                403,
+                'Absensi manual belum dibuka untuk tanggal ini.'
+            );
         }
 
-        return back()->with('success', "Absensi {$count} siswa tersimpan untuk " . Carbon::parse($tanggal)->isoFormat('D MMM Y') . '.');
+        $statuses = collect($request->status ?? [])
+            ->filter(fn ($status) => in_array($status, array_keys(Absensi::STATUS), true));
+
+        if ($statuses->isEmpty()) {
+            return back()->with('success', 'Absensi 0 siswa tersimpan untuk ' . Carbon::parse($tanggal)->isoFormat('D MMM Y') . '.');
+        }
+
+        $siswaUuids = $statuses->keys()->all();
+
+        $existingRows = Absensi::whereIn('id_siswa', $siswaUuids)
+            ->whereDate('tanggal', $tanggal)
+            ->get()->keyBy('id_siswa');
+
+        // Preload siswa+ortu SEKALI utk seluruh kelas — dulu AttendanceParentNotifier query
+        // Siswa::find() sendiri PER baris di dalam loop, jadi N query tambahan hilang di sini.
+        $siswaByUuid = Siswa::with(['kelas', 'orangtua.user'])
+            ->whereIn('uuid', $siswaUuids)
+            ->get()->keyBy('uuid');
+
+        // Wali kelas & sekretaris SAMA-SAMA bukan bukti scan sungguhan — jam_masuk tak ditimpa
+        // (perilaku wali kelas lama, kini juga berlaku utk sekretaris).
+        $bukanBuktiScan = (bool) $scopedKelas && !$isAdmin;
+
+        $now = now()->format('Y-m-d H:i:s');
+        // Diambil SEKALI di luar loop — sebelumnya Semester::aktif() dipanggil PER siswa
+        // (query baru tiap baris), jadi N+1 walau upsert-nya sendiri sudah satu query.
+        $semesterAktifId = \App\Models\Semester::aktif()?->id;
+        $upsertRows = [];
+        $rowsForNotify = []; // id_siswa => ['previous' => ?status, 'attrs' => [...]]
+
+        foreach ($statuses as $siswaUuid => $status) {
+            $existing = $existingRows->get($siswaUuid);
+            $previousStatus = $existing?->status;
+
+            $ket = $request->keterangan[$siswaUuid] ?? null; // jangan timpa dgn kosong (pertahankan mis. "Scan wajah")
+            $keterangan = ($ket !== null && $ket !== '') ? $ket : $existing?->keterangan;
+
+            $jamMasuk = $existing?->jam_masuk;
+            if ($status === 'hadir' && empty($jamMasuk) && !$bukanBuktiScan) {
+                $jamMasuk = now()->format('H:i:s');
+            }
+
+            $attrs = [
+                'id_kelas'   => $request->id_kelas,
+                'tanggal'    => $tanggal,
+                'status'     => $status,
+                'keterangan' => $keterangan,
+                'jam_masuk'  => $jamMasuk,
+            ];
+
+            $upsertRows[] = array_merge($attrs, [
+                'uuid'         => $existing?->uuid ?? (string) Str::uuid(),
+                'id_siswa'     => $siswaUuid,
+                'dicatat_oleh' => auth()->id(),
+                'id_semester'  => $existing?->id_semester ?? $semesterAktifId,
+                'geo_lat'      => $existing?->geo_lat,
+                'geo_lng'      => $existing?->geo_lng,
+                'geo_accuracy' => $existing?->geo_accuracy,
+                'geo_jarak'    => $existing?->geo_jarak,
+                'created_at'   => $existing?->created_at?->format('Y-m-d H:i:s') ?? $now,
+                'updated_at'   => $now,
+            ]);
+
+            if ($previousStatus !== $status) {
+                $rowsForNotify[$siswaUuid] = ['previous' => $previousStatus, 'attrs' => array_merge($attrs, ['id_siswa' => $siswaUuid])];
+            }
+        }
+
+        Absensi::upsert(
+            $upsertRows,
+            ['id_siswa', 'tanggal'],
+            ['id_kelas', 'status', 'keterangan', 'jam_masuk', 'dicatat_oleh', 'id_semester', 'updated_at']
+        );
+
+        foreach ($rowsForNotify as $siswaUuid => $data) {
+            $siswa = $siswaByUuid->get($siswaUuid);
+            if (! $siswa) continue;
+            // Disintesis dari data yg baru ditulis (bukan query ulang) — cukup utk kebutuhan
+            // notifikasi (status/jam_masuk/tanggal), lihat StudentAttendanceRecorded::toArray().
+            $absensiUntukNotif = new Absensi($data['attrs']);
+            AttendanceParentNotifier::notifyIfStatusChanged($data['previous'], $absensiUntukNotif, $siswa);
+        }
+
+        return back()->with('success', "Absensi {$statuses->count()} siswa tersimpan untuk " . Carbon::parse($tanggal)->isoFormat('D MMM Y') . '.');
     }
 
     public function rekap(Request $request)
     {
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
-        $walikelasKelas = $this->walikelasKelasId();
-        abort_if(!auth()->user()->canAccess('manage_absensi') && !$walikelasKelas, 403, 'Hanya pengelola yang dapat mengakses rekap absensi.');
-        if ($walikelasKelas) {
-            $kelasList = $kelasList->where('uuid', $walikelasKelas)->values();
+        $scopedKelas = $this->scopedKelasId();
+        abort_if(!auth()->user()->canAccess('manage_absensi') && !$scopedKelas, 403, 'Hanya pengelola yang dapat mengakses rekap absensi.');
+        if ($scopedKelas) {
+            $kelasList = $kelasList->where('uuid', $scopedKelas)->values();
         }
-        $selectedKelas = $walikelasKelas ?: ($request->kelas ?: optional($kelasList->first())->uuid);
+        $selectedKelas = $scopedKelas ?: ($request->kelas ?: optional($kelasList->first())->uuid);
 
         $dari   = $request->dari   ?: now()->startOfMonth()->toDateString();
         $sampai = $request->sampai ?: now()->toDateString();
@@ -151,11 +250,11 @@ class AbsensiController extends Controller
 
     public function cetakRekap(Request $request)
     {
-        $walikelasKelas = $this->walikelasKelasId();
-        abort_if(!auth()->user()->canAccess('manage_absensi') && !$walikelasKelas, 403);
-        
-        // admin harus milih kelas, wk otomatis pakai kelasnya
-        $selectedKelas = $walikelasKelas ?: $request->kelas;
+        $scopedKelas = $this->scopedKelasId();
+        abort_if(!auth()->user()->canAccess('manage_absensi') && !$scopedKelas, 403);
+
+        // admin harus milih kelas, wk/sekretaris otomatis pakai kelasnya
+        $selectedKelas = $scopedKelas ?: $request->kelas;
         abort_if(!$selectedKelas, 404, 'Kelas tidak valid.');
         
         $dari   = $request->dari   ?: now()->startOfMonth()->toDateString();

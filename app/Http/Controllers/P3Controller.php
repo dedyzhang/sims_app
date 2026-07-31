@@ -7,7 +7,6 @@ use App\Models\Orangtua;
 use App\Models\P3Kategori;
 use App\Models\P3Poin;
 use App\Models\P3Temp;
-use App\Models\Sekretaris;
 use App\Models\Semester;
 use App\Models\Setting;
 use App\Models\Siswa;
@@ -58,9 +57,7 @@ class P3Controller extends Controller
     private function bisaAjukan(): bool
     {
         $u = auth()->user();
-        if ($u->guru) return true;
-        if ($u->siswa && Sekretaris::where('id_siswa', $u->siswa->uuid)->exists()) return true;
-        return false;
+        return (bool) ($u->guru || $u->siswa?->isSekretarisKelas());
     }
 
     private function guardAjukan(): void
@@ -81,9 +78,8 @@ class P3Controller extends Controller
         if ($u->guru?->walikelas) {
             return Siswa::where('id_kelas', $u->guru->walikelas->id_kelas);
         }
-        if ($u->siswa) {
-            $sek = Sekretaris::where('id_siswa', $u->siswa->uuid)->first();
-            if ($sek) return Siswa::where('id_kelas', $sek->id_kelas);
+        if ($kelasId = $u->siswa?->sekretarisKelasId()) {
+            return Siswa::where('id_kelas', $kelasId);
         }
         return Siswa::query();
     }

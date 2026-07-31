@@ -647,7 +647,8 @@
                 // dan bikin seluruh layout (dipakai di semua halaman) crash.
                 $jenisAturan = \App\Models\Setting::get('jenis_aturan', 'p3');
                 $bolehKelolaDisiplin = $isAdmin || auth()->user()?->canAccess('manage_disiplin');
-                $bolehAjukanDisiplin = auth()->user()?->guru || (auth()->user()?->siswa && \App\Models\Sekretaris::where('id_siswa', auth()->user()->siswa->uuid)->exists());
+                $sekretarisKelasId = auth()->user()?->siswa?->sekretarisKelasId();
+                $bolehAjukanDisiplin = auth()->user()?->guru || $sekretarisKelasId;
                 $bolehLihatDisiplin = auth()->user()?->siswa || $access === 'orangtua';
                 $disiplinItems = [];
                 if ($modulOn('disiplin')) {
@@ -728,6 +729,17 @@
                     }
 
                     $groups['walikelas'] = ['Wali Kelas', 'presentation', $walikelasItems];
+                }
+
+                // ── Sekretaris Kelas (siswa yg ditunjuk wali kelas) ──
+                // "Ajukan Poin/P3" sekretaris sudah tampil di grup Kedisiplinan di atas
+                // ($bolehAjukanDisiplin); di sini cuma menu absensi krn beda modul (absensi vs
+                // disiplin) — kalau digabung ke grup lain, menu itu ikut hilang saat modul
+                // disiplin/absensi yg lain sedang off.
+                if ($sekretarisKelasId && $modulOn('absensi')) {
+                    $groups['sekretaris'] = ['Sekretaris Kelas', 'clipboard-check', [
+                        ['absensi.index', ['absensi.*'], 'clipboard-check', 'Absensi Kelas Saya'],
+                    ]];
                 }
 
                 // ── Sarana & Prasarana ──
