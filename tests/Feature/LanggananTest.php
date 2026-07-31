@@ -169,7 +169,7 @@ class LanggananTest extends TestCase
     {
         $superadmin = $this->makeUser('superadmin', 'sa_peringatan');
         // sisa ± 3 hari → tingkat merah
-        $this->buatLangganan(3, now()->subMonths(3)->addDays(3)->toDateString());
+        $this->buatLangganan(3, now()->addDays(3)->subMonths(3)->toDateString());
 
         $this->actingAs($superadmin)->get('/langganan')
             ->assertOk()
@@ -180,7 +180,7 @@ class LanggananTest extends TestCase
     public function test_banner_sisa_hari_tampil_untuk_superadmin(): void
     {
         $superadmin = $this->makeUser('superadmin', 'sa_banner');
-        $this->buatLangganan(3, now()->subMonths(3)->addDays(7)->toDateString()); // sisa ± 7 hari
+        $this->buatLangganan(3, now()->addDays(7)->subMonths(3)->toDateString()); // sisa ± 7 hari
 
         $this->actingAs($superadmin)->get('/masukan')
             ->assertOk()
@@ -193,7 +193,7 @@ class LanggananTest extends TestCase
     public function test_banner_tidak_tampil_untuk_non_superadmin(): void
     {
         $guru = $this->makeUser('admin', 'admin_banner');
-        $this->buatLangganan(3, now()->subMonths(3)->addDays(7)->toDateString());
+        $this->buatLangganan(3, now()->addDays(7)->subMonths(3)->toDateString());
 
         $this->actingAs($guru)->get('/masukan')
             ->assertOk()

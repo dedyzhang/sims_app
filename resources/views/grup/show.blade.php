@@ -20,29 +20,31 @@
         bolehModerasi: {{ $bolehModerasi ? 'true' : 'false' }},
         bolehBalasPengumuman: {{ $bolehBalasPengumuman ? 'true' : 'false' }},
         adaRiwayatTerpotong: {{ $batasSeq > 0 ? 'true' : 'false' }},
+        membersUrl: @js(route('grup.members', $grup->uuid)),
      })"
      x-init="init()">
 
     {{-- ── Header ─────────────────────────────────────────────────────────── --}}
-    <div class="card px-4 py-3 flex items-center gap-3 flex-shrink-0">
-        <a href="{{ route('grup.index') }}" class="p-1.5 -ml-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition">
-            <i data-lucide="arrow-left" class="w-5 h-5 text-slate-500"></i>
+    <div class="px-5 py-3 flex items-center gap-4 flex-shrink-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 z-20 relative shadow-sm">
+        <a href="{{ route('grup.index') }}" class="p-2 -ml-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition text-slate-700 dark:text-slate-300">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
         </a>
 
-        <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white"
-             style="background: {{ $grup->isPaguyuban() ? '#0d9488' : 'var(--cp)' }}">
+        <div class="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-white shadow-md bg-gradient-to-br from-indigo-500 to-purple-500">
             <i data-lucide="{{ $grup->isPaguyuban() ? 'users-round' : 'graduation-cap' }}" class="w-5 h-5"></i>
         </div>
 
-        <div class="flex-1 min-w-0">
-            <h1 class="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{{ $grup->nama }}</h1>
-            <p class="text-xs text-slate-500 dark:text-slate-400">
-                {{ $jumlahAnggota }} anggota
+        <div class="flex-1 min-w-0 cursor-pointer group" @click="showMembersModal = true; fetchMembers()">
+            <h1 class="font-extrabold text-[16px] text-slate-800 dark:text-slate-100 truncate tracking-tight">{{ $grup->nama }}</h1>
+            <p class="text-[13px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                <span class="group-hover:text-indigo-500 transition font-medium">
+                    {{ $jumlahAnggota }} anggota
+                </span>
                 <template x-if="mode === 'pengumuman'">
-                    <span class="text-amber-600 dark:text-amber-400 font-semibold"> &middot; Mode pengumuman</span>
+                    <span class="text-amber-500 font-semibold ml-1"> &middot; Pengumuman</span>
                 </template>
                 @if($grup->isArsip())
-                    <span class="text-slate-400"> &middot; Diarsipkan</span>
+                    <span class="ml-1 text-slate-400"> &middot; Diarsipkan</span>
                 @endif
             </p>
         </div>
@@ -50,7 +52,7 @@
 
     {{-- ── Daftar pesan ───────────────────────────────────────────────────── --}}
     <div x-ref="scroll" @scroll="cekPosisi()"
-         class="flex-1 overflow-y-auto py-4 space-y-1.5 px-1">
+         class="flex-1 overflow-y-auto py-4 space-y-3 px-3 sm:px-5 bg-slate-50 dark:bg-slate-900/50 relative">
 
         <template x-if="adaRiwayatTerpotong">
             <p class="text-center text-[11px] text-slate-400 px-6 py-2">
@@ -69,8 +71,8 @@
             <div>
                 {{-- Separator tanggal --}}
                 <template x-if="i === 0 || messages[i-1].tanggal !== m.tanggal">
-                    <div class="flex justify-center my-3">
-                        <span class="text-[11px] px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+                    <div class="flex justify-center my-4 relative">
+                        <span class="text-[11px] font-medium px-4 py-1.5 rounded-full bg-white/60 dark:bg-slate-800/60 backdrop-blur-md text-slate-500 dark:text-slate-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50"
                               x-text="labelTanggal(m.tanggal)"></span>
                     </div>
                 </template>
@@ -92,50 +94,58 @@
                         </div>
                     </template>
 
-                    <div class="max-w-[80%] sm:max-w-[70%] rounded-2xl px-3.5 py-2"
+                    <div class="max-w-[85%] sm:max-w-[75%] rounded-3xl px-4 py-2.5 relative shadow-sm"
                          :class="m.dihapus
-                            ? 'bg-slate-100 dark:bg-slate-700/60 text-slate-400 italic'
+                            ? 'bg-slate-100 dark:bg-slate-800/60 text-slate-400 italic'
                             : (m.user_id === meId
-                                ? 'text-white rounded-br-md'
-                                : 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-bl-md border border-slate-100 dark:border-slate-600')"
-                         :style="m.user_id === meId && !m.dihapus ? 'background: var(--cp)' : ''">
+                                ? 'bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-br-sm shadow-indigo-500/20'
+                                : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-sm border border-slate-100 dark:border-slate-700/50')">
 
                         {{-- Nama pengirim (hanya untuk pesan orang lain) --}}
                         <template x-if="m.user_id !== meId && !m.dihapus">
-                            <p class="text-[11px] font-bold mb-0.5" style="color: var(--cp)" x-text="m.nama"></p>
+                            <p class="text-[12px] font-bold mb-1" style="color: var(--cp)" x-text="m.nama"></p>
                         </template>
 
                         {{-- Kutipan balasan --}}
                         <template x-if="m.reply_snippet">
-                            <div class="mb-1.5 pl-2 border-l-2 border-current/40 opacity-80">
-                                <p class="text-[11px] font-semibold" x-text="m.reply_nama"></p>
-                                <p class="text-[11px] truncate" x-text="m.reply_snippet"></p>
+                            <div class="mb-2 p-2 rounded-xl bg-black/5 dark:bg-black/20 border-l-4" style="border-color: var(--cp)">
+                                <p class="text-[11px] font-semibold" style="color: var(--cp)" x-text="m.reply_nama"></p>
+                                <p class="text-[12px] truncate opacity-90 mt-0.5" x-text="m.reply_snippet"></p>
                             </div>
                         </template>
 
                         {{-- Lampiran foto --}}
                         <template x-if="m.lampiran && m.lampiran.tipe === 'image'">
-                            <a :href="m.lampiran.url" target="_blank" rel="noopener" class="block mb-1.5 -mx-0.5">
-                                <img :src="m.lampiran.url" loading="lazy" class="rounded-lg max-h-56 w-auto max-w-full object-cover">
+                            <a :href="m.lampiran.url" target="_blank" rel="noopener" class="block mb-1 -mx-2 mt-1">
+                                <img :src="m.lampiran.url" loading="lazy" class="rounded-2xl max-h-64 w-auto max-w-full object-cover">
                             </a>
                         </template>
 
                         {{-- Lampiran berkas --}}
                         <template x-if="m.lampiran && m.lampiran.tipe !== 'image'">
                             <a :href="m.lampiran.url" target="_blank" rel="noopener"
-                               class="flex items-center gap-2 mb-1.5 p-2 rounded-lg bg-black/5 dark:bg-white/10">
-                                <i data-lucide="file-text" class="w-5 h-5 flex-shrink-0"></i>
-                                <span class="text-xs truncate" x-text="m.lampiran.nama"></span>
+                               class="flex items-center gap-3 mb-2 p-2.5 rounded-2xl bg-black/5 dark:bg-black/20 hover:bg-black/10 transition-colors">
+                                <div class="w-10 h-10 rounded-full bg-white/20 dark:bg-white/10 flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                                </div>
+                                <span class="text-[13px] font-medium truncate" x-text="m.lampiran.nama"></span>
                             </a>
                         </template>
 
-                        <template x-if="m.body">
-                            <p class="text-sm whitespace-pre-wrap break-words" x-text="m.body"></p>
-                        </template>
-
-                        <p class="text-[10px] mt-0.5 text-right"
-                           :class="m.user_id === meId && !m.dihapus ? 'text-white/70' : 'text-slate-400'"
-                           x-text="m.jam"></p>
+                        <div class="flex items-end justify-between gap-4 flex-wrap">
+                            <template x-if="m.body">
+                                <p class="text-[15px] whitespace-pre-wrap break-words leading-relaxed" style="min-width: 0;" x-text="m.body"></p>
+                            </template>
+                            
+                            <div class="flex items-center gap-1 flex-shrink-0 ml-auto mt-1">
+                                <p class="text-[10px] font-medium"
+                                   :class="m.user_id === meId && !m.dihapus ? 'text-white/80' : 'text-slate-400'"
+                                   x-text="m.jam"></p>
+                                <template x-if="m.user_id === meId && !m.dihapus">
+                                    <i data-lucide="check-check" class="w-3.5 h-3.5" :class="m.dilihat ? 'text-blue-300' : 'text-white/60'"></i>
+                                </template>
+                            </div>
+                        </div>
                     </div>
 
                     <template x-if="!m.dihapus && m.user_id !== meId">
@@ -158,7 +168,7 @@
     </div>
 
     {{-- ── Composer ───────────────────────────────────────────────────────── --}}
-    <div class="card px-3 py-2.5 flex-shrink-0">
+    <div class="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl px-4 py-3 flex-shrink-0 z-20 relative border-t border-slate-200/50 dark:border-slate-800/50">
         {{-- Mode pengumuman: siswa/ortu tak boleh menulis bebas, tapi tetap boleh
              membalas pesan staf (lihat GrupChatPolicy::reply) — composer tetap
              tampil, hanya terkunci sampai mereka menekan "Balas" di sebuah pesan. --}}
@@ -166,39 +176,38 @@
             <div>
                 {{-- Pratinjau balasan --}}
                 <template x-if="replying">
-                    <div class="flex items-start gap-2 mb-2 pl-2.5 pr-1.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/60 border-l-2" style="border-color: var(--cp)">
+                    <div class="flex items-start gap-3 mb-3 pl-4 pr-3 py-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-900/20 border-l-4 border-indigo-500 backdrop-blur-sm">
                         <div class="flex-1 min-w-0">
-                            <p class="text-[11px] font-semibold" style="color: var(--cp)" x-text="'Membalas ' + replying.nama"></p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 truncate" x-text="replying.snippet"></p>
+                            <p class="text-[12px] font-bold text-indigo-600 dark:text-indigo-400" x-text="'Membalas ' + replying.nama"></p>
+                            <p class="text-[13px] text-slate-600 dark:text-slate-300 truncate mt-1" x-text="replying.snippet"></p>
                         </div>
-                        <button type="button" @click="batalBalas()" class="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-600 flex-shrink-0">
-                            <i data-lucide="x" class="w-3.5 h-3.5 text-slate-500"></i>
+                        <button type="button" @click="batalBalas()" class="p-1.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-700/50 flex-shrink-0 transition">
+                            <i data-lucide="x" class="w-4 h-4 text-slate-500"></i>
                         </button>
                     </div>
                 </template>
 
                 <template x-if="!bolehKirim && !replying">
-                    <p class="text-[11px] text-amber-600 dark:text-amber-400 mb-1.5 px-1">
-                        Mode pengumuman — tekan "Balas" pada pesan guru/staf untuk menanggapi.
+                    <p class="text-[12px] text-amber-600 dark:text-amber-400 mb-2 px-3 text-center bg-amber-50 dark:bg-amber-900/20 py-2 rounded-xl border border-amber-100/50 dark:border-amber-800/50 font-medium">
+                        Hanya admin yang dapat mengirim pesan. Tekan "Balas" pada pesan admin untuk menanggapi.
                     </p>
                 </template>
 
-                <form @submit.prevent="kirim()" class="flex items-end gap-2">
+                <form @submit.prevent="kirim()" class="flex items-end gap-3">
                     <input type="file" x-ref="fileInput" class="hidden" @change="pilihLampiran($event)"
                            accept="image/jpeg,image/png,image/webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv">
                     <button type="button" @click="$refs.fileInput.click()" :disabled="mengirim || !bolehTulisSekarang()" title="Lampirkan berkas"
-                            class="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 flex-shrink-0 disabled:opacity-40 transition">
-                        <i data-lucide="paperclip" class="w-4 h-4"></i>
+                            class="w-11 h-11 rounded-full flex items-center justify-center text-slate-500 bg-slate-100/50 dark:bg-slate-800/50 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-indigo-500 dark:hover:text-indigo-400 flex-shrink-0 disabled:opacity-40 transition-colors">
+                        <i data-lucide="paperclip" class="w-5 h-5"></i>
                     </button>
                     <textarea x-ref="input" x-model="draft" rows="1" maxlength="{{ \App\Services\GrupChatMessenger::MAX_BODY }}"
                               @input="autoGrow()" @keydown.enter.exact.prevent="kirim()"
                               :disabled="!bolehTulisSekarang()"
-                              :placeholder="bolehTulisSekarang() ? 'Tulis pesan…' : 'Balas pesan guru/staf untuk menulis…'"
-                              class="form-input flex-1 resize-none max-h-32 py-2 disabled:opacity-60"></textarea>
+                              :placeholder="bolehTulisSekarang() ? 'Ketik pesan...' : 'Pilih pesan untuk dibalas…'"
+                              class="form-input flex-1 resize-none max-h-32 py-3 px-5 rounded-3xl bg-slate-100/80 dark:bg-slate-800/80 border-transparent shadow-inner text-[15px] disabled:opacity-60 focus:ring-2 focus:ring-indigo-500/30 placeholder-slate-400 dark:text-slate-300 transition-all"></textarea>
                     <button type="submit" :disabled="mengirim || !draft.trim() || !bolehTulisSekarang()"
-                            class="w-10 h-10 rounded-full flex items-center justify-center text-white flex-shrink-0 disabled:opacity-40 transition"
-                            style="background: var(--cp)">
-                        <i data-lucide="send" class="w-4 h-4"></i>
+                            class="w-11 h-11 rounded-full flex items-center justify-center text-white bg-gradient-to-br from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 flex-shrink-0 disabled:opacity-40 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
+                        <i data-lucide="send" class="w-5 h-5 translate-x-px translate-y-px"></i>
                     </button>
                 </form>
             </div>
@@ -207,6 +216,77 @@
         <template x-if="!bolehKirim && !bolehBalasPengumuman">
             <p class="text-xs text-center text-slate-500 dark:text-slate-400 py-2" x-text="alasanTakBisaKirim()"></p>
         </template>
+    </div>
+
+    {{-- Modal Anggota --}}
+    <div x-show="showMembersModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @keydown.escape.window="showMembersModal = false">
+         
+         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-sm flex flex-col max-h-[80vh]"
+              x-transition:enter="transition ease-out duration-200"
+              x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+              @click.away="showMembersModal = false">
+              
+              <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                  <h3 class="font-bold text-slate-800 dark:text-slate-100">Daftar Anggota</h3>
+                  <button @click="showMembersModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition">
+                      <i data-lucide="x" class="w-5 h-5"></i>
+                  </button>
+              </div>
+
+              <div class="px-5 py-3 bg-amber-50 dark:bg-amber-900/30 border-b border-amber-100 dark:border-amber-800/50 text-[11px] text-amber-800 dark:text-amber-300">
+                  <div class="flex items-start gap-2">
+                      <i data-lucide="info" class="w-4 h-4 mt-0.5 flex-shrink-0"></i>
+                      <p>
+                          @php
+                              $target = $grup->isPaguyuban() ? 'orang tua' : 'siswa';
+                          @endphp
+                          @if(in_array($member?->peran, ['walikelas', 'admin', 'guru']))
+                              Anggota grup terhubung secara otomatis dengan Data Induk Akademik. Jika ada {{ $target }} yang salah kelas, <strong>Bapak/Ibu Walikelas memiliki hak akses penuh</strong> untuk menambah atau memindahkan {{ $target }} tersebut secara langsung melalui menu Kelola Siswa. Data di grup ini akan otomatis menyesuaikan.
+                          @else
+                              Anggota grup terhubung secara otomatis dengan Data Induk Akademik. Jika Anda merasa tergabung di kelas yang salah, <strong>mohon segera laporkan kepada Walikelas Anda</strong> agar dapat dilakukan penyesuaian data.
+                          @endif
+                      </p>
+                  </div>
+              </div>
+              
+              <div class="p-5 flex-1 overflow-y-auto">
+                  <template x-if="loadingMembers">
+                      <div class="py-8 flex flex-col items-center justify-center text-slate-400">
+                          <i data-lucide="loader-2" class="w-6 h-6 animate-spin mb-2"></i>
+                          <span class="text-sm">Memuat anggota...</span>
+                      </div>
+                  </template>
+                  
+                  <template x-if="!loadingMembers && membersList.length > 0">
+                      <div class="space-y-3">
+                          <template x-for="m in membersList" :key="m.id">
+                              <div class="flex items-center gap-3">
+                                  <div class="relative w-11 h-11 flex-shrink-0">
+                                      <div class="w-full h-full rounded-full flex items-center justify-center text-white font-extrabold text-[15px] shadow-sm"
+                                           :class="{'bg-gradient-to-br from-indigo-500 to-purple-500': ['admin','guru','walikelas'].includes(m.peran), 'bg-gradient-to-br from-amber-400 to-orange-500': m.peran === 'orangtua', 'bg-gradient-to-br from-emerald-400 to-teal-500': m.peran === 'siswa'}"
+                                           x-text="(m.nama || '?').charAt(0).toUpperCase()"></div>
+                                      <template x-if="m.is_online">
+                                          <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+                                      </template>
+                                  </div>
+                                  <div class="min-w-0">
+                                      <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate" x-text="m.nama"></p>
+                                      <p class="text-[11px] text-slate-500 capitalize" x-text="m.peran"></p>
+                                  </div>
+                              </div>
+                          </template>
+                      </div>
+                  </template>
+              </div>
+         </div>
     </div>
 </div>
 
@@ -226,6 +306,24 @@ function grupChat(cfg) {
         pollMs: 4000,
         timer: null,
         lastActivity: Date.now(),
+        
+        showMembersModal: false,
+        membersList: [],
+        loadingMembers: false,
+        async fetchMembers() {
+            if (this.membersList.length > 0) return;
+            this.loadingMembers = true;
+            try {
+                const res = await fetch(this.membersUrl);
+                if (res.ok) {
+                    this.membersList = await res.json();
+                }
+            } catch (e) {
+                // diamkan
+            } finally {
+                this.loadingMembers = false;
+            }
+        },
 
         init() {
             this.serap(this.awal, false);

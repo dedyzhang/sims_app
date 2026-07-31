@@ -111,6 +111,39 @@ class GrupChatController extends Controller
         ]);
     }
 
+    public function members(Request $request, GrupChat $grup): JsonResponse
+    {
+        $this->authorize('view', $grup);
+
+        $members = GrupChatMember::with(['user.guru:uuid,id_login,nama', 'user.siswa:uuid,id_login,nama'])
+            ->where('grup_id', $grup->uuid)
+            ->whereNull('left_at')
+            ->get()
+            ->map(function ($m) {
+                return [
+                    'id' => $m->user_id,
+                    'nama' => $m->user?->getNameAttribute() ?? 'Anggota',
+                    'peran' => $m->peran,
+                    'is_online' => $m->user ? $m->user->isOnline() : false,
+                ];
+            });
+
+        // Sort by peran: admin, walikelas, guru, orangtua, siswa, then by name
+        $sorted = $members->sortBy([
+            fn($a) => match($a['peran']) {
+                'admin' => 1,
+                'walikelas' => 2,
+                'guru' => 3,
+                'orangtua' => 4,
+                'siswa' => 5,
+                default => 9,
+            },
+            'nama',
+        ])->values();
+
+        return response()->json($sorted);
+    }
+
     public function store(Request $request, GrupChat $grup): JsonResponse
     {
         $data = $request->validate([

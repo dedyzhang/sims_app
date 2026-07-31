@@ -725,6 +725,9 @@
         'sarpras' => array_merge(auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [], auth()->user()->can('sarpras.dashboard.lihat') ? ['sarpras_aset', 'sarpras_kerusakan', 'sarpras_peminjaman', 'sarpras_pengadaan'] : []),
         default => [],
     };
+    if (auth()->user()->guru && \App\Models\JadwalPiket::isPiketAktif(auth()->user()->guru->uuid)) {
+        array_unshift($allBlocks, 'piket_guru_tidak_hadir');
+    }
     $savedLayout = is_array($pref->dashboard_layout) ? $pref->dashboard_layout : [];
     $blockOrder  = array_values(array_unique(array_merge(
         array_values(array_intersect($savedLayout, $allBlocks)),
@@ -737,6 +740,7 @@
         'guru_jadwal'        => 'Jadwal Mengajar',
         'guru_presensi'      => 'Absensi',
         'guru_agenda'        => 'Agenda Hari Ini',
+        'piket_guru_tidak_hadir' => 'Ketidakhadiran Guru & Tugas (Piket)',
         'ringkasan_siswa'    => 'Ringkasan Siswa',
         'ringkasan_guru'     => 'Ringkasan Guru',
         'ringkasan_kelas'    => 'Ringkasan Kelas',
@@ -753,6 +757,7 @@
         'guru_jadwal'        => 'col-span-12 lg:col-span-6',
         'guru_presensi'      => 'col-span-12 sm:col-span-6 lg:col-span-3',
         'guru_agenda'        => 'col-span-12 sm:col-span-6 lg:col-span-3',
+        'piket_guru_tidak_hadir' => 'col-span-12',
         'ringkasan_siswa'    => 'col-span-12 sm:col-span-6 lg:col-span-3',
         'ringkasan_guru'     => 'col-span-12 sm:col-span-6 lg:col-span-3',
         'ringkasan_kelas'    => 'col-span-12 sm:col-span-6 lg:col-span-3',

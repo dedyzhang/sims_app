@@ -10,6 +10,12 @@ use App\Http\Controllers\AiRagController;
 use App\Http\Controllers\AiTeacherController;
 use App\Http\Controllers\CanvaConnectController;
 use App\Http\Controllers\PresentationStudioController;
+use App\Http\Controllers\PiketController;
+use App\Http\Controllers\GuruTidakHadirController;
+use App\Http\Controllers\PenugasanPenggantiController;
+use App\Http\Controllers\TugasKelasController;
+use App\Http\Controllers\DashboardPiketController;
+use App\Http\Controllers\RekapPiketController;
 use App\Http\Controllers\AlumniController;
 use App\Http\Controllers\AppDownloadController;
 use App\Http\Controllers\AppUpdateController;
@@ -380,6 +386,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             // Badge sidebar (poll 30 detik) — murni aritmatika, tak menyentuh tabel pesan.
             Route::get('/badge', 'badge')->middleware('throttle:120,1')->name('badge');
             Route::get('/{grup}', 'show')->name('show');
+            Route::get('/{grup}/members', 'members')->name('members');
             // Poll 4 detik + burst saat tab kembali fokus; setara arena.live.state.
             Route::get('/{grup}/poll', 'poll')->middleware('throttle:360,1')->name('poll');
             // 1/detik: di atas kecepatan mengetik manusia, sekaligus membatasi
@@ -606,6 +613,39 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::put('/{agenda}', 'update')->name('update');
         Route::delete('/{agenda}', 'destroy')->name('destroy');
         Route::post('/{agenda}/validasi', 'validasi')->name('validasi');
+    });
+
+    // ─── Piket Guru & Substitusi Kelas (Fase 1: kalender rotasi, data tiruan) ───
+    Route::middleware('modul:piket')->prefix('piket')->name('piket.')->controller(PiketController::class)->group(function () {
+        Route::get('/', 'index')->name('jadwal');
+        Route::post('/', 'simpanJadwal')->name('jadwal.simpan');
+    });
+    Route::middleware('modul:piket')->prefix('piket/tidak-hadir')->name('piket.')->controller(GuruTidakHadirController::class)->group(function () {
+        Route::get('/', 'index')->name('tidak-hadir');
+        Route::post('/', 'store')->name('tidak-hadir.store');
+    });
+    Route::middleware('modul:piket')->prefix('piket/penugasan')->name('piket.penugasan')->controller(PenugasanPenggantiController::class)->group(function () {
+        Route::get('/', 'index')->name('');
+        Route::post('/{penugasanPengganti}/assign', 'assign')->name('.assign');
+        Route::post('/{penugasanPengganti}/ambil-alih', 'ambilAlih')->name('.ambil-alih');
+        Route::post('/{penugasanPengganti}/selesai', 'selesai')->name('.selesai');
+    });
+    Route::middleware('modul:piket')->prefix('piket/tugas')->name('piket.tugas')->controller(TugasKelasController::class)->group(function () {
+        Route::get('/', 'index')->name('');
+        Route::get('/saya', 'formSaya')->name('-saya');
+        Route::post('/saya/lapor', [GuruTidakHadirController::class, 'laporMandiri'])->name('.laporMandiri');
+        Route::post('/{penugasanPengganti}/upload', 'upload')->name('.upload');
+        Route::post('/{penugasanPengganti}/titip', 'titip')->name('.titip');
+        Route::post('/{penugasanPengganti}/konfirmasi', 'konfirmasi')->name('.konfirmasi');
+        Route::get('/{tugasKelas}/unduh', 'download')->name('.unduh');
+        Route::delete('/{tugasKelas}', 'destroy')->name('.destroy');
+    });
+    Route::middleware('modul:piket')->prefix('piket/dashboard')->name('piket.')->controller(DashboardPiketController::class)->group(function () {
+        Route::get('/', 'index')->name('dashboard');
+    });
+    Route::middleware('modul:piket')->prefix('piket/rekap')->name('piket.rekap')->controller(RekapPiketController::class)->group(function () {
+        Route::get('/', 'index')->name('');
+        Route::get('/export', 'export')->name('.export');
     });
 
     // ─── Agenda Rapat / Notulen Rapat — admin/kurikulum/kepala atau guru sekretaris ───

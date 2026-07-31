@@ -66,7 +66,21 @@ class DashboardController extends Controller
             default    => null,
         };
 
-        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget', 'sarpras', 'aiQuotaUsage'));
+        // ── Data Piket (Bila user adalah guru piket hari ini) ──
+        $piketGuruTidakHadir = collect();
+        if ($user->guru && \App\Models\JadwalPiket::isPiketAktif($user->guru->uuid)) {
+            $piketGuruTidakHadir = \App\Models\GuruTidakHadir::with([
+                'guru:uuid,nama',
+                'penugasanPengganti.jadwal.pelajaran',
+                'penugasanPengganti.jadwal.kelas',
+                'penugasanPengganti.tugasKelas',
+                'penugasanPengganti.guruPengganti:uuid,nama'
+            ])
+            ->whereDate('tanggal', now()->toDateString())
+            ->get();
+        }
+
+        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget', 'sarpras', 'aiQuotaUsage', 'piketGuruTidakHadir'));
     }
 
     /** Data widget dashboard khusus siswa: jadwal hari ini, poin/P3, absensi, podium sekolah. */
