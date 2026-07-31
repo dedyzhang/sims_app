@@ -37,8 +37,22 @@ class ModulAktifTest extends TestCase
     public function test_default_semua_modul_aktif(): void
     {
         foreach (ModulAktif::kodeValid() as $kode) {
+            // 'ludensa' sengaja default NONAKTIF -- paket ludensa/ludensa belum
+            // terpasang di vendor/, dijeda atas permintaan FL. Lihat test terpisah
+            // di bawah & komentar di ModulAktif::aktif().
+            if ($kode === 'ludensa') {
+                continue;
+            }
             $this->assertTrue(ModulAktif::aktif($kode), "Modul {$kode} harus aktif by default");
         }
+    }
+
+    public function test_ludensa_default_nonaktif(): void
+    {
+        $this->assertFalse(ModulAktif::aktif('ludensa'));
+
+        Setting::set(ModulAktif::settingKey('ludensa'), '1');
+        $this->assertTrue(ModulAktif::aktif('ludensa'));
     }
 
     public function test_admin_bisa_simpan_toggle_fitur(): void

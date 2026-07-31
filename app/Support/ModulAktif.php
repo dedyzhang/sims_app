@@ -81,6 +81,11 @@ class ModulAktif
                 'deskripsi' => 'Widget chat handoff dan inbox admin.',
                 'ikon' => 'message-circle',
             ],
+            'grup_chat' => [
+                'label' => 'Grup Chat Kelas',
+                'deskripsi' => 'Grup percakapan otomatis per kelas (siswa) dan paguyuban (orang tua).',
+                'ikon' => 'users-round',
+            ],
             'cetak' => [
                 'label' => 'Cetak Data',
                 'deskripsi' => 'Export Excel data siswa, guru, kelas, absensi, dan nilai.',
@@ -129,6 +134,14 @@ class ModulAktif
             }
 
             return true;
+        }
+
+        // Integrasi ludensa/ludensa (composer path repo) belum terpasang di vendor/ —
+        // dijeda sementara FL lanjutkan pemasangannya. Default NONAKTIF supaya menu/
+        // route tak pernah muncul secara tak sengaja; sekolah yang sudah pasang
+        // paketnya tetap bisa menyalakan manual lewat Setting.
+        if ($kode === 'ludensa') {
+            return Setting::get(self::settingKey($kode), '0') === '1';
         }
 
         return Setting::get(self::settingKey($kode), '1') === '1';

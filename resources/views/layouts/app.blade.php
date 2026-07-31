@@ -858,6 +858,23 @@
             </a>
             @endif
 
+            {{-- Grup Chat: tampil hanya bila user benar-benar anggota sebuah grup (atau pengelola).
+                 JANGAN mendefinisikan variabel PHP di dalam blok @if($modulOn(...)) ini — variabel
+                 yang lahir di dalam cabang modul lalu dipakai di luarnya pernah membuat dashboard
+                 crash saat modulnya dimatikan (lihat ModulAktifTest). --}}
+            @if($modulOn('grup_chat') && \App\Support\GrupChatMenu::tampil(auth()->user()))
+            <a href="{{ route('grup.index') }}" data-tip="Grup Chat" class="nav-link relative flex items-center px-3 py-2.5 {{ request()->routeIs('grup.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
+                <i data-lucide="users-round" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                <span x-show="!mini" class="text-sm truncate flex-1">Grup Chat</span>
+                <span x-show="grupUnread > 0 && !mini" x-cloak x-text="grupUnread > 99 ? '99+' : grupUnread"
+                      :aria-label="grupUnread + ' pesan grup belum dibaca'"
+                      class="ml-auto inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm shadow-rose-500/30"></span>
+                <span x-show="grupUnread > 0 && mini" x-cloak
+                      :aria-label="grupUnread + ' pesan grup belum dibaca'"
+                      class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
+            </a>
+            @endif
+
             {{-- Unduh Aplikasi: tampil untuk semua pengguna bila diaktifkan admin & ada file --}}
             @php
                 $appDownloadOn = \App\Models\Setting::get('app_download_aktif') === '1'
@@ -1495,6 +1512,7 @@
             adminChatUnread: 0,
             adminChatBadgeTimer: null,
             pengumumanUnread: 0,
+            grupUnread: 0,
             feedbackUnread: {{ (int) $feedbackUnreadCount }},
             feedbackBadgeTimer: null,
             toggleCollapse(){ this.collapsed=!this.collapsed; localStorage.setItem('sb_collapsed', this.collapsed?'1':'0'); this.$nextTick(()=>lucide.createIcons()); },
@@ -1535,6 +1553,7 @@
                 this.initNavTips();
                 this.initAdminChatBadge();
                 this.initFeedbackBadge();
+                this.initGrupBadge();
                 // Badge menu Pengumuman disuplai dari poll dropdown notifikasi
                 // (tanpa polling tambahan) via event 'notif-updated'.
                 window.addEventListener('notif-updated', (e) => {
@@ -1568,6 +1587,22 @@
                 };
                 fetchBadge();
                 if (!this.feedbackBadgeTimer) this.feedbackBadgeTimer = window.simsPollInterval(fetchBadge, 20000);
+                @endif
+            },
+            // Badge Grup Chat: murni aritmatika (last_seq - last_read_seq) di server,
+            // jadi poll 30 detik tetap murah walau sekolah punya puluhan grup.
+            initGrupBadge(){
+                @if($modulOn('grup_chat') && \App\Support\GrupChatMenu::tampil(auth()->user()))
+                const fetchBadge = async () => {
+                    try {
+                        const response = await fetch('{{ route('grup.badge') }}', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+                        if (!response.ok) return;
+                        const data = await response.json();
+                        this.grupUnread = Number(data.unread || 0);
+                    } catch (_) {}
+                };
+                fetchBadge();
+                if (!this.grupBadgeTimer) this.grupBadgeTimer = window.simsPollInterval(fetchBadge, 30000);
                 @endif
             },
             // Tooltip melayang utk ikon sidebar saat mode mini (anti-terpotong overflow).

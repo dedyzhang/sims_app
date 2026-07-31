@@ -1288,7 +1288,69 @@ Buka menu **Forum Diskusi** di daftar menu sebelah kiri.
 4. Hapus topik atau komentar yang tidak sesuai.
 5. Atur izin akses lewat menu **Forum > Akses**.
 
-## 15. Sarana dan Prasarana (Sarpras)
+## 15. Grup Chat (Grup Kelas & Paguyuban Orang Tua)
+
+Buka menu **Grup Chat** di daftar menu sebelah kiri. Menu ini hanya muncul bila Anda tergabung di minimal satu grup (atau Anda pengelola).
+
+Grup dibuat **otomatis** oleh sistem berdasarkan data sekolah — tidak ada tombol undang atau keluarkan anggota secara manual. Setiap kelas punya dua grup terpisah:
+
+- **Grup Kelas** — berisi wali kelas dan siswa aktif di kelas itu. Guru mata pelajaran dan orang tua **tidak** masuk grup ini. **Hanya wali kelas yang bisa menulis pesan baru** di grup ini — siswa hanya bisa **membalas** pesan wali kelas, bukan memulai obrolan sendiri. Grup ini murni jalur pengumuman wali kelas ke siswanya.
+- **Grup Paguyuban** — berisi wali kelas dan orang tua dari siswa aktif di kelas itu. Siswa **tidak** masuk grup ini. Wali kelas dan orang tua sama-sama bebas mengirim pesan kapan saja. Orang tua dengan anak di beberapa kelas otomatis tergabung di beberapa paguyuban.
+
+Siswa pindah kelas, siswa baru, siswa lulus, atau pergantian wali kelas akan otomatis memperbarui keanggotaan grup (butuh waktu hingga semalam bila perubahannya lewat impor Excel).
+
+**Yang bisa Anda lakukan di sini:**
+
+- Melihat daftar grup yang Anda ikuti (grup aktif dan grup arsip).
+- Mengirim pesan teks.
+- Membalas pesan tertentu (muncul kutipan pesan yang dibalas).
+- Mengirim lampiran foto atau berkas (maksimal 5 MB per berkas: JPEG, PNG, WebP, PDF, Word, Excel, PowerPoint, atau teks/CSV).
+- Menghapus pesan Anda sendiri kapan saja.
+- Wali kelas dan admin bisa menghapus pesan siswa/orang tua di grupnya (moderasi).
+- Melihat tanda jumlah pesan belum dibaca di menu sidebar.
+
+**Cara membuka dan membaca grup:**
+
+1. Buka menu **Grup Chat**.
+2. Pilih salah satu grup dari daftar (grup yang diarsipkan ada di bagian **Arsip**, klik untuk membukanya).
+3. Pesan baru akan muncul otomatis tanpa perlu memuat ulang halaman.
+
+**Cara mengirim pesan baru (wali kelas di Grup Kelas, atau siapa pun di Grup Paguyuban):**
+
+1. Buka salah satu grup.
+2. Ketik pesan di kotak bawah.
+3. Klik ikon kirim, atau tekan **Enter**.
+
+Catatan: di **Grup Kelas**, kotak ini hanya aktif untuk wali kelas. Siswa akan melihat kotak pesan dalam keadaan terkunci sampai mereka menekan **Balas** pada salah satu pesan wali kelas.
+
+**Cara mengirim foto atau berkas:**
+
+1. Buka salah satu grup.
+2. Klik ikon jepitan (lampirkan berkas) di sebelah kotak pesan.
+3. Pilih foto atau berkas dari perangkat Anda.
+4. Tambahkan keterangan bila perlu, lalu kirim.
+
+**Cara membalas pesan tertentu (siswa di Grup Kelas membalas lewat cara ini):**
+
+1. Arahkan kursor/sentuh pesan yang ingin dibalas.
+2. Klik ikon **Balas** (di Grup Kelas, tombol ini hanya muncul pada pesan wali kelas).
+3. Ketik balasan Anda — kutipan pesan asli akan ikut terkirim.
+4. Klik **X** pada pratinjau balasan bila ingin membatalkannya.
+
+**Cara menghapus pesan:**
+
+1. Arahkan kursor/sentuh pesan yang ingin dihapus.
+2. Klik ikon **Hapus** (hanya muncul untuk pesan Anda sendiri, atau pesan siapa pun bila Anda wali kelas/admin grup itu).
+3. Konfirmasi penghapusan. Pesan akan berubah menjadi "Pesan ini dihapus" — riwayat urutan percakapan tetap utuh.
+
+**Yang perlu diketahui:**
+
+- **Grup Kelas** memakai **mode pengumuman**: hanya wali kelas yang bisa menulis pesan baru. Siswa tetap bisa **membalas** pesan wali kelas (misalnya untuk menjawab "sudah dibaca, Bu") — kotak balas baru muncul setelah Anda menekan tombol **Balas** pada pesan wali kelas.
+- **Grup Paguyuban** tidak dibatasi — wali kelas dan orang tua bebas menulis pesan baru kapan saja.
+- Grup yang **diarsipkan** hanya bisa dibaca — tidak bisa mengirim pesan atau balasan sama sekali.
+- Bila ada pesan yang belum Anda baca, sistem mengirim satu notifikasi ringkasan setiap 15 menit (bukan satu notifikasi per pesan) sampai Anda membuka grupnya.
+
+## 16. Sarana dan Prasarana (Sarpras)
 
 Buka menu **Sarana & Prasarana** di daftar menu sebelah kiri.
 
@@ -1556,7 +1618,7 @@ Buka menu **Sarana & Prasarana** di daftar menu sebelah kiri.
 3. Gunakan saringan bila tersedia.
 4. Ekspor ke Excel atau PDF sesuai kebutuhan.
 
-## 16. Keuangan SPP
+## 17. Keuangan SPP
 
 Menu admin/bendahara: **Keuangan**. Menu siswa/orang tua: **Tagihan SPP**.
 
@@ -1626,7 +1688,7 @@ Menu admin/bendahara: **Keuangan**. Menu siswa/orang tua: **Tagihan SPP**.
 4. Tunggu status berubah setelah diperiksa bendahara.
 5. Bila diminta memperbaiki, unggah ulang buktinya.
 
-## 17. Cetak Data
+## 18. Cetak Data
 
 Buka menu **Cetak Data** di daftar menu sebelah kiri.
 
@@ -1659,7 +1721,7 @@ Buka menu **Cetak Data** di daftar menu sebelah kiri.
 - Agenda dan Buku Batas memakai rentang tanggal dan/atau guru/kelas.
 - Nilai memakai kelas atau mata pelajaran sesuai halamannya.
 
-## 18. Sistem dan Pengaturan
+## 19. Sistem dan Pengaturan
 
 Buka menu **Sistem** di daftar menu sebelah kiri.
 
@@ -1749,7 +1811,7 @@ Buka menu **Sistem > Hak Akses**.
 3. Klik simpan.
 4. Minta pengguna terkait keluar lalu masuk lagi bila menunya belum berubah.
 
-## 19. Unduh Aplikasi
+## 20. Unduh Aplikasi
 
 Buka menu **Unduh Aplikasi** di daftar menu sebelah kiri.
 
@@ -1769,7 +1831,7 @@ Buka menu **Unduh Aplikasi** di daftar menu sebelah kiri.
 
 Catatan: berkas aplikasi disimpan aman dan hanya bisa diunduh lewat halaman ini.
 
-## 20. Kartu Pelajar Digital untuk Siswa
+## 21. Kartu Pelajar Digital untuk Siswa
 
 Menu siswa: **Kartu Pelajar**.
 
@@ -1781,7 +1843,7 @@ Menu siswa: **Kartu Pelajar**.
 
 Catatan: bila admin mengunggah kartu khusus, kartu itulah yang dipakai. Bila tidak ada, aplikasi membuatkan kartu bawaan.
 
-## 21. Alur Kegiatan Harian yang Disarankan
+## 22. Alur Kegiatan Harian yang Disarankan
 
 ### Admin/Operator
 
@@ -1789,7 +1851,7 @@ Catatan: bila admin mengunggah kartu khusus, kartu itulah yang dipakai. Bila tid
 2. Perbarui data guru, siswa, kelas, dan mata pelajaran.
 3. Atur wali kelas dan penugasan mengajar.
 4. Periksa absensi dan presensi harian.
-5. Pantau pengumuman, forum, obrolan, dan notifikasi.
+5. Pantau pengumuman, forum, grup chat, obrolan, dan notifikasi.
 6. Ekspor atau cetak data sesuai kebutuhan.
 
 ### Guru
@@ -1802,6 +1864,8 @@ Catatan: bila admin mengunggah kartu khusus, kartu itulah yang dipakai. Bila tid
 6. Unggah perangkat ajar.
 7. Ajukan Poin/P3 bila ada kejadian siswa.
 
+Catatan: guru mata pelajaran tidak ikut di Grup Chat kelas — grup ini khusus jalur wali kelas ke siswanya.
+
 ### Wali Kelas
 
 1. Periksa data siswa kelas.
@@ -1811,6 +1875,7 @@ Catatan: bila admin mengunggah kartu khusus, kartu itulah yang dipakai. Bila tid
 5. Pantau rekap 7 KAIH siswa.
 6. Periksa nilai kelas bila fiturnya aktif.
 7. Cetak rapor saat nilai final.
+8. Kirim pengumuman di Grup Kelas dan balas pertanyaan siswa; pantau/balas pesan di Grup Paguyuban orang tua.
 
 ### Siswa
 
@@ -1822,7 +1887,8 @@ Catatan: bila admin mengunggah kartu khusus, kartu itulah yang dipakai. Bila tid
 6. Kumpulkan tugas.
 7. Periksa nilai.
 8. Periksa tagihan SPP.
-9. Unduh kartu pelajar bila perlu.
+9. Buka Grup Chat kelas bila ada info dari wali kelas.
+10. Unduh kartu pelajar bila perlu.
 
 ### Orang Tua
 
@@ -1831,7 +1897,8 @@ Catatan: bila admin mengunggah kartu khusus, kartu itulah yang dipakai. Bila tid
 3. Periksa nilai anak.
 4. Periksa tagihan SPP.
 5. Unggah bukti pembayaran.
-6. Gunakan obrolan untuk menghubungi admin bila ada kendala.
+6. Buka Grup Paguyuban untuk info dari wali kelas anak.
+7. Gunakan obrolan untuk menghubungi admin bila ada kendala.
 
 ### Bendahara
 
@@ -1851,7 +1918,7 @@ Catatan: bila admin mengunggah kartu khusus, kartu itulah yang dipakai. Bila tid
 5. Catat pemindahan dan penghapusan aset.
 6. Ekspor laporan aset atau mutasi.
 
-## 22. Checklist Agar Tidak Terlewat Saat Pelatihan Pengguna
+## 23. Checklist Agar Tidak Terlewat Saat Pelatihan Pengguna
 
 Gunakan daftar ini saat memperkenalkan aplikasi ke sekolah:
 
@@ -1882,6 +1949,7 @@ Gunakan daftar ini saat memperkenalkan aplikasi ke sekolah:
 - Sistem Poin atau P3 sesuai pengaturan aktif.
 - Wali Kelas: siswa kelas, sekretaris, absensi kelas, disiplin kelas, dan nilai kelas.
 - Forum Diskusi dan pengaturan aksesnya.
+- Grup Chat: Grup Kelas dan Grup Paguyuban, kirim/balas pesan, lampiran, hapus/moderasi pesan, mode pengumuman, dan notifikasi grup.
 - Asisten Guru: Generator Soal, RPM Learning, Rangkuman Materi, Catatan Siswa, ekspor, dan riwayat.
 - Analisis AI dan Dokumen AI.
 - Sarpras lengkap: dashboard, denah, ruangan, kerusakan, aset, kategori, pengadaan, supplier, peminjaman, pemesanan, perbaikan, teknisi, jadwal, mutasi, penghapusan, dan laporan.
@@ -1890,10 +1958,10 @@ Gunakan daftar ini saat memperkenalkan aplikasi ke sekolah:
 - Sistem: pengaturan umum, kop rapor, penjabaran, hak akses, dan unggah aplikasi.
 - Unduh Aplikasi.
 
-## 23. Catatan Tinjauan Teknis Singkat
+## 24. Catatan Tinjauan Teknis Singkat
 
 - Aplikasi ini adalah sistem informasi sekolah dengan banyak modul, bukan hanya ruang belajar daring.
-- Modul besar yang tersedia: data master, absensi/presensi, 7 KAIH, akademik, agenda, agenda rapat, disiplin Poin/P3, wali kelas, forum, sarpras, keuangan SPP, AI, obrolan, pengumuman, cetak data, dan pengaturan.
+- Modul besar yang tersedia: data master, absensi/presensi, 7 KAIH, akademik, agenda, agenda rapat, disiplin Poin/P3, wali kelas, forum, grup chat, sarpras, keuangan SPP, AI, obrolan, pengumuman, cetak data, dan pengaturan.
 - Sarpras memiliki jalur halaman terpisah dan perlu dimasukkan dalam pelatihan pengguna.
 - Hak akses diatur lewat beberapa lapisan: hak akses sistem umum, matriks forum, izin sarpras, dan aturan ruang kelas.
 - Beberapa menu hanya muncul berdasarkan peran, izin, atau pengaturan yang aktif. Saat pelatihan, cobalah masuk dengan beberapa peran berbeda agar semua fitur terlihat.

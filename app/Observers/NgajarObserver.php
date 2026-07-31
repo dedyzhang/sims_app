@@ -54,4 +54,16 @@ class NgajarObserver
         // Optional: Jika guru / pelajaran diubah, kita mungkin perlu melakukan penyesuaian
         // Tapi untuk saat ini cukup handle "created" sesuai instruksi.
     }
+
+    /**
+     * Handle the Ngajar "deleted" event.
+     *
+     * Tidak ada apa pun untuk Grup Chat di sini — guru pengajar/mapel bukan
+     * anggota Grup Kelas (lihat GrupChatService), jadi penugasan Ngajar
+     * dicabut/ditambah tidak pernah memengaruhi keanggotaan grup chat.
+     */
+    public function deleted(Ngajar $ngajar): void
+    {
+        //
+    }
 }

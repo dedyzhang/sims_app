@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GrupChat;
 use App\Models\Guru;
 use App\Models\Kelas;
 use App\Models\Rombel;
@@ -10,12 +11,15 @@ use App\Models\Semester;
 use App\Models\Siswa;
 use App\Models\Walikelas;
 use App\Services\ClassroomService;
+use App\Services\GrupChatService;
 use Illuminate\Http\Request;
 
 class KelasController extends Controller
 {
-    public function __construct(private ClassroomService $classroomService)
-    {
+    public function __construct(
+        private ClassroomService $classroomService,
+        private GrupChatService $grupChatService,
+    ) {
     }
 
     public function index()
@@ -38,7 +42,10 @@ class KelasController extends Controller
             'kelas'   => 'required|string|max:5',
         ]);
 
-        Kelas::create($request->only('tingkat', 'kelas'));
+        $kelas = Kelas::create($request->only('tingkat', 'kelas'));
+        // Siapkan Grup Kelas & Grup Paguyuban sejak awal supaya walikelas bisa
+        // langsung menulis walau siswanya belum diisi.
+        $this->grupChatService->provisionKelas($kelas);
         return redirect()->route('kelas.index')->with('success', 'Kelas berhasil ditambah.');
     }
 
@@ -60,7 +67,21 @@ class KelasController extends Controller
 
     public function destroy(string $uuid)
     {
-        Kelas::findOrFail($uuid)->delete();
+        $kelas = Kelas::findOrFail($uuid);
+
+        // Grup chat yang sudah punya riwayat pesan tidak boleh ikut lenyap diam-diam
+        // lewat cascade delete — minta admin menanganinya dulu (mis. arsipkan kelas
+        // di tahun ajaran baru) daripada kehilangan percakapan bertahun-tahun.
+        if (GrupChat::where('id_kelas', $uuid)->where('last_seq', '>', 0)->exists()) {
+            return back()->with('error', 'Kelas ini masih punya riwayat percakapan Grup Chat (Grup Kelas/Paguyuban). Kelas tidak bisa dihapus selama riwayat itu ada.');
+        }
+
+        // Grup yang belum pernah dipakai (last_seq = 0) aman ikut terhapus bersama
+        // kelasnya — tidak ada isi yang hilang.
+        GrupChat::where('id_kelas', $uuid)->delete();
+
+        $kelas->delete();
+
         return redirect()->route('kelas.index')->with('success', 'Kelas dihapus.');
     }
 
@@ -74,7 +95,7 @@ class KelasController extends Controller
     public function walikelas(Request $request, string $uuid)
     {
         $request->validate(['id_guru' => 'required|exists:gurus,uuid']);
-        Kelas::findOrFail($uuid);
+        $kelas = Kelas::findOrFail($uuid);
 
         Walikelas::updateOrCreate(
             ['id_kelas' => $uuid],
@@ -84,6 +105,10 @@ class KelasController extends Controller
         // Update access ke walikelas
         $guru = Guru::findOrFail($request->id_guru);
         $guru->user?->update(['access' => 'walikelas']);
+
+        // Walikelas lama dikeluarkan dari kedua grup, yang baru masuk — rekonsiliasi
+        // penuh dipakai (bukan jalur murah) karena pergantian ini menyentuh dua peran.
+        $this->grupChatService->syncKelas($kelas);
 
         return back()->with('success', 'Walikelas berhasil diset.');
     }
@@ -107,6 +132,15 @@ class KelasController extends Controller
         $semester = Semester::aktif();
         $semesterStr = $semester ? "{$semester->semester}/{$semester->tahun}" : '1/2024';
 
+        // Kelas asal (sebelum dimutasi) dikumpulkan dulu: siswa yang PINDAH dari
+        // kelas lain (bukan sekadar diisi dari kosong) tetap harus direkonsiliasi
+        // keluar dari grup kelas lamanya — syncKelas() cuma membereskan satu grup
+        // yang diberi tahu, beda dari syncSiswa() yang mencari ke semua grup user.
+        $kelasAsalIds = Siswa::whereIn('uuid', $request->siswa_ids)
+            ->whereNotNull('id_kelas')
+            ->pluck('id_kelas')
+            ->unique();
+
         foreach ($request->siswa_ids as $siswaUuid) {
             $siswa = Siswa::findOrFail($siswaUuid);
             $siswa->update(['id_kelas' => $uuid]);
@@ -121,6 +155,14 @@ class KelasController extends Controller
             // dimasukkan), langsung daftarkan sbg anggota — kalau tidak, siswa ini
             // kena 403 saat buka Ruang Kelas / Arena Belajar meski id_kelas-nya benar.
             $this->classroomService->enrollStudentInKelasClassrooms($siswa);
+        }
+
+        // Rekonsiliasi grup chat sekali per kelas terdampak (tujuan + semua asal),
+        // bukan sekali per siswa — memindahkan puluhan siswa sekaligus tidak lagi
+        // memicu puluhan query sync per siswa.
+        $kelasTerdampak = Kelas::whereIn('uuid', $kelasAsalIds->push($uuid)->unique())->get();
+        foreach ($kelasTerdampak as $kelasSatu) {
+            $this->grupChatService->syncKelas($kelasSatu);
         }
 
         return back()->with('success', 'Siswa berhasil dimasukkan ke kelas.');
