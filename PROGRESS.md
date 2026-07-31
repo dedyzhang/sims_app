@@ -144,7 +144,9 @@ modul ini — dibangun langsung via sesi chat, dilacak di sini saja.
 
 ### Sisa
 
-- [ ] Commit & deploy — **tunggu approval FL**
+- [x] Commit & push ke `origin/main` (`791ca51`) — PR #51 dibuka ke `dedyzhang/sims_app`:
+      https://github.com/dedyzhang/sims_app/pull/51
+- [ ] Merge PR #51 & deploy — **tunggu review/merge dari dedyzhang, bukan tugas sesi ini**
 
 ---
 

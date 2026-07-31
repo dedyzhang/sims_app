@@ -17,6 +17,10 @@ Baca `PRD.md` dan seluruh isi folder `features/` sebelum mengerjakan task apa pu
 
 Task terkait kuis interaktif / Arena Belajar: prompt implementasi Fase 1 ada di `PROMPT-ARENA-BELAJAR.md`. Jangan lompat fase tanpa approval FL untuk task yang menyentuh migration, auth/policy, atau alur nilai.
 
+## Modul lain: Piket Guru & Substitusi Kelas
+
+PRD + task breakdown terpisah di `docs/piket-guru/PRD.md` + `docs/piket-guru/features/01-*.md` s.d. `05-*.md`, status di `docs/piket-guru/PROGRESS.md`. Belum ada implementasi — beberapa fase **blocked** menunggu verifikasi skema `absensi_ptk`/`jadwal_pelajaran`/`buku_agenda` dan keputusan role `guru_piket`/`waka_kurikulum` (lihat PRD §9). Jangan mulai task migration/auth di modul ini tanpa cek blocker tersebut.
+
 ## Review sebelum rilis
 
 Audit keamanan Laravel (IDOR multi-tenant, policy, uang, data siswa): pakai skill **`laravel-security-audit`**. Jangan commit kecuali FL minta eksplisit.

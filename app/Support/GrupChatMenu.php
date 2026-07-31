@@ -58,11 +58,21 @@ class GrupChatMenu
      */
     public static function daftar(User $user)
     {
-        return GrupChatMember::query()
-            ->join('grup_chats', 'grup_chats.uuid', '=', 'grup_chat_members.grup_id')
+        $isAdmin = $user->isAdmin() || $user->canAccess(GrupChatPolicy::IZIN_KELOLA);
+
+        $query = DB::table('grup_chats')
             ->join('kelas', 'kelas.uuid', '=', 'grup_chats.id_kelas')
-            ->where('grup_chat_members.user_id', $user->getKey())
-            ->whereNull('grup_chat_members.left_at')
+            ->leftJoin('grup_chat_members', function ($join) use ($user) {
+                $join->on('grup_chats.uuid', '=', 'grup_chat_members.grup_id')
+                     ->where('grup_chat_members.user_id', '=', $user->getKey())
+                     ->whereNull('grup_chat_members.left_at');
+            });
+
+        if (! $isAdmin) {
+            $query->whereNotNull('grup_chat_members.grup_id');
+        }
+
+        return $query
             ->orderByRaw('grup_chats.last_message_at IS NULL')
             ->orderByDesc('grup_chats.last_message_at')
             ->orderBy('kelas.tingkat')
@@ -81,9 +91,11 @@ class GrupChatMenu
                 'grup_chat_members.last_read_seq',
                 'grup_chat_members.peran',
             ])
-            ->map(function ($row) {
-                $row->unread = max(0, (int) $row->last_seq - (int) $row->last_read_seq);
+            ->map(function ($row) use ($isAdmin) {
+                $lastRead = $row->last_read_seq ?? 0;
+                $row->unread = max(0, (int) $row->last_seq - (int) $lastRead);
                 $row->is_paguyuban = $row->tipe === GrupChat::TIPE_PAGUYUBAN;
+                $row->peran = $row->peran ?? ($isAdmin ? 'admin' : 'anggota');
 
                 return $row;
             });

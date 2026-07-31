@@ -51,6 +51,11 @@ class ModulAktif
                 'deskripsi' => 'Agenda mengajar, rekap, buku batas, dan agenda rapat.',
                 'ikon' => 'notebook-pen',
             ],
+            'piket' => [
+                'label' => 'Piket Guru & Substitusi Kelas',
+                'deskripsi' => 'Jadwal piket rotasi, catat guru tidak hadir, tugaskan pengganti, dan titip tugas ke kelas.',
+                'ikon' => 'shield-check',
+            ],
             'disiplin' => [
                 'label' => 'Kedisiplinan',
                 'deskripsi' => 'Modul Poin/Aturan atau P3 kedisiplinan siswa.',

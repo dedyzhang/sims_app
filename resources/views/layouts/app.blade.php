@@ -640,6 +640,41 @@
                     }
                 }
 
+                // ── Piket Guru & Substitusi Kelas ──
+                if ($modulOn('piket')) {
+                    $piketItems = [];
+                    
+                    // Menu kelola piket hanya untuk admin/kepsek/kurikulum atau guru piket aktif
+                    $bolehKelolaPiket = in_array($access, ['kepala', 'kurikulum', 'admin', 'superadmin']) || 
+                                        (auth()->user()?->guru?->uuid && \App\Models\JadwalPiket::isPiketAktif(auth()->user()->guru->uuid));
+                    
+                    if ($bolehKelolaPiket) {
+                        $piketItems = [
+                            ['piket.jadwal', ['piket.jadwal'], 'calendar-days', 'Jadwal Piket'],
+                            ['piket.tidak-hadir', ['piket.tidak-hadir'], 'user-x', 'Guru Tidak Hadir'],
+                            ['piket.penugasan', ['piket.penugasan*'], 'user-cog', 'Penugasan Pengganti'],
+                            ['piket.tugas', ['piket.tugas', 'piket.tugas.unduh'], 'briefcase', 'Tugas Kelas'],
+                        ];
+                        
+                        if (in_array($access, ['kepala', 'kurikulum', 'admin', 'superadmin'])) {
+                            $piketItems[] = ['piket.dashboard', ['piket.dashboard'], 'layout-dashboard', 'Dashboard Piket'];
+                        }
+                        
+                        if (in_array($access, ['kepala', 'admin', 'superadmin'])) {
+                            $piketItems[] = ['piket.rekap', ['piket.rekap'], 'file-bar-chart', 'Rekap Bulanan'];
+                        }
+                    }
+                    
+                    // Semua guru bisa melapor ketidakhadiran mandiri / isi tugas
+                    if (auth()->user()?->guru?->uuid) {
+                        $piketItems[] = ['piket.tugas-saya', ['piket.tugas-saya'], 'calendar-minus', 'Penugasan Ketidakhadiran'];
+                    }
+                    
+                    if (!empty($piketItems)) {
+                        $groups['piket'] = ['Guru Piket', 'shield-check', $piketItems];
+                    }
+                }
+
                 // ── Kedisiplinan ──
                 // $bolehKelolaDisiplin/$bolehLihatDisiplin/$disiplinItems didefinisikan DI LUAR gate
                 // modulOn('disiplin') karena Pemanggilan Ortu/Siswa (di bawah) memakainya independen
@@ -947,8 +982,8 @@
                     @foreach($gitems as $it)
                     @php [$iroute, $ipatterns, $iicon, $ilabel] = $it; @endphp
                     <a href="{{ route($iroute, $it[4] ?? []) }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs(...$ipatterns) ? 'active' : '' }}">
-                        <i data-lucide="{{ $iicon }}" class="nav-icon w-4 h-4 flex-shrink-0"></i>
-                        <span class="text-[13px] truncate">{{ $ilabel }}</span>
+                        <i data-lucide="{{ $iicon }}" class="nav-icon w-4 h-4 flex-shrink-0 mt-0.5"></i>
+                        <span class="text-[13px] leading-snug">{{ $ilabel }}</span>
                     </a>
                     @endforeach
                 </div>

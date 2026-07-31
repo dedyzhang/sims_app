@@ -23,7 +23,7 @@ class UserPreference extends Model
         'sarpras_aset', 'sarpras_kerusakan', 'sarpras_peminjaman', 'sarpras_pengadaan',
         'recent_tingkat', 'recent_komposisi', 'sebaran', 'quicklinks',
         'siswa_jadwal', 'siswa_absensi', 'siswa_poin', 'siswa_podium',
-        'guru_jadwal', 'guru_presensi', 'guru_agenda',
+        'guru_jadwal', 'guru_presensi', 'guru_agenda', 'piket_guru_tidak_hadir',
         'kesiswaan_pending', 'kesiswaan_absensi',
         'kurikulum_agenda',
     ];
