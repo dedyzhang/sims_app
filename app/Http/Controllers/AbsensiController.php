@@ -364,7 +364,7 @@ class AbsensiController extends Controller
             // Mode QR saja: descriptor tidak dipakai — jangan kirim (payload jauh lebih ringan).
             'desc'     => $scanKioskMode === 'qr' ? [] : $s->{$descCol},
             'status'   => $existingSiswa->get($s->uuid)?->status,
-            'jam_masuk'=> substr($existingSiswa->get($s->uuid)?->jam_masuk, 0, 5),
+            'jam_masuk'=> substr((string) $existingSiswa->get($s->uuid)?->jam_masuk, 0, 5),
         ]);
 
         $payloadGuru = $gurus->map(fn ($g) => [
@@ -377,8 +377,8 @@ class AbsensiController extends Controller
             'nip'        => $g->nip ?: $g->nik,
             'status'     => $existingGuru->get($g->uuid)?->status,
             'pulangDone' => (bool) ($existingGuru->get($g->uuid)?->jam_pulang),
-            'jam_masuk'  => substr($existingGuru->get($g->uuid)?->jam_masuk, 0, 5),
-            'jam_pulang' => substr($existingGuru->get($g->uuid)?->jam_pulang, 0, 5),
+            'jam_masuk'  => substr((string) $existingGuru->get($g->uuid)?->jam_masuk, 0, 5),
+            'jam_pulang' => substr((string) $existingGuru->get($g->uuid)?->jam_pulang, 0, 5),
         ]);
 
         $payload = $payloadSiswa->concat($payloadGuru)->values();

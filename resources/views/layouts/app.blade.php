@@ -29,11 +29,14 @@
         // browser yang sama yg mungkin sedang login sbg user lain.
         $kioskChrome = (bool) ($isKiosk ?? false);
         $isPanduanPage = request()->routeIs('panduan.visual');
-        // $access/$isAdmin dipakai di luar blok sidebar juga (mis. floating chat) — jadi
-        // dihitung di sini, bukan cuma di dalam <aside> yang bisa disembunyikan (mode kiosk).
+        // $access/$isAdmin/$modulOn dipakai di luar blok sidebar juga (mis. floating chat,
+        // script badge Grup Chat) — jadi dihitung di sini, bukan cuma di dalam <aside> yang
+        // bisa disembunyikan (mode kiosk). Definisi di dalam <aside> sengaja TIDAK dihapus
+        // (redefinisi closure yg identik itu aman) supaya diff perubahan ini tetap kecil.
         $access  = auth()->user()?->access;
         $isAdmin = in_array($access, ['superadmin','admin']);
         $canManageFeedback = auth()->user()?->canAccess('manage_feedback') ?? false;
+        $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
         // Badge kosmetik — JANGAN sampai menjatuhkan seluruh halaman kalau tabelnya belum
         // dimigrasikan (mis. baru deploy, migration belum jalan → tampil blank di production).
         $feedbackUnreadCount = 0;
