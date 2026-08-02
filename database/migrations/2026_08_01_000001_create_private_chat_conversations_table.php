@@ -21,9 +21,12 @@ return new class extends Migration
 
             $table->foreign('participant_one_id')->references('uuid')->on('users')->cascadeOnDelete();
             $table->foreign('participant_two_id')->references('uuid')->on('users')->cascadeOnDelete();
-            $table->unique(['participant_one_id', 'participant_two_id']);
-            $table->index(['participant_one_id', 'last_message_at']);
-            $table->index(['participant_two_id', 'last_message_at']);
+            // Nama index default Laravel (gabungan nama tabel+kolom) > 64 karakter batas MySQL
+            // (lolos di SQLite lokal krn SQLite tak batasi panjang identifier) — lihat catatan
+            // memory "MySQL identifier length vs SQLite dev". Diberi nama pendek eksplisit.
+            $table->unique(['participant_one_id', 'participant_two_id'], 'pcc_participant_pair_unique');
+            $table->index(['participant_one_id', 'last_message_at'], 'pcc_participant_one_last_msg_idx');
+            $table->index(['participant_two_id', 'last_message_at'], 'pcc_participant_two_last_msg_idx');
         });
     }
 
