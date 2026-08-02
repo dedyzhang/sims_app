@@ -30,9 +30,9 @@
     </div>
 
     @if(!$absenHariIni)
-    <div class="card p-6 max-w-lg" x-data="laporAbsen({{ Illuminate\Support\Js::from(route('piket.tugas.laporMandiri')) }})">
-        <form @submit.prevent="kirimLaporan" class="space-y-4">
-            <div>
+    <div class="card w-full max-w-4xl p-6" x-data="laporAbsen({{ Illuminate\Support\Js::from(route('piket.tugas.laporMandiri')) }})">
+        <form @submit.prevent="kirimLaporan" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="lg:col-span-1">
                 <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Alasan Ketidakhadiran</label>
                 <select x-model="form.alasan" class="form-input w-full" required>
                     <option value="" disabled>-- Pilih Alasan --</option>
@@ -41,11 +41,11 @@
                     <option value="dinas_luar">Dinas Luar</option>
                 </select>
             </div>
-            <div>
+            <div class="lg:col-span-1">
                 <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Keterangan (Opsional)</label>
                 <textarea x-model="form.keterangan" rows="3" placeholder="Tambahan keterangan (opsional)" class="form-input w-full text-sm"></textarea>
             </div>
-            <button type="submit" :disabled="!form.alasan || busy" class="btn-primary w-full py-2.5 rounded-xl text-sm font-bold disabled:opacity-40 flex items-center justify-center gap-2">
+            <button type="submit" :disabled="!form.alasan || busy" class="btn-primary w-full lg:col-span-2 py-2.5 rounded-xl text-sm font-bold disabled:opacity-40 flex items-center justify-center gap-2">
                 <span x-show="!busy">Lapor & Lanjut Unggah Tugas</span>
                 <span x-show="busy"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Memproses...</span>
             </button>

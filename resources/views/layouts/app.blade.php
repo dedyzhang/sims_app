@@ -655,14 +655,6 @@
                             ['piket.penugasan', ['piket.penugasan*'], 'user-cog', 'Penugasan Pengganti'],
                             ['piket.tugas', ['piket.tugas', 'piket.tugas.unduh'], 'briefcase', 'Tugas Kelas'],
                         ];
-                        
-                        if (in_array($access, ['kepala', 'kurikulum', 'admin', 'superadmin'])) {
-                            $piketItems[] = ['piket.dashboard', ['piket.dashboard'], 'layout-dashboard', 'Dashboard Piket'];
-                        }
-                        
-                        if (in_array($access, ['kepala', 'admin', 'superadmin'])) {
-                            $piketItems[] = ['piket.rekap', ['piket.rekap'], 'file-bar-chart', 'Rekap Bulanan'];
-                        }
                     }
                     
                     // Semua guru bisa melapor ketidakhadiran mandiri / isi tugas
@@ -899,6 +891,8 @@
                 <i data-lucide="megaphone" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate flex-1">Pengumuman</span>
                 <span x-show="pengumumanUnread > 0 && !mini" x-cloak x-text="pengumumanUnread > 99 ? '99+' : pengumumanUnread"
+                      title="Pengumuman penting belum dibaca"
+                      :aria-label="pengumumanUnread + ' pengumuman penting belum dibaca'"
                       class="ml-auto inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm shadow-rose-500/30"></span>
                 <span x-show="pengumumanUnread > 0 && mini" x-cloak
                       class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
@@ -1780,13 +1774,13 @@
                 if (t === 'pengumuman') return 'megaphone';
                 if (t === 'absensi_siswa') return 'clipboard-check';
                 if (t === 'forum_reply') return 'messages-square';
-                if (t === 'classroom_comment') return 'graduation-cap';
-                if (t === 'chatbot_inbox' || t === 'chatbot_admin_reply') return 'message-circle';
+                 if (t === 'classroom_comment') return 'graduation-cap';
+                 if (t === 'chatbot_inbox' || t === 'chatbot_admin_reply' || t === 'private_chat') return 'message-circle';
                 return (n.data && (n.data.url || n.data.laporan_id)) ? 'bell' : 'bell';
             },
             notifColor(n) {
                 const t = (n.data || {}).type;
-                if (t === 'pengumuman' || t === 'forum_reply') return 'var(--cp)';
+                 if (t === 'pengumuman' || t === 'forum_reply' || t === 'private_chat') return 'var(--cp)';
                 return 'var(--ca)';
             },
             async markAllAsRead() {

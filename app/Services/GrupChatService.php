@@ -9,9 +9,12 @@ use App\Models\Kelas;
 use App\Models\Orangtua;
 use App\Models\Semester;
 use App\Models\Siswa;
+use App\Models\User;
 use App\Models\Walikelas;
+use App\Models\Pengumuman;
 use App\Support\TahunAjaran;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Provisioning & sinkronisasi keanggotaan Grup Chat.
@@ -33,6 +36,39 @@ use Illuminate\Support\Facades\DB;
  */
 class GrupChatService
 {
+    public function __construct(private GrupChatMessenger $messenger) {}
+
+    /**
+     * Broadcast pengumuman global ke grup kelas & paguyuban tahun ajaran aktif.
+     * Pengumuman bertarget peran tidak masuk grup agar siswa/orang tua di luar
+     * sasaran tidak menerima salinan yang tidak relevan.
+     */
+    public function broadcastPengumuman(Pengumuman $pengumuman, User $pengirim): int
+    {
+        if (! $pengumuman->untukSemua()) {
+            return 0;
+        }
+
+        $tahun = Semester::aktif()?->tahun ?? TahunAjaran::current();
+        $body = "[PENGUMUMAN PENTING]\n{$pengumuman->judul}\n\n{$pengumuman->isi}";
+        $body = Str::limit($body, GrupChatMessenger::MAX_BODY, '');
+
+        return DB::transaction(function () use ($tahun, $pengirim, $body): int {
+            $terkirim = 0;
+
+            GrupChat::query()
+                ->aktif()
+                ->where('tahun_ajaran', $tahun)
+                ->orderBy('uuid')
+                ->each(function (GrupChat $grup) use ($pengirim, $body, &$terkirim) {
+                    $this->messenger->kirim($grup, $pengirim, 'admin', $body);
+                    $terkirim++;
+                });
+
+            return $terkirim;
+        });
+    }
+
     /**
      * Pastikan kedua grup untuk sebuah kelas ada. Idempoten.
      *

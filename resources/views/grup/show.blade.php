@@ -20,6 +20,9 @@
         bolehModerasi: {{ $bolehModerasi ? 'true' : 'false' }},
         bolehBalasPengumuman: {{ $bolehBalasPengumuman ? 'true' : 'false' }},
         adaRiwayatTerpotong: {{ $batasSeq > 0 ? 'true' : 'false' }},
+        adaRiwayatLama: {{ $adaRiwayatLama ? 'true' : 'false' }},
+        olderCursor: @js($olderCursor),
+        olderUrl: @js(route('grup.pesan.lama', $grup->uuid)),
         membersUrl: @js(route('grup.members', $grup->uuid)),
      })"
      x-init="init()">
@@ -54,6 +57,13 @@
     <div x-ref="scroll" @scroll="cekPosisi()"
          class="flex-1 overflow-y-auto py-4 space-y-3 px-3 sm:px-5 bg-slate-50 dark:bg-slate-900/50 relative">
 
+        <div x-show="adaRiwayatLama" class="flex justify-center mb-3">
+            <button type="button" @click="muatLebihLama()" :disabled="memuatRiwayat"
+                    class="px-4 py-2 rounded-full text-xs font-semibold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50">
+                <span x-text="memuatRiwayat ? 'Memuat riwayat...' : 'Muat pesan sebelumnya'"></span>
+            </button>
+        </div>
+
         <template x-if="adaRiwayatTerpotong">
             <p class="text-center text-[11px] text-slate-400 px-6 py-2">
                 Riwayat sebelum Anda bergabung tidak ditampilkan.
@@ -78,9 +88,9 @@
                 </template>
 
                 <div class="group flex items-center gap-1" :class="m.user_id === meId ? 'justify-end' : 'justify-start'">
-                    {{-- Aksi: balas & hapus — muncul saat hover, mengapit gelembung dari sisi luar --}}
+                    {{-- Aksi: hover di desktop, tetap tersedia di layar sentuh. --}}
                     <template x-if="!m.dihapus && m.user_id === meId">
-                        <div class="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
+                        <div class="flex items-center gap-0.5 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <template x-if="bolehBalas(m)">
                                 <button @click="mulaiBalas(m)" title="Balas" class="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400">
                                     <i data-lucide="reply" class="w-3.5 h-3.5"></i>
@@ -149,7 +159,7 @@
                     </div>
 
                     <template x-if="!m.dihapus && m.user_id !== meId">
-                        <div class="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
+                        <div class="flex items-center gap-0.5 flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <template x-if="bolehBalas(m)">
                                 <button @click="mulaiBalas(m)" title="Balas" class="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400">
                                     <i data-lucide="reply" class="w-3.5 h-3.5"></i>
@@ -189,7 +199,7 @@
 
                 <template x-if="!bolehKirim && !replying">
                     <p class="text-[12px] text-amber-600 dark:text-amber-400 mb-2 px-3 text-center bg-amber-50 dark:bg-amber-900/20 py-2 rounded-xl border border-amber-100/50 dark:border-amber-800/50 font-medium">
-                        Hanya admin yang dapat mengirim pesan. Tekan "Balas" pada pesan admin untuk menanggapi.
+                        Hanya wali kelas yang dapat mengirim pesan baru. Tekan "Balas" pada pesan wali kelas untuk menanggapi.
                     </p>
                 </template>
 
@@ -270,17 +280,29 @@
                           <template x-for="m in membersList" :key="m.id">
                               <div class="flex items-center gap-3">
                                   <div class="relative w-11 h-11 flex-shrink-0">
-                                      <div class="w-full h-full rounded-full flex items-center justify-center text-white font-extrabold text-[15px] shadow-sm"
+                                       <div @click="m.private_chat_url && (window.location.href = m.private_chat_url)"
+                                            :class="m.private_chat_url ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400' : ''"
+                                            :title="m.private_chat_url ? 'Buka chat privat' : ''"
+                                            class="w-full h-full rounded-full flex items-center justify-center text-white font-extrabold text-[15px] shadow-sm"
                                            :class="{'bg-gradient-to-br from-indigo-500 to-purple-500': ['admin','guru','walikelas'].includes(m.peran), 'bg-gradient-to-br from-amber-400 to-orange-500': m.peran === 'orangtua', 'bg-gradient-to-br from-emerald-400 to-teal-500': m.peran === 'siswa'}"
                                            x-text="(m.nama || '?').charAt(0).toUpperCase()"></div>
                                       <template x-if="m.is_online">
                                           <div class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
                                       </template>
                                   </div>
-                                  <div class="min-w-0">
-                                      <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate" x-text="m.nama"></p>
-                                      <p class="text-[11px] text-slate-500 capitalize" x-text="m.peran"></p>
-                                  </div>
+                                   <div class="min-w-0">
+                                       <template x-if="m.private_chat_url">
+                                           <a :href="m.private_chat_url" class="text-sm font-semibold text-indigo-600 dark:text-indigo-300 truncate hover:underline block" x-text="m.nama" title="Buka chat privat"></a>
+                                       </template>
+                                       <template x-if="!m.private_chat_url">
+                                           <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate" x-text="m.nama"></p>
+                                       </template>
+                                       <p class="text-[11px] text-slate-500 capitalize" x-text="m.peran"></p>
+                                       <p class="text-[10px] flex items-center gap-1"
+                                          :class="m.presence === 'online' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'">
+                                           <span x-text="m.last_seen || 'Tidak aktif'"></span>
+                                       </p>
+                                   </div>
                               </div>
                           </template>
                       </div>
@@ -310,8 +332,8 @@ function grupChat(cfg) {
         showMembersModal: false,
         membersList: [],
         loadingMembers: false,
+        memuatRiwayat: false,
         async fetchMembers() {
-            if (this.membersList.length > 0) return;
             this.loadingMembers = true;
             try {
                 const res = await fetch(this.membersUrl);
@@ -356,7 +378,9 @@ function grupChat(cfg) {
             if (seq !== this.pollSeq) return;
 
             this.serap(data.messages, true);
-            if (data.last_seq > this.cursor) this.cursor = data.last_seq;
+            // Pakai cursor hasil batch, bukan last_seq global. Jika backlog > 200,
+            // request berikutnya harus mengambil batch lanjutan.
+            if (data.next_after > this.cursor) this.cursor = data.next_after;
             // Walikelas bisa mengubah mode / mengarsipkan saat halaman ini terbuka.
             this.mode = data.mode;
             this.status = data.status;
@@ -364,6 +388,32 @@ function grupChat(cfg) {
             this.bolehModerasi = data.boleh_moderasi;
             this.bolehBalasPengumuman = data.boleh_balas_pengumuman;
             this.retune();
+        },
+        async muatLebihLama() {
+            if (this.memuatRiwayat || !this.adaRiwayatLama || !this.olderCursor) return;
+            this.memuatRiwayat = true;
+            const scroll = this.$refs.scroll;
+            const tinggiSebelum = scroll.scrollHeight;
+            try {
+                const res = await fetch(`${this.olderUrl}?before=${this.olderCursor}`, {
+                    headers: { Accept: 'application/json' },
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                const baru = (data.messages || []).filter(m => !this.seen.has(m.uuid));
+                for (const m of baru) this.seen.add(m.uuid);
+                this.messages = [...baru, ...this.messages];
+                this.olderCursor = data.next_before;
+                this.adaRiwayatLama = data.has_more;
+                this.$nextTick(() => {
+                    scroll.scrollTop += scroll.scrollHeight - tinggiSebelum;
+                    window.lucide?.createIcons();
+                });
+            } catch (_) {
+                // Pengguna dapat mencoba lagi tanpa kehilangan posisi percakapan.
+            } finally {
+                this.memuatRiwayat = false;
+            }
         },
         // Turunkan frekuensi saat percakapan sepi — memangkas beban server ~4x.
         retune() {
@@ -519,7 +569,7 @@ function grupChat(cfg) {
         },
         alasanTakBisaKirim() {
             if (this.status === 'arsip') return 'Grup ini diarsipkan — hanya bisa dibaca.';
-            if (this.mode === 'pengumuman') return 'Mode pengumuman — hanya guru yang dapat menulis.';
+            if (this.mode === 'pengumuman') return 'Mode pengumuman — hanya wali kelas yang dapat menulis.';
             return 'Anda tidak memiliki izin menulis di grup ini.';
         },
     };

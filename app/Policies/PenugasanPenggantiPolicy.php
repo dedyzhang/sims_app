@@ -31,7 +31,7 @@ class PenugasanPenggantiPolicy
     }
 
     /**
-     * Assign/ambil-alih/mark-selesai — hanya admin atau guru piket AKTIF PADA TANGGAL slot
+     * Assign/ambil-alih/mark-selesai — hanya admin atau ketua guru piket AKTIF PADA TANGGAL slot
      * terkait (bukan hanya "piket hari ini"), supaya guru piket tetap bisa beres-beres slot
      * hari piketnya sendiri walau baru dibuka keesokan harinya.
      */
@@ -43,6 +43,6 @@ class PenugasanPenggantiPolicy
 
         $idGuru = $user->guru?->uuid;
 
-        return $idGuru !== null && JadwalPiket::isPiketAktif($idGuru, $tanggal);
+        return $idGuru !== null && JadwalPiket::isKetuaAktif($idGuru, $tanggal);
     }
 }

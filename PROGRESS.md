@@ -77,8 +77,9 @@ modul ini — dibangun langsung via sesi chat, dilacak di sini saja.
 - [x] Fase 4: Notifikasi digest — `grupchat:kirim-notif` (dijadwalkan tiap 15 menit),
       `GrupChatDigestNotification` (database + FCM), 1 notifikasi per user walau
       unread di beberapa grup, menghormati `muted_until` & grup `arsip`
-- [x] Test: 70 test (`GrupChatAksesTest`, `GrupChatPollTest`, `GrupChatSinkronTest`,
-      `GrupChatModulTest`, `GrupChatLampiranTest`, `GrupChatDigestTest`)
+- [x] Test: 84 test (`GrupChatAksesTest`, `GrupChatPollTest`, `GrupChatSinkronTest`,
+      `GrupChatModulTest`, `GrupChatLampiranTest`, `GrupChatDigestTest`,
+      `PengumumanGrupChatTest`)
 - [x] Fase 5: tiga sisa opsional dituntaskan —
       - Komposer kini membuka jalur balas walau `boleh_kirim` false: flag baru
         `bolehBalasPengumuman` (`GrupChatController::bolehBalasPengumuman()`) dikirim
@@ -136,11 +137,23 @@ modul ini — dibangun langsung via sesi chat, dilacak di sini saja.
         `NgajarObserver` terbukti tidak lagi memanggil `GrupChatService` sama sekali
         (mock `shouldNotReceive`); baris keanggotaan `guru` lama kehilangan hak staf lalu
         dikeluarkan; `GrupChatMessenger::kirim()` menolak panggilan langsung tanpa lewat
-        controller untuk siswa, dan menerima untuk wali kelas. Total sekarang 77 test.
-      - Sisa non-blocking (didokumentasikan, sengaja tidak diterapkan — taste call):
-        `ModulAktif::aktif()` mulai menumpuk special-case per modul (`arena_belajar`,
-        `ludensa`) — pertimbangkan ekstrak jadi peta default kalau ada modul ketiga
-        yang butuh override serupa.
+        controller untuk siswa, dan menerima untuk wali kelas. Total sekarang 82 test.
+       - Polling backlog kini memakai `next_after`; batch >200 pesan tidak lagi terlewati
+         saat klien mengejar cursor.
+       - Riwayat lama kini bisa dimuat bertahap lewat endpoint `pesan-lama`, dengan batas
+         `joined_seq` tetap ditegakkan.
+       - Tombol hapus pesan tersedia sebagai target sentuh di mobile, tetap hover-only di desktop.
+       - Presence anggota kini mengirim status `online/recent/offline` dan label last seen
+         tanpa membocorkan timestamp mentah; modal anggota me-refresh data saat dibuka.
+       - Daftar anggota di modal kini diurutkan alfabetis berdasarkan nama.
+       - Sisa non-blocking (didokumentasikan, sengaja tidak diterapkan — taste call):
+         `ModulAktif::aktif()` mulai menumpuk special-case per modul (`arena_belajar`,
+         `ludensa`) — pertimbangkan ekstrak jadi peta default kalau ada modul ketiga
+         yang butuh override serupa.
+
+- [x] Private Chat wali kelas — migration percakapan/pesan, policy relasi kelas,
+      akses dari nama/profil anggota Grup Chat, polling, notifikasi penerima, dan
+      perlindungan IDOR (`PrivateChatTest`).
 
 ### Sisa
 
@@ -197,7 +210,8 @@ Modul permainan edukatif SD (paket `ludensa/*`) terintegrasi ke SIMS via service
 |------|--------|--------|
 | Arena Belajar + Jagat Misi kelas | `GameQuiz\|GameLive\|GameTemplate\|ArenaBelajar\|MissionClassroom` | 49 |
 | Ludensa | `Ludensa\|SimsGemini` | 15 |
-| Grup Chat | `GrupChat` | 77 |
+| Grup Chat + Pengumuman | `GrupChat\|Pengumuman` | 99 |
+| Private Chat | `PrivateChat` | 5 |
 
 ---
 

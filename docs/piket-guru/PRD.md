@@ -104,9 +104,11 @@ Tabel utama beserta kolom:
 
 * **jadwal_piket** (rotasi harian guru piket)
     * `uuid` (UUID): Primary Key.
-    * `id_guru` (UUID, FK → `gurus.uuid`): Guru yang piket.
-    * `tanggal` (Date): Tanggal piket.
-    * `semester` (TinyInt, nullable): 1 atau 2, format sama seperti `agendas.semester` existing (`unsignedTinyInteger`, bukan string) — bukan tabel `tahun_ajaran` terpisah (tidak ada di codebase ini).
+     * `id_guru` (UUID, FK → `gurus.uuid`): Guru yang piket.
+     * `tanggal` (Date): Tanggal piket.
+     * `hari` (TinyInt): 1=Senin sampai 5=Jumat; jadwal berulang mingguan.
+     * `is_ketua` (Boolean): Penanda ketua piket untuk hari tersebut; tepat satu ketua per hari kerja.
+     * `semester` (TinyInt, nullable): 1 atau 2, format sama seperti `agendas.semester` existing (`unsignedTinyInteger`, bukan string) — bukan tabel `tahun_ajaran` terpisah (tidak ada di codebase ini).
     * `status` (String/Enum): `aktif`, `ditukar`, `dibatalkan`.
     * `created_at`, `updated_at` (Timestamp)
 
@@ -190,7 +192,7 @@ Stack **aktual codebase B'tive** (diverifikasi langsung dari model/migration/rou
 * **Primary Key:** UUID kolom **`uuid`** (bukan `id`) — `use HasUuids;` + `protected $primaryKey = 'uuid';`, sama seperti `Guru`, `Jadwal`, `Agenda`, `PresensiGuru`.
 * **Tenant:** Tidak ada — satu instalasi Laravel per sekolah. Modul dibungkus toggle `ModulAktif` (`app/Support/ModulAktif.php`) dengan kode `piket`, didaftarkan di `ModulAktif::semua()` dan route pakai middleware `modul:piket`.
 * **Uang:** Tidak relevan di modul ini — tidak ada transaksi finansial.
-* **Auth & Role:** Bukan `spatie/laravel-permission` role-assignment klasik — role di sistem ini adalah **satu string** di `users.access` (`admin`, `superadmin`, `guru`, `siswa`, `orangtua`, `kepala`, `kurikulum`, `kesiswaan`, `sarpras`, `bendahara`, `walikelas`, dst.), dicek via middleware `role:guru,kepala,...` (`App\Http\Middleware\CheckRole`) dan/atau Laravel Policy (pola `GameQuizPolicy`/`GrupChatPolicy` sudah ada). Role `kurikulum` **sudah ada** — itu Waka Kurikulum, tidak perlu dibuat. Role `kepala` = Kepala Sekolah. **Tidak perlu role/permission baru `guru_piket`** — wewenang piket ditentukan dinamis dari data: guru dianggap "guru piket aktif" kalau ada baris `jadwal_piket` dengan `id_guru` = dirinya dan `tanggal` = hari ini (dicek di Policy, bukan dari kolom role statis).
+* **Auth & Role:** Bukan `spatie/laravel-permission` role-assignment klasik — role di sistem ini adalah **satu string** di `users.access` (`admin`, `superadmin`, `guru`, `siswa`, `orangtua`, `kepala`, `kurikulum`, `kesiswaan`, `sarpras`, `bendahara`, `walikelas`, dst.), dicek via middleware `role:guru,kepala,...` (`App\Http\Middleware\CheckRole`) dan/atau Laravel Policy (pola `GameQuizPolicy`/`GrupChatPolicy` sudah ada). Role `kurikulum` **sudah ada** — itu Waka Kurikulum, tidak perlu dibuat. Role `kepala` = Kepala Sekolah. **Tidak perlu role/permission baru `guru_piket`** — guru piket biasa ditentukan dari baris `jadwal_piket` pada hari tersebut, sedangkan kewenangan menugaskan pengganti/titip tugas ada pada baris hari tersebut yang memiliki `is_ketua = true`. Admin tetap bypass policy.
 * **Audit trail:** `spatie/laravel-activitylog` (sudah terpasang) untuk aksi assign pengganti & titip tugas — ini yang jadi bukti pertanggungjawaban ke kepala sekolah.
 * **File upload:** `intervention/image` (sudah terpasang) kalau guru upload tugas berupa gambar/scan; validasi MIME real untuk semua upload.
 * **UI Language:** Bahasa Indonesia.
