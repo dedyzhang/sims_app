@@ -64,7 +64,13 @@ class ClassroomController extends Controller implements \Illuminate\Routing\Cont
             $query->where('id_guru', $user->guru->uuid);
         }
 
+        // Buang baris Ngajar yg id_pelajaran-nya sudah TAK ADA lagi di master (mapel dihapus
+        // tanpa membersihkan penugasan guru yg masih memakainya, lihat PelajaranController —
+        // sekarang sudah dicegah di sana, tapi data lama yg terlanjur nyangkut tetap perlu
+        // disaring di sini). whereNotNull('id_pelajaran') di atas cuma jamin kolomnya tak
+        // NULL, bukan jamin barisnya masih ada — relasi $n->pelajaran bisa tetap null.
         $ngajars = $query->get()
+            ->filter(fn ($n) => $n->pelajaran !== null)
             ->sortBy(fn ($n) => [$n->pelajaran?->urutan ?? 99, $n->pelajaran?->nama])->values();
 
         // Mapel yang diampu user (guru) di kelas ini → boleh mengelola.

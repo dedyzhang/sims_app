@@ -29,14 +29,20 @@
         // browser yang sama yg mungkin sedang login sbg user lain.
         $kioskChrome = (bool) ($isKiosk ?? false);
         $isPanduanPage = request()->routeIs('panduan.visual');
-        // $access/$isAdmin/$modulOn dipakai di luar blok sidebar juga (mis. floating chat,
-        // script badge Grup Chat) — jadi dihitung di sini, bukan cuma di dalam <aside> yang
-        // bisa disembunyikan (mode kiosk). Definisi di dalam <aside> sengaja TIDAK dihapus
-        // (redefinisi closure yg identik itu aman) supaya diff perubahan ini tetap kecil.
+        // $access/$isAdmin/$modulOn/$activeGroups dipakai di luar blok sidebar juga (mis.
+        // floating chat, script badge Grup Chat) — jadi dihitung di sini, bukan cuma di dalam
+        // <aside> yang bisa disembunyikan (mode kiosk). Definisi di dalam <aside> sengaja TIDAK
+        // dihapus (redefinisi yg identik itu aman) supaya diff perubahan ini tetap kecil.
         $access  = auth()->user()?->access;
         $isAdmin = in_array($access, ['superadmin','admin']);
         $canManageFeedback = auth()->user()?->canAccess('manage_feedback') ?? false;
         $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
+        // Default aman (array kosong) — nilai sungguhan cuma dihitung di dalam <aside>. Dulu
+        // $activeGroups di skrip badge (baris ~1548) cuma lolos di mode kios krn kebetulan
+        // ditulis dgn fallback `?? []`; kalau fallback itu suatu saat dihapus tanpa sadar, bug
+        // "Undefined variable" yg sama persis dgn $modulOn akan muncul lagi. Definisi di sini
+        // menutup celah itu tanpa bergantung pada fallback yg gampang lupa.
+        $activeGroups = [];
         // Badge kosmetik — JANGAN sampai menjatuhkan seluruh halaman kalau tabelnya belum
         // dimigrasikan (mis. baru deploy, migration belum jalan → tampil blank di production).
         $feedbackUnreadCount = 0;
