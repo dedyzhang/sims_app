@@ -64,7 +64,7 @@
             <div class="card p-5 space-y-4 relative flex flex-col justify-between">
                 <div>
                     <p class="font-bold text-slate-800 dark:text-slate-100" x-text="row.pelajaran"></p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-3">
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span class="inline-flex items-center gap-1"><i data-lucide="door-open" class="w-3.5 h-3.5"></i> Kelas <span x-text="row.kelas"></span></span>
                         <span class="inline-flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> <span x-text="row.jam_mulai"></span>–<span x-text="row.jam_selesai"></span></span>
                     </p>
