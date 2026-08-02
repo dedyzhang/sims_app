@@ -14,8 +14,6 @@ use App\Http\Controllers\PiketController;
 use App\Http\Controllers\GuruTidakHadirController;
 use App\Http\Controllers\PenugasanPenggantiController;
 use App\Http\Controllers\TugasKelasController;
-use App\Http\Controllers\DashboardPiketController;
-use App\Http\Controllers\RekapPiketController;
 use App\Http\Controllers\AlumniController;
 use App\Http\Controllers\AppDownloadController;
 use App\Http\Controllers\AppUpdateController;
@@ -64,6 +62,7 @@ use App\Http\Controllers\GameLiveController;
 use App\Http\Controllers\GameQuizController;
 use App\Http\Controllers\GameTemplateController;
 use App\Http\Controllers\GrupChatController;
+use App\Http\Controllers\PrivateChatController;
 use App\Http\Controllers\MissionAnalyticsController;
 use App\Http\Controllers\MissionBuilderController;
 use App\Http\Controllers\MissionClassroomController;
@@ -387,6 +386,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/badge', 'badge')->middleware('throttle:120,1')->name('badge');
             Route::get('/{grup}', 'show')->name('show');
             Route::get('/{grup}/members', 'members')->name('members');
+            Route::get('/{grup}/private/{target}', [PrivateChatController::class, 'start'])->name('private.start');
+            Route::get('/{grup}/pesan-lama', 'older')->middleware('throttle:120,1')->name('pesan.lama');
             // Poll 4 detik + burst saat tab kembali fokus; setara arena.live.state.
             Route::get('/{grup}/poll', 'poll')->middleware('throttle:360,1')->name('poll');
             // 1/detik: di atas kecepatan mengetik manusia, sekaligus membatasi
@@ -395,6 +396,12 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/{grup}/lampiran', 'lampiran')->middleware('throttle:20,1')->name('lampiran');
             Route::get('/{grup}/lampiran/{pesan}', 'unduhLampiran')->name('lampiran.unduh');
             Route::delete('/{grup}/pesan/{pesan}', 'hapus')->middleware('throttle:30,1')->name('pesan.hapus');
+        });
+
+        Route::prefix('private-chat')->name('private-chat.')->controller(PrivateChatController::class)->group(function () {
+            Route::get('/{conversation}', 'show')->name('show');
+            Route::get('/{conversation}/poll', 'poll')->middleware('throttle:360,1')->name('poll');
+            Route::post('/{conversation}/pesan', 'send')->middleware('throttle:60,1')->name('send');
         });
 
     // ─── Ruang Kelas (Classroom) — modul kelas digital B'tive ───
@@ -639,13 +646,6 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{penugasanPengganti}/konfirmasi', 'konfirmasi')->name('.konfirmasi');
         Route::get('/{tugasKelas}/unduh', 'download')->name('.unduh');
         Route::delete('/{tugasKelas}', 'destroy')->name('.destroy');
-    });
-    Route::middleware('modul:piket')->prefix('piket/dashboard')->name('piket.')->controller(DashboardPiketController::class)->group(function () {
-        Route::get('/', 'index')->name('dashboard');
-    });
-    Route::middleware('modul:piket')->prefix('piket/rekap')->name('piket.rekap')->controller(RekapPiketController::class)->group(function () {
-        Route::get('/', 'index')->name('');
-        Route::get('/export', 'export')->name('.export');
     });
 
     // ─── Agenda Rapat / Notulen Rapat — admin/kurikulum/kepala atau guru sekretaris ───

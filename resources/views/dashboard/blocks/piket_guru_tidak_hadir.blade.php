@@ -4,7 +4,7 @@
             <i data-lucide="user-x" class="w-4 h-4 text-rose-500"></i>
             Ketidakhadiran Guru & Tugas
         </h3>
-        <a href="{{ route('piket.dashboard') }}" class="text-xs text-primary hover:underline" style="color:var(--cp)">Kelola Piket &rarr;</a>
+        <a href="{{ route('piket.tidak-hadir') }}" class="text-xs text-primary hover:underline" style="color:var(--cp)">Kelola Ketidakhadiran &rarr;</a>
     </div>
 
     <div class="flex-1 flex flex-col gap-3 overflow-y-auto pr-1">
@@ -28,7 +28,7 @@
                                     <div class="flex items-center justify-between">
                                         <div class="font-semibold text-slate-700 dark:text-slate-200">
                                             {{ \Carbon\Carbon::parse($tugas->jadwal?->jam_mulai)->format('H:i') }} - {{ \Carbon\Carbon::parse($tugas->jadwal?->jam_selesai)->format('H:i') }} 
-                                            (Kelas {{ $tugas->jadwal?->kelas?->nama_kelas ?? '-' }})
+                                             (Kelas {{ trim(($tugas->jadwal?->kelas?->tingkat ?? '').' '.($tugas->jadwal?->kelas?->kelas ?? '')) ?: '-' }})
                                         </div>
                                         <div>
                                             @if($tugas->status === 'menunggu')
@@ -45,7 +45,7 @@
                                         @if($tugas->tugasKelas)
                                             <span class="text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5 bg-emerald-50 dark:bg-emerald-900/20 p-1.5 rounded-md">
                                                 <i data-lucide="file-check-2" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                                                <span class="truncate">Tugas: {{ $tugas->tugasKelas->judul_tugas }}</span>
+                                                 <span class="truncate">Tugas: {{ $tugas->tugasKelas->judul }}</span>
                                             </span>
                                         @else
                                             <span class="text-rose-500 dark:text-rose-400 flex items-center gap-1.5 mt-0.5 bg-rose-50 dark:bg-rose-900/20 p-1.5 rounded-md">

@@ -66,13 +66,13 @@ Tombol "Kelola Rotasi" di kalender (admin only) → halaman rotasi; tombol "Liha
 Kalender: grid 7 kolom tetap ringkas di layar kecil. Rotasi: tabel di desktop (`hidden md:block`), kartu bertumpuk di mobile (`md:hidden`) — pola `overflow-x-auto` + kartu konsisten dengan `settings/roles.blade.php`/`agenda/index.blade.php`. Diverifikasi render end-to-end (admin user, via `php artisan tinker`) tanpa error.
 
 ### 6. Buat migration & model `JadwalPiket` `[DONE]`
-Migration `2026_07_31_090000_create_jadwal_piket_table.php` (kolom `uuid` PK, `id_guru` string(36) index, `tanggal`, `semester` tinyint nullable, `status` default `aktif`, FK polos tanpa constraint sesuai konvensi codebase). Model `app/Models/JadwalPiket.php` (`HasUuids` + `primaryKey='uuid'`, relasi `guru()`, helper `isPiketAktif()`). Dijalankan (`php artisan migrate`) dan diverifikasi round-trip (create/read/relasi/delete) via tinker — berhasil.
+Migration `2026_07_31_090000_create_jadwal_piket_table.php` + migration penanda ketua `is_ketua`. Model `app/Models/JadwalPiket.php` (`HasUuids` + `primaryKey='uuid'`, relasi `guru()`, helper `isPiketAktif()`/`isKetuaAktif()`). Satu ketua divalidasi untuk setiap hari Senin-Jumat melalui UI dan controller.
 
 ### 7. Buat `PiketController` real (ganti data tiruan) `[DONE]`
-`kalender()` sekarang query `JadwalPiket::with('guru')->whereBetween('tanggal', ...)` (real, bukan array hardcode). `rotasi()` query real + kirim `guruList` dari tabel `gurus`. Endpoint `rotasiStore`/`rotasiUpdate`/`rotasiDestroy` (CRUD asli via AJAX fetch dari `resources/views/piket/rotasi.blade.php`, pola sama seperti `kalenderAbsensi()` di `kalender/index.blade.php`). Semua route dibungkus `guardAdmin()` (`isAdmin()` check).
+`index()` query jadwal mingguan real + kirim daftar ketua per hari. Endpoint simpan menerima jadwal guru dan satu ketua untuk setiap hari kerja, divalidasi agar ketua benar-benar terdaftar sebagai piket pada hari tersebut.
 
 ### 8. Tambahkan endpoint tukar jadwal `[DONE]`
-`rotasiTukar()` — `DB::transaction()` + `lockForUpdate()` pada dua baris, swap `id_guru`, keduanya ditandai `status = 'ditukar'`. Diverifikasi end-to-end (nama guru benar-benar tertukar antar dua slot) via tinker.
+Penanda ketua disimpan atomik bersama jadwal piket; hanya ketua hari terkait yang dapat mengatur penugasan pengganti/titip tugas.
 
 ### 9. Tambahkan policy `JadwalPiketPolicy` `[DONE]`
 `app/Policies/JadwalPiketPolicy.php` — auto-discovered oleh Laravel (pola sama seperti `GrupChatPolicy`/`GameQuizPolicy`, tidak didaftarkan manual). `viewAny`/`view`: semua user login. `manage` (create/update/delete/tukar): `$user->isAdmin()`. `PiketController` diubah dari `guardAdmin()` inline ke `$this->authorize('manage', ...)`.
@@ -81,4 +81,4 @@ Migration `2026_07_31_090000_create_jadwal_piket_table.php` (kolom `uuid` PK, `i
 `app/Notifications/PiketH1Notification.php` (channel `database`, pola sama seperti `GuruTerlambatNotification`) + `app/Console/Commands/PiketH1Reminder.php` (`piket:h1-reminder`, idempoten via cek notifikasi yang sudah ada) + terdaftar di `routes/console.php` (`dailyAt('15:00')`). Diverifikasi end-to-end: kirim 1x, run kedua 0 terkirim (tidak duplikat).
 
 ### 11. Buat seeder & factory `JadwalPiket` `[DONE]`
-`database/factories/JadwalPiketFactory.php` + `database/seeders/PiketSeeder.php` (idempoten `firstOrCreate`, pola sama seperti `SarprasSeeder`, tidak didaftarkan di `DatabaseSeeder` — jalankan manual `php artisan db:seed --class=Database\Seeders\PiketSeeder`). Diverifikasi jalan (50 slot rotasi 1 bulan ke belakang/depan) dan idempoten, lalu data contoh dibersihkan dari database (bukan dev DB kosong) atas keputusan FL.
+`database/factories/JadwalPiketFactory.php` + `database/seeders/PiketSeeder.php` (idempoten, satu ketua untuk setiap hari kerja, tidak didaftarkan di `DatabaseSeeder` — jalankan manual `php artisan db:seed --class=Database\Seeders\PiketSeeder`).

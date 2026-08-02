@@ -15,13 +15,13 @@ class JadwalPiketFactory extends Factory
     {
         return [
             'id_guru' => Guru::inRandomOrder()->value('uuid'),
-            'tanggal' => fake()->dateTimeBetween('-1 week', '+2 weeks')->format('Y-m-d'),
-            'status' => 'aktif',
+            'hari' => fake()->numberBetween(1, 5),
+            'is_ketua' => false,
         ];
     }
 
-    public function ditukar(): static
+    public function ketua(): static
     {
-        return $this->state(fn () => ['status' => 'ditukar']);
+        return $this->state(fn () => ['is_ketua' => true]);
     }
 }

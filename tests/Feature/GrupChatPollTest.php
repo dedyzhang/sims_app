@@ -83,6 +83,75 @@ class GrupChatPollTest extends TestCase
             ->assertJsonCount(0, 'messages');
     }
 
+    public function test_poll_backlog_besar_mengembalikan_cursor_batch_agar_pesan_tidak_terlewati(): void
+    {
+        $grup = $this->grupKelas($this->kelas7a);
+
+        for ($seq = 1; $seq <= 201; $seq++) {
+            GrupChatMessage::create([
+                'grup_id' => $grup->uuid,
+                'seq' => $seq,
+                'user_id' => $this->wali7a->uuid,
+                'sender_nama' => 'Bu Ani',
+                'sender_peran' => 'walikelas',
+                'body' => "pesan {$seq}",
+            ]);
+        }
+        $grup->update(['last_seq' => 201]);
+
+        $this->actingAs($this->siswa7a)
+            ->getJson(route('grup.poll', $grup).'?after=0')
+            ->assertOk()
+            ->assertJsonCount(200, 'messages')
+            ->assertJsonPath('messages.0.seq', 1)
+            ->assertJsonPath('messages.199.seq', 200)
+            ->assertJsonPath('next_after', 200)
+            ->assertJsonPath('last_seq', 201);
+
+        $this->actingAs($this->siswa7a)
+            ->getJson(route('grup.poll', $grup).'?after=200')
+            ->assertOk()
+            ->assertJsonCount(1, 'messages')
+            ->assertJsonPath('messages.0.seq', 201)
+            ->assertJsonPath('next_after', 201);
+    }
+
+    public function test_riwayat_lama_dapat_dimuat_bertahap_dan_tetap_mematuhi_batas_anggota(): void
+    {
+        $grup = $this->grupKelas($this->kelas7a);
+
+        for ($seq = 1; $seq <= 55; $seq++) {
+            GrupChatMessage::create([
+                'grup_id' => $grup->uuid,
+                'seq' => $seq,
+                'user_id' => $this->wali7a->uuid,
+                'sender_nama' => 'Bu Ani',
+                'sender_peran' => 'walikelas',
+                'body' => "pesan {$seq}",
+            ]);
+        }
+        $grup->update(['last_seq' => 55]);
+
+        $this->actingAs($this->siswa7a)
+            ->getJson(route('grup.pesan.lama', $grup).'?before=6')
+            ->assertOk()
+            ->assertJsonCount(5, 'messages')
+            ->assertJsonPath('messages.0.seq', 1)
+            ->assertJsonPath('messages.4.seq', 5)
+            ->assertJsonPath('next_before', 1)
+            ->assertJsonPath('has_more', false);
+
+        // Anggota baru tidak boleh memakai endpoint ini untuk membaca pesan sebelum
+        // joined_seq, walaupun cursor URL dimundurkan ke awal percakapan.
+        [$userBaru, $profilBaru] = $this->buatSiswa($this->kelas7a, 'siswa_lama_test', 'Dodi', 'NISLAMA');
+        app(\App\Services\GrupChatService::class)->syncSiswa($profilBaru);
+
+        $this->actingAs($userBaru)
+            ->getJson(route('grup.pesan.lama', $grup).'?before=1')
+            ->assertOk()
+            ->assertJsonCount(0, 'messages');
+    }
+
     public function test_poll_menandai_terbaca_dan_menghapus_badge(): void
     {
         $grup = $this->grupKelas($this->kelas7a);

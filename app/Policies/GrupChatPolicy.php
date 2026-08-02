@@ -112,6 +112,23 @@ class GrupChatPolicy
         return $this->kelola($user, $grup);
     }
 
+    /** Wali kelas dapat membuka chat privat dengan siswa/ortu di grup ini. */
+    public function privateChat(User $user, GrupChat $grup, User $target): bool
+    {
+        if ($user->access !== 'walikelas' || $user->getKey() === $target->getKey()) {
+            return false;
+        }
+
+        if ($grup->isPaguyuban()) {
+            $peranTarget = 'orangtua';
+        } else {
+            $peranTarget = 'siswa';
+        }
+
+        return $this->member($user, $grup)?->peran === 'walikelas'
+            && $this->memberForUser($target, $grup)?->peran === $peranTarget;
+    }
+
     /** Hapus pesan sendiri kapan saja; hapus pesan orang lain butuh hak moderasi. */
     public function hapus(User $user, GrupChat $grup, GrupChatMessage $pesan): bool
     {
@@ -190,5 +207,13 @@ class GrupChatPolicy
         }
 
         return $this->memoMember[$key];
+    }
+
+    private function memberForUser(User $user, GrupChat $grup): ?GrupChatMember
+    {
+        return GrupChatMember::where('grup_id', $grup->uuid)
+            ->where('user_id', $user->getKey())
+            ->whereNull('left_at')
+            ->first();
     }
 }

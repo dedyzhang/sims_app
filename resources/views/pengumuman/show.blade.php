@@ -20,7 +20,10 @@
             <div class="w-12 h-12 rounded-2xl grid place-items-center text-white" style="background:linear-gradient(135deg,var(--cp),var(--ca))">
                 <i data-lucide="megaphone" class="w-6 h-6"></i>
             </div>
-            <h2 class="text-xl font-black text-slate-800 dark:text-slate-100 leading-snug">{{ $pengumuman->judul }}</h2>
+            <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="text-xl font-black text-slate-800 dark:text-slate-100 leading-snug">{{ $pengumuman->judul }}</h2>
+                <span class="badge bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 font-bold">Penting</span>
+            </div>
             <div class="flex items-center flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
                 <span class="inline-flex items-center gap-1"><i data-lucide="user" class="w-3.5 h-3.5"></i>{{ $pengumuman->pembuat?->displayName() ?? 'Sistem' }}</span>
                 <span class="inline-flex items-center gap-1"><i data-lucide="calendar" class="w-3.5 h-3.5"></i>{{ $pengumuman->created_at->locale('id')->isoFormat('D MMMM Y, HH:mm') }}</span>

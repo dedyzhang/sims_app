@@ -3,8 +3,10 @@
 namespace App\Services\Piket;
 
 use App\Models\Jadwal;
+use App\Models\PenugasanPengganti;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Hitung jam pelajaran & kelas yang kosong akibat guru tidak hadir.
@@ -39,18 +41,49 @@ class JamKosongService
         ];
     }
 
-    /** Guru yang tidak sedang mengajar di hari+jam_ke yang sama, dan tidak sedang tidak-hadir hari itu. */
+    /**
+     * Guru yang kosong pada slot jadwal sekolah tersebut, tidak hadir, dan belum
+     * dipakai untuk menggantikan kelas lain pada waktu yang sama.
+     */
     public function guruTersediaUntuk(Jadwal $slot, string $tanggal): Collection
     {
-        $sibuk = Jadwal::where('hari', $slot->hari)
-            ->where('jam_ke', $slot->jam_ke)
+        $sibuk = $this->slotQuery(Jadwal::query(), $slot)
             ->whereNotNull('id_guru')
             ->pluck('id_guru');
 
-        $tidakHadir = \App\Models\GuruTidakHadir::where('tanggal', $tanggal)->pluck('id_guru');
+        $tidakHadir = \App\Models\GuruTidakHadir::whereDate('tanggal', $tanggal)->pluck('id_guru');
+        $sudahDitugaskan = PenugasanPengganti::query()
+            ->whereIn('status', ['ditugaskan', 'selesai'])
+            ->whereHas('guruTidakHadir', fn ($query) => $query->whereDate('tanggal', $tanggal))
+            ->whereHas('jadwal', fn ($query) => $this->slotQuery($query, $slot))
+            ->get(['id_guru_pengganti', 'id_guru_piket'])
+            ->flatMap(fn (PenugasanPengganti $penugasan) => [
+                $penugasan->id_guru_pengganti,
+                $penugasan->id_guru_piket,
+            ])
+            ->filter()
+            ->unique();
 
-        return \App\Models\Guru::whereNotIn('uuid', $sibuk->merge($tidakHadir)->unique())
+        return \App\Models\Guru::whereNotIn('uuid', $sibuk->merge($tidakHadir)->merge($sudahDitugaskan)->unique())
             ->orderBy('nama')
             ->get(['uuid', 'nama']);
+    }
+
+    /** Cocokkan slot dengan struktur jadwal sekolah, bukan hanya nomor jam legacy. */
+    private function slotQuery(Builder $query, Jadwal $slot): Builder
+    {
+        $query->where('hari', $slot->hari);
+
+        if ($slot->id_jam) {
+            return $query->where('id_jam', $slot->id_jam);
+        }
+
+        if ($slot->jam_ke !== null) {
+            return $query->where('jam_ke', $slot->jam_ke);
+        }
+
+        return $query
+            ->where('jam_mulai', $slot->jam_mulai)
+            ->where('jam_selesai', $slot->jam_selesai);
     }
 }

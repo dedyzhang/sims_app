@@ -2,7 +2,7 @@
 
 > **Agent:** baca file ini + `PRD.md` + `features/*.md` di folder ini sebelum mengerjakan task modul Piket Guru. Status task di `features/NN-*.md` (suffix `[DONE]`) harus sinkron dengan checklist di bawah. Jangan lompat fase tanpa approval FL untuk task yang menyentuh migration, auth/policy, atau alur nilai/agenda.
 
-**Verifikasi terakhir:** 2026-07-31 — **Fase 1-5 semuanya SELESAI dan diverifikasi end-to-end** (migration dijalankan, model/controller/policy/seeder diuji lewat `php artisan tinker` sebagai user sungguhan, semua route terdaftar tanpa konflik). Skema `presensi_gurus`/`jadwals`/`jam_pelajaran`/`agendas` + konvensi `uuid`/`id_xxx` + role `kurikulum`/`kepala` sudah dikonfirmasi dari codebase asli (lihat PRD §6/§7/§9). **Ditambah (2026-07-31, permintaan FL):** integrasi Ruang Kelas — tugas yang dikonfirmasi di Fase 4 sekarang juga diterbitkan sebagai `ClassroomAssignment` published ke siswa, dicari lewat jadwal ajar guru (`Jadwal.id_kelas`+`id_pelajaran` → `ClassroomService::subjectRoom()`). Lihat PRD §10 dan `features/04-*.md` task 12. **Belum diverifikasi visual di browser sungguhan** — semua verifikasi lewat tinker (render Blade + panggil controller langsung). FL disarankan buka `/piket`, `/piket/tidak-hadir`, `/piket/penugasan`, `/piket/tugas`, `/piket/dashboard`, `/piket/rekap` langsung untuk cek tampilan sebelum dianggap production-ready.
+**Verifikasi terakhir:** 2026-08-01 — **Fase 1-5 selesai dan diverifikasi end-to-end**. Ditambahkan penanda `is_ketua` pada `jadwal_piket`: admin memilih tepat satu ketua untuk setiap Senin-Jumat, dan hanya ketua yang dapat mengatur penugasan pengganti/titip tugas. Integrasi penugasan memakai struktur jadwal sekolah (`jadwals.hari` + `id_jam`, fallback `jam_ke`), mengecualikan guru yang mengajar/tidak hadir/sudah mengisi slot lain, dan validasi server-side mengunci guru kandidat untuk mencegah double-assignment race. Full suite terakhir sebelum perubahan ketua: **881 passed, 22 skipped, 4086 assertions**. **Belum diverifikasi visual di browser sungguhan.**
 
 ---
 
@@ -38,11 +38,20 @@ Ref: `features/03-penugasan-guru-pengganti.md`
 
 - [x] 1–5 UI daftar jam kosong + assign pengganti (data tiruan)
 - [x] 6 Migration & model `PenugasanPengganti`
-- [x] 7 Controller + query guru tersedia
+- [x] 7 Controller + query guru tersedia terintegrasi jadwal sekolah + validasi server-side assignment
 - [x] 8 Endpoint ambil alih + update status
-- [x] 9 `PenugasanPenggantiPolicy` (wewenang piket dicek dinamis dari `jadwal_piket`, bukan role statis; + akses baca role `kurikulum`)
+- [x] 9 `PenugasanPenggantiPolicy` (wewenang ketua dicek dinamis dari `jadwal_piket.is_ketua`, bukan role statis; + akses baca role `kurikulum`)
 - [x] 10 Activity log assign/ambil alih
 - [x] 11 Seeder & factory
+- [x] Penanda ketua guru piket: migration `is_ketua`, pilihan satu ketua per Senin-Jumat di UI, policy assignment/titip hanya untuk ketua
+
+**Polish UI lanjutan:** `resources/views/piket/penugasan.blade.php` kini menampilkan setiap
+slot penugasan dalam kartu vertikal full-width; informasi slot, status, dropdown, dan tombol
+aksi tersusun ke bawah agar lebih mudah dipakai dari layar HP. Form lapor ketidakhadiran di
+`tugas-saya.blade.php` memakai layout landscape dua kolom di desktop dan portrait satu kolom
+di mobile. Menu dan route Dashboard Piket/Rekap Bulanan dihapus sesuai keputusan FL;
+dashboard utama guru piket tetap menampilkan ketidakhadiran dan tugas berdasarkan jadwal
+piket aktif pada hari tersebut.
 
 ## Fase 4: Distribusi Tugas ke Kelas — SELESAI (task 1-12, termasuk perluasan Ruang Kelas)
 
@@ -57,7 +66,7 @@ Ref: `features/04-distribusi-tugas-kelas.md`
 - [x] 11 `TugasKelasFactory` + `TugasKelasSeeder` (idempoten) — diverifikasi jalan, idempoten, data contoh dibersihkan (scoped delete untuk baris `agendas` terkait, bukan truncate)
 - [x] 12 **(baru)** Terbit ke Ruang Kelas siswa — migration `2026_07_31_150000_add_classroom_assignment_to_tugas_kelas.php`, `ClassroomService::subjectRoom()`/`linkToKelas()` dipakai (bukan sistem paralel), `ClassroomAssignment` published + `ClassroomAssignmentFile` (file disalin ke disk `public`). Diverifikasi: siswa sungguhan lolos `ClassroomPolicy::view()` asli. Lihat PRD §10.
 
-## Fase 5: Dashboard & Rekap Kepala Sekolah — SELESAI, sudah lolos QA pass
+## Fase 5: Dashboard & Rekap Kepala Sekolah — DIHAPUS DARI NAVIGASI (keputusan FL)
 
 Ref: `features/05-dashboard-rekap-kepala-sekolah.md`
 

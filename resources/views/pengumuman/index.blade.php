@@ -24,7 +24,10 @@
                     <i data-lucide="megaphone" class="w-5 h-5"></i>
                 </div>
                 <div class="min-w-0 flex-1">
-                    <a href="{{ route('pengumuman.show', $p) }}" class="font-bold text-slate-800 dark:text-slate-100 hover:underline">{{ $p->judul }}</a>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <a href="{{ route('pengumuman.show', $p) }}" class="font-bold text-slate-800 dark:text-slate-100 hover:underline">{{ $p->judul }}</a>
+                        <span class="badge bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 font-bold">Penting</span>
+                    </div>
                     <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">{{ \Illuminate\Support\Str::limit(strip_tags($p->isi), 160) }}</p>
                     <div class="flex items-center flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] text-slate-400">
                         <span class="inline-flex items-center gap-1"><i data-lucide="user" class="w-3 h-3"></i>{{ $p->pembuat?->displayName() ?? 'Sistem' }}</span>
