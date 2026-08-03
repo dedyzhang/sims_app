@@ -70,6 +70,24 @@
     {{-- TAB 2: Menunggu validasi rekening koran --}}
     <div x-show="tab==='validasi'" x-transition.opacity x-cloak class="space-y-3">
         <p class="text-xs text-slate-500 dark:text-slate-400 px-1">Cocokkan dana masuk dengan <span class="font-semibold">rekening koran resmi bank</span>, lalu tandai <span class="font-semibold text-emerald-600 dark:text-emerald-400">lunas</span>.</p>
+
+        {{-- Import otomatis dari laporan transaksi VA (.txt) bank --}}
+        <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-start gap-3">
+                <span class="w-9 h-9 rounded-xl bg-sky-100 dark:bg-sky-900 text-sky-600 dark:text-sky-300 grid place-items-center flex-shrink-0"><i data-lucide="file-up" class="w-4 h-4"></i></span>
+                <div>
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Upload Laporan Transaksi VA (.txt)</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Cocok otomatis via 6 digit belakang VA siswa &amp; nominal — langsung ditandai lunas. Yang tak cocok pasti tetap perlu ditinjau manual di bawah.</p>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('keuangan.import-rekening-koran') }}" enctype="multipart/form-data" class="flex items-center gap-2">
+                @csrf
+                <input type="file" name="file" accept=".txt" required
+                       class="text-xs file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-primary/10 file:text-primary file:text-xs file:font-semibold hover:file:bg-primary/20">
+                <button type="submit" class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap">Proses</button>
+            </form>
+        </div>
+
         @forelse($terverifikasiGroups as $group)
             @include('keuangan.partials.verif-card', ['group' => $group, 'mode' => 'validate'])
         @empty

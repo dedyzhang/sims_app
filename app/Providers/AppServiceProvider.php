@@ -34,16 +34,22 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(User::class, MissionProgressPolicy::class);
         Gate::policy(Mission::class, MissionPolicy::class);
 
-        // Rate limiter login: cegah brute force username/password & PIN.
-        // Di-key per (kredensial + IP) agar penyerang tak bisa men-stuff banyak
-        // password ke satu akun, dan satu IP tak bisa menebak banyak akun.
+        // Rate limiter login: cegah brute force password/PIN pada SATU akun.
+        // Sengaja HANYA di-key per (kredensial + IP), TANPA batas per-IP terpisah —
+        // sekolah ini bisa punya ~2000 user login serentak dari WiFi yang sama (1 IP
+        // NAT), jadi batas per-IP akan memblokir massal orang yang kredensialnya benar.
+        // Limiter per-akun ini aman dari skenario itu: tiap siswa pakai username
+        // sendiri-sendiri, jadi tak pernah kena limit walau ribuan login bersamaan —
+        // limiter baru nyala kalau ADA yang berulang kali salah password di SATU akun
+        // yang sama (brute force), bukan soal banyaknya user serentak.
         RateLimiter::for('login', function (Request $request) {
             $credential = Str::lower((string) $request->input('credential'));
 
-            return [
-                Limit::perMinute(5)->by($credential . '|' . $request->ip()),
-                Limit::perMinute(20)->by($request->ip()),
-            ];
+            return Limit::perMinute(5)->by($credential . '|' . $request->ip())->response(
+                fn (Request $request, array $headers) => $request->expectsJson()
+                    ? response()->json(['message' => 'Terlalu banyak percobaan login untuk akun ini. Coba lagi sebentar lagi.'], 429, $headers)
+                    : back()->withErrors(['credential' => 'Terlalu banyak percobaan login untuk akun ini. Coba lagi sebentar lagi.'])->withHeaders($headers)
+            );
         });
 
         // WebAuthn: samakan Relying Party ID dengan host yang sedang diakses

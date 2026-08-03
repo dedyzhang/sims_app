@@ -1017,6 +1017,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/verifikasi/validate', [KeuanganController::class, 'validateBatch'])->name('validate-batch');
         Route::post('/verifikasi/revise', [KeuanganController::class, 'reviseBatch'])->name('revise-batch');
         Route::post('/verifikasi/reject', [KeuanganController::class, 'rejectBatch'])->name('reject-batch');
+        Route::post('/verifikasi/import-rekening-koran', [KeuanganController::class, 'importRekeningKoran'])->name('import-rekening-koran');
         Route::get('/bank', [KeuanganController::class, 'bank'])->name('bank');
         Route::post('/bank', [KeuanganController::class, 'bankUpdate'])->name('bank.update');
         Route::get('/kelas/{kelas}', [KeuanganController::class, 'kelas'])->name('kelas');
