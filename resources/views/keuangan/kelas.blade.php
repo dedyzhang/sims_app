@@ -146,7 +146,7 @@
 
     {{-- Modal editor sel --}}
     <div x-show="open" x-transition.opacity style="display:none" class="fixed inset-0 z-[9990] grid place-items-center p-4 bg-slate-900/50 backdrop-blur-sm" @click.self="open=false">
-        <div class="card !rounded-2xl w-full max-w-md p-5 space-y-4" @click.stop>
+        <div class="card !rounded-2xl w-full max-w-md lg:max-w-4xl p-5 space-y-4 max-h-[92vh] overflow-y-auto" @click.stop>
             <div class="flex items-start justify-between">
                 <div>
                     <h3 class="font-bold text-slate-800 dark:text-slate-100" x-text="cell.siswa"></h3>
@@ -155,76 +155,84 @@
                 <button @click="open=false" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
 
-            {{-- Bukti --}}
-            <template x-if="cell.bukti">
-                <a :href="cell.bukti" target="_blank" class="block rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 hover:opacity-90">
-                    <img :src="cell.bukti" alt="Bukti" class="w-full max-h-48 object-contain bg-slate-50 dark:bg-slate-900">
-                    <p class="text-center text-xs text-slate-500 dark:text-slate-400 py-1.5 flex items-center justify-center gap-1"><i data-lucide="external-link" class="w-3 h-3"></i> Lihat bukti <span x-show="cell.bank" x-text="'· '+cell.bank"></span></p>
-                </a>
-            </template>
+            {{-- Desktop: 2 kolom berdampingan agar tak perlu scroll. Mobile: tetap 1 kolom (default, tanpa prefix lg:). --}}
+            <div class="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-5 lg:gap-5">
+                <div class="lg:col-span-2 space-y-4">
+                    {{-- Bukti --}}
+                    <template x-if="cell.bukti">
+                        <a :href="cell.bukti" target="_blank" class="block rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 hover:opacity-90">
+                            <img :src="cell.bukti" alt="Bukti" class="w-full max-h-48 object-contain bg-slate-50 dark:bg-slate-900">
+                            <p class="text-center text-xs text-slate-500 dark:text-slate-400 py-1.5 flex items-center justify-center gap-1"><i data-lucide="external-link" class="w-3 h-3"></i> Lihat bukti <span x-show="cell.bank" x-text="'· '+cell.bank"></span></p>
+                        </a>
+                    </template>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div class="col-span-2">
-                    <label class="form-label mb-2">Status</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50" :class="cell.status === 'belum' && 'bg-primary/5 border-primary text-primary font-semibold'">
-                            <input type="radio" value="belum" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
-                            <span>Belum bayar</span>
-                        </label>
-                        <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50" :class="cell.status === 'menunggu' && 'bg-primary/5 border-primary text-primary font-semibold'">
-                            <input type="radio" value="menunggu" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
-                            <span>Menunggu</span>
-                        </label>
-                        <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50" :class="cell.status === 'terverifikasi' && 'bg-primary/5 border-primary text-primary font-semibold'">
-                            <input type="radio" value="terverifikasi" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
-                            <span>Terverifikasi</span>
-                        </label>
-                        <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50" :class="cell.status === 'lunas' && 'bg-primary/5 border-primary text-primary font-semibold'">
-                            <input type="radio" value="lunas" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
-                            <span>Lunas</span>
-                        </label>
-                        <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 col-span-2" :class="cell.status === 'ditolak' && 'bg-primary/5 border-primary text-primary font-semibold'">
-                            <input type="radio" value="ditolak" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
-                            <span>Ditolak</span>
-                        </label>
-                    </div>
-                </div>
-                <div>
-                    <label class="form-label">Nominal (Rp)</label>
-                    <input type="number" min="0" x-model.number="cell.nominal" class="form-input text-sm">
-                </div>
-                <div>
-                    <label class="form-label">Tgl Bayar <span class="text-rose-500" x-show="cell.status !== 'belum'">*</span></label>
-                    <input type="date" x-model="cell.tanggal_bayar" class="form-input text-sm">
-                </div>
-                <div class="col-span-2" x-show="cell.status==='ditolak'">
-                    <label class="form-label">Catatan / alasan tolak</label>
-                    <input type="text" x-model="cell.catatan" maxlength="500" class="form-input text-sm" placeholder="mis. Nominal kurang / bukti buram">
-                </div>
-                <div class="col-span-2">
-                    <label class="form-label">Catatan untuk orang tua (opsional)</label>
-                    <textarea x-model="cell.catatan_bendahara" maxlength="500" rows="2" class="form-input text-sm" placeholder="mis. Sudah dapat potongan yatim piatu / termasuk biaya study tour bulan ini"></textarea>
-                    <p class="text-[11px] text-slate-400 mt-1">Tampil ke orang tua di halaman tagihan bulan ini, apa pun statusnya. Tidak ikut terhapus saat status diubah.</p>
-                </div>
-
-                {{-- Pilihan Bulan Pembayaran (Bulk) --}}
-                <div class="col-span-2 border-t border-slate-100 dark:border-slate-700/60 pt-3">
-                    <div class="flex justify-between items-center mb-2">
-                        <label class="form-label !mb-0 font-semibold text-slate-700 dark:text-slate-300">Terapkan untuk Bulan:</label>
-                        <div class="flex gap-2 text-[11px]">
-                            <button type="button" @click="selectAll()" class="text-primary hover:underline font-medium">Pilih Semua</button>
-                            <span class="text-slate-300 dark:text-slate-600">|</span>
-                            <button type="button" @click="resetSelection()" class="text-slate-500 hover:underline font-medium">Reset</button>
+                    <div>
+                        <label class="form-label mb-2">Status</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50" :class="cell.status === 'belum' && 'bg-primary/5 border-primary text-primary font-semibold'">
+                                <input type="radio" value="belum" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
+                                <span>Belum bayar</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50" :class="cell.status === 'menunggu' && 'bg-primary/5 border-primary text-primary font-semibold'">
+                                <input type="radio" value="menunggu" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
+                                <span>Menunggu</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50" :class="cell.status === 'terverifikasi' && 'bg-primary/5 border-primary text-primary font-semibold'">
+                                <input type="radio" value="terverifikasi" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
+                                <span>Terverifikasi</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50" :class="cell.status === 'lunas' && 'bg-primary/5 border-primary text-primary font-semibold'">
+                                <input type="radio" value="lunas" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
+                                <span>Lunas</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200 cursor-pointer p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 col-span-2" :class="cell.status === 'ditolak' && 'bg-primary/5 border-primary text-primary font-semibold'">
+                                <input type="radio" value="ditolak" x-model="cell.status" class="text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
+                                <span>Ditolak</span>
+                            </label>
                         </div>
                     </div>
-                    <div class="grid grid-cols-4 gap-1.5">
-                        <template x-for="b in bulanList" :key="b.idx">
-                            <label class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 cursor-pointer p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                                   :class="selectedBulans.includes(b.idx) ? 'bg-primary/5 border-primary text-primary font-semibold' : ''">
-                                <input type="checkbox" :value="b.idx" x-model="selectedBulans" class="rounded text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
-                                <span x-text="b.label.substring(0,3)"></span>
-                            </label>
-                        </template>
+                </div>
+
+                <div class="lg:col-span-3 space-y-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="form-label">Nominal (Rp)</label>
+                            <input type="number" min="0" x-model.number="cell.nominal" class="form-input text-sm">
+                        </div>
+                        <div>
+                            <label class="form-label">Tgl Bayar <span class="text-rose-500" x-show="cell.status !== 'belum'">*</span></label>
+                            <input type="date" x-model="cell.tanggal_bayar" class="form-input text-sm">
+                        </div>
+                    </div>
+                    <div x-show="cell.status==='ditolak'">
+                        <label class="form-label">Catatan / alasan tolak</label>
+                        <input type="text" x-model="cell.catatan" maxlength="500" class="form-input text-sm" placeholder="mis. Nominal kurang / bukti buram">
+                    </div>
+                    <div>
+                        <label class="form-label">Catatan untuk orang tua (opsional)</label>
+                        <textarea x-model="cell.catatan_bendahara" maxlength="500" rows="2" class="form-input text-sm" placeholder="mis. Sudah dapat potongan yatim piatu / termasuk biaya study tour bulan ini"></textarea>
+                        <p class="text-[11px] text-slate-400 mt-1">Tampil ke orang tua di halaman tagihan bulan ini, apa pun statusnya. Tidak ikut terhapus saat status diubah.</p>
+                    </div>
+
+                    {{-- Pilihan Bulan Pembayaran (Bulk) --}}
+                    <div class="border-t border-slate-100 dark:border-slate-700/60 pt-3">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="form-label !mb-0 font-semibold text-slate-700 dark:text-slate-300">Terapkan untuk Bulan:</label>
+                            <div class="flex gap-2 text-[11px]">
+                                <button type="button" @click="selectAll()" class="text-primary hover:underline font-medium">Pilih Semua</button>
+                                <span class="text-slate-300 dark:text-slate-600">|</span>
+                                <button type="button" @click="resetSelection()" class="text-slate-500 hover:underline font-medium">Reset</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-4 gap-1.5">
+                            <template x-for="b in bulanList" :key="b.idx">
+                                <label class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 cursor-pointer p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                                       :class="selectedBulans.includes(b.idx) ? 'bg-primary/5 border-primary text-primary font-semibold' : ''">
+                                    <input type="checkbox" :value="b.idx" x-model="selectedBulans" class="rounded text-primary focus:ring-primary border-slate-300 dark:border-slate-600">
+                                    <span x-text="b.label.substring(0,3)"></span>
+                                </label>
+                            </template>
+                        </div>
                     </div>
                 </div>
             </div>
