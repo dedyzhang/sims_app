@@ -168,6 +168,8 @@ class NotificationGate
             'arena_live' => self::isClassroomMember($user, $data['classroom_id'] ?? null, $preload),
             'grup_chat_digest' => self::isGrupChatMemberOfAny($user, $data['groups'] ?? [], $preload),
             'sarpras_kerusakan', 'sarpras_pemeliharaan' => self::canViewSarpras($user),
+            'jadwal_harian', 'jadwal_sesi', 'jadwal_agenda' => true, // personal: hanya pernah disimpan di user guru target
+
             'presensi_terlambat', 'presensi_izin_pulang' => in_array($user->access, ['kepala', 'admin', 'superadmin'], true),
             default => self::canViewByUrl($user, $data),
         };
