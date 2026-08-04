@@ -157,7 +157,23 @@ class NotificationController extends Controller
     public function storeFcmToken(Request $request)
     {
         $user = $request->user();
+
+        // Log SETIAP percobaan (bukan cuma yg sukses) — tabel user_fcm_tokens yg tetap
+        // kosong itu sendiri tak cukup utk tahu di titik mana alurnya putus (request tak
+        // pernah sampai dari APK? sesi tak dikenali? validasi gagal?). Baris log ini yg
+        // jadi bukti pertama request beneran sampai ke server.
+        \Illuminate\Support\Facades\Log::info('FCM token: percobaan registrasi masuk', [
+            'authenticated'    => (bool) $user,
+            'user_uuid'        => $user?->uuid,
+            'punya_token'      => $request->filled('token'),
+            'panjang_token'    => strlen((string) $request->input('token', '')),
+            'device_type'      => $request->input('device_type'),
+            'ip'               => $request->ip(),
+            'user_agent'       => $request->userAgent(),
+        ]);
+
         if (! $user) {
+            \Illuminate\Support\Facades\Log::warning('FCM token: ditolak, request tidak terautentikasi (sesi/cookie tak terbawa dari WebView?)');
             return response()->json(['ok' => false], 401);
         }
 
@@ -172,6 +188,8 @@ class NotificationController extends Controller
             ['token' => $data['token']],
             ['user_uuid' => $user->uuid, 'device_type' => $data['device_type'] ?? null],
         );
+
+        \Illuminate\Support\Facades\Log::info('FCM token: berhasil disimpan', ['user_uuid' => $user->uuid]);
 
         return response()->json(['ok' => true]);
     }

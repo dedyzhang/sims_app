@@ -258,6 +258,11 @@ function selfEnroll(opts){
                 setTimeout(()=> window.lucide && lucide.createIcons(), 40);
             } catch(e){
                 this.loading=false;
+                // Kalau kamera sudah nyala tapi model AI gagal dimuat, jangan biarkan
+                // tombol Ambil Sampel tetap aktif — akan crash "Cannot read properties
+                // of null (reading 'run')" krn sesi modelnya belum ada.
+                this.streaming=false;
+                this.stream?.getTracks().forEach(t => t.stop());
                 this.status='Gagal: ' + (e.name==='NotAllowedError' ? 'akses kamera ditolak' : e.message);
             }
         },

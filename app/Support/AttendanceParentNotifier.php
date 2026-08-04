@@ -12,19 +12,25 @@ class AttendanceParentNotifier
     /**
      * Kirim notifikasi ke orang tua saat status absensi siswa berubah
      * (hadir / izin / sakit / alpa). Diam jika status sama (anti-spam).
+     *
+     * $siswa opsional: kalau pemanggil SUDAH punya Siswa (dgn relasi kelas+orangtua.user
+     * ter-eager-load) dari query lain, teruskan di sini supaya tak query ulang per
+     * pemanggilan — penting utk pemanggil yg memberi notifikasi ke BANYAK siswa sekaligus
+     * (mis. AbsensiController::store() utk satu kelas), krn tanpa ini tiap panggilan query
+     * Siswa::find() sendiri (N query utk N siswa).
      */
-    public static function notifyIfStatusChanged(?string $previousStatus, Absensi $absensi): void
+    public static function notifyIfStatusChanged(?string $previousStatus, Absensi $absensi, ?Siswa $siswa = null): void
     {
         if ($previousStatus === $absensi->status) {
             return;
         }
 
-        self::notify($absensi);
+        self::notify($absensi, $siswa);
     }
 
-    public static function notify(Absensi $absensi): void
+    public static function notify(Absensi $absensi, ?Siswa $siswa = null): void
     {
-        $siswa = Siswa::with(['kelas', 'orangtua.user'])->find($absensi->id_siswa);
+        $siswa = $siswa ?? Siswa::with(['kelas', 'orangtua.user'])->find($absensi->id_siswa);
         $parentUser = $siswa?->orangtua?->user;
 
         if (! $siswa) {

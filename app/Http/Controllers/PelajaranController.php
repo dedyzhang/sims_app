@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Jadwal;
+use App\Models\Ngajar;
 use App\Models\Pelajaran;
 use Illuminate\Http\Request;
 
@@ -38,7 +40,20 @@ class PelajaranController extends Controller
 
     public function destroy(string $uuid)
     {
-        Pelajaran::findOrFail($uuid)->delete();
+        $pelajaran = Pelajaran::findOrFail($uuid);
+
+        // Tanpa guard ini, penugasan guru (Ngajar)/jadwal yg masih memakai mapel ini jadi
+        // nyangkut (id_pelajaran valid tapi barisnya sudah tak ada) — halaman Ruang Kelas
+        // & Jadwal yg membaca relasi itu lalu crash "Missing required parameter" saat coba
+        // bikin link ke mapel yg sudah tak ada.
+        if (Ngajar::where('id_pelajaran', $uuid)->exists() || Jadwal::where('id_pelajaran', $uuid)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mata pelajaran ini masih dipakai di penugasan guru dan/atau jadwal — hapus dulu penugasan/jadwalnya sebelum menghapus mata pelajaran ini.',
+            ], 422);
+        }
+
+        $pelajaran->delete();
         return response()->json(['success' => true, 'message' => 'Pelajaran dihapus.']);
     }
 

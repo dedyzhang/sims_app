@@ -29,11 +29,20 @@
         // browser yang sama yg mungkin sedang login sbg user lain.
         $kioskChrome = (bool) ($isKiosk ?? false);
         $isPanduanPage = request()->routeIs('panduan.visual');
-        // $access/$isAdmin dipakai di luar blok sidebar juga (mis. floating chat) — jadi
-        // dihitung di sini, bukan cuma di dalam <aside> yang bisa disembunyikan (mode kiosk).
+        // $access/$isAdmin/$modulOn/$activeGroups dipakai di luar blok sidebar juga (mis.
+        // floating chat, script badge Grup Chat) — jadi dihitung di sini, bukan cuma di dalam
+        // <aside> yang bisa disembunyikan (mode kiosk). Definisi di dalam <aside> sengaja TIDAK
+        // dihapus (redefinisi yg identik itu aman) supaya diff perubahan ini tetap kecil.
         $access  = auth()->user()?->access;
         $isAdmin = in_array($access, ['superadmin','admin']);
         $canManageFeedback = auth()->user()?->canAccess('manage_feedback') ?? false;
+        $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
+        // Default aman (array kosong) — nilai sungguhan cuma dihitung di dalam <aside>. Dulu
+        // $activeGroups di skrip badge (baris ~1548) cuma lolos di mode kios krn kebetulan
+        // ditulis dgn fallback `?? []`; kalau fallback itu suatu saat dihapus tanpa sadar, bug
+        // "Undefined variable" yg sama persis dgn $modulOn akan muncul lagi. Definisi di sini
+        // menutup celah itu tanpa bergantung pada fallback yg gampang lupa.
+        $activeGroups = [];
         // Badge kosmetik — JANGAN sampai menjatuhkan seluruh halaman kalau tabelnya belum
         // dimigrasikan (mis. baru deploy, migration belum jalan → tampil blank di production).
         $feedbackUnreadCount = 0;
@@ -655,14 +664,6 @@
                             ['piket.penugasan', ['piket.penugasan*'], 'user-cog', 'Penugasan Pengganti'],
                             ['piket.tugas', ['piket.tugas', 'piket.tugas.unduh'], 'briefcase', 'Tugas Kelas'],
                         ];
-                        
-                        if (in_array($access, ['kepala', 'kurikulum', 'admin', 'superadmin'])) {
-                            $piketItems[] = ['piket.dashboard', ['piket.dashboard'], 'layout-dashboard', 'Dashboard Piket'];
-                        }
-                        
-                        if (in_array($access, ['kepala', 'admin', 'superadmin'])) {
-                            $piketItems[] = ['piket.rekap', ['piket.rekap'], 'file-bar-chart', 'Rekap Bulanan'];
-                        }
                     }
                     
                     // Semua guru bisa melapor ketidakhadiran mandiri / isi tugas
@@ -682,7 +683,8 @@
                 // dan bikin seluruh layout (dipakai di semua halaman) crash.
                 $jenisAturan = \App\Models\Setting::get('jenis_aturan', 'p3');
                 $bolehKelolaDisiplin = $isAdmin || auth()->user()?->canAccess('manage_disiplin');
-                $bolehAjukanDisiplin = auth()->user()?->guru || (auth()->user()?->siswa && \App\Models\Sekretaris::where('id_siswa', auth()->user()->siswa->uuid)->exists());
+                $sekretarisKelasId = auth()->user()?->siswa?->sekretarisKelasId();
+                $bolehAjukanDisiplin = auth()->user()?->guru || $sekretarisKelasId;
                 $bolehLihatDisiplin = auth()->user()?->siswa || $access === 'orangtua';
                 $disiplinItems = [];
                 if ($modulOn('disiplin')) {
@@ -763,6 +765,17 @@
                     }
 
                     $groups['walikelas'] = ['Wali Kelas', 'presentation', $walikelasItems];
+                }
+
+                // ── Sekretaris Kelas (siswa yg ditunjuk wali kelas) ──
+                // "Ajukan Poin/P3" sekretaris sudah tampil di grup Kedisiplinan di atas
+                // ($bolehAjukanDisiplin); di sini cuma menu absensi krn beda modul (absensi vs
+                // disiplin) — kalau digabung ke grup lain, menu itu ikut hilang saat modul
+                // disiplin/absensi yg lain sedang off.
+                if ($sekretarisKelasId && $modulOn('absensi')) {
+                    $groups['sekretaris'] = ['Sekretaris Kelas', 'clipboard-check', [
+                        ['absensi.index', ['absensi.*'], 'clipboard-check', 'Absensi Kelas Saya'],
+                    ]];
                 }
 
                 // ── Sarana & Prasarana ──
@@ -887,6 +900,8 @@
                 <i data-lucide="megaphone" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate flex-1">Pengumuman</span>
                 <span x-show="pengumumanUnread > 0 && !mini" x-cloak x-text="pengumumanUnread > 99 ? '99+' : pengumumanUnread"
+                      title="Pengumuman penting belum dibaca"
+                      :aria-label="pengumumanUnread + ' pengumuman penting belum dibaca'"
                       class="ml-auto inline-flex min-w-[1.25rem] h-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-black text-white shadow-sm shadow-rose-500/30"></span>
                 <span x-show="pengumumanUnread > 0 && mini" x-cloak
                       class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
@@ -1768,13 +1783,13 @@
                 if (t === 'pengumuman') return 'megaphone';
                 if (t === 'absensi_siswa') return 'clipboard-check';
                 if (t === 'forum_reply') return 'messages-square';
-                if (t === 'classroom_comment') return 'graduation-cap';
-                if (t === 'chatbot_inbox' || t === 'chatbot_admin_reply') return 'message-circle';
+                 if (t === 'classroom_comment') return 'graduation-cap';
+                 if (t === 'chatbot_inbox' || t === 'chatbot_admin_reply' || t === 'private_chat') return 'message-circle';
                 return (n.data && (n.data.url || n.data.laporan_id)) ? 'bell' : 'bell';
             },
             notifColor(n) {
                 const t = (n.data || {}).type;
-                if (t === 'pengumuman' || t === 'forum_reply') return 'var(--cp)';
+                 if (t === 'pengumuman' || t === 'forum_reply' || t === 'private_chat') return 'var(--cp)';
                 return 'var(--ca)';
             },
             async markAllAsRead() {

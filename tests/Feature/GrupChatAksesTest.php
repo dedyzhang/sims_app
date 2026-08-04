@@ -158,6 +158,33 @@ class GrupChatAksesTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_daftar_anggota_mengirim_status_led_dan_last_seen_tanpa_timestamp_mentah(): void
+    {
+        $this->siswa7a->forceFill(['last_seen_at' => now()->subMinute()])->saveQuietly();
+        $this->siswa7b->forceFill(['last_seen_at' => null])->saveQuietly();
+
+        $response = $this->actingAs($this->wali7a)
+            ->getJson(route('grup.members', $this->grupKelas($this->kelas7a)))
+            ->assertOk();
+
+        $response->assertJsonFragment([
+            'id' => $this->siswa7a->uuid,
+            'is_online' => true,
+            'presence' => 'online',
+            'last_seen' => 'Online',
+        ]);
+        $response->assertJsonMissing(['last_seen_at']);
+    }
+
+    public function test_daftar_anggota_diurutkan_alfabetis_berdasarkan_nama(): void
+    {
+        $response = $this->actingAs($this->wali7a)
+            ->getJson(route('grup.members', $this->grupKelas($this->kelas7a)))
+            ->assertOk();
+
+        $this->assertSame(['Andi', 'Bu Ani'], $response->json('*.nama'));
+    }
+
     public function test_admin_melihat_semua_grup(): void
     {
         foreach ([$this->kelas7a, $this->kelas7b] as $kelas) {

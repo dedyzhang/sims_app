@@ -410,6 +410,37 @@ class ChatbotIntegrationTest extends TestCase
         ])->assertStatus(422);
     }
 
+    public function test_admin_dapat_membuka_foto_yg_dikirim_siswa(): void
+    {
+        // Route lampiran sempat ikut middleware chatbot.user (khusus widget penanya),
+        // yg secara eksplisit menolak admin/superadmin — padahal admin justru WAJIB bisa
+        // buka lampiran dari Inbox. userCanAccess() di controller sudah benar (pemilik ATAU
+        // admin), tapi middleware-nya memblokir duluan sebelum controller sempat jalan.
+        $siswa = $this->makeUser('siswa', 'siswa_foto_admin');
+        $admin = $this->makeUser('admin', 'admin_lihat_foto');
+
+        $this->actingAs($siswa)->postJson('/chatbot/upload', [
+            'image' => UploadedFile::fake()->image('bukti.jpg', 10, 10),
+        ])->assertOk();
+
+        $message = \App\Models\ChatbotMessage::where('sender', 'user')->whereNotNull('attachment_path')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('chatbot.attachment', $message))
+            ->assertOk();
+
+        // Siswa pemilik percakapan tetap boleh buka lampirannya sendiri.
+        $this->actingAs($siswa)
+            ->get(route('chatbot.attachment', $message))
+            ->assertOk();
+
+        // User LAIN yg bukan pemilik & bukan admin tetap ditolak.
+        $lain = $this->makeUser('siswa', 'siswa_lain_foto');
+        $this->actingAs($lain)
+            ->get(route('chatbot.attachment', $message))
+            ->assertForbidden();
+    }
+
     public function test_bot_menjawab_pertanyaan_howto_dari_faq(): void
     {
         $siswa = $this->makeUser('siswa', 'siswa_faq');

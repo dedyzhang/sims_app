@@ -57,8 +57,8 @@
     @else
     <div class="space-y-3">
         <template x-for="row in rows" :key="row.id">
-            <div class="card p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                <div class="flex-1 min-w-0">
+            <div class="card w-full p-4 sm:p-5 flex flex-col items-stretch gap-4">
+                <div class="w-full min-w-0">
                     <p class="font-bold text-slate-800 dark:text-slate-100" x-text="row.pelajaran"></p>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                         <span class="inline-flex items-center gap-1"><i data-lucide="user-round-x" class="w-3.5 h-3.5"></i> <span x-text="row.guru_absen"></span> tidak hadir</span>
@@ -66,7 +66,7 @@
                         <span class="inline-flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> <span x-text="row.jam_mulai"></span>–<span x-text="row.jam_selesai"></span></span>
                     </p>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                <div class="w-full flex flex-col items-stretch gap-3">
                     <span class="badge" :class="{
                         'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300': row.status === 'menunggu',
                         'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300': row.status === 'ditugaskan',
@@ -75,17 +75,19 @@
 
                     @if($bolehKelola)
                     <template x-if="row.status === 'menunggu'">
-                        <div class="flex items-center gap-1.5">
-                            <select x-model="row._pilih" class="form-input !py-1.5 text-xs">
+                        <div class="w-full flex flex-col gap-2">
+                            <select x-model="row._pilih" class="form-input w-full !py-2.5 text-sm">
                                 <option value="">Pilih pengganti...</option>
                                 <template x-for="g in row.guru_tersedia" :key="g.uuid"><option :value="g.uuid" x-text="g.nama"></option></template>
                             </select>
-                            <button type="button" @click="assign(row)" :disabled="!row._pilih || busy" class="btn-primary px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40">Tugaskan</button>
-                            <button type="button" @click="ambilAlih(row)" :disabled="busy" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 whitespace-nowrap">Saya yang masuk</button>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <button type="button" @click="assign(row)" :disabled="!row._pilih || busy" class="btn-primary w-full px-3 py-2.5 rounded-lg text-sm font-bold disabled:opacity-40">Tugaskan</button>
+                                <button type="button" @click="ambilAlih(row)" :disabled="busy" class="w-full px-3 py-2.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-600">Saya yang masuk</button>
+                            </div>
                         </div>
                     </template>
                     <template x-if="row.status === 'ditugaskan'">
-                        <button type="button" @click="selesai(row)" :disabled="busy" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 dark:border-emerald-800 text-emerald-600">Tandai Selesai</button>
+                        <button type="button" @click="selesai(row)" :disabled="busy" class="w-full px-3 py-2.5 rounded-lg text-sm font-semibold border border-emerald-200 dark:border-emerald-800 text-emerald-600">Tandai Selesai</button>
                     </template>
                     @endif
                 </div>

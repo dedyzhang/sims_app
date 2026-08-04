@@ -3,7 +3,7 @@
 @section('title', 'Jadwal Piket Guru')
 
 @section('content')
-<div class="px-4 py-8 max-w-4xl mx-auto space-y-6" x-data="jadwalPiket({{ Js::from($rows) }}, '{{ route('piket.jadwal.simpan') }}')">
+<div class="px-4 py-8 max-w-4xl mx-auto space-y-6" x-data="jadwalPiket({{ Js::from($rows) }}, {{ Js::from($ketua) }}, '{{ route('piket.jadwal.simpan') }}')">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <h1 class="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
@@ -11,7 +11,7 @@
                 Pengaturan Jadwal Piket
             </h1>
             <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-                Tentukan hari piket untuk masing-masing guru. Jadwal ini akan berulang setiap minggunya.
+                Tentukan hari piket dan satu ketua untuk setiap hari Senin sampai Jumat. Jadwal ini akan berulang setiap minggunya.
             </p>
         </div>
         <div class="flex gap-2">
@@ -29,11 +29,11 @@
                 <thead class="bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-700">
                     <tr>
                         <th class="py-4 px-6 min-w-[200px]">Nama Guru</th>
-                        <th class="py-4 px-3 text-center w-24">Senin</th>
-                        <th class="py-4 px-3 text-center w-24">Selasa</th>
-                        <th class="py-4 px-3 text-center w-24">Rabu</th>
-                        <th class="py-4 px-3 text-center w-24">Kamis</th>
-                        <th class="py-4 px-3 text-center w-24">Jumat</th>
+                        <th class="py-4 px-3 text-center w-28">Senin</th>
+                        <th class="py-4 px-3 text-center w-28">Selasa</th>
+                        <th class="py-4 px-3 text-center w-28">Rabu</th>
+                        <th class="py-4 px-3 text-center w-28">Kamis</th>
+                        <th class="py-4 px-3 text-center w-28">Jumat</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
@@ -44,9 +44,16 @@
                             <!-- Checkbox mapping: 1=Senin ... 5=Jumat -->
                             <template x-for="h in 5">
                                 <td class="p-0 text-center relative group">
-                                    <label class="flex items-center justify-center w-full h-full py-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/80 transition">
-                                        <input type="checkbox" :value="h" x-model.number="row.hari" class="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600">
-                                    </label>
+                                    <div class="flex flex-col items-center gap-1.5 py-3">
+                                        <label class="inline-flex items-center gap-1.5 cursor-pointer text-xs text-slate-600 dark:text-slate-300">
+                                            <input type="checkbox" :value="h" x-model.number="row.hari" @change="if (!row.hari.includes(h) && ketua[h] === row.id) ketua[h] = ''" class="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary dark:focus:ring-primary dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600">
+                                            Piket
+                                        </label>
+                                        <label class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400" :class="!row.hari.includes(h) && 'opacity-40'">
+                                            <input type="radio" :name="'ketua-' + h" :value="row.id" x-model="ketua[h]" :disabled="!row.hari.includes(h)" class="w-3.5 h-3.5 text-amber-500 focus:ring-amber-500">
+                                            Ketua
+                                        </label>
+                                    </div>
                                 </td>
                             </template>
                         </tr>
@@ -63,11 +70,17 @@
 
 @push('scripts')
 <script>
-function jadwalPiket(initialRows, submitUrl) {
+function jadwalPiket(initialRows, initialKetua, submitUrl) {
     return {
         rows: initialRows,
+        ketua: initialKetua || {},
         busy: false,
         async simpan() {
+            const belumAdaKetua = [1, 2, 3, 4, 5].filter(h => !this.ketua[h]);
+            if (belumAdaKetua.length) {
+                showToast('Pilih ketua untuk setiap hari Senin sampai Jumat.', 'error');
+                return;
+            }
             this.busy = true;
             try {
                 const response = await fetch(submitUrl, {
@@ -77,7 +90,7 @@ function jadwalPiket(initialRows, submitUrl) {
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').getAttribute('content')
                     },
-                    body: JSON.stringify({ jadwal: this.rows })
+                    body: JSON.stringify({ jadwal: this.rows, ketua: this.ketua })
                 });
                 
                 if (!response.ok) {

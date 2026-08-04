@@ -38,7 +38,7 @@ class TugasKelasPolicy
         return $idGuru !== null && optional($penugasanPengganti->guruTidakHadir)->id_guru === $idGuru;
     }
 
-    /** Titip manual & konfirmasi — guru piket aktif pada tanggal slot terkait (atau admin). */
+    /** Titip manual & konfirmasi — ketua guru piket aktif pada tanggal slot terkait (atau admin). */
     public function manage(User $user, string $tanggal): bool
     {
         if ($user->isAdmin()) {
@@ -47,7 +47,7 @@ class TugasKelasPolicy
 
         $idGuru = optional($user->guru)->uuid;
 
-        return $idGuru !== null && JadwalPiket::isPiketAktif($idGuru, $tanggal);
+        return $idGuru !== null && JadwalPiket::isKetuaAktif($idGuru, $tanggal);
     }
 
     /** Unduh file — admin/kepala/kurikulum, guru piket hari itu, atau guru pemilik slot. */

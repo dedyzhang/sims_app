@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\GuruTidakHadir;
+use App\Models\Guru;
 use App\Models\PenugasanPengganti;
 use App\Services\Piket\JamKosongService;
 use Illuminate\Http\Request;
@@ -61,12 +62,34 @@ class PenugasanPenggantiController extends Controller
             'id_guru_pengganti' => ['required', 'string', 'exists:gurus,uuid'],
         ]);
 
-        $penugasanPengganti->update([
-            'id_guru_pengganti' => $data['id_guru_pengganti'],
-            'id_guru_piket' => null,
-            'status' => 'ditugaskan',
-        ]);
-        $penugasanPengganti->load('guruPengganti:uuid,nama');
+        $penugasanPengganti = DB::transaction(function () use ($penugasanPengganti, $data, $tanggal) {
+            $slot = PenugasanPengganti::with(['jadwal', 'guruTidakHadir'])
+                ->whereKey($penugasanPengganti->uuid)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_if($slot->status !== 'menunggu', 422, 'Jam ini sudah memiliki penugasan.');
+            abort_unless($slot->jadwal, 422, 'Jadwal sekolah untuk slot ini tidak ditemukan.');
+
+            // Serialisasi assignment untuk guru kandidat yang sama agar dua ketua
+            // piket tidak dapat memilih orang yang sama pada slot waktu bersamaan.
+            Guru::whereKey($data['id_guru_pengganti'])->lockForUpdate()->firstOrFail();
+            $tersedia = $this->jamKosong->guruTersediaUntuk($slot->jadwal, $tanggal);
+            abort_unless(
+                $tersedia->contains('uuid', $data['id_guru_pengganti']),
+                422,
+                'Guru tersebut sedang mengajar, tidak hadir, atau sudah ditugaskan pada jam yang sama.'
+            );
+
+            $slot->update([
+                'id_guru_pengganti' => $data['id_guru_pengganti'],
+                'id_guru_piket' => null,
+                'status' => 'ditugaskan',
+            ]);
+            $slot->load('guruPengganti:uuid,nama');
+
+            return $slot;
+        });
 
         activity('piket')
             ->causedBy(auth()->user())
@@ -85,12 +108,23 @@ class PenugasanPenggantiController extends Controller
         $idGuruPiket = auth()->user()->guru?->uuid;
         abort_unless($idGuruPiket, 422, 'Akun ini tidak memiliki profil guru.');
 
-        $penugasanPengganti->update([
-            'id_guru_pengganti' => null,
-            'id_guru_piket' => $idGuruPiket,
-            'status' => 'ditugaskan',
-        ]);
-        $penugasanPengganti->load('guruPiket:uuid,nama');
+        $penugasanPengganti = DB::transaction(function () use ($penugasanPengganti, $idGuruPiket) {
+            $slot = PenugasanPengganti::whereKey($penugasanPengganti->uuid)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_if($slot->status !== 'menunggu', 422, 'Jam ini sudah memiliki penugasan.');
+
+            $slot->update([
+                'id_guru_pengganti' => null,
+                'id_guru_piket' => $idGuruPiket,
+                'status' => 'ditugaskan',
+            ]);
+
+            $slot->load('guruPiket:uuid,nama');
+
+            return $slot;
+        });
 
         activity('piket')
             ->causedBy(auth()->user())
@@ -106,7 +140,16 @@ class PenugasanPenggantiController extends Controller
         $tanggal = $penugasanPengganti->guruTidakHadir->tanggal->toDateString();
         $this->authorize('manage', [PenugasanPengganti::class, $tanggal]);
 
-        $penugasanPengganti->update(['status' => 'selesai']);
+        $penugasanPengganti = DB::transaction(function () use ($penugasanPengganti) {
+            $slot = PenugasanPengganti::whereKey($penugasanPengganti->uuid)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_if($slot->status !== 'ditugaskan', 422, 'Hanya penugasan aktif yang dapat diselesaikan.');
+            $slot->update(['status' => 'selesai']);
+
+            return $slot;
+        });
 
         return response()->json($this->formatSlot($penugasanPengganti));
     }

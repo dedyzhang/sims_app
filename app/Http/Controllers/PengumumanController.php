@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Pengumuman;
 use App\Models\User;
 use App\Notifications\PengumumanBaru;
+use App\Services\GrupChatService;
+use App\Support\ModulAktif;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
 /*
@@ -15,6 +18,8 @@ use Illuminate\Support\Facades\Notification;
 */
 class PengumumanController extends Controller
 {
+    public function __construct(private GrupChatService $grupChatService) {}
+
     private function bolehKelola(): bool
     {
         return auth()->user()?->canAccess('manage_pengumuman') ?? false;
@@ -88,6 +93,20 @@ class PengumumanController extends Controller
             'target_roles' => $data['target_roles'],
             'created_by'   => $request->user()->uuid,
         ]);
+
+        // Grup Chat adalah jalur tambahan; kegagalannya tidak boleh membatalkan
+        // pengumuman utama dan notifikasi bell/FCM yang sudah ada.
+        if (ModulAktif::aktif('grup_chat') && $pengumuman->untukSemua()) {
+            try {
+                $this->grupChatService->broadcastPengumuman($pengumuman, $request->user());
+            } catch (\Throwable $e) {
+                Log::error('Broadcast pengumuman ke Grup Chat gagal.', [
+                    'pengumuman_uuid' => $pengumuman->uuid,
+                    'user_uuid' => $request->user()->uuid,
+                    'exception' => $e,
+                ]);
+            }
+        }
 
         $this->broadcastNotifikasi($pengumuman);
 

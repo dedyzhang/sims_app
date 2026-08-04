@@ -17,6 +17,7 @@ class GrupChatController extends Controller
 {
     /** Jumlah pesan yang dirender server-side saat halaman dibuka. */
     private const HALAMAN_AWAL = 50;
+    private const HALAMAN_RIWAYAT = 50;
 
     public function __construct(private GrupChatMessenger $messenger) {}
 
@@ -48,6 +49,8 @@ class GrupChatController extends Controller
             ->reverse()
             ->values();
 
+        $pesanPertama = $pesan->first();
+
         $this->tandaiTerbaca($grup, $member);
 
         $bolehKirim = $request->user()->can('send', $grup);
@@ -58,10 +61,40 @@ class GrupChatController extends Controller
             'pesan' => $pesan->map(fn ($p) => $this->messenger->serialize($p)),
             'lastSeq' => (int) $grup->last_seq,
             'batasSeq' => $batas,
+            'olderCursor' => $pesanPertama?->seq,
+            'adaRiwayatLama' => $pesanPertama !== null && (int) $pesanPertama->seq > $batas,
             'jumlahAnggota' => GrupChatMember::where('grup_id', $grup->uuid)->whereNull('left_at')->count(),
             'bolehKirim' => $bolehKirim,
             'bolehModerasi' => $request->user()->can('moderasi', $grup),
             'bolehBalasPengumuman' => $this->bolehBalasPengumuman($grup, $member, $bolehKirim),
+        ]);
+    }
+
+    /** Ambil batch pesan yang lebih lama dari cursor klien. */
+    public function older(Request $request, GrupChat $grup): JsonResponse
+    {
+        $this->authorize('view', $grup);
+
+        $member = $this->member($grup, $request->user());
+        $batas = $member?->batasSeq() ?? 0;
+        $before = max($batas, (int) $request->query('before', $grup->last_seq + 1));
+
+        $pesan = GrupChatMessage::where('grup_id', $grup->uuid)
+            ->where('seq', '<', $before)
+            ->where('seq', '>=', $batas)
+            ->orderByDesc('seq')
+            ->limit(self::HALAMAN_RIWAYAT)
+            ->get()
+            ->reverse()
+            ->values();
+
+        $serialized = $pesan->map(fn ($p) => $this->messenger->serialize($p))->values();
+        $nextBefore = $serialized->first()['seq'] ?? null;
+
+        return response()->json([
+            'messages' => $serialized->all(),
+            'next_before' => $nextBefore,
+            'has_more' => $nextBefore !== null && $nextBefore > $batas,
         ]);
     }
 
@@ -93,7 +126,10 @@ class GrupChatController extends Controller
         ];
 
         if ($after >= $lastSeq) {
-            return response()->json($meta + ['messages' => []]);
+            return response()->json($meta + [
+                'messages' => [],
+                'next_after' => $after,
+            ]);
         }
 
         $batas = max($after + 1, $member?->batasSeq() ?? 0);
@@ -106,42 +142,48 @@ class GrupChatController extends Controller
 
         $this->tandaiTerbaca($grup, $member);
 
+        $serialized = $pesan->map(fn ($p) => $this->messenger->serialize($p))->values();
+
+        // Jangan melompat langsung ke last_seq saat hasil dipotong LIMIT 200.
+        // Klien akan memakai cursor ini pada request berikutnya agar backlog besar
+        // tetap terkirim bertahap, bukan hilang dari percakapan.
         return response()->json($meta + [
-            'messages' => $pesan->map(fn ($p) => $this->messenger->serialize($p))->all(),
+            'messages' => $serialized->all(),
+            'next_after' => $serialized->last()['seq'] ?? $after,
         ]);
     }
 
     public function members(Request $request, GrupChat $grup): JsonResponse
     {
         $this->authorize('view', $grup);
+        $waliAktif = $this->member($grup, $request->user())?->peran === 'walikelas';
+        $targetPeran = $grup->isPaguyuban() ? 'orangtua' : 'siswa';
 
         $members = GrupChatMember::with(['user.guru:uuid,id_login,nama', 'user.siswa:uuid,id_login,nama'])
             ->where('grup_id', $grup->uuid)
             ->whereNull('left_at')
             ->get()
-            ->map(function ($m) {
+            ->map(function ($m) use ($grup, $waliAktif, $targetPeran) {
+                $target = $m->user;
+
                 return [
                     'id' => $m->user_id,
-                    'nama' => $m->user?->getNameAttribute() ?? 'Anggota',
+                    'nama' => $target?->getNameAttribute() ?? 'Anggota',
                     'peran' => $m->peran,
-                    'is_online' => $m->user ? $m->user->isOnline() : false,
+                    'is_online' => $target ? $target->isOnline() : false,
+                    'presence' => $target?->presenceStatus() ?? 'offline',
+                    'last_seen' => $target?->presenceLabel() ?? 'Tidak aktif',
+                    // Target sudah diverifikasi sebagai anggota aktif di query ini;
+                    // policy tetap ditegakkan ulang saat route start dipanggil.
+                    'private_chat_url' => $target && $waliAktif && $m->peran === $targetPeran
+                        ? route('grup.private.start', [$grup->uuid, $target->uuid])
+                        : null,
                 ];
             });
 
-        // Sort by peran: admin, walikelas, guru, orangtua, siswa, then by name
-        $sorted = $members->sortBy([
-            fn($a) => match($a['peran']) {
-                'admin' => 1,
-                'walikelas' => 2,
-                'guru' => 3,
-                'orangtua' => 4,
-                'siswa' => 5,
-                default => 9,
-            },
-            'nama',
-        ])->values();
+        $sorted = $members->sortBy(fn (array $member) => mb_strtolower($member['nama']))->values();
 
-        return response()->json($sorted);
+        return response()->json($sorted->values());
     }
 
     public function store(Request $request, GrupChat $grup): JsonResponse

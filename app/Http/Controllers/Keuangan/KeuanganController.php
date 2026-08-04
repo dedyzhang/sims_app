@@ -7,6 +7,7 @@ use App\Models\Kelas;
 use App\Models\SppPembayaran;
 use App\Services\Keuangan\SppService;
 use App\Support\KeuanganBank;
+use App\Support\RekeningKoranBcaParser;
 use App\Support\TahunAjaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -311,6 +312,50 @@ class KeuanganController extends Controller
 
         $n = $rows->count();
         return back()->with('success', "{$n} bulan ditolak. Ortu/siswa dapat mengunggah ulang.");
+    }
+
+    /**
+     * Upload laporan transaksi VA (rekening koran BCA, format .txt "R-5401") lalu
+     * cocokkan otomatis dengan tagihan SPP via 6 digit belakang VA siswa — mengganti
+     * langkah manual "Validasi Rekening Koran" (tahap 2) untuk transaksi yang cocok.
+     * Transaksi yang tak bisa dicocokkan pasti (VA tak ditemukan/ganda, atau nominal
+     * tak ada yang persis sama) SENGAJA tidak ditebak — tetap perlu tinjau manual.
+     */
+    public function importRekeningKoran(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:txt|max:2048',
+        ], [
+            'file.mimes' => 'File harus berupa .txt (laporan transaksi VA dari bank).',
+        ]);
+
+        $content   = (string) file_get_contents($request->file('file')->getRealPath());
+        $transaksi = RekeningKoranBcaParser::parse($content);
+
+        if (empty($transaksi)) {
+            return back()->with('error', 'Tidak ada baris transaksi yang terbaca dari file ini. Pastikan file laporan VA asli dari bank (belum diedit/dipotong).');
+        }
+
+        $hasil = $this->spp->importRekeningKoran($transaksi, auth()->id());
+
+        $lunasBaru  = collect($hasil)->where('hasil', 'lunas_baru')->count();
+        $sudahLunas = collect($hasil)->where('hasil', 'sudah_lunas')->count();
+        $bermasalah = collect($hasil)->whereNotIn('hasil', ['lunas_baru', 'sudah_lunas'])->values();
+
+        $msg = "{$lunasBaru} pembayaran ditandai LUNAS otomatis dari " . count($transaksi) . ' transaksi di file.';
+        if ($sudahLunas > 0) {
+            $msg .= " {$sudahLunas} transaksi sudah pernah diproses sebelumnya (dilewati).";
+        }
+        if ($bermasalah->isNotEmpty()) {
+            $n = $bermasalah->count();
+            $shown = $bermasalah->take(5)->pluck('pesan')->implode(' ');
+            $msg .= " {$n} transaksi perlu ditinjau manual: {$shown}";
+            if ($n > 5) {
+                $msg .= ' (dan ' . ($n - 5) . ' transaksi lainnya).';
+            }
+        }
+
+        return back()->with($lunasBaru > 0 ? 'success' : 'error', $msg);
     }
 
     /** Halaman pengaturan bank/metode pembayaran. */
