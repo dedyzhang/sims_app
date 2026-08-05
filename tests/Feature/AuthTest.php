@@ -164,11 +164,13 @@ class AuthTest extends TestCase
             ])->assertStatus(302);
         }
 
-        // Percobaan ke-6 untuk kredensial yang sama harus diblok (429).
+        // Percobaan ke-6 untuk kredensial yang sama harus diblok — form biasa (non-JSON)
+        // diarahkan balik dgn pesan error, bukan halaman 429 mentah (lihat rate limiter
+        // custom response di AppServiceProvider::boot(), yg juga dipakai jalur JSON/PIN).
         $this->post('/login', [
             'credential' => 'target',
             'password'   => 'salah',
-        ])->assertStatus(429);
+        ])->assertStatus(302)->assertSessionHasErrors('credential');
     }
 
     public function test_ganti_password_berhasil_dengan_password_lama_benar(): void

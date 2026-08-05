@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Setting;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -44,9 +45,18 @@ class EnsureFaceRegistered
 
         // Wajib selesaikan ganti password dulu — JANGAN dilewatkan begitu saja
         // (kalau dilewatkan, user bisa menerobos ke dashboard tanpa daftar wajah).
-        // Rute ganti password sudah di-whitelist di atas, jadi tidak loop.
+        // Rute ganti password sudah di-whitelist di atas, jadi tidak loop. Ini TIDAK
+        // ikut dimatikan oleh toggle wajib_daftar_wajah — dua hal yg beda.
         if ($user->must_change_password) {
             return redirect()->route('ganti.password');
+        }
+
+        // Admin bisa matikan kewajiban daftar wajah lewat Pengaturan → Absensi (default:
+        // WAJIB, sama seperti perilaku sebelum setting ini ada — instalasi lama tak
+        // berubah diam-diam). Kalau dimatikan, wajah tetap BISA didaftarkan sukarela
+        // lewat menu Wajah Saya, cuma tidak lagi memaksa/mem-blokir akses halaman lain.
+        if (Setting::get('wajib_daftar_wajah', '1') !== '1') {
+            return $next($request);
         }
 
         // Selain ortu (siswa, guru, kepala, kurikulum, kesiswaan, sapras, admin, dll)

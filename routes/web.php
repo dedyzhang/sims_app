@@ -952,6 +952,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/cara-absensi', 'setCaraAbsensi')->name('setting.caraAbsensi');
             Route::post('/scan-kiosk-mode', 'setScanKioskMode')->name('setting.scanKioskMode');
             Route::post('/face-engine', 'setFaceEngine')->name('setting.faceEngine');
+            Route::post('/wajib-daftar-wajah', 'setWajibDaftarWajah')->name('setting.wajibDaftarWajah');
             Route::post('/face-reset-all', 'resetAllFaceVerification')->name('setting.faceResetAll');
             Route::post('/kiosk-token/regenerate', 'regenerateKioskToken')->name('setting.kioskToken.regenerate');
             Route::post('/agenda-wajib-pulang', 'setAgendaWajibPulang')->name('setting.agendaWajibPulang');
