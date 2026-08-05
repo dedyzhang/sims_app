@@ -104,6 +104,26 @@ class AgendaBulkSlotTest extends TestCase
         );
     }
 
+    public function test_slots_satu_hari_tetap_muncul_walau_tanggal_non_kanonik(): void
+    {
+        // Jalur satu-hari (slots() → slotHari): tanggal valid tapi non-kanonik
+        // ('2026-8-5' tanpa zero-pad) harus tetap mengembalikan slot terjadwalnya,
+        // bukan [] senyap. Guru mengajar tiap Senin (hari=1).
+        [, , , $userGuru] = $this->buatGuruDenganJadwal();
+
+        $senin = now()->startOfDay();
+        while ($senin->dayOfWeekIso !== 1) {
+            $senin->addDay();
+        }
+        $nonKanonik = $senin->year . '-' . $senin->month . '-' . $senin->day; // tanpa zero-pad
+
+        $this->actingAs($userGuru)
+            ->getJson(route('agenda.slots', ['tanggal' => $nonKanonik]))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertSee('Matematika');
+    }
+
     public function test_rekap_admin_jumlah_query_tidak_naik_seiring_panjang_rentang(): void
     {
         [$guru] = $this->buatGuruDenganJadwal();

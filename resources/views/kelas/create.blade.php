@@ -16,18 +16,12 @@
         @csrf
         <div>
             <label class="form-label">Tingkat <span class="text-rose-500">*</span></label>
+            @php [$min, $max] = \App\Support\JenjangSekolah::rentangTingkat(); @endphp
             <select name="tingkat" required class="form-select">
                 <option value="">Pilih tingkat</option>
-                <optgroup label="SD">
-                    @for($i=1;$i<=6;$i++)<option value="{{ $i }}" @selected(old('tingkat')==$i)>Kelas {{ $i }}</option>@endfor
-                </optgroup>
-                <optgroup label="SMP">
-                    @for($i=7;$i<=9;$i++)<option value="{{ $i }}" @selected(old('tingkat')==$i)>Kelas {{ $i }}</option>@endfor
-                </optgroup>
-                <optgroup label="SMA / SMK">
-                    @for($i=10;$i<=12;$i++)<option value="{{ $i }}" @selected(old('tingkat')==$i)>Kelas {{ $i }}</option>@endfor
-                </optgroup>
+                @for($i=$min;$i<=$max;$i++)<option value="{{ $i }}" @selected(old('tingkat')==$i)>Kelas {{ $i }}</option>@endfor
             </select>
+            <p class="text-xs text-slate-400 mt-1">Jenjang aktif: <b>{{ \App\Support\JenjangSekolah::label() }}</b> — bisa diubah di <a href="{{ route('setting.index', ['tab'=>'sekolah']) }}" class="text-primary hover:underline">Pengaturan</a>.</p>
         </div>
         <div>
             <label class="form-label">Nama Kelas <span class="text-rose-500">*</span></label>

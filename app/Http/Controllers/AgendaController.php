@@ -9,12 +9,17 @@ use App\Models\Jadwal;
 use App\Models\Kelas;
 use App\Models\Semester;
 use App\Models\Siswa;
+use App\Services\Jadwal\JadwalReminderService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class AgendaController extends Controller
 {
+    public function __construct(private JadwalReminderService $reminder)
+    {
+    }
+
     /** Guru wajib punya profil; admin tanpa profil hanya boleh rekap. */
     private function guru(): ?Guru
     {
@@ -34,61 +39,29 @@ class AgendaController extends Controller
 
     /**
      * Slot jadwal yang diajar guru pada satu tanggal (1 baris per kelas+mapel),
-     * lengkap dengan status apakah agendanya sudah diisi.
+     * lengkap dengan status apakah agendanya sudah diisi. Tipis: delegasi ke
+     * slotHariBulk() utk rentang satu hari, supaya aturan grup & query hanya ada
+     * di satu tempat (tak lagi menduplikasi loop + 2 query yg sama).
      */
     private function slotHari(Guru $guru, string $tanggal): array
     {
-        $hariKe = (int) date('N', strtotime($tanggal));   // 1=Senin..7=Minggu
-        if ($hariKe > 6) {
-            return [];
-        }
+        // Normalkan ke Y-m-d dulu: slotHariBulk mengindeks hasil via toDateString(),
+        // jadi tanggal valid tapi non-kanonik (mis. '2026-8-5') harus disamakan
+        // supaya lookup key tidak meleset dan mengembalikan [] secara senyap.
+        $tgl = \Carbon\Carbon::parse($tanggal)->toDateString();
 
-        $jadwals = Jadwal::with(['kelas', 'pelajaran', 'jam'])
-            ->where('id_guru', $guru->uuid)
-            ->where('hari', $hariKe)
-            ->whereNotNull('id_pelajaran')
-            ->get()
-            ->sortBy('jam_mulai');
-
-        // Agenda yang sudah ada pada tanggal ini (key: id_kelas|id_pelajaran)
-        $sudah = Agenda::where('id_guru', $guru->uuid)
-            ->whereDate('tanggal', $tanggal)
-            ->get()
-            ->keyBy(fn ($a) => $a->id_kelas . '|' . $a->id_pelajaran);
-
-        // Gabungkan jam berurutan dari kelas+mapel yang sama jadi satu slot agenda
-        $grup = [];
-        foreach ($jadwals as $j) {
-            $key = $j->id_kelas . '|' . $j->id_pelajaran;
-            if (!isset($grup[$key])) {
-                $grup[$key] = [
-                    'id_jadwal'    => $j->uuid,           // perwakilan
-                    'id_kelas'     => $j->id_kelas,
-                    'id_pelajaran' => $j->id_pelajaran,
-                    'kelas'        => $j->kelas ? $j->kelas->tingkat . $j->kelas->kelas : '-',
-                    'pelajaran'    => $j->pelajaran?->nama ?? '-',
-                    'kode'         => $j->pelajaran?->kode,
-                    'jam_mulai'    => substr((string) $j->jam_mulai, 0, 5),
-                    'jam_selesai'  => substr((string) $j->jam_selesai, 0, 5),
-                    'agenda'       => $sudah->get($key),
-                ];
-            } else {
-                // perluas rentang jam
-                $grup[$key]['jam_selesai'] = substr((string) $j->jam_selesai, 0, 5);
-            }
-        }
-
-        return array_values($grup);
+        return $this->slotHariBulk($guru, $tgl, $tgl)[$tgl] ?? [];
     }
 
     /**
-     * Versi bulk dari slotHari() — hitung slot utk SEMUA tanggal dlm satu rentang sekaligus
-     * lewat 2 query (bukan 2 query PER TANGGAL spt slotHari() dipanggil di dalam loop harian).
-     * N+1 nyata ini dulu bikin /agenda (guru dgn riwayat 30 hari) & /agenda/rekap (admin,
-     * rentang custom) sampai ratusan query — terukur 177 query di /agenda/rekap sebulan.
-     * Jadwal guru per HARI-DALAM-MINGGU itu tetap (tak beda per tanggal spesifik), jadi cukup
-     * dimuat sekali lalu dipakai ulang tiap tanggal yg jatuh di hari-dalam-minggu yg sama.
-     * Return: [ 'YYYY-MM-DD' => [slot, slot, ...] ] persis format slotHari() per tanggal.
+     * Slot mengajar guru per tanggal utk seluruh rentang, lewat 2 query saja (bukan
+     * 2 query PER TANGGAL). N+1 nyata ini dulu bikin /agenda (riwayat 30 hari) &
+     * /agenda/rekap (rentang custom) sampai ratusan query — terukur 177 query di
+     * /agenda/rekap sebulan. Jadwal guru per HARI-DALAM-MINGGU tetap (tak beda per
+     * tanggal), jadi dimuat sekali lalu dipakai ulang. Aturan pengelompokan slot
+     * memakai JadwalReminderService::kelompokkanSlot() (sumber kebenaran tunggal,
+     * dipakai bersama pengingat agenda).
+     * Return: [ 'YYYY-MM-DD' => [slot, slot, ...] ].
      */
     private function slotHariBulk(Guru $guru, string $dari, string $sampai): array
     {
@@ -109,36 +82,34 @@ class AgendaController extends Controller
         $end = \Carbon\Carbon::parse($sampai);
         for ($d = $start->copy(); $d <= $end; $d->addDay()) {
             $tgl = $d->toDateString();
-            $hariKe = $d->dayOfWeekIso; // 1=Senin..7=Minggu, sama spt date('N', ...) di slotHari()
+            $hariKe = $d->dayOfWeekIso; // 1=Senin..7=Minggu
             if ($hariKe > 6) {
                 $result[$tgl] = [];
                 continue;
             }
 
-            $jadwals = $jadwalByHari->get($hariKe, collect());
             $sudah = ($agendaByTanggal->get($tgl) ?? collect())
                 ->keyBy(fn ($a) => $a->id_kelas . '|' . $a->id_pelajaran);
 
-            $grup = [];
-            foreach ($jadwals as $j) {
-                $key = $j->id_kelas . '|' . $j->id_pelajaran;
-                if (!isset($grup[$key])) {
-                    $grup[$key] = [
-                        'id_jadwal'    => $j->uuid,
-                        'id_kelas'     => $j->id_kelas,
-                        'id_pelajaran' => $j->id_pelajaran,
+            $result[$tgl] = $this->reminder
+                ->kelompokkanSlot($jadwalByHari->get($hariKe, collect()))
+                ->map(function (object $slot) use ($sudah) {
+                    $j = $slot->jadwal;
+                    $key = $slot->id_kelas . '|' . $slot->id_pelajaran;
+
+                    return [
+                        'id_jadwal'    => $slot->id_jadwal,
+                        'id_kelas'     => $slot->id_kelas,
+                        'id_pelajaran' => $slot->id_pelajaran,
                         'kelas'        => $j->kelas ? $j->kelas->tingkat . $j->kelas->kelas : '-',
                         'pelajaran'    => $j->pelajaran?->nama ?? '-',
                         'kode'         => $j->pelajaran?->kode,
-                        'jam_mulai'    => substr((string) $j->jam_mulai, 0, 5),
-                        'jam_selesai'  => substr((string) $j->jam_selesai, 0, 5),
+                        'jam_mulai'    => substr($slot->jam_mulai, 0, 5),
+                        'jam_selesai'  => substr($slot->jam_selesai, 0, 5),
                         'agenda'       => $sudah->get($key),
                     ];
-                } else {
-                    $grup[$key]['jam_selesai'] = substr((string) $j->jam_selesai, 0, 5);
-                }
-            }
-            $result[$tgl] = array_values($grup);
+                })
+                ->all();
         }
 
         return $result;

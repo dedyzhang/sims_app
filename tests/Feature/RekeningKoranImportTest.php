@@ -14,10 +14,11 @@ use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 /**
- * Import laporan transaksi VA BCA (.txt, format "R-5401") untuk otomatisasi tahap
- * 2 verifikasi SPP ("Validasi Rekening Koran": terverifikasi/belum/menunggu/ditolak
- * → lunas). Sample di sini persis file asli yg dikirim user (R-5401_01272_20260620_rpt.txt),
- * supaya parser teruji terhadap format nyata, bukan data buatan yg terlalu rapi.
+ * Import laporan transaksi VA BCA (.txt, format "R-5401") — alur DUA TAHAP:
+ * 1) upload → pratinjau (previewImportRekeningKoran, TIDAK menulis apa pun ke DB),
+ * 2) bendahara tinjau (terima saran otomatis apa adanya, atau pilih bulan manual per
+ *    baris) → terapkan (applyImportRekeningKoran, di sinilah baru benar-benar LUNAS).
+ * Sample di sini persis file asli yg dikirim user (R-5401_01272_20260620_rpt.txt).
  */
 class RekeningKoranImportTest extends TestCase
 {
@@ -71,143 +72,184 @@ TXT;
         $rows = RekeningKoranBcaParser::parse(self::SAMPLE);
 
         $this->assertCount(7, $rows);
-
         $this->assertSame('402353', $rows[0]['no_pelanggan']);
         $this->assertSame(770000, $rows[0]['nominal']);
         $this->assertSame('2026-06-20', $rows[0]['tanggal']->toDateString());
-
         // Nominal jutaan dgn koma ribuan ("1,690,000.00") harus terparsir benar.
         $this->assertSame(1690000, $rows[5]['nominal']);
-
-        // Baris header/subtotal/footer TIDAK ikut kebaca sbg transaksi.
         $this->assertSame(['402353', '402388', '900197', '402259', '900118', '402330', '402232'],
             array_column($rows, 'no_pelanggan'));
     }
 
-    public function test_import_menandai_lunas_siswa_yg_cocok_va_dan_nominal(): void
+    private function upload(User $bendahara)
+    {
+        $file = UploadedFile::fake()->createWithContent('rekening_koran.txt', self::SAMPLE);
+        return $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran.preview'), ['file' => $file]);
+    }
+
+    public function test_upload_hanya_pratinjau_tidak_langsung_mengubah_status(): void
     {
         $bendahara = $this->makeUser('bendahara', 'bendahara_rk1');
         $kelas = $this->makeKelas();
-
-        // Cocok persis: VA 402353, nominal 770.000, status terverifikasi (tahap 2).
         $siswa = $this->makeSiswa($kelas, '402353');
         $p = SppPembayaran::create([
             'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
             'bulan' => 3, 'nominal' => 770000, 'status' => 'terverifikasi',
         ]);
 
-        $file = UploadedFile::fake()->createWithContent('rekening_koran.txt', self::SAMPLE);
-        $this->actingAs($bendahara)
-            ->post(route('keuangan.import-rekening-koran'), ['file' => $file])
-            ->assertRedirect();
+        $res = $this->upload($bendahara);
+        $res->assertOk();
+        $res->assertSee('Siswa 402353');
+        $res->assertSee('Saran otomatis');
+
+        $p->refresh();
+        $this->assertSame('terverifikasi', $p->status, 'Upload/pratinjau tidak boleh langsung mengubah status — baru berubah setelah apply.');
+    }
+
+    public function test_pratinjau_tandai_va_tidak_ditemukan_dan_nominal_tak_cocok(): void
+    {
+        $bendahara = $this->makeUser('bendahara', 'bendahara_rk2');
+        $kelas = $this->makeKelas();
+        // VA 402259 ada di file (nominal 750rb) tapi tagihan siswa ini nominalnya beda.
+        $siswa = $this->makeSiswa($kelas, '402259');
+        SppPembayaran::create([
+            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 3, 'nominal' => 500000, 'status' => 'menunggu',
+        ]);
+
+        $res = $this->upload($bendahara);
+        $res->assertOk();
+        $res->assertSee('Perlu pilih manual');
+        $res->assertSee('VA tak ditemukan'); // sisa VA di file yg tak ada siswanya
+    }
+
+    private function idxOf(array $preview, string $noPelanggan): int
+    {
+        foreach ($preview as $i => $row) {
+            if ($row['no_pelanggan'] === $noPelanggan) {
+                return $i;
+            }
+        }
+        $this->fail("no_pelanggan {$noPelanggan} tidak ditemukan di preview.");
+    }
+
+    public function test_apply_menerima_saran_otomatis_apa_adanya(): void
+    {
+        $bendahara = $this->makeUser('bendahara', 'bendahara_rk3');
+        $kelas = $this->makeKelas();
+        $siswa = $this->makeSiswa($kelas, '402353');
+        $p = SppPembayaran::create([
+            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 3, 'nominal' => 770000, 'status' => 'terverifikasi',
+        ]);
+
+        $preview = app(\App\Services\Keuangan\SppService::class)
+            ->previewRekeningKoran(RekeningKoranBcaParser::parse(self::SAMPLE));
+        $i = $this->idxOf($preview, '402353');
+        $this->assertSame('saran_otomatis', $preview[$i]['status']);
+        $this->assertSame($p->uuid, $preview[$i]['saran_pembayaran_uuid']);
+
+        // Bendahara terima saran apa adanya: centang + kirim uuid saran + nominal/tanggal dari bank.
+        $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran.apply'), [
+            'baris' => [
+                $i => ['terapkan' => '1', 'pembayaran_uuid' => $p->uuid, 'nominal' => 770000, 'tanggal_bayar' => '2026-06-20'],
+            ],
+        ])->assertRedirect(route('keuangan.verifikasi'))->assertSessionHas('success');
 
         $p->refresh();
         $this->assertSame('lunas', $p->status);
         $this->assertSame('BCA', $p->bank);
         $this->assertSame('2026-06-20', $p->tanggal_bayar->toDateString());
         $this->assertSame($bendahara->uuid, $p->diverifikasi_oleh);
-        $this->assertNotNull($p->diverifikasi_pada);
     }
 
-    public function test_import_juga_melunaskan_pembayaran_yg_belum_diunggah_buktinya(): void
-    {
-        // Transfer langsung tanpa lewat alur unggah bukti ortu — bank sudah cukup jadi bukti.
-        $bendahara = $this->makeUser('bendahara', 'bendahara_rk2');
-        $kelas = $this->makeKelas();
-
-        $siswa = $this->makeSiswa($kelas, '900197');
-        $p = SppPembayaran::create([
-            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
-            'bulan' => 3, 'nominal' => 900000, 'status' => 'belum',
-        ]);
-
-        $file = UploadedFile::fake()->createWithContent('rekening_koran.txt', self::SAMPLE);
-        $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran'), ['file' => $file]);
-
-        $p->refresh();
-        $this->assertSame('lunas', $p->status);
-    }
-
-    public function test_import_tidak_menebak_kalau_nominal_tak_cocok(): void
-    {
-        $bendahara = $this->makeUser('bendahara', 'bendahara_rk3');
-        $kelas = $this->makeKelas();
-
-        // VA 402259 ada di file dgn nominal 750.000, tapi tagihan siswa ini nominalnya beda.
-        $siswa = $this->makeSiswa($kelas, '402259');
-        $p = SppPembayaran::create([
-            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
-            'bulan' => 3, 'nominal' => 500000, 'status' => 'menunggu',
-        ]);
-
-        $file = UploadedFile::fake()->createWithContent('rekening_koran.txt', self::SAMPLE);
-        $res = $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran'), ['file' => $file]);
-
-        $p->refresh();
-        $this->assertSame('menunggu', $p->status, 'Nominal beda tidak boleh dipaksakan lunas — harus tinjau manual.');
-        $res->assertSessionHas('error');
-    }
-
-    public function test_import_tidak_menyentuh_apapun_kalau_va_dipakai_dua_siswa(): void
+    public function test_apply_bisa_pilih_bulan_manual_beda_dari_saran(): void
     {
         $bendahara = $this->makeUser('bendahara', 'bendahara_rk4');
         $kelas = $this->makeKelas();
+        $siswa = $this->makeSiswa($kelas, '900197');
 
-        // Dua siswa kebetulan berbagi 6 digit belakang VA yg sama (data kotor).
-        $siswaA = $this->makeSiswa($kelas, '1402330');
-        $siswaB = $this->makeSiswa($kelas, '9402330');
-        $pA = SppPembayaran::create([
-            'id_siswa' => $siswaA->uuid, 'tahun_ajaran' => TahunAjaran::current(),
-            'bulan' => 3, 'nominal' => 1690000, 'status' => 'terverifikasi',
+        // Dua bulan berbeda nominal — tak ada yg persis 900rb (transaksi bank), jadi
+        // sistem tak menyarankan otomatis. Bendahara pilih manual bulan 5.
+        $bulan4 = SppPembayaran::create([
+            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 4, 'nominal' => 500000, 'status' => 'belum',
         ]);
-        $pB = SppPembayaran::create([
-            'id_siswa' => $siswaB->uuid, 'tahun_ajaran' => TahunAjaran::current(),
-            'bulan' => 3, 'nominal' => 1690000, 'status' => 'terverifikasi',
+        $bulan5 = SppPembayaran::create([
+            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 5, 'nominal' => 600000, 'status' => 'belum',
         ]);
 
-        $file = UploadedFile::fake()->createWithContent('rekening_koran.txt', self::SAMPLE);
-        $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran'), ['file' => $file]);
+        $preview = app(\App\Services\Keuangan\SppService::class)
+            ->previewRekeningKoran(RekeningKoranBcaParser::parse(self::SAMPLE));
+        $i = $this->idxOf($preview, '900197');
+        $this->assertSame('perlu_pilih_manual', $preview[$i]['status']);
+        $this->assertNull($preview[$i]['saran_pembayaran_uuid']);
 
-        $pA->refresh();
-        $pB->refresh();
-        $this->assertSame('terverifikasi', $pA->status);
-        $this->assertSame('terverifikasi', $pB->status);
+        $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran.apply'), [
+            'baris' => [
+                $i => ['terapkan' => '1', 'pembayaran_uuid' => $bulan5->uuid, 'nominal' => 900000, 'tanggal_bayar' => '2026-06-20'],
+            ],
+        ])->assertRedirect();
+
+        $bulan5->refresh();
+        $bulan4->refresh();
+        $this->assertSame('lunas', $bulan5->status);
+        $this->assertSame(900000, $bulan5->nominal, 'Nominal bank yg sebenarnya harus dipakai, bukan nominal lama yg tersimpan.');
+        $this->assertSame('belum', $bulan4->status, 'Bulan yg tidak dipilih bendahara tidak boleh ikut berubah.');
     }
 
-    public function test_import_ulang_file_yg_sama_tidak_double_proses(): void
+    public function test_apply_baris_yg_tidak_dicentang_tidak_diterapkan(): void
     {
         $bendahara = $this->makeUser('bendahara', 'bendahara_rk5');
         $kelas = $this->makeKelas();
-
         $siswa = $this->makeSiswa($kelas, '402353');
         $p = SppPembayaran::create([
             'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
             'bulan' => 3, 'nominal' => 770000, 'status' => 'terverifikasi',
         ]);
 
-        $file1 = UploadedFile::fake()->createWithContent('rekening_koran.txt', self::SAMPLE);
-        $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran'), ['file' => $file1]);
-        $p->refresh();
-        $this->assertSame('lunas', $p->status);
-        $tanggalVerifPertama = $p->diverifikasi_pada;
+        // Kirim baris TANPA 'terapkan' (mis. bendahara sengaja uncheck saran otomatis).
+        $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran.apply'), [
+            'baris' => [
+                0 => ['pembayaran_uuid' => $p->uuid, 'nominal' => 770000, 'tanggal_bayar' => '2026-06-20'],
+            ],
+        ])->assertSessionHas('error');
 
-        // Upload file yg SAMA lagi — tak boleh ada baris lain yg ikut berubah / error.
-        $file2 = UploadedFile::fake()->createWithContent('rekening_koran.txt', self::SAMPLE);
-        $res = $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran'), ['file' => $file2]);
+        $p->refresh();
+        $this->assertSame('terverifikasi', $p->status);
+    }
+
+    public function test_apply_melewati_baris_yg_sudah_lunas_sebelumnya(): void
+    {
+        $bendahara = $this->makeUser('bendahara', 'bendahara_rk6');
+        $kelas = $this->makeKelas();
+        $siswa = $this->makeSiswa($kelas, '402353');
+        $p = SppPembayaran::create([
+            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 3, 'nominal' => 770000, 'status' => 'lunas',
+            'bank' => 'BCA', 'tanggal_bayar' => '2026-06-01', 'diverifikasi_pada' => '2026-06-01 10:00:00',
+        ]);
+        $tanggalVerifAsli = $p->diverifikasi_pada;
+
+        $res = $this->actingAs($bendahara)->post(route('keuangan.import-rekening-koran.apply'), [
+            'baris' => [
+                0 => ['terapkan' => '1', 'pembayaran_uuid' => $p->uuid, 'nominal' => 770000, 'tanggal_bayar' => '2026-06-20'],
+            ],
+        ]);
         $res->assertSessionHas('error');
 
         $p->refresh();
-        $this->assertSame('lunas', $p->status);
-        $this->assertTrue($tanggalVerifPertama->equalTo($p->diverifikasi_pada), 'Import ulang tidak boleh menulis ulang baris yg sudah lunas dari transaksi yg sama.');
+        $this->assertTrue($tanggalVerifAsli->equalTo($p->diverifikasi_pada), 'Baris yg sudah lunas tidak boleh ditimpa ulang oleh apply.');
     }
 
     public function test_hanya_txt_yg_diterima(): void
     {
-        $bendahara = $this->makeUser('bendahara', 'bendahara_rk6');
+        $bendahara = $this->makeUser('bendahara', 'bendahara_rk7');
 
         $file = UploadedFile::fake()->create('laporan.pdf', 10, 'application/pdf');
         $this->actingAs($bendahara)
-            ->post(route('keuangan.import-rekening-koran'), ['file' => $file])
+            ->post(route('keuangan.import-rekening-koran.preview'), ['file' => $file])
             ->assertSessionHasErrors('file');
     }
 }

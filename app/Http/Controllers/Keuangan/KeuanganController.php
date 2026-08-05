@@ -316,12 +316,13 @@ class KeuanganController extends Controller
 
     /**
      * Upload laporan transaksi VA (rekening koran BCA, format .txt "R-5401") lalu
-     * cocokkan otomatis dengan tagihan SPP via 6 digit belakang VA siswa — mengganti
-     * langkah manual "Validasi Rekening Koran" (tahap 2) untuk transaksi yang cocok.
-     * Transaksi yang tak bisa dicocokkan pasti (VA tak ditemukan/ganda, atau nominal
-     * tak ada yang persis sama) SENGAJA tidak ditebak — tetap perlu tinjau manual.
+     * cocokkan dengan tagihan SPP via 6 digit belakang VA siswa — HANYA pratinjau,
+     * belum ada yang ditulis ke DB. Bendahara meninjau daftar ini (bisa terima saran
+     * otomatis apa adanya, atau ganti bulan manual per baris) sebelum submit ke
+     * applyImportRekeningKoran(). Halaman ini sendiri isinya form besar berisi seluruh
+     * data yg dibutuhkan applyImportRekeningKoran — tak perlu simpan file/state di sesi.
      */
-    public function importRekeningKoran(Request $request)
+    public function previewImportRekeningKoran(Request $request)
     {
         $request->validate([
             'file' => 'required|file|mimes:txt|max:2048',
@@ -336,26 +337,51 @@ class KeuanganController extends Controller
             return back()->with('error', 'Tidak ada baris transaksi yang terbaca dari file ini. Pastikan file laporan VA asli dari bank (belum diedit/dipotong).');
         }
 
-        $hasil = $this->spp->importRekeningKoran($transaksi, auth()->id());
+        $preview = $this->spp->previewRekeningKoran($transaksi);
 
-        $lunasBaru  = collect($hasil)->where('hasil', 'lunas_baru')->count();
-        $sudahLunas = collect($hasil)->where('hasil', 'sudah_lunas')->count();
-        $bermasalah = collect($hasil)->whereNotIn('hasil', ['lunas_baru', 'sudah_lunas'])->values();
+        return view('keuangan.import-rekening-koran-preview', compact('preview'));
+    }
 
-        $msg = "{$lunasBaru} pembayaran ditandai LUNAS otomatis dari " . count($transaksi) . ' transaksi di file.';
-        if ($sudahLunas > 0) {
-            $msg .= " {$sudahLunas} transaksi sudah pernah diproses sebelumnya (dilewati).";
+    /** Terapkan baris-baris yang dicentang bendahara di halaman pratinjau import rekening koran. */
+    public function applyImportRekeningKoran(Request $request)
+    {
+        $data = $request->validate([
+            'baris'                     => 'required|array',
+            'baris.*.terapkan'          => 'nullable',
+            'baris.*.pembayaran_uuid'   => 'nullable|string',
+            'baris.*.nominal'           => 'required|integer|min:0',
+            'baris.*.tanggal_bayar'     => 'required|date',
+        ]);
+
+        $keputusan = collect($data['baris'])
+            ->filter(fn ($b) => !empty($b['terapkan']) && !empty($b['pembayaran_uuid']))
+            ->map(fn ($b) => [
+                'pembayaran_uuid' => $b['pembayaran_uuid'],
+                'nominal'         => $b['nominal'],
+                'tanggal_bayar'   => $b['tanggal_bayar'],
+            ])
+            ->values()->all();
+
+        if (empty($keputusan)) {
+            return back()->with('error', 'Tidak ada baris yang dicentang untuk diterapkan.');
         }
-        if ($bermasalah->isNotEmpty()) {
-            $n = $bermasalah->count();
-            $shown = $bermasalah->take(5)->pluck('pesan')->implode(' ');
-            $msg .= " {$n} transaksi perlu ditinjau manual: {$shown}";
+
+        $hasil = $this->spp->applyRekeningKoran($keputusan, auth()->id());
+
+        $berhasil = collect($hasil)->where('berhasil', true)->count();
+        $dilewati = collect($hasil)->where('berhasil', false)->values();
+
+        $msg = "{$berhasil} pembayaran ditandai LUNAS.";
+        if ($dilewati->isNotEmpty()) {
+            $n = $dilewati->count();
+            $shown = $dilewati->take(5)->pluck('pesan')->implode(' ');
+            $msg .= " {$n} baris dilewati: {$shown}";
             if ($n > 5) {
-                $msg .= ' (dan ' . ($n - 5) . ' transaksi lainnya).';
+                $msg .= ' (dan ' . ($n - 5) . ' baris lainnya).';
             }
         }
 
-        return back()->with($lunasBaru > 0 ? 'success' : 'error', $msg);
+        return redirect()->route('keuangan.verifikasi')->with($berhasil > 0 ? 'success' : 'error', $msg);
     }
 
     /** Halaman pengaturan bank/metode pembayaran. */

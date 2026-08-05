@@ -16,17 +16,21 @@
         @csrf @method('PUT')
         <div>
             <label class="form-label">Tingkat</label>
+            @php
+                [$min, $max] = \App\Support\JenjangSekolah::rentangTingkat();
+                $tingkatDiLuarJenjang = $kelas->tingkat < $min || $kelas->tingkat > $max;
+            @endphp
             <select name="tingkat" required class="form-select">
-                <optgroup label="SD">
-                    @for($i=1;$i<=6;$i++)<option value="{{ $i }}" @selected(old('tingkat',$kelas->tingkat)==$i)>Kelas {{ $i }}</option>@endfor
-                </optgroup>
-                <optgroup label="SMP">
-                    @for($i=7;$i<=9;$i++)<option value="{{ $i }}" @selected(old('tingkat',$kelas->tingkat)==$i)>Kelas {{ $i }}</option>@endfor
-                </optgroup>
-                <optgroup label="SMA / SMK">
-                    @for($i=10;$i<=12;$i++)<option value="{{ $i }}" @selected(old('tingkat',$kelas->tingkat)==$i)>Kelas {{ $i }}</option>@endfor
-                </optgroup>
+                @if($tingkatDiLuarJenjang)
+                    {{-- Kelas ini dibuat sebelum jenjang aktif diganti — tetap ditawarkan
+                         supaya tersimpan tanpa sengaja berubah kalau admin cuma ganti nama kelas. --}}
+                    <option value="{{ $kelas->tingkat }}" @selected(old('tingkat')===null)>Kelas {{ $kelas->tingkat }} (di luar jenjang aktif)</option>
+                @endif
+                @for($i=$min;$i<=$max;$i++)<option value="{{ $i }}" @selected(old('tingkat',$kelas->tingkat)==$i)>Kelas {{ $i }}</option>@endfor
             </select>
+            @if($tingkatDiLuarJenjang)
+                <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Kelas ini bertingkat {{ $kelas->tingkat }}, di luar jenjang aktif saat ini (<b>{{ \App\Support\JenjangSekolah::label() }}</b>). Pilih ulang kalau ingin disesuaikan.</p>
+            @endif
         </div>
         <div>
             <label class="form-label">Nama Kelas</label>

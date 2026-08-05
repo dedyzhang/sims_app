@@ -17,6 +17,15 @@ Schedule::command('sarpras:pemeliharaan-reminder')->dailyAt('07:00')->withoutOve
 // Piket: pengingat H-1 ke guru yang dijadwalkan piket besok (harian 15:00 — akhir jam sekolah).
 Schedule::command('piket:h1-reminder')->dailyAt('15:00')->withoutOverlapping();
 
+// Jadwal mengajar: digest pagi berisi seluruh sesi guru hari ini (harian 06:00, sebelum jam masuk).
+Schedule::command('jadwal:digest-harian')->dailyAt('06:00')->withoutOverlapping();
+
+// Jadwal mengajar: pengingat ~10 menit sebelum tiap sesi (tiap 5 menit — lihat catatan window di command).
+Schedule::command('jadwal:sesi-reminder')->everyFiveMinutes()->withoutOverlapping();
+
+// Jadwal mengajar: pengingat isi agenda tepat setelah tiap sesi selesai (tiap 5 menit — lihat window di command).
+Schedule::command('jadwal:agenda-reminder')->everyFiveMinutes()->withoutOverlapping();
+
 // Grup Chat: rekonsiliasi keanggotaan (01:00). WAJIB — siswa.id_kelas bisa berubah
 // lewat impor/SQL mentah yang tak memanggil GrupChatService, dan tanpa rekonsiliasi
 // ex-siswa akan terus membaca grup kelas lamanya.
