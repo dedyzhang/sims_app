@@ -123,6 +123,17 @@ class SettingController extends Controller
         return back()->with('success', 'Identitas sekolah disimpan.');
     }
 
+    /** Jenjang sekolah (SD/SMP/SMA) — menentukan rentang tingkat yang ditawarkan di Data Kelas. */
+    public function setJenjangSekolah(Request $request)
+    {
+        $request->validate([
+            'jenjang_sekolah' => 'required|in:' . implode(',', array_keys(\App\Support\JenjangSekolah::JENJANG)),
+        ]);
+        Setting::set('jenjang_sekolah', $request->jenjang_sekolah);
+
+        return back()->with('success', 'Jenjang sekolah disimpan.');
+    }
+
     public function setMediaSosial(Request $request)
     {
         Setting::set('sosmed_aktif', $request->boolean('sosmed_aktif') ? '1' : '0');
