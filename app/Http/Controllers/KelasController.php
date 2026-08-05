@@ -12,6 +12,7 @@ use App\Models\Siswa;
 use App\Models\Walikelas;
 use App\Services\ClassroomService;
 use App\Services\GrupChatService;
+use App\Support\JenjangSekolah;
 use Illuminate\Http\Request;
 
 class KelasController extends Controller
@@ -37,8 +38,12 @@ class KelasController extends Controller
 
     public function store(Request $request)
     {
+        // Rentang tingkat dibatasi sesuai jenjang sekolah aktif (Pengaturan → Identitas) —
+        // dropdown di kelas.create sudah menyaring ini, validasi di sini cuma jaring
+        // pengaman kalau ada yg mengirim request di luar form (curl/devtools).
+        [$min, $max] = JenjangSekolah::rentangTingkat();
         $request->validate([
-            'tingkat' => 'required|integer|between:1,12',
+            'tingkat' => "required|integer|between:{$min},{$max}",
             'kelas'   => 'required|string|max:5',
         ]);
 

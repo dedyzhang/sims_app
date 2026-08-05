@@ -943,6 +943,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/semester', 'updateSemester')->name('setting.semester');
             Route::post('/semester/store', 'storeSemester')->name('setting.semester.store');
             Route::post('/identitas', 'setIdentitasSekolah')->name('setting.identitas');
+            Route::post('/jenjang-sekolah', 'setJenjangSekolah')->name('setting.jenjangSekolah');
             Route::post('/media-sosial', 'setMediaSosial')->name('setting.mediaSosial');
             Route::post('/poin-terlambat', 'setPoinTerlambat')->name('setting.poinTerlambat');
             Route::post('/waktu-terlambat', 'setWaktuTerlambat')->name('setting.waktuTerlambat');
@@ -951,6 +952,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/cara-absensi', 'setCaraAbsensi')->name('setting.caraAbsensi');
             Route::post('/scan-kiosk-mode', 'setScanKioskMode')->name('setting.scanKioskMode');
             Route::post('/face-engine', 'setFaceEngine')->name('setting.faceEngine');
+            Route::post('/wajib-daftar-wajah', 'setWajibDaftarWajah')->name('setting.wajibDaftarWajah');
             Route::post('/face-reset-all', 'resetAllFaceVerification')->name('setting.faceResetAll');
             Route::post('/kiosk-token/regenerate', 'regenerateKioskToken')->name('setting.kioskToken.regenerate');
             Route::post('/agenda-wajib-pulang', 'setAgendaWajibPulang')->name('setting.agendaWajibPulang');
@@ -1017,7 +1019,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/verifikasi/validate', [KeuanganController::class, 'validateBatch'])->name('validate-batch');
         Route::post('/verifikasi/revise', [KeuanganController::class, 'reviseBatch'])->name('revise-batch');
         Route::post('/verifikasi/reject', [KeuanganController::class, 'rejectBatch'])->name('reject-batch');
-        Route::post('/verifikasi/import-rekening-koran', [KeuanganController::class, 'importRekeningKoran'])->name('import-rekening-koran');
+        Route::post('/verifikasi/import-rekening-koran/preview', [KeuanganController::class, 'previewImportRekeningKoran'])->name('import-rekening-koran.preview');
+        Route::post('/verifikasi/import-rekening-koran/apply', [KeuanganController::class, 'applyImportRekeningKoran'])->name('import-rekening-koran.apply');
         Route::get('/bank', [KeuanganController::class, 'bank'])->name('bank');
         Route::post('/bank', [KeuanganController::class, 'bankUpdate'])->name('bank.update');
         Route::get('/kelas/{kelas}', [KeuanganController::class, 'kelas'])->name('kelas');

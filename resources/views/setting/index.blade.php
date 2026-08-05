@@ -78,6 +78,30 @@
 
             <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
         </form>
+
+        {{-- Jenjang Sekolah: menentukan rentang tingkat kelas yang ditawarkan di Data Kelas --}}
+        <form method="POST" action="{{ route('setting.jenjangSekolah') }}" class="card p-6 space-y-4 mt-5">
+            @csrf
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100">Jenjang Sekolah</h2>
+                <p class="text-xs text-slate-400 mt-1">Menentukan tingkat kelas yang muncul saat menambah/mengubah kelas di menu Data Kelas.</p>
+            </div>
+            @php $jenjangNow = \App\Support\JenjangSekolah::aktif(); @endphp
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                @foreach(\App\Support\JenjangSekolah::JENJANG as $val => $lbl)
+                @php [$min, $max] = \App\Support\JenjangSekolah::RENTANG[$val]; @endphp
+                <label class="cursor-pointer">
+                    <input type="radio" name="jenjang_sekolah" value="{{ $val }}" @checked($jenjangNow===$val) class="hidden peer">
+                    <div class="border-2 rounded-xl p-4 transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600 h-full">
+                        <i data-lucide="graduation-cap" class="w-5 h-5 text-slate-400 peer-checked:text-primary mb-1.5"></i>
+                        <p class="font-bold text-sm text-slate-700 dark:text-slate-200">{{ $lbl }}</p>
+                        <p class="text-xs text-slate-400 mt-0.5">Kelas {{ $min }}–{{ $max }}</p>
+                    </div>
+                </label>
+                @endforeach
+            </div>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
+        </form>
     </div>
 
     {{-- Media Sosial --}}
@@ -424,6 +448,25 @@
                     </div>
                 </label>
                 @endforeach
+            </div>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
+        </form>
+
+        {{-- Wajib Daftar Wajah saat Login Pertama --}}
+        <form method="POST" action="{{ route('setting.wajibDaftarWajah') }}" class="card p-6 space-y-4"
+              x-data="{ on: {{ (($settings['wajib_daftar_wajah'] ?? '1') === '1') ? 'true' : 'false' }} }">
+            @csrf
+            <h2 class="font-bold text-slate-800 dark:text-slate-100">Wajib Daftar Wajah</h2>
+            <p class="text-xs text-slate-400 -mt-1">Kalau aktif, semua orang (kecuali orang tua) dipaksa mendaftarkan wajah dulu sebelum bisa memakai fitur lain — biasanya saat login pertama kali. Kalau dimatikan, daftar wajah jadi sukarela lewat menu Wajah Saya; scan absensi wajah tetap butuh wajah terdaftar utk yang memilih daftar.</p>
+            <div class="flex items-start justify-between gap-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-4 py-3">
+                <div class="min-w-0">
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Paksa daftar wajah sebelum akses fitur lain</p>
+                    <p class="text-xs mt-1.5 font-semibold" :class="on ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'" x-text="on ? '● Wajib' : '○ Tidak wajib'"></p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input type="checkbox" name="wajib_daftar_wajah" value="1" class="hidden peer" x-model="on">
+                    <div class="relative w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-[color:var(--cp)] transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition peer-checked:after:translate-x-5"></div>
+                </label>
             </div>
             <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
         </form>
