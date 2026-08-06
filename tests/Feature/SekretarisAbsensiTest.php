@@ -114,6 +114,36 @@ class SekretarisAbsensiTest extends TestCase
         $this->assertDatabaseMissing('absensis', ['id_siswa' => $siswaLain->uuid]);
     }
 
+    public function test_sekretaris_tidak_bisa_isi_absensi_siswa_lain_dengan_uuid_kelas_sendiri(): void
+    {
+        $kelasSaya = Kelas::create(['tingkat' => 7, 'kelas' => 'C2']);
+        $kelasLain = Kelas::create(['tingkat' => 7, 'kelas' => 'D2']);
+        $sekretarisSiswa = $this->buatSiswa($kelasSaya, 'sek_uuid', 'Sekretaris UUID', 'SEK-U1');
+        $this->jadikanSekretaris($sekretarisSiswa, $kelasSaya);
+        $siswaLain = $this->buatSiswa($kelasLain, 'siswa_uuid_lain', 'Siswa Kelas Lain UUID', 'SEK-U2');
+
+        $sekretarisUser = User::where('username', 'sek_uuid')->first();
+
+        $this->actingAs($sekretarisUser)->post('/absensi', [
+            'id_kelas' => $kelasSaya->uuid,
+            'tanggal' => '2026-07-31',
+            'status' => [$siswaLain->uuid => 'hadir'],
+        ])->assertStatus(422);
+
+        $this->assertDatabaseMissing('absensis', ['id_siswa' => $siswaLain->uuid]);
+    }
+
+    public function test_sekretaris_tidak_bisa_akses_rekap(): void
+    {
+        $kelas = Kelas::create(['tingkat' => 7, 'kelas' => 'R']);
+        $sekretarisSiswa = $this->buatSiswa($kelas, 'sek_rekap', 'Sekretaris Rekap', 'SEK-R1');
+        $this->jadikanSekretaris($sekretarisSiswa, $kelas);
+        $sekretarisUser = User::where('username', 'sek_rekap')->first();
+
+        $this->actingAs($sekretarisUser)->get(route('absensi.rekap'))->assertForbidden();
+        $this->actingAs($sekretarisUser)->get(route('absensi.rekap.cetak', ['kelas' => $kelas->uuid]))->assertForbidden();
+    }
+
     public function test_siswa_biasa_bukan_sekretaris_ditolak_dari_absensi(): void
     {
         $kelas = Kelas::create(['tingkat' => 7, 'kelas' => 'E']);
