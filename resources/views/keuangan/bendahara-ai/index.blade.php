@@ -76,6 +76,15 @@
                 </div>
             </div>
         </a>
+        <a href="{{ route('keuangan.bendahara-ai.wawasan', ['ta'=>$ta]) }}" class="card p-5 hover:shadow-md transition group">
+            <div class="flex items-start gap-3">
+                <span class="w-10 h-10 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-600 grid place-items-center"><i data-lucide="lightbulb" class="w-5 h-5"></i></span>
+                <div>
+                    <p class="font-bold text-slate-800 dark:text-slate-100 group-hover:text-primary">Wawasan & Ekspor</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pola keterlambatan & hari bayar; unduh paket verifikasi PDF/Excel.</p>
+                </div>
+            </div>
+        </a>
     </div>
 
     <div class="card p-4 border-l-4 border-indigo-400 text-sm text-slate-600 dark:text-slate-300">

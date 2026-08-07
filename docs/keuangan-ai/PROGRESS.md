@@ -6,7 +6,7 @@ Ref: `PRD.md` · Branch: `cursor/ai-fase-1-4`
 |------|-----------|--------|
 | **A** | Antrian prioritas, OCR HITL, dashboard SPP, parser koran, activity log | [x] Selesai |
 | **B** | Skor matching mutasi↔tagihan, flag anomali, digest antrian | [x] Selesai |
-| **C** | Wawasan naratif, ekspor paket verifikasi, gateway opsional | [ ] Rencana |
+| **C** | Wawasan naratif, ekspor paket verifikasi, gateway opsional | [x] Selesai (gateway deferred) |
 
 ## Fase B — checklist
 
@@ -16,5 +16,13 @@ Ref: `PRD.md` · Branch: `cursor/ai-fase-1-4`
 - [x] Halaman `/keuangan/bendahara-ai/rekonsiliasi` & `/anomali`
 - [x] Kolom skor di pratinjau impor rekening koran
 - [x] `KeuanganAiFaseBTest`
+
+## Fase C — checklist
+
+- [x] `BendaharaWawasanService` — pola keterlambatan & hari bayar (non-nominal)
+- [x] Halaman `/keuangan/bendahara-ai/wawasan` + narasi AI opsional
+- [x] `SppVerifikasiPaketService` + export Excel/PDF
+- [x] `KeuanganAiFaseCTest`
+- [ ] Integrasi gateway pembayaran (C3) — deferred, gate FL
 
 **Verifikasi:** `php artisan test --filter="KeuanganAi|KeuanganSpp|RekeningKoran"`

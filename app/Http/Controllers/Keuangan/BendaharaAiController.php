@@ -5,17 +5,24 @@ namespace App\Http\Controllers\Keuangan;
 use App\Http\Controllers\Concerns\InteractsWithAi;
 use App\Http\Controllers\Controller;
 use App\Models\SppPembayaran;
+use App\Exports\Keuangan\BendaharaVerifikasiPaketExport;
+use App\Services\GeminiService;
+use App\Services\Keuangan\BendaharaAntrianDigest;
+use App\Services\Keuangan\BendaharaWawasanService;
 use App\Services\Keuangan\SppActivityLogger;
 use App\Services\Keuangan\SppAnomalyDetector;
 use App\Services\Keuangan\SppMonthlyDashboard;
 use App\Services\Keuangan\SppMutasiMatchingService;
 use App\Services\Keuangan\SppOcrAssistService;
+use App\Services\Keuangan\SppVerifikasiPaketService;
 use App\Services\Keuangan\SppVerificationQueue;
-use App\Services\Keuangan\BendaharaAntrianDigest;
 use App\Support\TahunAjaran;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
+use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 
 /**
@@ -23,18 +30,22 @@ use Spatie\Activitylog\Models\Activity;
  *
  * A1 antrian prioritas · A2 OCR saran · A3 dashboard SPP · A5 jejak audit.
  * B1 rekonsiliasi matching · B2 anomali · B3 digest antrian.
+ * C1 wawasan non-nominal · C2 ekspor paket verifikasi.
  */
 class BendaharaAiController extends Controller
 {
     use InteractsWithAi;
 
     public function __construct(
+        private GeminiService $gemini,
         private SppVerificationQueue $queue,
         private SppMonthlyDashboard $dashboard,
         private SppOcrAssistService $ocr,
         private SppMutasiMatchingService $matching,
         private SppAnomalyDetector $anomaly,
         private BendaharaAntrianDigest $digest,
+        private BendaharaWawasanService $wawasan,
+        private SppVerifikasiPaketService $paket,
     ) {}
 
     /** Hub asisten bendahara. */
@@ -171,6 +182,123 @@ class BendaharaAiController extends Controller
             'taOptions' => TahunAjaran::options(),
             'items'     => $items,
         ]);
+    }
+
+    /** C1 — Wawasan operasional non-nominal (rule-based + narasi AI opsional). */
+    public function wawasan(Request $request): View
+    {
+        $ta = $this->resolveTahunAjaran($request);
+        $ringkasan = $this->wawasan->ringkasan($ta);
+
+        return view('keuangan.bendahara-ai.wawasan', [
+            'ta'        => $ta,
+            'taOptions' => TahunAjaran::options(),
+            'ringkasan' => $ringkasan,
+        ]);
+    }
+
+    /** C1 — Narasi AI dari metrik non-nominal (bukan Narasi Data pimpinan). */
+    public function wawasanNarasi(Request $request): JsonResponse
+    {
+        if ($limited = $this->aiRateLimited('bendahara_wawasan', $request->user()->uuid)) {
+            return $limited;
+        }
+
+        $data = $request->validate([
+            'tahun_ajaran' => ['required', 'string', 'max:20'],
+        ]);
+
+        if (! in_array($data['tahun_ajaran'], TahunAjaran::options(), true)) {
+            return response()->json(['ok' => false, 'message' => 'Tahun ajaran tidak valid.'], 422);
+        }
+
+        $metrics = $this->wawasan->ringkasan($data['tahun_ajaran']);
+
+        if ($metrics['keterlambatan']['total_lunas'] === 0
+            && array_sum($metrics['antrian']) === 0) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Belum ada data operasional SPP untuk dinarasikan.',
+            ], 422);
+        }
+
+        if (! $this->aiConfiguredFor($request->user())) {
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Narasi AI belum dikonfigurasi. Gunakan poin wawasan aturan di atas.',
+                'data'    => $metrics,
+            ], 422);
+        }
+
+        $prompt = $this->wawasan->promptNarasi($metrics);
+        $system = config('keuangan-ai.wawasan.prompt');
+
+        try {
+            $result = $this->gemini->generate($prompt, [
+                'system'            => $system,
+                'temperature'       => 0.35,
+                'max_output_tokens' => 1024,
+            ] + $this->personalAiOptions($request->user()));
+        } catch (RuntimeException $e) {
+            $this->logAiUsage($request->user()->uuid, 'bendahara_wawasan', config('ai.model'), 0, 0, 'error');
+
+            return response()->json(['ok' => false, 'message' => $e->getMessage()], 502);
+        }
+
+        $this->logAiUsage(
+            $request->user()->uuid,
+            'bendahara_wawasan',
+            $result['model'],
+            $result['prompt_tokens'],
+            $result['completion_tokens'],
+            'success',
+        );
+
+        return response()->json([
+            'ok'     => true,
+            'data'   => $metrics,
+            'source' => $prompt,
+            'answer' => $result['text'],
+        ]);
+    }
+
+    /** C2 — Ekspor paket kerja verifikasi (Excel atau PDF). */
+    public function exportPaket(Request $request)
+    {
+        $ta = $this->resolveTahunAjaran($request);
+        $format = (string) $request->query('format', 'excel');
+        $status = $request->query('status');
+        $allowed = [
+            SppPembayaran::STATUS_MENUNGGU,
+            SppPembayaran::STATUS_TERVERIFIKASI,
+            SppPembayaran::STATUS_LUNAS,
+            SppPembayaran::STATUS_DITOLAK,
+        ];
+
+        if ($status !== null && ! in_array($status, $allowed, true)) {
+            abort(422, 'Filter status tidak valid.');
+        }
+
+        $rows = $this->paket->baris($ta, $status);
+        $slugTa = str_replace('/', '-', $ta);
+        $suffix = $status ? "-{$status}" : '';
+        $basename = "paket-verifikasi-spp-{$slugTa}{$suffix}";
+
+        if ($format === 'pdf') {
+            $pdf = Pdf::loadView('keuangan.bendahara-ai.exports.paket-pdf', [
+                'ta'     => $ta,
+                'rows'   => $rows,
+                'labels' => $this->paket,
+                'status' => $status,
+            ])->setPaper('a4', 'landscape');
+
+            return $pdf->download("{$basename}.pdf");
+        }
+
+        return Excel::download(
+            BendaharaVerifikasiPaketExport::make($ta, $status),
+            "{$basename}.xlsx"
+        );
     }
 
     private function resolveTahunAjaran(Request $request): string

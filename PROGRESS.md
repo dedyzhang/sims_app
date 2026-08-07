@@ -245,7 +245,7 @@ Ref: `docs/keuangan-ai/PRD.md` · Fase A detail: `docs/keuangan-ai/features/01-a
 |------|-----------|--------|
 | **A** | A1 antrian prioritas (rule-based), A2 OCR saran bukti (HITL), A3 dashboard SPP bulanan, A4 parser rekening koran (luas BCA), A5 activity log transisi keuangan; akses bendahara — **bukan** duplikat Narasi Data pimpinan; nominal BIGINT tanpa AI hitung rupiah | [x] Implementasi Fase A |
 | **B** | Matching mutasi ↔ tagihan (skor + konfirmasi), duplikat/anomali flag, notifikasi antrian | [x] Implementasi Fase B |
-| **C** | Wawasan naratif non-nominal internal bendahara, ekspor paket verifikasi, integrasi gateway opsional | [ ] Rencana |
+| **C** | Wawasan naratif non-nominal internal bendahara, ekspor paket verifikasi, integrasi gateway opsional | [x] Implementasi Fase C (C3 gateway deferred) |
 
 ---
 

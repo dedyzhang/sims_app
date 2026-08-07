@@ -1108,6 +1108,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/dashboard', 'dashboard')->name('dashboard');
             Route::get('/rekonsiliasi', 'rekonsiliasi')->name('rekonsiliasi');
             Route::get('/anomali', 'anomali')->name('anomali');
+            Route::get('/wawasan', 'wawasan')->name('wawasan');
+            Route::post('/wawasan/narasi', 'wawasanNarasi')->name('wawasan.narasi')->middleware('throttle:10,1');
+            Route::get('/export-paket', 'exportPaket')->name('export-paket');
             Route::get('/log', 'log')->name('log');
             Route::post('/ocr/{pembayaran}', 'ocrSuggest')->name('ocr')->middleware('throttle:10,1');
         });

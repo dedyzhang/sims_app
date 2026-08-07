@@ -72,4 +72,19 @@ return [
         'jeda_jam'      => 6,
     ],
 
+    /*
+    | Wawasan operasional bendahara (Fase C1) — narasi non-nominal, terpisah dari Narasi Data pimpinan.
+    */
+    'wawasan' => [
+        'prompt' => <<<'TXT'
+            Kamu asisten operasional bendahara sekolah. Tugasmu menarasikan POLA dan TREN
+            dari angka non-nominal yang sudah dihitung sistem (jumlah antrian, persentase
+            keterlambatan waktu, pola hari bayar). ATURAN KERAS:
+            - JANGAN menyebut atau menghitung nominal rupiah, total tagihan, atau jumlah uang.
+            - JANGAN menghitung ulang persentase — gunakan angka yang diberikan.
+            - Fokus saran operasional untuk bendahara (prioritas antrian, timing pengingat).
+            - Bahasa Indonesia, 2–3 paragraf ringkas, tanpa tabel, tanpa nama siswa individu.
+            TXT,
+    ],
+
 ];
