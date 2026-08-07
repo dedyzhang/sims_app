@@ -123,6 +123,8 @@ class BendaharaAiController extends Controller
     /** A2 — OCR asisten bukti (saran HITL, bukan auto-post). */
     public function ocrSuggest(Request $request, SppPembayaran $pembayaran): JsonResponse
     {
+        $this->authorize('verify', $pembayaran);
+
         if ($limited = $this->aiRateLimited('bendahara_ocr', $request->user()->uuid)) {
             return $limited;
         }
@@ -296,7 +298,7 @@ class BendaharaAiController extends Controller
         }
 
         return Excel::download(
-            BendaharaVerifikasiPaketExport::make($ta, $status),
+            new BendaharaVerifikasiPaketExport($rows, $ta, $this->paket),
             "{$basename}.xlsx"
         );
     }

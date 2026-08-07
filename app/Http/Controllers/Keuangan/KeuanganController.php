@@ -13,6 +13,7 @@ use App\Support\RekeningKoran\RekeningKoranParserResolver;
 use App\Support\TahunAjaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Modul Keuangan untuk Bendahara (juga admin/superadmin).
@@ -256,22 +257,30 @@ class KeuanganController extends Controller
     {
         $data = $request->validate(['ids' => 'required|array', 'ids.*' => 'string']);
 
-        $rows = SppPembayaran::whereIn('uuid', $data['ids'])
-            ->where('status', SppPembayaran::STATUS_MENUNGGU)
-            ->get();
+        $n = 0;
+        DB::transaction(function () use ($data, &$n) {
+            foreach ($data['ids'] as $id) {
+                $p = SppPembayaran::where('uuid', $id)
+                    ->where('status', SppPembayaran::STATUS_MENUNGGU)
+                    ->lockForUpdate()
+                    ->first();
 
-        foreach ($rows as $p) {
-            $sebelum = $p->status;
-            $p->status = SppPembayaran::STATUS_TERVERIFIKASI;
-            $p->diverifikasi_oleh = auth()->id();
-            $p->diverifikasi_pada = now();
-            $p->catatan = null;
-            $p->save();
-            SppActivityLogger::logStatusChange($p, 'spp_verifikasi_disetujui', $sebelum, $p->status, auth()->id());
-            app(SppOcrAssistService::class)->purgeForPembayaran($p);
-        }
+                if (! $p) {
+                    continue;
+                }
 
-        $n = $rows->count();
+                $sebelum = $p->status;
+                $p->status = SppPembayaran::STATUS_TERVERIFIKASI;
+                $p->diverifikasi_oleh = auth()->id();
+                $p->diverifikasi_pada = now();
+                $p->catatan = null;
+                $p->save();
+                SppActivityLogger::logStatusChange($p, 'spp_verifikasi_disetujui', $sebelum, $p->status, auth()->id());
+                app(SppOcrAssistService::class)->purgeForPembayaran($p);
+                $n++;
+            }
+        });
+
         return back()->with('success', $n > 1
             ? "{$n} bulan terverifikasi. Lanjut validasi via rekening koran bank."
             : 'Bukti terverifikasi. Lanjut validasi via rekening koran bank.');
@@ -282,19 +291,27 @@ class KeuanganController extends Controller
     {
         $data = $request->validate(['ids' => 'required|array', 'ids.*' => 'string']);
 
-        $rows = SppPembayaran::whereIn('uuid', $data['ids'])
-            ->where('status', SppPembayaran::STATUS_TERVERIFIKASI)
-            ->get();
+        $n = 0;
+        DB::transaction(function () use ($data, &$n) {
+            foreach ($data['ids'] as $id) {
+                $p = SppPembayaran::where('uuid', $id)
+                    ->where('status', SppPembayaran::STATUS_TERVERIFIKASI)
+                    ->lockForUpdate()
+                    ->first();
 
-        foreach ($rows as $p) {
-            $sebelum = $p->status;
-            $this->applyStatus($p, SppPembayaran::STATUS_LUNAS, $p->tanggal_bayar?->toDateString());
-            $p->catatan = null;
-            $p->save();
-            SppActivityLogger::logStatusChange($p, 'spp_validasi_lunas', $sebelum, $p->status, auth()->id());
-        }
+                if (! $p) {
+                    continue;
+                }
 
-        $n = $rows->count();
+                $sebelum = $p->status;
+                $this->applyStatus($p, SppPembayaran::STATUS_LUNAS, $p->tanggal_bayar?->toDateString());
+                $p->catatan = null;
+                $p->save();
+                SppActivityLogger::logStatusChange($p, 'spp_validasi_lunas', $sebelum, $p->status, auth()->id());
+                $n++;
+            }
+        });
+
         return back()->with('success', $n > 1
             ? "{$n} bulan divalidasi & LUNAS."
             : 'Pembayaran divalidasi & LUNAS.');
@@ -309,21 +326,29 @@ class KeuanganController extends Controller
             'catatan' => 'required|string|max:500',
         ]);
 
-        $rows = SppPembayaran::whereIn('uuid', $data['ids'])
-            ->whereIn('status', [SppPembayaran::STATUS_MENUNGGU, SppPembayaran::STATUS_TERVERIFIKASI])
-            ->get();
+        $n = 0;
+        DB::transaction(function () use ($data, &$n) {
+            foreach ($data['ids'] as $id) {
+                $p = SppPembayaran::where('uuid', $id)
+                    ->whereIn('status', [SppPembayaran::STATUS_MENUNGGU, SppPembayaran::STATUS_TERVERIFIKASI])
+                    ->lockForUpdate()
+                    ->first();
 
-        foreach ($rows as $p) {
-            $sebelum = $p->status;
-            $p->status = SppPembayaran::STATUS_DITOLAK;
-            $p->catatan = $data['catatan'];
-            $p->diverifikasi_oleh = auth()->id();
-            $p->diverifikasi_pada = now();
-            $p->save();
-            SppActivityLogger::logStatusChange($p, 'spp_verifikasi_ditolak', $sebelum, $p->status, auth()->id());
-        }
+                if (! $p) {
+                    continue;
+                }
 
-        $n = $rows->count();
+                $sebelum = $p->status;
+                $p->status = SppPembayaran::STATUS_DITOLAK;
+                $p->catatan = $data['catatan'];
+                $p->diverifikasi_oleh = auth()->id();
+                $p->diverifikasi_pada = now();
+                $p->save();
+                SppActivityLogger::logStatusChange($p, 'spp_verifikasi_ditolak', $sebelum, $p->status, auth()->id());
+                $n++;
+            }
+        });
+
         return back()->with('success', "{$n} bulan ditolak. Ortu/siswa dapat mengunggah ulang.");
     }
 

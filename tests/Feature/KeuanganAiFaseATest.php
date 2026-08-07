@@ -264,4 +264,47 @@ class KeuanganAiFaseATest extends TestCase
         $p->refresh();
         $this->assertSame('menunggu', $p->status);
     }
+
+    public function test_ocr_pembayaran_uuid_tidak_ada_returns_404(): void
+    {
+        $bendahara = $this->makeUser('bendahara', 'bendahara_ocr_404');
+
+        $this->actingAs($bendahara)->postJson(
+            route('keuangan.bendahara-ai.ocr', ['pembayaran' => '00000000-0000-4000-8000-000000000000']),
+            ['bukti' => UploadedFile::fake()->image('bukti.jpg')],
+        )->assertNotFound();
+    }
+
+    public function test_ocr_pembayaran_lunas_tidak_mengubah_status(): void
+    {
+        config(['ai.api_key' => 'test-key', 'ai.provider' => 'gemini']);
+
+        $this->mock(GeminiService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('enabled')->andReturn(true);
+            $mock->shouldReceive('visionText')
+                ->once()
+                ->andReturn([
+                    'text' => '{"nama_pengirim":"Budi","tanggal":"2026-06-20","referensi":"BCA","nominal_teks":"Rp 150.000"}',
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 10,
+                    'completion_tokens' => 20,
+                ]);
+        });
+
+        $bendahara = $this->makeUser('bendahara', 'bendahara_ocr_lunas');
+        $kelas = $this->makeKelas();
+        $siswa = $this->makeSiswa($kelas);
+
+        $p = SppPembayaran::create([
+            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 1, 'nominal' => 150000, 'status' => 'lunas',
+        ]);
+
+        $this->actingAs($bendahara)->postJson(route('keuangan.bendahara-ai.ocr', $p), [
+            'bukti' => UploadedFile::fake()->image('bukti.jpg', 400, 600),
+        ])->assertOk();
+
+        $p->refresh();
+        $this->assertSame('lunas', $p->status);
+    }
 }

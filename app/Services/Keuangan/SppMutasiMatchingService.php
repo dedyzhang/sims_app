@@ -22,8 +22,9 @@ class SppMutasiMatchingService
      */
     public function preview(array $transaksi): array
     {
-        $siswaByVa = $this->indexSiswaByVaSuffix();
-        $vaGanda = $this->detectVaGanda($siswaByVa);
+        $index = $this->buildVaSuffixIndex();
+        $siswaByVa = $index['siswaByVa'];
+        $vaGanda = $index['vaGanda'];
 
         $preview = [];
         foreach ($transaksi as $t) {
@@ -195,33 +196,29 @@ class SppMutasiMatchingService
         return $alasan;
     }
 
-    /** @return array<string, Siswa> */
-    private function indexSiswaByVaSuffix(): array
+    /**
+     * Satu query siswa ber-VA → indeks suffix + deteksi VA ganda.
+     *
+     * @return array{siswaByVa: array<string, Siswa>, vaGanda: array<string, int>}
+     */
+    private function buildVaSuffixIndex(): array
     {
         $siswaByVa = [];
+        $counts = [];
+
         foreach (Siswa::whereNotNull('va')->where('va', '!=', '')->get(['uuid', 'nama', 'va', 'id_kelas']) as $s) {
             $suffix = substr(preg_replace('/\D/', '', (string) $s->va), -6);
             if ($suffix === '' || strlen($suffix) < 6) {
                 continue;
             }
+            $counts[$suffix] = ($counts[$suffix] ?? 0) + 1;
             $siswaByVa[$suffix] = $s;
         }
 
-        return $siswaByVa;
-    }
-
-    /** @return array<string, true> */
-    private function detectVaGanda(array $siswaByVa): array
-    {
-        $counts = [];
-        foreach (Siswa::whereNotNull('va')->where('va', '!=', '')->pluck('va') as $va) {
-            $suffix = substr(preg_replace('/\D/', '', (string) $va), -6);
-            if (strlen($suffix) >= 6) {
-                $counts[$suffix] = ($counts[$suffix] ?? 0) + 1;
-            }
-        }
-
-        return array_filter($counts, fn ($c) => $c > 1);
+        return [
+            'siswaByVa' => $siswaByVa,
+            'vaGanda'   => array_filter($counts, fn ($c) => $c > 1),
+        ];
     }
 
     /** @return Collection<int, SppPembayaran> */
