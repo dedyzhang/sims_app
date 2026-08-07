@@ -71,6 +71,7 @@ use App\Http\Controllers\MissionNalarController;
 use App\Http\Controllers\MissionPlayerController;
 use App\Http\Controllers\MissionProgressController;
 use App\Http\Controllers\PengumumanController;
+use App\Http\Controllers\Keuangan\BendaharaAiController;
 use App\Http\Controllers\Keuangan\KeuanganController;
 use App\Http\Controllers\Keuangan\TagihanController;
 use App\Http\Controllers\LanggananController;
@@ -1099,6 +1100,15 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/kelas/{kelas}/pengaturan', [KeuanganController::class, 'pengaturanKelas'])->name('kelas.pengaturan');
         Route::post('/kelas/{kelas}/pengaturan', [KeuanganController::class, 'simpanPengaturanKelas'])->name('kelas.pengaturan.simpan');
         Route::post('/pembayaran/{pembayaran}/cell', [KeuanganController::class, 'cell'])->name('cell');
+
+        // Asisten Bendahara SPP (Fase A) — terpisah dari ai.analyze pimpinan
+        Route::prefix('bendahara-ai')->name('bendahara-ai.')->controller(BendaharaAiController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/antrian', 'antrian')->name('antrian');
+            Route::get('/dashboard', 'dashboard')->name('dashboard');
+            Route::get('/log', 'log')->name('log');
+            Route::post('/ocr/{pembayaran}', 'ocrSuggest')->name('ocr')->middleware('throttle:10,1');
+        });
     });
 
     // ─── Keuangan: Tagihan SPP siswa & orang tua ───────────────────────────

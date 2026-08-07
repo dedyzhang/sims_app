@@ -243,7 +243,7 @@ Ref: `docs/keuangan-ai/PRD.md` · Fase A detail: `docs/keuangan-ai/features/01-a
 
 | Fase | Ringkasan | Status |
 |------|-----------|--------|
-| **A** | A1 antrian prioritas (rule-based), A2 OCR saran bukti (HITL), A3 dashboard SPP bulanan, A4 parser rekening koran (luas BCA), A5 activity log transisi keuangan; akses bendahara — **bukan** duplikat Narasi Data pimpinan; nominal BIGINT tanpa AI hitung rupiah | [ ] Belum implementasi |
+| **A** | A1 antrian prioritas (rule-based), A2 OCR saran bukti (HITL), A3 dashboard SPP bulanan, A4 parser rekening koran (luas BCA), A5 activity log transisi keuangan; akses bendahara — **bukan** duplikat Narasi Data pimpinan; nominal BIGINT tanpa AI hitung rupiah | [x] Implementasi Fase A |
 | **B** | Matching mutasi ↔ tagihan (saran + konfirmasi), duplikat/anomali flag, notifikasi antrian | [ ] Rencana |
 | **C** | Wawasan naratif non-nominal internal bendahara, ekspor paket verifikasi, integrasi gateway opsional | [ ] Rencana |
 
@@ -258,6 +258,7 @@ Ref: `docs/keuangan-ai/PRD.md` · Fase A detail: `docs/keuangan-ai/features/01-a
 | Grup Chat + Pengumuman | `GrupChat\|Pengumuman` | 99 |
 | Private Chat | `PrivateChat` | 5 |
 | AI (analyze/RAG/teacher) | `AiAnalyze\|AiRag\|AiTeacher` | 55 |
+| Keuangan AI Fase A + SPP | `KeuanganAi\|KeuanganSpp\|RekeningKoran` | — |
 | Ujian + Bank Soal | `Ujian\|BankSoal` | 72 |
 | Absensi sekretaris | `SekretarisAbsensi` | 9 |
 

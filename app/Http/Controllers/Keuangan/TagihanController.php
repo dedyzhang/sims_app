@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Orangtua;
 use App\Models\Siswa;
 use App\Models\SppPembayaran;
+use App\Services\Keuangan\SppActivityLogger;
 use App\Services\Keuangan\SppService;
 use App\Support\KeuanganBank;
 use App\Support\TahunAjaran;
@@ -127,6 +128,7 @@ class TagihanController extends Controller
             } else {
                 Storage::disk('local')->copy($firstPath, $path);
             }
+            $sebelum = $t->status;
             $t->fill([
                 'status'        => SppPembayaran::STATUS_MENUNGGU,
                 'batch_id'      => $batchId,
@@ -137,6 +139,7 @@ class TagihanController extends Controller
                 'diverifikasi_oleh' => null,
                 'diverifikasi_pada' => null,
             ])->save();
+            SppActivityLogger::logStatusChange($t, 'spp_verifikasi_diajukan', $sebelum, $t->status, auth()->id());
         }
 
         $n   = $targets->count();

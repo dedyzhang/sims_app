@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Kelas;
 use App\Models\SppPembayaran;
 use App\Services\Keuangan\SppService;
+use App\Services\Keuangan\SppActivityLogger;
+use App\Services\Keuangan\SppOcrAssistService;
 use App\Support\KeuanganBank;
-use App\Support\RekeningKoranBcaParser;
+use App\Support\RekeningKoran\RekeningKoranParserResolver;
 use App\Support\TahunAjaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -155,7 +157,11 @@ class KeuanganController extends Controller
             }
 
             if (!empty($data['status'])) {
+                $sebelum = $p->status;
                 $this->applyStatus($p, $data['status'], $data['tanggal_bayar'] ?? null);
+                if ($sebelum !== $p->status) {
+                    SppActivityLogger::logStatusChange($p, 'spp_status_diubah', $sebelum, $p->status, auth()->id());
+                }
             } elseif (array_key_exists('tanggal_bayar', $data)) {
                 $p->tanggal_bayar = $data['tanggal_bayar'];
             }
@@ -255,11 +261,14 @@ class KeuanganController extends Controller
             ->get();
 
         foreach ($rows as $p) {
+            $sebelum = $p->status;
             $p->status = SppPembayaran::STATUS_TERVERIFIKASI;
             $p->diverifikasi_oleh = auth()->id();
             $p->diverifikasi_pada = now();
             $p->catatan = null;
             $p->save();
+            SppActivityLogger::logStatusChange($p, 'spp_verifikasi_disetujui', $sebelum, $p->status, auth()->id());
+            app(SppOcrAssistService::class)->purgeForPembayaran($p);
         }
 
         $n = $rows->count();
@@ -278,9 +287,11 @@ class KeuanganController extends Controller
             ->get();
 
         foreach ($rows as $p) {
+            $sebelum = $p->status;
             $this->applyStatus($p, SppPembayaran::STATUS_LUNAS, $p->tanggal_bayar?->toDateString());
             $p->catatan = null;
             $p->save();
+            SppActivityLogger::logStatusChange($p, 'spp_validasi_lunas', $sebelum, $p->status, auth()->id());
         }
 
         $n = $rows->count();
@@ -303,11 +314,13 @@ class KeuanganController extends Controller
             ->get();
 
         foreach ($rows as $p) {
+            $sebelum = $p->status;
             $p->status = SppPembayaran::STATUS_DITOLAK;
             $p->catatan = $data['catatan'];
             $p->diverifikasi_oleh = auth()->id();
             $p->diverifikasi_pada = now();
             $p->save();
+            SppActivityLogger::logStatusChange($p, 'spp_verifikasi_ditolak', $sebelum, $p->status, auth()->id());
         }
 
         $n = $rows->count();
@@ -330,16 +343,20 @@ class KeuanganController extends Controller
             'file.mimes' => 'File harus berupa .txt (laporan transaksi VA dari bank).',
         ]);
 
-        $content   = (string) file_get_contents($request->file('file')->getRealPath());
-        $transaksi = RekeningKoranBcaParser::parse($content);
+        $content = (string) file_get_contents($request->file('file')->getRealPath());
+        $parsed  = RekeningKoranParserResolver::resolve($content);
+        $transaksi = $parsed['transaksi'];
 
         if (empty($transaksi)) {
-            return back()->with('error', 'Tidak ada baris transaksi yang terbaca dari file ini. Pastikan file laporan VA asli dari bank (belum diedit/dipotong).');
+            return back()->with('error', 'Tidak ada baris transaksi yang terbaca dari file ini. Pastikan file laporan VA asli dari bank (BCA R-5401 atau Mandiri CSV).');
         }
 
         $preview = $this->spp->previewRekeningKoran($transaksi);
 
-        return view('keuangan.import-rekening-koran-preview', compact('preview'));
+        return view('keuangan.import-rekening-koran-preview', [
+            'preview'    => $preview,
+            'bankParser' => $parsed['bank'],
+        ]);
     }
 
     /** Terapkan baris-baris yang dicentang bendahara di halaman pratinjau import rekening koran. */
@@ -370,6 +387,13 @@ class KeuanganController extends Controller
 
         $berhasil = collect($hasil)->where('berhasil', true)->count();
         $dilewati = collect($hasil)->where('berhasil', false)->values();
+
+        SppActivityLogger::logImport(
+            $request->input('bank_parser', 'BCA'),
+            $berhasil,
+            $dilewati->count(),
+            auth()->id(),
+        );
 
         $msg = "{$berhasil} pembayaran ditandai LUNAS.";
         if ($dilewati->isNotEmpty()) {

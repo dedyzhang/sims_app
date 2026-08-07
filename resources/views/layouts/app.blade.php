@@ -820,6 +820,7 @@
                     $groups['keuangan'] = ['Keuangan / SPP', 'wallet', [
                         ['keuangan.index',      ['keuangan.index','keuangan.kelas'], 'layout-dashboard', 'Pembayaran SPP'],
                         ['keuangan.verifikasi', ['keuangan.verifikasi'],             'badge-check',      'Verifikasi'],
+                        ['keuangan.bendahara-ai.index', ['keuangan.bendahara-ai.*'], 'sparkles',         'Asisten Bendahara'],
                         ['keuangan.bank',       ['keuangan.bank'],                   'landmark',         'Bank & Metode'],
                     ]];
                 }
