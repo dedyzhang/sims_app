@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Models\AiUsageLog;
+use App\Models\User;
 use App\Services\GeminiService;
 use Illuminate\Http\JsonResponse;
 use Carbon\CarbonImmutable;
@@ -678,5 +679,25 @@ trait InteractsWithAi
     private function aiFreeTierQuotaCacheKey(array $modelChain): string
     {
         return 'ai:gemini:free-tier-quota-exhausted:'.sha1((string) config('ai.api_key').'|'.implode('|', $modelChain));
+    }
+
+    /** Key Gemini pribadi guru (Asisten Guru), bila sudah disimpan di profil. */
+    protected function personalAiKey(?User $user): ?string
+    {
+        return $user?->plainGeminiApiKey();
+    }
+
+    /** @return array{api_key?:string} */
+    protected function personalAiOptions(?User $user): array
+    {
+        $key = $this->personalAiKey($user);
+
+        return $key ? ['api_key' => $key] : [];
+    }
+
+    /** Key pribadi guru dicoba dulu; bila kosong pakai konfigurasi sekolah di GeminiService. */
+    protected function aiConfiguredFor(?User $user): bool
+    {
+        return $this->personalAiKey($user) !== null || app(GeminiService::class)->enabled();
     }
 }

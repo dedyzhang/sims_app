@@ -20,6 +20,7 @@
             padding: 22px 20px;
             border-radius: 12px;
             box-shadow: 0 1px 3px rgb(0 0 0 / .12);
+            border: 1px solid #e5e7eb;
         }
         .quiz-doc *,
         .quiz-doc *::before,
@@ -40,19 +41,19 @@
         .quiz-doc table.identitas td { padding: 1px 0; vertical-align: top; overflow-wrap: anywhere; }
         .quiz-doc table.identitas td.lbl { width: 38%; max-width: 150px; }
         .quiz-doc table.identitas td.sep { width: 14px; }
-        .quiz-doc .bagian { font-weight: 700; font-size: 13px; margin-top: 18px; padding-bottom: 3px; border-bottom: 1px solid #1f3864; color: #1f3864; }
+        .quiz-doc .bagian { font-weight: 800; font-size: 13px; margin-top: 18px; padding: 5px 8px; border-left: 4px solid #1f3864; background: #f1f5f9; color: #1f3864; }
         .quiz-doc .subbagian { font-weight: 700; margin-top: 12px; }
         .quiz-doc .intro { font-style: italic; margin-top: 6px; }
         .quiz-doc ol.petunjuk { margin: 6px 0 0; padding-left: 20px; }
         .quiz-doc ol.petunjuk li { margin-bottom: 2px; }
         .quiz-doc .soal {
             margin-top: 10px;
-            padding-left: 18px;
-            text-indent: -18px;
+            padding-left: 2.15em;
+            text-indent: -2.15em;
             overflow-wrap: anywhere;
             word-break: break-word;
         }
-        .quiz-doc .soal-gambar { margin: 8px 0 8px 18px; text-align: center; text-indent: 0; max-width: 100%; }
+        .quiz-doc .soal-gambar { margin: 8px 0 8px 2.15em; text-align: center; text-indent: 0; max-width: 100%; }
         .quiz-doc .soal-gambar img {
             display: block;
             margin: 0 auto;
@@ -66,13 +67,14 @@
         }
         .quiz-doc .soal-gambar-caption { font-size: 11px; color: #6b7280; margin-top: 4px; font-style: italic; }
         .quiz-doc .opsi {
-            padding-left: 34px;
-            text-indent: -16px;
+            margin-top: 3px;
+            padding-left: 3.45em;
+            text-indent: -1.55em;
             overflow-wrap: anywhere;
             word-break: break-word;
         }
         .quiz-doc .garis-jawab {
-            margin: 8px 0 4px 18px;
+            margin: 8px 0 4px 2.15em;
             color: transparent;
             overflow: hidden;
             white-space: nowrap;
@@ -125,8 +127,8 @@
             .quiz-doc .kop .nama { font-size: 13px; }
             .quiz-doc .judul { font-size: 13px; }
             .quiz-doc table.identitas td.lbl { width: 42%; max-width: none; }
-            .quiz-doc .soal { padding-left: 16px; text-indent: -16px; }
-            .quiz-doc .opsi { padding-left: 28px; text-indent: -14px; }
+            .quiz-doc .soal { padding-left: 2em; text-indent: -2em; }
+            .quiz-doc .opsi { padding-left: 3em; text-indent: -1.45em; }
             .quiz-doc .soal-gambar { margin-left: 8px; }
             .quiz-doc .garis-jawab { margin-left: 8px; max-width: calc(100% - 8px); }
             .quiz-doc table.kunci-pg td { padding: 4px 6px; font-size: 11px; }

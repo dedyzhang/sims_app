@@ -631,11 +631,11 @@
                     $groups['akademik'] = ['Akademik', 'book-open-check', $akademik];
                 }
 
-                // ── Analisis AI (Fase 4) — narasi data untuk pimpinan/staf ──
+                // ── Analisis Data (Fase 4) — narasi data untuk pimpinan/staf ──
                 if ($modulOn('analisis_ai') && ($isAdmin || in_array($access, ['kepala', 'kurikulum', 'kesiswaan']))) {
-                    $groups['analisis'] = ['Analisis AI', 'sparkles', [
-                        ['ai.analyze.index', ['ai.analyze.*'], 'chart-line', 'Narasi Data AI'],
-                        ['ai.rag.index',     ['ai.rag.*'],     'file-search', 'Dokumen AI'],
+                    $groups['analisis'] = ['Analisis Data', 'sparkles', [
+                        ['ai.analyze.index', ['ai.analyze.*'], 'chart-line', 'Narasi Data'],
+                        ['ai.rag.index',     ['ai.rag.*'],     'file-search', 'Asisten Dokumen'],
                     ]];
                 }
 

@@ -1,18 +1,18 @@
 @extends('layouts.app')
-@section('title', 'Dokumen AI (RAG)')
+@section('title', 'Asisten Dokumen')
 
 @section('content')
 <div class="space-y-5" x-data="ragAi()">
 
     {{-- Header --}}
     <div>
-        <h1 class="page-title flex items-center gap-2"><i data-lucide="file-search" class="w-6 h-6 text-primary"></i> Dokumen AI</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Unggah dokumen sekolah (peraturan/materi), lalu tanya-jawab berbasis isinya dengan sumber kutipan.</p>
+        <h1 class="page-title flex items-center gap-2"><i data-lucide="file-search" class="w-6 h-6 text-primary"></i> Asisten Dokumen</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Unggah dokumen sekolah (peraturan/materi), lalu tanya-jawab atau susun draf admin berbasis isinya dengan sumber kutipan.</p>
     </div>
 
-    @unless($schoolAiConfigured ?? false)
+    @unless($aiConfigured ?? false)
     <div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-        Fitur ini memakai <strong>kunci AI sekolah</strong> (<code>GEMINI_API_KEY</code> di server), bukan API key pribadi guru di Asisten Guru. Minta admin mengisi kunci di <code>.env</code> lalu <code>php artisan config:clear</code>.
+        Fitur dokumen belum siap. Lengkapi pengaturan akun atau minta admin mengaktifkan konfigurasi sekolah.
     </div>
     @endunless
 
@@ -30,14 +30,14 @@
                     <input type="file" x-ref="file" accept=".pdf,.txt" class="form-input">
                 </div>
             </div>
-            <button type="button" @click="upload()" :disabled="uploading || !@js((bool) ($schoolAiConfigured ?? false))" class="btn-primary flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 h-fit">
+            <button type="button" @click="upload()" :disabled="uploading || !@js((bool) ($aiConfigured ?? false))" class="btn-primary flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 h-fit">
                 <i :data-lucide="uploading ? 'loader-circle' : 'upload'" :class="uploading && 'animate-spin'" class="w-4 h-4"></i>
                 <span x-text="uploading ? 'Mengunggah…' : 'Unggah & Proses'"></span>
             </button>
         </div>
         <p x-show="uploadMsg" x-cloak class="mt-3 text-sm text-emerald-600 dark:text-emerald-400" x-text="uploadMsg"></p>
         <p x-show="uploadErr" x-cloak class="mt-3 text-sm text-rose-600 dark:text-rose-400" x-text="uploadErr"></p>
-        <p class="mt-2 text-[11px] text-slate-400">Pemrosesan (embed) berjalan di antrean. PDF hasil scan (gambar) tidak bisa diekstrak teksnya. Muat ulang halaman jika status masih Pending.</p>
+        <p class="mt-2 text-[11px] text-slate-400">Pemrosesan dokumen mengikuti pengaturan akun pemilik dokumen dan konfigurasi sekolah. PDF hasil scan (gambar) tidak bisa diekstrak teksnya. Muat ulang halaman jika status masih Pending.</p>
     </div>
 
     <div class="grid gap-5 lg:grid-cols-2">
@@ -79,10 +79,19 @@
 
         {{-- Tanya-jawab --}}
         <div class="card p-5 flex flex-col">
-            <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 mb-3"><i data-lucide="messages-square" class="w-4 h-4"></i> Tanya Dokumen</h2>
+            <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 mb-3"><i data-lucide="messages-square" class="w-4 h-4"></i> Asisten Dokumen</h2>
+
+            <div class="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+                <button type="button" @click="mode = 'document'"
+                        :class="mode === 'document' ? 'bg-white text-primary shadow-sm dark:bg-slate-900' : 'text-slate-500 dark:text-slate-300'"
+                        class="rounded-lg px-2 py-2 text-[11px] font-semibold transition">Tanya Dokumen</button>
+                <button type="button" @click="mode = 'admin'"
+                        :class="mode === 'admin' ? 'bg-white text-primary shadow-sm dark:bg-slate-900' : 'text-slate-500 dark:text-slate-300'"
+                        class="rounded-lg px-2 py-2 text-[11px] font-semibold transition">Asisten Admin Sekolah</button>
+            </div>
 
             <div class="flex items-end gap-2">
-                <textarea x-model="question" rows="2" @keydown.enter.prevent="if(!$event.shiftKey) ask()" placeholder="mis. Apa sanksi terlambat masuk sekolah?" class="form-input resize-none flex-1"></textarea>
+                <textarea x-model="question" rows="2" @keydown.enter.prevent="if(!$event.shiftKey) ask()" :placeholder="mode === 'admin' ? 'mis. Buat draf pengumuman aturan keterlambatan untuk orang tua' : 'mis. Apa sanksi terlambat masuk sekolah?'" class="form-input resize-none flex-1"></textarea>
                 <button type="button" @click="ask()" :disabled="asking || question.trim() === ''" class="btn-primary grid h-10 w-10 shrink-0 place-items-center rounded-xl disabled:opacity-40">
                     <i :data-lucide="asking ? 'loader-circle' : 'send'" :class="asking && 'animate-spin'" class="w-5 h-5"></i>
                 </button>
@@ -111,7 +120,7 @@
             <div x-show="!answer && !asking && !askErr" x-cloak class="flex-1 grid place-items-center text-slate-300 dark:text-slate-600 py-8">
                 <div class="text-center">
                     <i data-lucide="file-search" class="w-10 h-10 mx-auto opacity-40"></i>
-                    <p class="text-sm mt-2">Jawaban hanya diambil dari isi dokumen.</p>
+                    <p class="text-sm mt-2" x-text="mode === 'admin' ? 'Draf admin hanya disusun dari dokumen yang siap.' : 'Jawaban hanya diambil dari isi dokumen.'"></p>
                 </div>
             </div>
         </div>
@@ -124,7 +133,7 @@
     function ragAi() {
         return {
             title: '', uploading: false, uploadMsg: '', uploadErr: '',
-            question: '', asking: false, answer: '', sources: [], askErr: '',
+            question: '', mode: 'document', asking: false, answer: '', sources: [], askErr: '',
             csrf() { return document.querySelector('meta[name="csrf-token"]').getAttribute('content'); },
 
             async upload() {
@@ -166,7 +175,7 @@
                     const r = await fetch('{{ route('ai.rag.ask') }}', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this.csrf() },
-                        body: JSON.stringify({ question: q }),
+                        body: JSON.stringify({ question: q, mode: this.mode }),
                     });
                     const d = await r.json();
                     if (r.ok && d.ok) { this.answer = d.answer; this.sources = d.sources || []; }

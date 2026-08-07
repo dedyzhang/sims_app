@@ -20,26 +20,26 @@
         .judul { text-align: center; font-weight: 700; font-size: 13px; margin-top: 12px; }
         .subjudul { text-align: center; font-style: italic; margin-top: 2px; }
         /* Identitas */
-        table.identitas { margin-top: 10px; border-collapse: collapse; }
-        table.identitas td { padding: 1px 0; vertical-align: top; }
+        table.identitas { width: 100%; margin-top: 10px; border-collapse: collapse; table-layout: fixed; }
+        table.identitas td { padding: 1px 0; vertical-align: top; word-wrap: break-word; }
         table.identitas td.lbl { width: 140px; }
         table.identitas td.sep { width: 12px; }
         /* Bagian soal */
-        .bagian { font-weight: 700; font-size: 11px; margin-top: 14px; padding-bottom: 3px; border-bottom: 1px solid #1f3864; color: #1f3864; }
+        .bagian { font-weight: 700; font-size: 11px; margin-top: 14px; padding: 4px 6px; border-left: 3px solid #1f3864; background: #f1f5f9; color: #1f3864; }
         .subbagian { font-weight: 700; margin-top: 10px; }
         .intro { font-style: italic; margin-top: 5px; }
         ol.petunjuk { margin: 5px 0 0; padding-left: 18px; }
         ol.petunjuk li { margin-bottom: 2px; }
-        .soal { margin-top: 8px; padding-left: 16px; text-indent: -16px; }
-        .soal-gambar { margin: 6px 0 6px 16px; text-align: center; text-indent: 0; }
+        .soal { margin-top: 8px; padding-left: 20px; text-indent: -20px; word-wrap: break-word; }
+        .soal-gambar { margin: 6px 0 6px 20px; text-align: center; text-indent: 0; }
         .soal-gambar img { max-width: 70%; max-height: 220px; border: 1px solid #999; }
         .soal-gambar-caption { font-size: 8px; color: #555; margin-top: 3px; font-style: italic; }
-        .opsi { padding-left: 30px; text-indent: -14px; }
-        .garis-jawab { margin: 3px 0 2px 16px; color: #9ca3af; }
+        .opsi { padding-left: 34px; text-indent: -14px; word-wrap: break-word; }
+        .garis-jawab { margin: 3px 0 2px 20px; color: #9ca3af; }
         /* Kunci jawaban: halaman terpisah, sama seperti dokumen acuan */
         .kunci { page-break-before: always; }
         table.kunci-pg { width: 100%; border-collapse: collapse; margin-top: 6px; }
-        table.kunci-pg td { border: 1px solid #000; padding: 4px 6px; font-weight: 700; width: 100%; }
+        table.kunci-pg td { border: 1px solid #000; padding: 4px 6px; font-weight: 700; width: 100%; word-wrap: break-word; }
         .esai-head { font-weight: 700; margin-top: 8px; }
         ul.poin { margin: 3px 0 0; padding-left: 18px; }
         ul.poin li { margin-bottom: 2px; }

@@ -11,11 +11,12 @@ use ZipArchive;
  */
 trait DocxXml
 {
-    protected static function run(string $text, bool $bold = false, bool $italic = false, int $sz = 20): string
+    protected static function run(string $text, bool $bold = false, bool $italic = false, int $sz = 20, ?string $color = null): string
     {
         $props = '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>'
             .($bold ? '<w:b/>' : '')
             .($italic ? '<w:i/>' : '')
+            .($color !== null ? '<w:color w:val="'.$color.'"/>' : '')
             .'<w:sz w:val="'.$sz.'"/><w:szCs w:val="'.$sz.'"/>';
 
         return '<w:r><w:rPr>'.$props.'</w:rPr><w:t xml:space="preserve">'.htmlspecialchars($text, ENT_QUOTES | ENT_XML1, 'UTF-8').'</w:t></w:r>';
@@ -104,14 +105,28 @@ trait DocxXml
         return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
     }
 
-    /** Bungkus body WordprocessingML jadi dokumen A4 utuh. */
-    protected static function documentXmlFor(string $body): string
+    /**
+     * Bungkus body WordprocessingML jadi dokumen A4 utuh.
+     *
+     * @param  array{orientation?:string,margin?:array{top?:int,right?:int,bottom?:int,left?:int}}  $opts
+     */
+    protected static function documentXmlFor(string $body, array $opts = []): string
     {
+        $landscape = ($opts['orientation'] ?? 'portrait') === 'landscape';
+        $pageW = $landscape ? 16838 : 11906;
+        $pageH = $landscape ? 11906 : 16838;
+        $orient = $landscape ? ' w:orient="landscape"' : '';
+        $margin = $opts['margin'] ?? [];
+        $top = (int) ($margin['top'] ?? 1440);
+        $right = (int) ($margin['right'] ?? 1440);
+        $bottom = (int) ($margin['bottom'] ?? 1440);
+        $left = (int) ($margin['left'] ?? 1440);
+
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
             .'<w:body>'
             .$body
-            .'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>'
+            .'<w:sectPr><w:pgSz w:w="'.$pageW.'" w:h="'.$pageH.'"'.$orient.'/><w:pgMar w:top="'.$top.'" w:right="'.$right.'" w:bottom="'.$bottom.'" w:left="'.$left.'" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>'
             .'</w:body></w:document>';
     }
 

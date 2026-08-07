@@ -196,6 +196,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/quiz/export-word', 'exportQuizWord')->name('quiz.export-word');
             Route::post('/quiz/export-pdf', 'exportQuizPdf')->name('quiz.export-pdf');
             Route::post('/quiz/send-arena', 'sendToArena')->middleware('throttle:20,1')->name('quiz.send-arena');
+            Route::post('/blueprint', 'blueprint')->name('blueprint');
             Route::post('/learning', 'learning')->name('learning');
             Route::post('/learning/preview', 'previewLearning')->name('learning.preview');
             Route::post('/learning/export-word', 'exportLearningWord')->name('learning.export-word');
