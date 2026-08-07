@@ -59,5 +59,6 @@ php artisan test --filter="AiRagTest|AiAnalyzeTest|CanvaConnectTest|SarprasRoleA
 | Fitur | Kunci |
 |-------|--------|
 | Asisten Guru | API key Gemini **pribadi** guru (tersimpan terenkripsi di user) |
-| Narasi Data / Dokumen AI (RAG) | **Kunci sekolah** di `.env` (`GEMINI_API_KEY` / OpenRouter) |
+| Narasi Data | API key **pribadi** guru **atau** konfigurasi sekolah di `.env` |
+| Asisten Dokumen | API key **pribadi** guru **atau** konfigurasi sekolah di `.env` |
 | Canva Connect | `CANVA_CLIENT_ID` + `CANVA_CLIENT_SECRET` di `.env` |

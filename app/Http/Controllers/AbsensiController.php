@@ -39,6 +39,12 @@ class AbsensiController extends Controller
         return $this->walikelasKelasId() ?? $this->sekretarisKelasId();
     }
 
+    /** Kelas homeroom untuk rekap/cetak — sekretaris sengaja dikecualikan (hanya isi harian). */
+    private function rekapScopedKelasId(): ?string
+    {
+        return $this->walikelasKelasId();
+    }
+
     /**
      * Masuk mode kiosk publik via link rahasia — TANPA login sama sekali (tidak ada Auth::login,
      * tidak ada session). Token diteruskan lewat query string `?_kiosk=` ke halaman scan/QR, lalu
@@ -128,15 +134,19 @@ class AbsensiController extends Controller
 
         $siswaUuids = $statuses->keys()->all();
 
-        $existingRows = Absensi::whereIn('id_siswa', $siswaUuids)
-            ->whereDate('tanggal', $tanggal)
-            ->get()->keyBy('id_siswa');
-
         // Preload siswa+ortu SEKALI utk seluruh kelas — dulu AttendanceParentNotifier query
         // Siswa::find() sendiri PER baris di dalam loop, jadi N query tambahan hilang di sini.
         $siswaByUuid = Siswa::with(['kelas', 'orangtua.user'])
+            ->where('id_kelas', $request->id_kelas)
             ->whereIn('uuid', $siswaUuids)
             ->get()->keyBy('uuid');
+
+        $siswaAsing = array_diff($siswaUuids, $siswaByUuid->keys()->all());
+        abort_if($siswaAsing !== [], 422, 'Ada siswa yang tidak termasuk kelas ini.');
+
+        $existingRows = Absensi::whereIn('id_siswa', $siswaUuids)
+            ->whereDate('tanggal', $tanggal)
+            ->get()->keyBy('id_siswa');
 
         // Wali kelas & sekretaris SAMA-SAMA bukan bukti scan sungguhan — jam_masuk tak ditimpa
         // (perilaku wali kelas lama, kini juga berlaku utk sekretaris).
@@ -190,7 +200,7 @@ class AbsensiController extends Controller
         Absensi::upsert(
             $upsertRows,
             ['id_siswa', 'tanggal'],
-            ['id_kelas', 'status', 'keterangan', 'jam_masuk', 'dicatat_oleh', 'id_semester', 'updated_at']
+            ['id_kelas', 'status', 'keterangan', 'jam_masuk', 'dicatat_oleh', 'updated_at']
         );
 
         foreach ($rowsForNotify as $siswaUuid => $data) {
@@ -208,7 +218,7 @@ class AbsensiController extends Controller
     public function rekap(Request $request)
     {
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
-        $scopedKelas = $this->scopedKelasId();
+        $scopedKelas = $this->rekapScopedKelasId();
         abort_if(!auth()->user()->canAccess('manage_absensi') && !$scopedKelas, 403, 'Hanya pengelola yang dapat mengakses rekap absensi.');
         if ($scopedKelas) {
             $kelasList = $kelasList->where('uuid', $scopedKelas)->values();
@@ -250,10 +260,10 @@ class AbsensiController extends Controller
 
     public function cetakRekap(Request $request)
     {
-        $scopedKelas = $this->scopedKelasId();
+        $scopedKelas = $this->rekapScopedKelasId();
         abort_if(!auth()->user()->canAccess('manage_absensi') && !$scopedKelas, 403);
 
-        // admin harus milih kelas, wk/sekretaris otomatis pakai kelasnya
+        // admin harus milih kelas, wali kelas otomatis pakai kelasnya
         $selectedKelas = $scopedKelas ?: $request->kelas;
         abort_if(!$selectedKelas, 404, 'Kelas tidak valid.');
         

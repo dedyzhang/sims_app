@@ -1,18 +1,18 @@
 @extends('layouts.app')
-@section('title', 'Narasi Data AI')
+@section('title', 'Narasi Data')
 
 @section('content')
 <div class="space-y-5" x-data="analyzeAi()">
 
     {{-- Header --}}
     <div>
-        <h1 class="page-title flex items-center gap-2"><i data-lucide="chart-line" class="w-6 h-6 text-primary"></i> Narasi Data AI</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Sistem menghitung angkanya, AI menyusun narasinya. Cocok untuk laporan pimpinan & orang tua.</p>
+        <h1 class="page-title flex items-center gap-2"><i data-lucide="chart-line" class="w-6 h-6 text-primary"></i> Narasi Data</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Sistem menghitung angkanya, lalu menyusun narasi siap pakai untuk laporan pimpinan dan orang tua.</p>
     </div>
 
-    @unless($schoolAiConfigured ?? false)
+    @unless($aiConfigured ?? false)
     <div class="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-        Narasi Data memakai <strong>kunci AI sekolah</strong> di server, bukan API key pribadi Asisten Guru. Minta admin mengisi <code>GEMINI_API_KEY</code> / OpenRouter di <code>.env</code>.
+        Fitur narasi belum siap. Lengkapi pengaturan akun atau minta admin mengaktifkan konfigurasi sekolah.
     </div>
     @endunless
 
@@ -51,7 +51,7 @@
                     </select>
                 </div>
                 <button type="button" @click="submit('nilai')" :disabled="loading || !nilai.kelas_id || !nilai.semester_id" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="sparkles" class="w-4 h-4"></i> Buat Narasi AI
+                    <i data-lucide="sparkles" class="w-4 h-4"></i> Buat Narasi
                 </button>
             </div>
 
@@ -77,7 +77,7 @@
                     </div>
                 </div>
                 <button type="button" @click="submit('absensi')" :disabled="loading || !absensi.dari || !absensi.sampai" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="sparkles" class="w-4 h-4"></i> Buat Narasi AI
+                    <i data-lucide="sparkles" class="w-4 h-4"></i> Buat Narasi
                 </button>
             </div>
 
@@ -92,7 +92,7 @@
                     </select>
                 </div>
                 <button type="button" @click="submit('keuangan')" :disabled="loading || !keuangan.tahun_ajaran" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="sparkles" class="w-4 h-4"></i> Buat Narasi AI
+                    <i data-lucide="sparkles" class="w-4 h-4"></i> Buat Narasi
                 </button>
                 <p class="text-[11px] text-slate-400">Nominal dikirim apa adanya dari sistem; AI tidak menghitung ulang uang.</p>
             </div>
@@ -158,7 +158,7 @@
                 { key: 'keuangan', label: 'Catatan SPP',  icon: 'wallet' },
                 @endif
             ],
-            schoolAiConfigured: @js((bool) ($schoolAiConfigured ?? false)),
+            aiConfigured: @js((bool) ($aiConfigured ?? false)),
             nilai:    { kelas_id: '', semester_id: '' },
             absensi:  { kelas_id: '', dari: '', sampai: '' },
             keuangan: { tahun_ajaran: '{{ $taAktif }}' },
