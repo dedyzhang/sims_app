@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Kelas;
 use App\Models\Siswa;
+use App\Models\SppOcrDraft;
 use App\Models\SppPembayaran;
 use App\Models\User;
+use App\Services\GeminiService;
 use App\Services\Keuangan\SppActivityLogger;
 use App\Services\Keuangan\SppMonthlyDashboard;
 use App\Services\Keuangan\SppVerificationQueue;
@@ -14,7 +16,10 @@ use App\Support\RekeningKoran\RekeningKoranMandiriParser;
 use App\Support\RekeningKoran\RekeningKoranParserResolver;
 use App\Support\TahunAjaran;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Mockery\MockInterface;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -175,6 +180,71 @@ class KeuanganAiFaseATest extends TestCase
     }
 
     // ─── A2: OCR tidak auto-post ─────────────────────────────────────────
+
+    public function test_antrian_menampilkan_tombol_baca_bukti(): void
+    {
+        Storage::fake('local');
+
+        $bendahara = $this->makeUser('bendahara', 'bendahara_ocr_ui');
+        $kelas = $this->makeKelas();
+        $siswa = $this->makeSiswa($kelas);
+        $ta = TahunAjaran::current();
+
+        $path = 'bukti-spp/'.$siswa->uuid.'/test.jpg';
+        Storage::disk('local')->put($path, 'fake-image');
+
+        SppPembayaran::create([
+            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => $ta, 'bulan' => 1,
+            'nominal' => 150000, 'status' => 'menunggu', 'bank' => 'BCA', 'bukti_path' => $path,
+        ]);
+
+        $p = SppPembayaran::where('id_siswa', $siswa->uuid)->firstOrFail();
+        $html = $this->actingAs($bendahara)->get(route('keuangan.bendahara-ai.antrian'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Baca Bukti', $html);
+        $this->assertStringContainsString($p->uuid, $html);
+    }
+
+    public function test_ocr_endpoint_mengembalikan_saran_hitl(): void
+    {
+        config(['ai.api_key' => 'test-key', 'ai.provider' => 'gemini']);
+
+        $this->mock(GeminiService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('enabled')->andReturn(true);
+            $mock->shouldReceive('visionText')
+                ->once()
+                ->andReturn([
+                    'text' => '{"nama_pengirim":"Budi","tanggal":"2026-06-20","referensi":"BCA","nominal_teks":"Rp 150.000"}',
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 10,
+                    'completion_tokens' => 20,
+                ]);
+        });
+
+        $bendahara = $this->makeUser('bendahara', 'bendahara_ocr_hitl');
+        $kelas = $this->makeKelas();
+        $siswa = $this->makeSiswa($kelas);
+
+        $p = SppPembayaran::create([
+            'id_siswa' => $siswa->uuid, 'tahun_ajaran' => TahunAjaran::current(),
+            'bulan' => 1, 'nominal' => 150000, 'status' => 'menunggu',
+        ]);
+
+        $response = $this->actingAs($bendahara)->postJson(route('keuangan.bendahara-ai.ocr', $p), [
+            'bukti' => UploadedFile::fake()->image('bukti.jpg', 400, 600),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('saran.nama_pengirim', 'Budi')
+            ->assertJsonPath('saran.tanggal', '2026-06-20')
+            ->assertJsonPath('saran.nominal_teks', 'Rp 150.000');
+
+        $p->refresh();
+        $this->assertSame('menunggu', $p->status);
+        $this->assertDatabaseHas('spp_ocr_drafts', ['pembayaran_uuid' => $p->uuid]);
+        $this->assertSame(1, SppOcrDraft::where('pembayaran_uuid', $p->uuid)->count());
+    }
 
     public function test_ocr_endpoint_tidak_mengubah_status_pembayaran(): void
     {
