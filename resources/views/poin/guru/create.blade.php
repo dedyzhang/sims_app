@@ -44,41 +44,5 @@
 @endsection
 
 @push('scripts')
-<script>
-function poinForm(url) {
-    return {
-        jenis: '', aturans: [], loadingAturan: false, ts: null,
-        init() {
-            this.ts = new TomSelect(this.$refs.aturanSelect, {
-                create: false,
-                placeholder: 'Pilih jenis dulu, lalu cari aturan...',
-            });
-            this.ts.disable();
-        },
-        async loadAturan() {
-            this.aturans = [];
-            this.ts.clear(true);
-            this.ts.clearOptions();
-            this.ts.disable();
-            if (!this.jenis) return;
-
-            this.loadingAturan = true;
-            try {
-                const res = await fetch(url + '?jenis=' + this.jenis);
-                const data = await res.json();
-                this.aturans = data.aturans || [];
-                this.aturans.forEach(a => {
-                    this.ts.addOption({ value: a.uuid, text: a.kode + ' — ' + a.aturan + ' (' + a.poin + ' poin)' });
-                });
-                this.ts.refreshOptions(false);
-                this.ts.enable();
-            } catch (e) {
-                // biarkan tetap nonaktif jika gagal memuat
-            } finally {
-                this.loadingAturan = false;
-            }
-        }
-    };
-}
-</script>
+@include('poin.partials.poin-form-script')
 @endpush
