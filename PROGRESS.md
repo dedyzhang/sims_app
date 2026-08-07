@@ -239,7 +239,7 @@ Ref: merge commit `b4b5e4b` via `codex/sekretaris-absensi-scope`.
 
 Ref: `docs/keuangan-ai/PRD.md` · Fase A detail: `docs/keuangan-ai/features/01-ai-bendahara-spp-fase-a.md`
 
-**Commit migrasi Codex→Cursor + dokumen PRD:** `06320ff`
+**Commit migrasi Codex→Cursor + dokumen PRD:** `0ab2e84`
 
 | Fase | Ringkasan | Status |
 |------|-----------|--------|
