@@ -6,9 +6,12 @@ use App\Http\Controllers\Concerns\InteractsWithAi;
 use App\Http\Controllers\Controller;
 use App\Models\SppPembayaran;
 use App\Services\Keuangan\SppActivityLogger;
+use App\Services\Keuangan\SppAnomalyDetector;
 use App\Services\Keuangan\SppMonthlyDashboard;
+use App\Services\Keuangan\SppMutasiMatchingService;
 use App\Services\Keuangan\SppOcrAssistService;
 use App\Services\Keuangan\SppVerificationQueue;
+use App\Services\Keuangan\BendaharaAntrianDigest;
 use App\Support\TahunAjaran;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +22,7 @@ use Spatie\Activitylog\Models\Activity;
  * Asisten operasional Bendahara SPP (Fase A) — terpisah dari AiAnalyzeController pimpinan.
  *
  * A1 antrian prioritas · A2 OCR saran · A3 dashboard SPP · A5 jejak audit.
+ * B1 rekonsiliasi matching · B2 anomali · B3 digest antrian.
  */
 class BendaharaAiController extends Controller
 {
@@ -28,16 +32,23 @@ class BendaharaAiController extends Controller
         private SppVerificationQueue $queue,
         private SppMonthlyDashboard $dashboard,
         private SppOcrAssistService $ocr,
+        private SppMutasiMatchingService $matching,
+        private SppAnomalyDetector $anomaly,
+        private BendaharaAntrianDigest $digest,
     ) {}
 
     /** Hub asisten bendahara. */
     public function index(Request $request): View
     {
         $ta = $this->resolveTahunAjaran($request);
+        $ringkasanAntrian = $this->digest->ringkasan($ta);
+        $anomaliCount = $this->anomaly->scan($ta)->count();
 
         return view('keuangan.bendahara-ai.index', [
-            'ta'        => $ta,
-            'taOptions' => TahunAjaran::options(),
+            'ta'               => $ta,
+            'taOptions'        => TahunAjaran::options(),
+            'ringkasanAntrian' => $ringkasanAntrian,
+            'anomaliCount'     => $anomaliCount,
         ]);
     }
 
@@ -48,6 +59,7 @@ class BendaharaAiController extends Controller
         $q  = trim((string) $request->query('q', ''));
 
         $groups = $this->queue->prioritizedGroups($ta, $q !== '' ? $q : null);
+        $anomaliMap = $this->anomaly->scan($ta)->keyBy(fn ($row) => $row['pembayaran']->uuid);
 
         $menunggu = $groups->filter(fn ($g) => $g->first()['pembayaran']->status === SppPembayaran::STATUS_MENUNGGU);
         $terverifikasi = $groups->filter(fn ($g) => $g->first()['pembayaran']->status === SppPembayaran::STATUS_TERVERIFIKASI);
@@ -57,6 +69,7 @@ class BendaharaAiController extends Controller
             'terverifikasiGroups' => $terverifikasi,
             'menungguCount'       => $menunggu->sum(fn ($g) => $g->count()),
             'terverifikasiCount'  => $terverifikasi->sum(fn ($g) => $g->count()),
+            'anomaliMap'          => $anomaliMap,
             'q'                   => $q,
             'ta'                  => $ta,
             'taOptions'           => TahunAjaran::options(),
@@ -131,6 +144,32 @@ class BendaharaAiController extends Controller
             'ok'      => true,
             'message' => 'Saran OCR — periksa dan konfirmasi sebelum menyimpan.',
             'saran'   => $saran,
+        ]);
+    }
+
+    /** B1 — Rekonsiliasi: tagihan terverifikasi menunggu validasi bank. */
+    public function rekonsiliasi(Request $request): View
+    {
+        $ta = $this->resolveTahunAjaran($request);
+        $antrian = $this->matching->antrianValidasiBank($ta);
+
+        return view('keuangan.bendahara-ai.rekonsiliasi', [
+            'ta'        => $ta,
+            'taOptions' => TahunAjaran::options(),
+            'antrian'   => $antrian,
+        ]);
+    }
+
+    /** B2 — Daftar anomali / flag peringatan. */
+    public function anomali(Request $request): View
+    {
+        $ta = $this->resolveTahunAjaran($request);
+        $items = $this->anomaly->scan($ta);
+
+        return view('keuangan.bendahara-ai.anomali', [
+            'ta'        => $ta,
+            'taOptions' => TahunAjaran::options(),
+            'items'     => $items,
         ]);
     }
 

@@ -58,7 +58,11 @@
                     @endforeach
                 </div>
                 @endif
-                @include('keuangan.partials.verif-card', ['group' => $payments, 'mode' => 'verify'])
+                @include('keuangan.partials.verif-card', [
+                    'group' => $payments,
+                    'mode' => 'verify',
+                    'anomaliFlags' => $payments->flatMap(fn($p) => ($anomaliMap[$p->uuid]['flags'] ?? []))->unique('kode')->values()->all(),
+                ])
             </div>
         @empty
             <div class="card p-10 text-center text-slate-400"><p class="text-sm">Tidak ada antrian menunggu cek bukti.</p></div>
@@ -78,7 +82,11 @@
                         <i data-lucide="zap" class="w-3 h-3"></i> {{ $topScore }}
                     </span>
                 </div>
-                @include('keuangan.partials.verif-card', ['group' => $payments, 'mode' => 'validate'])
+                @include('keuangan.partials.verif-card', [
+                    'group' => $payments,
+                    'mode' => 'validate',
+                    'anomaliFlags' => $payments->flatMap(fn($p) => ($anomaliMap[$p->uuid]['flags'] ?? []))->unique('kode')->values()->all(),
+                ])
             </div>
         @empty
             <div class="card p-10 text-center text-slate-400"><p class="text-sm">Tidak ada antrian validasi rekening koran.</p></div>

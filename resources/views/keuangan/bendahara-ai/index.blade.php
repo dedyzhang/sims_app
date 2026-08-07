@@ -12,6 +12,22 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Tahun Ajaran {{ $ta }} · alat operasional harian (bukan narasi pimpinan)</p>
     </div>
 
+    @if(($ringkasanAntrian['menumpuk'] ?? false))
+    <div class="card p-4 border-l-4 border-amber-400 bg-amber-50/50 dark:bg-amber-950/20">
+        <p class="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+            <i data-lucide="bell" class="w-4 h-4"></i> Antrian menumpuk
+        </p>
+        <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">
+            {{ $ringkasanAntrian['menunggu'] }} bukti menunggu verifikasi
+            @if($ringkasanAntrian['menunggu_lama'] > 0)
+                ({{ $ringkasanAntrian['menunggu_lama'] }} sudah &gt; {{ config('keuangan-ai.digest.usia_hari_min', 3) }} hari)
+            @endif
+            · {{ $ringkasanAntrian['terverifikasi'] }} menunggu validasi bank.
+            <a href="{{ route('keuangan.bendahara-ai.antrian', ['ta'=>$ta]) }}" class="font-semibold underline ml-1">Buka antrian</a>
+        </p>
+    </div>
+    @endif
+
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <a href="{{ route('keuangan.bendahara-ai.antrian', ['ta'=>$ta]) }}" class="card p-5 hover:shadow-md transition group">
             <div class="flex items-start gap-3">
@@ -28,6 +44,26 @@
                 <div>
                     <p class="font-bold text-slate-800 dark:text-slate-100 group-hover:text-primary">Dashboard SPP</p>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pendapatan bulanan dari transaksi terverifikasi/lunas.</p>
+                </div>
+            </div>
+        </a>
+        <a href="{{ route('keuangan.bendahara-ai.rekonsiliasi', ['ta'=>$ta]) }}" class="card p-5 hover:shadow-md transition group">
+            <div class="flex items-start gap-3">
+                <span class="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-900/40 text-sky-600 grid place-items-center"><i data-lucide="git-compare" class="w-5 h-5"></i></span>
+                <div>
+                    <p class="font-bold text-slate-800 dark:text-slate-100 group-hover:text-primary">Rekonsiliasi Bank</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Skor pencocokan mutasi rekening ↔ tagihan SPP.</p>
+                </div>
+            </div>
+        </a>
+        <a href="{{ route('keuangan.bendahara-ai.anomali', ['ta'=>$ta]) }}" class="card p-5 hover:shadow-md transition group">
+            <div class="flex items-start gap-3">
+                <span class="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 grid place-items-center"><i data-lucide="alert-triangle" class="w-5 h-5"></i></span>
+                <div>
+                    <p class="font-bold text-slate-800 dark:text-slate-100 group-hover:text-primary">Anomali
+                        @if(($anomaliCount ?? 0) > 0)<span class="badge bg-rose-100 text-rose-700 ml-1">{{ $anomaliCount }}</span>@endif
+                    </p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Duplikat bukti & nominal mencurigakan (flag saja).</p>
                 </div>
             </div>
         </a>

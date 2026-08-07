@@ -35,6 +35,9 @@ Schedule::command('grupchat:sinkron')->dailyAt('01:00')->withoutOverlapping();
 // catatan di GrupChatMessenger::kirim() soal FCM_QUEUE_CONNECTION=sync).
 Schedule::command('grupchat:kirim-notif')->everyFifteenMinutes()->withoutOverlapping();
 
+// Bendahara SPP: digest antrian verifikasi menumpuk (2x sehari).
+Schedule::command('bendahara:antrian-digest')->twiceDaily(8, 14)->withoutOverlapping();
+
 // Ujian: finalisasi paksa attempt yg lewat deadline tapi belum dikumpulkan (jaring
 // pengaman server-side — auto-submit normal ditangani client-side JS). everyMinute()
 // krn deadline ujian batas keras, bukan pengingat.

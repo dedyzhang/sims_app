@@ -48,4 +48,28 @@ return [
         \App\Support\RekeningKoran\RekeningKoranMandiriParser::class,
     ],
 
+    /*
+    | Skor pencocokan mutasi rekening ↔ tagihan SPP (Fase B1).
+    */
+    'matching' => [
+        'versi' => 1,
+        'bobot' => [
+            'va'      => 40,
+            'nominal' => 35,
+            'tanggal' => 15,
+            'nama'    => 10,
+        ],
+        'tanggal_max_hari'   => 7,
+        'skor_otomatis_min'  => 70,
+    ],
+
+    /*
+    | Digest antrian verifikasi menumpuk (Fase B3).
+    */
+    'digest' => [
+        'menunggu_min'  => 10,
+        'usia_hari_min' => 3,
+        'jeda_jam'      => 6,
+    ],
+
 ];

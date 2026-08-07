@@ -1106,6 +1106,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/antrian', 'antrian')->name('antrian');
             Route::get('/dashboard', 'dashboard')->name('dashboard');
+            Route::get('/rekonsiliasi', 'rekonsiliasi')->name('rekonsiliasi');
+            Route::get('/anomali', 'anomali')->name('anomali');
             Route::get('/log', 'log')->name('log');
             Route::post('/ocr/{pembayaran}', 'ocrSuggest')->name('ocr')->middleware('throttle:10,1');
         });

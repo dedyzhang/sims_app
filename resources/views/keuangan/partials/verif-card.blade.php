@@ -109,6 +109,16 @@
             @endforeach
         </div>
 
+        @if(!empty($anomaliFlags))
+        <div class="flex flex-wrap gap-1.5 mt-2">
+            @foreach($anomaliFlags as $flag)
+                <span class="badge text-[10px] {{ ($flag['tingkat'] ?? '') === 'tinggi' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700' }}" title="{{ $flag['label'] ?? '' }}">
+                    <i data-lucide="alert-triangle" class="w-3 h-3 inline"></i> {{ $flag['label'] ?? $flag['kode'] }}
+                </span>
+            @endforeach
+        </div>
+        @endif
+
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-sm">
             <div><span class="text-slate-400 text-xs block">Total</span><span class="font-bold text-emerald-600 dark:text-emerald-400">Rp {{ number_format($total,0,',','.') }}</span></div>
             <div><span class="text-slate-400 text-xs block">Bank / Metode</span><span class="font-medium text-slate-700 dark:text-slate-200">{{ $first->bank ?? '-' }}</span></div>
