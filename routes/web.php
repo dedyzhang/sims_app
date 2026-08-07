@@ -74,6 +74,12 @@ use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\Keuangan\KeuanganController;
 use App\Http\Controllers\Keuangan\TagihanController;
 use App\Http\Controllers\LanggananController;
+use App\Http\Controllers\BankSoalController;
+use App\Http\Controllers\UjianController;
+use App\Http\Controllers\UjianGradingController;
+use App\Http\Controllers\UjianMonitorController;
+use App\Http\Controllers\UjianSiswaController;
+use App\Http\Controllers\UjianSoalController;
 use App\Http\Middleware\EnsureFaceRegistered;
 use App\Http\Middleware\EnsureKioskOrPermission;
 use App\Support\TickerStats;
@@ -1009,6 +1015,71 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     // ─── Akses Jadwal per Guru (Admin + Ekstra Role) ───────────────────────
     Route::middleware(['role:admin,kurikulum,kepala,kesiswaan,sapras,guru,walikelas', 'modul:akademik'])->group(function () {
         Route::get('/jadwal/guru', [JadwalController::class, 'guruView'])->name('jadwal.guru');
+    });
+
+    // ─── Ujian (formal: Harian/PTS/PAS/UAS) — modul terpisah dari Ruang Kelas/
+    // Arena Belajar. Akses guru per-Ngajar ditegakkan di UjianPolicy, bukan di sini. ──
+    Route::middleware('modul:ujian')->prefix('ujian')->name('ujian.')->group(function () {
+        // Authoring (guru/admin/kurikulum)
+        Route::get('/', [UjianController::class, 'index'])->name('index');
+        Route::get('/buat', [UjianController::class, 'create'])->name('create');
+        Route::post('/', [UjianController::class, 'store'])->middleware('throttle:30,1')->name('store');
+
+        // Siswa (pengerjaan) — WAJIB didaftarkan SEBELUM '/{ujian}' di bawah: '/saya'
+        // adalah path statis satu-segmen yg bentuknya sama dgn wildcard {ujian}, jadi
+        // kalau didaftar SETELAHNYA, Laravel akan salah cocokkan "saya" sbg UUID ujian
+        // (404 model-not-found) dan handler ini tak akan pernah tercapai.
+        Route::get('/saya', [UjianSiswaController::class, 'index'])->name('siswa.index');
+        Route::get('/{ujian}/mulai', [UjianSiswaController::class, 'gate'])->name('siswa.gate');
+        Route::post('/{ujian}/mulai', [UjianSiswaController::class, 'start'])->middleware('throttle:10,1')->name('siswa.start');
+        Route::get('/{ujian}/kerjakan/{attempt}', [UjianSiswaController::class, 'kerjakan'])->name('siswa.kerjakan');
+        Route::post('/{ujian}/kerjakan/{attempt}/jawab', [UjianSiswaController::class, 'simpanJawaban'])->middleware('throttle:60,1')->name('siswa.jawab');
+        Route::get('/{ujian}/kerjakan/{attempt}/status', [UjianSiswaController::class, 'status'])->middleware('throttle:360,1')->name('siswa.status');
+        Route::post('/{ujian}/kerjakan/{attempt}/keluar-fullscreen', [UjianSiswaController::class, 'laporKeluar'])->middleware('throttle:30,1')->name('siswa.keluar');
+        Route::post('/{ujian}/kerjakan/{attempt}/kumpul', [UjianSiswaController::class, 'submit'])->middleware('throttle:10,1')->name('siswa.submit');
+        Route::get('/{ujian}/hasil-saya/{attempt}', [UjianSiswaController::class, 'hasil'])->name('siswa.hasil');
+
+        Route::get('/{ujian}', [UjianController::class, 'show'])->name('show');
+        Route::get('/{ujian}/edit', [UjianController::class, 'edit'])->name('edit');
+        Route::post('/{ujian}/update', [UjianController::class, 'update'])->name('update');
+        Route::post('/{ujian}/kelas', [UjianController::class, 'syncKelas'])->name('kelas.sync');
+        Route::post('/{ujian}/terbit', [UjianController::class, 'publish'])->name('publish');
+        Route::post('/{ujian}/tutup', [UjianController::class, 'close'])->name('close');
+        Route::post('/{ujian}/kelas/{ujianKelas}/token-baru', [UjianController::class, 'regenerateToken'])->name('kelas.token');
+        Route::delete('/{ujian}', [UjianController::class, 'destroy'])->name('destroy');
+
+        Route::post('/unggah-gambar', [UjianSoalController::class, 'uploadGambar'])->middleware('throttle:30,1')->name('soal.unggah-gambar');
+        Route::post('/{ujian}/soal', [UjianSoalController::class, 'store'])->name('soal.store');
+        Route::post('/{ujian}/soal/{soal}/update', [UjianSoalController::class, 'update'])->name('soal.update');
+        Route::delete('/{ujian}/soal/{soal}', [UjianSoalController::class, 'destroy'])->name('soal.destroy');
+        Route::post('/{ujian}/soal/urutkan', [UjianSoalController::class, 'reorder'])->name('soal.reorder');
+        Route::post('/{ujian}/soal/sisipkan-bank', [UjianSoalController::class, 'sisipkanDariBank'])->name('soal.sisipkanBank');
+        Route::post('/{ujian}/soal/{soal}/simpan-bank', [UjianSoalController::class, 'simpanKeBank'])->name('soal.simpanBank');
+
+        Route::get('/{ujian}/penilaian', [UjianGradingController::class, 'index'])->name('grading.index');
+        Route::get('/{ujian}/penilaian/{attempt}', [UjianGradingController::class, 'show'])->name('grading.show');
+        Route::post('/{ujian}/penilaian/{attempt}', [UjianGradingController::class, 'store'])->name('grading.store');
+
+        Route::get('/{ujian}/hasil', [UjianController::class, 'hasil'])->name('hasil.index');
+        Route::post('/{ujian}/hasil/{attempt}/transfer-ulang', [UjianController::class, 'transferUlang'])->name('hasil.transferUlang');
+        Route::post('/{ujian}/pembahasan/toggle', [UjianController::class, 'togglePembahasan'])->name('pembahasan.toggle');
+
+        Route::get('/{ujian}/pemantauan', [UjianMonitorController::class, 'index'])->name('monitor.index');
+        Route::get('/{ujian}/pemantauan/data', [UjianMonitorController::class, 'poll'])->middleware('throttle:360,1')->name('monitor.poll');
+        Route::post('/{ujian}/pemantauan/{attempt}/buka-kunci', [UjianMonitorController::class, 'resetLock'])->name('monitor.unlock');
+        Route::post('/{ujian}/pemantauan/{attempt}/reset-ulang', [UjianMonitorController::class, 'resetAttempt'])->name('monitor.resetAttempt');
+    });
+
+    // ─── Bank Soal — kumpulan soal per-mapel yg bisa dipakai ulang & disisipkan
+    // ke Ujian. Modul sama dgn Ujian (sub-fitur authoring-nya), akses diatur di
+    // BankSoalPolicy (guru pengampu mapel via Ngajar, admin/manage_ujian semua). ──
+    Route::middleware('modul:ujian')->prefix('bank-soal')->name('bank-soal.')->group(function () {
+        Route::get('/', [BankSoalController::class, 'index'])->name('index');
+        Route::get('/{pelajaran}', [BankSoalController::class, 'show'])->name('show');
+        Route::get('/{pelajaran}/pilih', [BankSoalController::class, 'pilihJson'])->name('pilih');
+        Route::post('/{pelajaran}/soal', [BankSoalController::class, 'store'])->name('soal.store');
+        Route::post('/{pelajaran}/soal/{soal}/update', [BankSoalController::class, 'update'])->name('soal.update');
+        Route::delete('/{pelajaran}/soal/{soal}', [BankSoalController::class, 'destroy'])->name('soal.destroy');
     });
 
     // ─── Keuangan: Bendahara (juga admin/superadmin) ───────────────────────

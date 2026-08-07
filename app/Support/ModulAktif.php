@@ -106,6 +106,11 @@ class ModulAktif
                 'deskripsi' => 'Pencatatan dan daftar alumni sekolah.',
                 'ikon' => 'award',
             ],
+            'ujian' => [
+                'label' => 'Ujian',
+                'deskripsi' => 'Ujian sekolah terjadwal (Harian/PTS/PAS/UAS): bank soal, anti-kecurangan, dan transfer nilai otomatis ke Sumatif/PTS/PAS.',
+                'ikon' => 'file-check-2',
+            ],
         ];
     }
 

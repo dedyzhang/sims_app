@@ -107,17 +107,6 @@
         }
     </script>
 
-    {{-- Pin versi CDN (hindari @latest floating). Perf: jangan unduh versi tak terduga tiap hari. --}}
-    <script defer src="https://unpkg.com/@alpinejs/collapse@3.14.8/dist/cdn.min.js"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.js"></script>
-    {{-- defer: lucide cuma dipakai lewat lucide.createIcons(), yg di HAMPIR semua tempat sudah
-         dijaga `if(window.lucide)`/`window.lucide &&` (aman kalau belum sempat load) — dipanggil
-         ULANG scr penuh di DOMContentLoaded paling bawah (lihat script utama), jadi ikon tetap
-         muncul walau sempat "telat" krn defer. --}}
-    <script defer src="https://unpkg.com/lucide@0.468.0"></script>
     @php
         // Perf R1: muat library berat hanya di halaman yang memakainya (bukan global).
         $path = request()->path();
@@ -141,13 +130,17 @@
             || str_contains($path, 'kiosk-absensi')
             || str_contains($path, 'wajah-saya');
     @endphp
-    {{-- defer di ke-3 library kondisional ini: sudah diaudit SEMUA halaman pemakainya (TomSelect:
-         guru/pelajaran, kelas/walikelas, pemanggilan/create, poin/guru & poin/siswa/create;
-         Sortable: dashboard, pelajaran/index; DataTables: hanya dipakai inline di layout ini) —
-         yg manggil lib-nya scr LANGSUNG (bukan di dalam Alpine init()/DOMContentLoaded) sudah
-         ikut diberi `defer` jg di script tag halamannya masing2, supaya urutan eksekusi tetap
-         benar (defer menjaga urutan dokumen antar-script defer, tapi tidak menunggu script BUKAN
-         defer yg posisinya lebih akhir). --}}
+    {{-- WAJIB tampil SEBELUM tag <script defer> Alpine di bawah — Alpine TIDAK menunggu
+         DOMContentLoaded utk auto-start; ia mulai (dan langsung memproses semua x-init) segera
+         setelah script defer-nya SENDIRI selesai dieksekusi, krn saat itu document.readyState
+         sudah 'interactive' (parsing kelar — itulah makna defer). Kalau TomSelect/Sortable/
+         DataTables didaftar SETELAH Alpine dlm urutan dokumen, Alpine akan SELALU start duluan
+         dan x-init yg langsung manggil `new TomSelect(...)` (poin/siswa/create, poin/guru/create,
+         walikelas, pemanggilan/create, guru+pelajaran, ngajar) SELALU dapat `TomSelect is not
+         defined` — bukan race condition/flaky, tapi pasti terjadi tiap kali, krn defer HANYA
+         menjamin urutan ANTAR sesama script defer, bukan menunggu Alpine start. Taruh SEMUA
+         library kondisional ini di sini (sebelum Alpine) supaya window.TomSelect/Sortable/dll
+         sudah pasti ada saat Alpine mulai scan DOM. --}}
     @if($needsTomSelect)
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
@@ -159,6 +152,18 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <script defer src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     @endif
+
+    {{-- Pin versi CDN (hindari @latest floating). Perf: jangan unduh versi tak terduga tiap hari. --}}
+    <script defer src="https://unpkg.com/@alpinejs/collapse@3.14.8/dist/cdn.min.js"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.js"></script>
+    {{-- defer: lucide cuma dipakai lewat lucide.createIcons(), yg di HAMPIR semua tempat sudah
+         dijaga `if(window.lucide)`/`window.lucide &&` (aman kalau belum sempat load) — dipanggil
+         ULANG scr penuh di DOMContentLoaded paling bawah (lihat script utama), jadi ikon tetap
+         muncul walau sempat "telat" krn defer. --}}
+    <script defer src="https://unpkg.com/lucide@0.468.0"></script>
     <script>
         // Polling bijak: skip saat tab hidden; refresh saat kembali visible.
         window.simsWhenVisible = function (fn) {
@@ -611,6 +616,10 @@
                     if (auth()->user()?->siswa || $access === 'orangtua') {
                         $akademik[] = ['nilai.self', ['nilai.self'], 'chart-column', 'Nilai Saya'];
                     }
+
+                    if ($modulOn('ujian') && $access === 'siswa') {
+                        $akademik[] = ['ujian.siswa.index', ['ujian.siswa.*'], 'file-check-2', 'Ujian Saya'];
+                    }
                 }
 
                 // Asisten Guru: guru mapel, wali kelas, Kepala Sekolah, semua Waka, admin — bukan siswa/orang tua
@@ -812,6 +821,14 @@
                         ['keuangan.index',      ['keuangan.index','keuangan.kelas'], 'layout-dashboard', 'Pembayaran SPP'],
                         ['keuangan.verifikasi', ['keuangan.verifikasi'],             'badge-check',      'Verifikasi'],
                         ['keuangan.bank',       ['keuangan.bank'],                   'landmark',         'Bank & Metode'],
+                    ]];
+                }
+
+                // ── Ujian (formal: Harian/PTS/PAS/UAS) — terpisah dari Ruang Kelas/Arena Belajar ──
+                if ($modulOn('ujian') && ($isAdmin || auth()->user()?->canAccess('manage_ujian') || in_array($access, ['guru', 'kepala', 'kurikulum'], true))) {
+                    $groups['ujian'] = ['Ujian', 'file-check-2', [
+                        ['ujian.index', ['ujian.*'], 'file-check-2', 'Kelola Ujian'],
+                        ['bank-soal.index', ['bank-soal.*'], 'library', 'Bank Soal'],
                     ]];
                 }
 
