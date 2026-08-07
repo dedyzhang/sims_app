@@ -48,7 +48,18 @@
                             <span class="badge bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300">Kurang</span>
                             @endif
                         </td>
-                        <td class="text-slate-600 dark:text-slate-300 text-sm max-w-md whitespace-normal">{{ $a->aturan }}</td>
+                        <td class="max-w-md">
+                            {{-- `whitespace-normal` di sini (bukan langsung di <td>) SENGAJA —
+                                 aturan CSS global `.data-table td { white-space:nowrap }` (dipakai
+                                 semua tabel di app ini) menang lawan whitespace-normal LANGSUNG di
+                                 <td> krn spesifisitas selector `.data-table td` lebih tinggi drpd
+                                 satu utility class saja, bikin deskripsi panjang tak pernah wrap
+                                 dan numpuk ke kolom Poin/Aksi. Taruh di elemen ANAK spt pola yg
+                                 sudah dipakai feedback/index & sarpras/pengadaan — white-space
+                                 dari <td> cuma DIWARISKAN, tak menang lawan aturan eksplisit milik
+                                 elemen anak sendiri. --}}
+                            <div class="text-slate-600 dark:text-slate-300 text-sm whitespace-normal">{{ $a->aturan }}</div>
+                        </td>
                         <td class="text-right font-bold text-slate-700 dark:text-slate-200">{{ $a->poin }}</td>
                         <td class="text-right">
                             <div class="flex items-center justify-end gap-1.5">

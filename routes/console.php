@@ -35,6 +35,11 @@ Schedule::command('grupchat:sinkron')->dailyAt('01:00')->withoutOverlapping();
 // catatan di GrupChatMessenger::kirim() soal FCM_QUEUE_CONNECTION=sync).
 Schedule::command('grupchat:kirim-notif')->everyFifteenMinutes()->withoutOverlapping();
 
+// Ujian: finalisasi paksa attempt yg lewat deadline tapi belum dikumpulkan (jaring
+// pengaman server-side — auto-submit normal ditangani client-side JS). everyMinute()
+// krn deadline ujian batas keras, bukan pengingat.
+Schedule::command('ujian:auto-submit')->everyMinute()->withoutOverlapping();
+
 // Langganan: sinkronkan status tersimpan setelah tanggal berakhir terlewati.
 Schedule::call(static fn () => \App\Models\Langganan::sinkronkanStatusKadaluarsa())
     ->dailyAt('00:05')

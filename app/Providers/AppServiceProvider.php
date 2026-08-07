@@ -4,9 +4,12 @@ namespace App\Providers;
 
 use App\Models\Mission;
 use App\Models\Setting;
+use App\Models\UjianAttempt;
+use App\Models\UjianKelas;
 use App\Models\User;
 use App\Policies\MissionPolicy;
 use App\Policies\MissionProgressPolicy;
+use App\Policies\UjianPolicy;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -33,6 +36,13 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(User::class, MissionProgressPolicy::class);
         Gate::policy(Mission::class, MissionPolicy::class);
+        // UjianPolicy sudah auto-terpasang ke model Ujian lewat konvensi nama
+        // ({Model}Policy). UjianKelas & UjianAttempt TIDAK match konvensi itu (tak ada
+        // UjianKelasPolicy/UjianAttemptPolicy terpisah) jadi wajib didaftarkan manual di
+        // sini, atau $this->authorize('take', $ujianKelas) di UjianSiswaController akan
+        // selalu 403 walau siswa berhak — Gate tak menemukan policy sama sekali.
+        Gate::policy(UjianKelas::class, UjianPolicy::class);
+        Gate::policy(UjianAttempt::class, UjianPolicy::class);
 
         // Rate limiter login: cegah brute force password/PIN pada SATU akun.
         // Sengaja HANYA di-key per (kredensial + IP), TANPA batas per-IP terpisah —
