@@ -9,7 +9,7 @@ class Perbaikan extends SarprasModel
     protected $table = 'sarpras_perbaikan';
 
     protected $fillable = [
-        'school_id', 'kode', 'aset_id', 'laporan_id', 'teknisi_id',
+        'school_id', 'kode', 'aset_id', 'laporan_id', 'teknisi_id', 'nama_teknisi',
         'deskripsi', 'status', 'biaya', 'tgl_mulai', 'tgl_selesai', 'catatan',
     ];
 

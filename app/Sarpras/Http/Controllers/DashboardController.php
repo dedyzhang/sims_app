@@ -4,7 +4,6 @@ namespace App\Sarpras\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Sarpras\Models\Aset;
-use App\Sarpras\Models\BookingRuangan;
 use App\Sarpras\Models\Denah;
 use App\Sarpras\Models\JadwalPemeliharaan;
 use App\Sarpras\Models\LaporanKerusakan;
@@ -26,10 +25,8 @@ class DashboardController extends Controller
             ->groupBy('kondisi')
             ->pluck('jml', 'kondisi');
 
-        // Nilai buku dihitung per-baris di PHP (logika penyusutan di model Aset),
-        // hanya memuat 3 kolom yang dibutuhkan.
         $nilaiBuku = '0';
-        foreach (Aset::query()->get(['nilai_perolehan', 'tgl_perolehan', 'masa_manfaat_tahun']) as $aset) {
+        foreach (Aset::query()->select(['nilai_perolehan', 'tgl_perolehan', 'masa_manfaat_tahun'])->cursor() as $aset) {
             $nilaiBuku = Rupiah::add($nilaiBuku, $aset->nilaiBuku($today));
         }
 
@@ -47,12 +44,7 @@ class DashboardController extends Controller
         $pengadaanPendingQuery = Pengadaan::query()
             ->where('status', 'diajukan');
 
-        $bookingMenungguQuery = BookingRuangan::query()
-            ->where('status', 'diajukan')
-            ->where('mulai', '>=', $today->copy()->startOfDay());
-
         $peminjamanMenunggu = Peminjaman::where('status', 'diajukan')->count();
-        $bookingMenunggu = (clone $bookingMenungguQuery)->count();
         $pengadaanPending = (clone $pengadaanPendingQuery)->count();
         $perbaikanBerjalan = (clone $perbaikanBerjalanQuery)->count();
         $jadwalJatuhTempo = (clone $jadwalJatuhTempoQuery)->count();
@@ -64,17 +56,18 @@ class DashboardController extends Controller
             'nilaiBukuRp' => Rupiah::format($nilaiBuku),
             'kerusakanTerbuka' => $kerusakanTerbuka,
             'kerusakanDarurat' => (clone $kerusakanTerbukaQuery)->whereIn('urgensi', ['tinggi', 'darurat'])->count(),
-            'persetujuanMenunggu' => $peminjamanMenunggu + $bookingMenunggu + $pengadaanPending,
+            'persetujuanMenunggu' => $peminjamanMenunggu + $pengadaanPending,
             'peminjamanMenunggu' => $peminjamanMenunggu,
-            'bookingMenunggu' => $bookingMenunggu,
+            'bookingMenunggu' => 0,
             'pengadaanPending' => $pengadaanPending,
             'perbaikanBerjalan' => $perbaikanBerjalan,
             'jadwalJatuhTempo' => $jadwalJatuhTempo,
             'asetBerisiko' => Aset::whereIn('kondisi', ['rusak_ringan', 'rusak_berat', 'hilang'])->count(),
             'kerusakanTerbaru' => LaporanKerusakan::with(['pelapor:uuid,username', 'aset:id,nama'])
                 ->latest()->limit(5)->get(),
-            'bookingHariIni' => BookingRuangan::with(['ruangan:id,nama,kode', 'pemohon'])
-                ->whereIn('status', ['diajukan', 'disetujui'])
+            'bookingHariIni' => Peminjaman::with(['ruangan:id,nama,kode', 'peminjam'])
+                ->whereNotNull('ruangan_id')
+                ->whereIn('status', ['diajukan', 'dipinjam'])
                 ->whereDate('mulai', $today)
                 ->orderBy('mulai')
                 ->get(),
@@ -87,21 +80,14 @@ class DashboardController extends Controller
                     'url' => route('sarpras.kerusakan.index', ['status' => 'dilaporkan']),
                 ],
                 [
-                    'label' => 'Peminjaman Barang menunggu approval',
+                    'label' => 'Peminjaman menunggu approval',
                     'count' => $peminjamanMenunggu,
                     'icon' => 'clipboard-check',
                     'tone' => 'blue',
                     'url' => route('sarpras.peminjaman.index', ['status' => 'diajukan']),
                 ],
                 [
-                    'label' => 'Booking Ruangan menunggu approval',
-                    'count' => $bookingMenunggu,
-                    'icon' => 'calendar-clock',
-                    'tone' => 'cyan',
-                    'url' => route('sarpras.booking.index', ['status' => 'diajukan']),
-                ],
-                [
-                    'label' => 'Pengadaan perlu diputuskan',
+                    'label' => 'Usulan kebutuhan perlu diputuskan',
                     'count' => $pengadaanPending,
                     'icon' => 'shopping-cart',
                     'tone' => 'amber',

@@ -71,6 +71,7 @@ use App\Http\Controllers\MissionNalarController;
 use App\Http\Controllers\MissionPlayerController;
 use App\Http\Controllers\MissionProgressController;
 use App\Http\Controllers\PengumumanController;
+use App\Http\Controllers\Keuangan\BendaharaAiController;
 use App\Http\Controllers\Keuangan\KeuanganController;
 use App\Http\Controllers\Keuangan\TagihanController;
 use App\Http\Controllers\LanggananController;
@@ -196,6 +197,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/quiz/export-word', 'exportQuizWord')->name('quiz.export-word');
             Route::post('/quiz/export-pdf', 'exportQuizPdf')->name('quiz.export-pdf');
             Route::post('/quiz/send-arena', 'sendToArena')->middleware('throttle:20,1')->name('quiz.send-arena');
+            Route::post('/blueprint', 'blueprint')->name('blueprint');
             Route::post('/learning', 'learning')->name('learning');
             Route::post('/learning/preview', 'previewLearning')->name('learning.preview');
             Route::post('/learning/export-word', 'exportLearningWord')->name('learning.export-word');
@@ -653,6 +655,12 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/{tugasKelas}/unduh', 'download')->name('.unduh');
         Route::delete('/{tugasKelas}', 'destroy')->name('.destroy');
     });
+    // Fase 5 dihapus dari navigasi (keputusan FL) — redirect bookmark lama ke dashboard utama
+    Route::middleware('modul:piket')->group(function () {
+        Route::redirect('/piket/dashboard', '/dashboard')->name('piket.dashboard');
+        Route::redirect('/piket/rekap', '/dashboard')->name('piket.rekap');
+        Route::redirect('/piket/rekap/export', '/dashboard')->name('piket.rekap.export');
+    });
 
     // ─── Agenda Rapat / Notulen Rapat — admin/kurikulum/kepala atau guru sekretaris ───
     Route::middleware('modul:agenda')->prefix('rapat')->name('rapat.')->controller(RapatController::class)->group(function () {
@@ -1100,6 +1108,20 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/kelas/{kelas}/pengaturan', [KeuanganController::class, 'pengaturanKelas'])->name('kelas.pengaturan');
         Route::post('/kelas/{kelas}/pengaturan', [KeuanganController::class, 'simpanPengaturanKelas'])->name('kelas.pengaturan.simpan');
         Route::post('/pembayaran/{pembayaran}/cell', [KeuanganController::class, 'cell'])->name('cell');
+
+        // Asisten Bendahara SPP (Fase A) — terpisah dari ai.analyze pimpinan
+        Route::prefix('bendahara-ai')->name('bendahara-ai.')->controller(BendaharaAiController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/antrian', 'antrian')->name('antrian');
+            Route::get('/dashboard', 'dashboard')->name('dashboard');
+            Route::get('/rekonsiliasi', 'rekonsiliasi')->name('rekonsiliasi');
+            Route::get('/anomali', 'anomali')->name('anomali');
+            Route::get('/wawasan', 'wawasan')->name('wawasan');
+            Route::post('/wawasan/narasi', 'wawasanNarasi')->name('wawasan.narasi')->middleware('throttle:10,1');
+            Route::get('/export-paket', 'exportPaket')->name('export-paket');
+            Route::get('/log', 'log')->name('log');
+            Route::post('/ocr/{pembayaran}', 'ocrSuggest')->name('ocr')->middleware('throttle:10,1');
+        });
     });
 
     // ─── Keuangan: Tagihan SPP siswa & orang tua ───────────────────────────

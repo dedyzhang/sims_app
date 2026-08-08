@@ -6,13 +6,16 @@ use App\Models\GuruTidakHadir;
 use App\Models\Guru;
 use App\Models\PenugasanPengganti;
 use App\Services\Piket\JamKosongService;
+use App\Services\Piket\PiketSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PenugasanPenggantiController extends Controller
 {
-    public function __construct(private JamKosongService $jamKosong)
-    {
+    public function __construct(
+        private JamKosongService $jamKosong,
+        private PiketSyncService $piketSync,
+    ) {
     }
 
     /**
@@ -27,7 +30,7 @@ class PenugasanPenggantiController extends Controller
         $tanggal = $request->tanggal && preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->tanggal)
             ? $request->tanggal : now()->toDateString();
 
-        $this->sinkronDariGuruTidakHadir($tanggal);
+        $this->piketSync->sinkronPenugasanDariGuruTidakHadir($tanggal);
 
         $daftar = PenugasanPengganti::with(['guruTidakHadir.guru:uuid,nama', 'jadwal.kelas:uuid,tingkat,kelas', 'jadwal.pelajaran:uuid,nama', 'guruPengganti:uuid,nama', 'guruPiket:uuid,nama'])
             ->whereHas('guruTidakHadir', fn ($q) => $q->where('tanggal', $tanggal))
@@ -152,25 +155,6 @@ class PenugasanPenggantiController extends Controller
         });
 
         return response()->json($this->formatSlot($penugasanPengganti));
-    }
-
-    /** Buat baris penugasan_pengganti (status 'menunggu') untuk tiap jam kosong yang belum punya baris. */
-    private function sinkronDariGuruTidakHadir(string $tanggal): void
-    {
-        $guruTidakHadir = GuruTidakHadir::where('tanggal', $tanggal)->get();
-
-        foreach ($guruTidakHadir as $g) {
-            $slots = $this->jamKosong->untukGuru($g->id_guru, $tanggal);
-
-            DB::transaction(function () use ($g, $slots) {
-                foreach ($slots as $slot) {
-                    PenugasanPengganti::firstOrCreate(
-                        ['id_guru_tidak_hadir' => $g->uuid, 'id_jadwal' => $slot->uuid],
-                        ['status' => 'menunggu']
-                    );
-                }
-            });
-        }
     }
 
     private function formatSlot(PenugasanPengganti $p): array

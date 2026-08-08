@@ -26,6 +26,23 @@
         </button>
     </div>
 
+    <div class="card p-4 border-l-4 border-sky-400 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+            <p class="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <i data-lucide="git-compare" class="w-4 h-4 text-sky-600"></i>
+                Rekonsiliasi Mutasi Bank
+            </p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <span class="font-semibold text-amber-600">{{ $rekonsiliasiRingkas['belum_cocok'] }}</span> tagihan belum cocok mutasi
+                · <span class="font-semibold text-emerald-600">{{ $rekonsiliasiRingkas['sudah_lunas'] }}</span> sudah lunas (T.A. {{ $ta }})
+            </p>
+        </div>
+        <a href="{{ route('keuangan.verifikasi', ['tab' => 'validasi']) }}#validasi"
+           class="btn-primary px-4 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2 whitespace-nowrap">
+            <i data-lucide="upload" class="w-4 h-4"></i> Impor Mutasi di Verifikasi
+        </a>
+    </div>
+
     <div class="card p-4 text-xs text-slate-500 dark:text-slate-400 flex gap-2">
         <i data-lucide="info" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
         <p>Pada kolom <b>Nomor Rekening / VA</b>, gunakan <code class="px-1 rounded bg-slate-100 dark:bg-slate-700">{va}</code> untuk menyisipkan nomor Virtual Account masing-masing siswa secara otomatis. Tulis <b>langkah pembayaran</b> satu per baris.</p>

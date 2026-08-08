@@ -31,9 +31,11 @@ class AiRagController extends Controller
     /** GET /ai/rag — daftar dokumen + kotak tanya. */
     public function index(): View
     {
+        $user = request()->user();
+
         return view('ai.rag', [
             'documents' => AiDocument::withCount('chunks')->latest()->limit(100)->get(),
-            'schoolAiConfigured' => $this->gemini->enabled() && filled(config('ai.api_key')),
+            'aiConfigured' => $this->aiConfiguredFor($user),
             'maxUploadKb' => (int) config('ai.rag.max_upload_kb', 5120),
         ]);
     }
@@ -41,10 +43,10 @@ class AiRagController extends Controller
     /** POST /ai/rag — unggah & antrekan proses dokumen. */
     public function store(Request $request): JsonResponse
     {
-        if (! filled(config('ai.api_key'))) {
+        if (! $this->aiConfiguredFor($request->user())) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Dokumen AI memakai kunci sekolah (GEMINI_API_KEY di server), bukan API key pribadi Asisten Guru. Minta admin mengisi kunci di .env.',
+                'message' => 'Fitur dokumen belum siap. Lengkapi pengaturan akun atau minta admin mengaktifkan konfigurasi sekolah sebelum mengunggah dokumen.',
             ], 422);
         }
 
@@ -107,16 +109,17 @@ class AiRagController extends Controller
     /** POST /ai/rag/ask — tanya-jawab berbasis dokumen (dengan sitasi). */
     public function ask(Request $request): JsonResponse
     {
-        if (! filled(config('ai.api_key'))) {
+        if (! $this->aiConfiguredFor($request->user())) {
             return response()->json([
                 'ok' => false,
-                'message' => 'Dokumen AI memakai kunci sekolah (GEMINI_API_KEY di server). Minta admin mengisi kunci di .env.',
+                'message' => 'Fitur dokumen belum siap. Lengkapi pengaturan akun atau minta admin mengaktifkan konfigurasi sekolah.',
             ], 422);
         }
 
         $data = $request->validate([
             'question' => ['required', 'string', 'max:1000'],
             'document_id' => ['nullable', 'string', 'exists:ai_documents,uuid'],
+            'mode' => ['nullable', 'in:document,admin'],
         ]);
 
         $userId = $request->user()->uuid;
@@ -126,7 +129,13 @@ class AiRagController extends Controller
         }
 
         try {
-            $hits = $this->rag->search($data['question'], null, $data['document_id'] ?? null);
+            $hits = $this->rag->search(
+                $data['question'],
+                null,
+                $data['document_id'] ?? null,
+                null,
+                $this->personalAiOptions($request->user()),
+            );
         } catch (RuntimeException $e) {
             $this->logAiUsage($userId, 'rag', config('ai.model'), 0, 0, 'error');
 
@@ -145,13 +154,16 @@ class AiRagController extends Controller
         foreach ($hits as $h) {
             $context .= "[Dokumen: {$h['title']}]\n{$h['content']}\n\n";
         }
-        $prompt = "KONTEKS:\n{$context}\nPERTANYAAN: {$data['question']}";
+        $mode = $data['mode'] ?? 'document';
+        $prompt = $mode === 'admin'
+            ? "KONTEKS DOKUMEN SEKOLAH:\n{$context}\nPERMINTAAN ADMIN SEKOLAH: {$data['question']}"
+            : "KONTEKS:\n{$context}\nPERTANYAAN: {$data['question']}";
 
         try {
             $result = $this->gemini->generate($prompt, [
-                'system' => config('ai.rag.system'),
+                'system' => $mode === 'admin' ? config('ai.rag.admin_system') : config('ai.rag.system'),
                 'temperature' => 0.3,
-            ]);
+            ] + $this->personalAiOptions($request->user()));
         } catch (RuntimeException $e) {
             $this->logAiUsage($userId, 'rag', config('ai.model'), 0, 0, 'error');
 

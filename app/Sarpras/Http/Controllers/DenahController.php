@@ -68,7 +68,7 @@ class DenahController extends Controller
 
         // Ruangan yang sedang dipinjam/dibooking pada saat ini.
         $sedangDipinjam = Peminjaman::whereIn('ruangan_id', $ruanganIds)
-            ->whereIn('status', ['disetujui', 'dipinjam', 'terlambat'])
+            ->whereIn('status', ['diajukan', 'dipinjam', 'terlambat'])
             ->where('mulai', '<=', now())->where('selesai', '>=', now())
             ->pluck('ruangan_id')->unique()->flip();
 
@@ -101,13 +101,11 @@ class DenahController extends Controller
 
         $denah = Denah::create($data);
 
-        // Bila belum mengunggah gambar, arahkan ke editor sketsa (gambar dulu).
-        $tujuan = empty($data['gambar_path']) ? 'sarpras.denah.gambar' : 'sarpras.denah.hotspot';
+        $pesan = empty($data['gambar_path'])
+            ? 'Denah dibuat. Unggah gambar denah lalu tambahkan ruangan dari halaman ini.'
+            : 'Denah dibuat. Tambahkan atau atur ruangan dari halaman denah.';
 
-        return redirect()->route($tujuan, $denah)
-            ->with('sukses', 'Denah dibuat. ' . ($tujuan === 'sarpras.denah.gambar'
-                ? 'Gambar denahnya, lalu atur blok ruangan.'
-                : 'Sekarang atur blok ruangan.'));
+        return redirect()->route('sarpras.denah.show', $denah)->with('sukses', $pesan);
     }
 
     public function edit(Denah $denah): View
@@ -143,20 +141,6 @@ class DenahController extends Controller
         return redirect()->route('sarpras.denah.index')->with('sukses', 'Denah dihapus.');
     }
 
-    /** Editor penempatan hotspot: klik pada denah -> hitung koordinat persen. */
-    public function editorHotspot(Denah $denah): View
-    {
-        $denah->load('ruangan');
-
-        return view('sarpras.denah.hotspot', compact('denah'));
-    }
-
-    /** Editor sketsa: menggambar denah langsung di aplikasi (kanvas). */
-    public function editorGambar(Denah $denah): View
-    {
-        return view('sarpras.denah.gambar', compact('denah'));
-    }
-
     /** Import gambar denah dari file (jpg/jpeg/png/webp/gif/bmp). */
     public function imporGambar(Request $request, Denah $denah, FotoCompressor $compressor): RedirectResponse
     {
@@ -178,36 +162,8 @@ class DenahController extends Controller
             return back()->with('gagal', 'Gagal mengimpor gambar denah: ' . $e->getMessage());
         }
 
-        return redirect()->route('sarpras.denah.hotspot', $denah)
-            ->with('sukses', 'Gambar denah berhasil diimpor. Sekarang atur blok ruangan.');
-    }
-
-    /** Simpan hasil gambar kanvas (data URL base64) sebagai gambar denah. */
-    public function simpanGambar(Request $request, Denah $denah, FotoCompressor $compressor): RedirectResponse
-    {
-        $request->validate(['gambar_data' => ['required', 'string']]);
-
-        $dataUrl = (string) $request->input('gambar_data');
-        if (! preg_match('#^data:image/(png|jpeg|webp);base64,#', $dataUrl)) {
-            return back()->with('gagal', 'Data gambar tidak valid.');
-        }
-
-        $binary = base64_decode(preg_replace('#^data:image/\w+;base64,#', '', $dataUrl), true);
-        if ($binary === false || $binary === '') {
-            return back()->with('gagal', 'Gagal membaca data gambar.');
-        }
-
-        try {
-            $compressor->hapus($denah->gambar_path);
-            $denah->update([
-                'gambar_path' => $compressor->compressString($binary, 'sarpras/denah', 'webp'),
-            ]);
-        } catch (\Throwable $e) {
-            return back()->with('gagal', 'Gagal menyimpan gambar denah: ' . $e->getMessage());
-        }
-
-        return redirect()->route('sarpras.denah.hotspot', $denah)
-            ->with('sukses', 'Gambar denah tersimpan. Sekarang atur blok ruangan.');
+        return redirect()->route('sarpras.denah.show', $denah)
+            ->with('sukses', 'Gambar denah berhasil diimpor. Tambahkan atau atur ruangan dari halaman ini.');
     }
 
     /** Hapus gambar denah (mis. hasil import yang tidak sesuai). Blok ruangan tetap. */
@@ -224,8 +180,8 @@ class DenahController extends Controller
             return back()->with('gagal', 'Gagal menghapus gambar denah: ' . $e->getMessage());
         }
 
-        return redirect()->route('sarpras.denah.hotspot', $denah)
-            ->with('sukses', 'Gambar denah dihapus. Anda bisa import ulang atau menggambar baru.');
+        return redirect()->route('sarpras.denah.show', $denah)
+            ->with('sukses', 'Gambar denah dihapus. Anda bisa import ulang dari halaman ini.');
     }
 
     /**

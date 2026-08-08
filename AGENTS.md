@@ -19,7 +19,7 @@ Task terkait kuis interaktif / Arena Belajar: prompt implementasi Fase 1 ada di 
 
 ## Modul lain: Piket Guru & Substitusi Kelas
 
-PRD + task breakdown terpisah di `docs/piket-guru/PRD.md` + `docs/piket-guru/features/01-*.md` s.d. `05-*.md`, status di `docs/piket-guru/PROGRESS.md`. Belum ada implementasi — beberapa fase **blocked** menunggu verifikasi skema `absensi_ptk`/`jadwal_pelajaran`/`buku_agenda` dan keputusan role `guru_piket`/`waka_kurikulum` (lihat PRD §9). Jangan mulai task migration/auth di modul ini tanpa cek blocker tersebut.
+PRD + task breakdown di [`docs/piket-guru/PRD.md`](docs/piket-guru/PRD.md) + `docs/piket-guru/features/01-*.md` s.d. `05-*.md`; status terakhir di [`docs/piket-guru/PROGRESS.md`](docs/piket-guru/PROGRESS.md). **Fase 1–4 selesai** (jadwal rotasi, guru tidak hadir, penugasan pengganti, distribusi tugas kelas). Fase 5 (dashboard/rekap kepala sekolah) diimplementasi tetapi **dihapus dari navigasi** — ringkasan operasional ada di dashboard utama. Jangan mulai task migration/auth baru di modul ini tanpa approval FL.
 
 ## Review sebelum rilis
 

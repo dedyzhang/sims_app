@@ -21,7 +21,7 @@ use RuntimeException;
 /*
 | Narasi Analisis Data (FASE 4). Controller MENGHITUNG agregat dari DB
 | (server-side), lalu mengirim ANGKA-nya ke Gemini untuk dinarasikan. AI tidak
-| pernah menyentuh DB — mencegah kebocoran data. Setiap endpoint mengembalikan
+| pernah menyentuh DB - mencegah kebocoran data. Setiap endpoint mengembalikan
 | `data` (angka terhitung, untuk ditampilkan & diverifikasi) + `answer` (narasi).
 */
 class AiAnalyzeController extends Controller
@@ -30,28 +30,30 @@ class AiAnalyzeController extends Controller
 
     public function __construct(private GeminiService $gemini) {}
 
-    /** GET /ai/analyze — halaman narasi data. */
+    /** GET /ai/analyze - halaman narasi data. */
     public function index(): View
     {
+        $user = request()->user();
+
         return view('ai.analyze', [
             'kelasList' => Kelas::orderBy('tingkat')->orderBy('kelas')->get(),
             'semesterList' => Semester::orderByDesc('tahun')->orderByDesc('semester')->get(),
             'tahunAjaran' => TahunAjaran::options(),
             'taAktif' => TahunAjaran::current(),
             'keuanganModulAktif' => ModulAktif::aktif('keuangan'),
-            'schoolAiConfigured' => $this->gemini->enabled(),
+            'aiConfigured' => $this->aiConfiguredFor($user),
         ]);
     }
 
-    /** POST /ai/analyze/nilai — narasi ringkasan nilai satu kelas. */
+    /** POST /ai/analyze/nilai - narasi ringkasan nilai satu kelas. */
     public function nilai(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'kelas_id'    => ['required', 'string', 'exists:kelas,uuid'],
+            'kelas_id' => ['required', 'string', 'exists:kelas,uuid'],
             'semester_id' => ['required'],
         ]);
 
-        $kelas    = Kelas::findOrFail($data['kelas_id']);
+        $kelas = Kelas::findOrFail($data['kelas_id']);
         $semester = Semester::findOrFail($data['semester_id']);
         $siswaIds = Siswa::where('id_kelas', $kelas->uuid)->pluck('uuid');
 
@@ -61,17 +63,22 @@ class AiAnalyzeController extends Controller
 
         if ($nilai->isEmpty()) {
             return response()->json([
-                'ok'      => false,
+                'ok' => false,
                 'message' => 'Belum ada data nilai rapor untuk kelas & semester ini.',
             ], 422);
         }
 
-        $bands = ['<70' => 0, '70–79' => 0, '80–89' => 0, '90–100' => 0];
+        $bands = ['<70' => 0, '70-79' => 0, '80-89' => 0, '90-100' => 0];
         foreach ($nilai as $n) {
-            if ($n < 70)      $bands['<70']++;
-            elseif ($n < 80)  $bands['70–79']++;
-            elseif ($n < 90)  $bands['80–89']++;
-            else              $bands['90–100']++;
+            if ($n < 70) {
+                $bands['<70']++;
+            } elseif ($n < 80) {
+                $bands['70-79']++;
+            } elseif ($n < 90) {
+                $bands['80-89']++;
+            } else {
+                $bands['90-100']++;
+            }
         }
 
         $perMapel = DB::table('nilai_rapor')
@@ -85,19 +92,19 @@ class AiAnalyzeController extends Controller
             ->get();
 
         $metrics = [
-            'kelas'        => $kelas->nama_lengkap,
-            'semester'     => $semester->nama_lengkap,
+            'kelas' => $kelas->nama_lengkap,
+            'semester' => $semester->nama_lengkap,
             'jumlah_siswa' => $siswaIds->count(),
             'jumlah_nilai' => $nilai->count(),
-            'rata'         => round($nilai->avg(), 1),
-            'min'          => $nilai->min(),
-            'max'          => $nilai->max(),
-            'sebaran'      => $bands,
-            'per_mapel'    => $perMapel->map(fn ($m) => ['mapel' => $m->mapel, 'rata' => (float) $m->rata])->all(),
+            'rata' => round($nilai->avg(), 1),
+            'min' => $nilai->min(),
+            'max' => $nilai->max(),
+            'sebaran' => $bands,
+            'per_mapel' => $perMapel->map(fn ($m) => ['mapel' => $m->mapel, 'rata' => (float) $m->rata])->all(),
         ];
 
         $sebaranTxt = collect($bands)->map(fn ($v, $k) => "$k: $v nilai")->implode('; ');
-        $mapelTxt   = $perMapel->map(fn ($m) => "{$m->mapel} {$m->rata}")->implode('; ');
+        $mapelTxt = $perMapel->map(fn ($m) => "{$m->mapel} {$m->rata}")->implode('; ');
 
         $prompt = "{$metrics['semester']}, {$metrics['kelas']}:\n"
             ."- Jumlah siswa: {$metrics['jumlah_siswa']}\n"
@@ -109,26 +116,24 @@ class AiAnalyzeController extends Controller
         return $this->narrate($request, 'analyze_nilai', config('ai.analyze.nilai'), $prompt, $metrics);
     }
 
-    /** POST /ai/analyze/absensi — narasi tren kehadiran. */
+    /** POST /ai/analyze/absensi - narasi tren kehadiran. */
     public function absensi(Request $request): JsonResponse
     {
         $data = $request->validate([
             'kelas_id' => ['nullable', 'string', 'exists:kelas,uuid'],
-            'dari'     => ['required', 'date_format:Y-m-d'],
-            'sampai'   => ['required', 'date_format:Y-m-d'],
+            'dari' => ['required', 'date_format:Y-m-d'],
+            'sampai' => ['required', 'date_format:Y-m-d'],
         ]);
 
-        // Perbandingan manual (bukan rule after_or_equal) — hindari Carbon parse
-        // nama-field yang memicu warning di lingkungan tanpa tz-database.
         if ($data['sampai'] < $data['dari']) {
             return response()->json([
-                'ok'      => false,
+                'ok' => false,
                 'message' => 'Tanggal "sampai" harus sama atau setelah "dari".',
             ], 422);
         }
 
         $query = Absensi::whereBetween('tanggal', [$data['dari'], $data['sampai']]);
-        if (!empty($data['kelas_id'])) {
+        if (! empty($data['kelas_id'])) {
             $query->where('id_kelas', $data['kelas_id']);
         }
 
@@ -138,12 +143,12 @@ class AiAnalyzeController extends Controller
 
         if ($total === 0) {
             return response()->json([
-                'ok'      => false,
+                'ok' => false,
                 'message' => 'Tidak ada catatan absensi pada rentang ini.',
             ], 422);
         }
 
-        $lingkup = !empty($data['kelas_id'])
+        $lingkup = ! empty($data['kelas_id'])
             ? Kelas::find($data['kelas_id'])?->nama_lengkap ?? 'Kelas terpilih'
             : 'Semua kelas';
 
@@ -155,23 +160,23 @@ class AiAnalyzeController extends Controller
 
         $metrics = [
             'lingkup' => $lingkup,
-            'dari'    => $data['dari'],
-            'sampai'  => $data['sampai'],
-            'total'   => $total,
+            'dari' => $data['dari'],
+            'sampai' => $data['sampai'],
+            'total' => $total,
             'rincian' => $rincian,
         ];
 
         $rincianTxt = collect($rincian)
             ->map(fn ($v, $k) => "{$k}: {$v['jumlah']} ({$v['persen']}%)")->implode('; ');
 
-        $prompt = "Rekap kehadiran — {$lingkup}, periode {$data['dari']} s/d {$data['sampai']}:\n"
+        $prompt = "Rekap kehadiran - {$lingkup}, periode {$data['dari']} s/d {$data['sampai']}:\n"
             ."- Total catatan kehadiran: {$total}\n"
             ."- Rincian: {$rincianTxt}";
 
         return $this->narrate($request, 'analyze_absensi', config('ai.analyze.absensi'), $prompt, $metrics);
     }
 
-    /** POST /ai/analyze/keuangan — narasi rekap SPP satu tahun ajaran. */
+    /** POST /ai/analyze/keuangan — @deprecated UI dihapus; endpoint tetap untuk backward compat API. */
     public function keuangan(Request $request): JsonResponse
     {
         if (! ModulAktif::aktif('keuangan')) {
@@ -190,40 +195,40 @@ class AiAnalyzeController extends Controller
             ->groupBy('status')->get()->keyBy('status');
 
         $totalTagihan = (int) SppPembayaran::where('tahun_ajaran', $data['tahun_ajaran'])->sum('nominal');
-        $jumlahTrx    = (int) SppPembayaran::where('tahun_ajaran', $data['tahun_ajaran'])->count();
+        $jumlahTrx = (int) SppPembayaran::where('tahun_ajaran', $data['tahun_ajaran'])->count();
 
         if ($jumlahTrx === 0) {
             return response()->json([
-                'ok'      => false,
+                'ok' => false,
                 'message' => 'Belum ada data pembayaran SPP untuk tahun ajaran ini.',
             ], 422);
         }
 
         $labels = [
-            SppPembayaran::STATUS_LUNAS         => 'Lunas',
+            SppPembayaran::STATUS_LUNAS => 'Lunas',
             SppPembayaran::STATUS_TERVERIFIKASI => 'Terverifikasi (menunggu validasi bank)',
-            SppPembayaran::STATUS_MENUNGGU      => 'Menunggu verifikasi',
-            SppPembayaran::STATUS_BELUM         => 'Belum bayar',
-            SppPembayaran::STATUS_DITOLAK       => 'Ditolak',
+            SppPembayaran::STATUS_MENUNGGU => 'Menunggu verifikasi',
+            SppPembayaran::STATUS_BELUM => 'Belum bayar',
+            SppPembayaran::STATUS_DITOLAK => 'Ditolak',
         ];
 
         $rincian = [];
         foreach ($labels as $key => $label) {
             $rincian[$label] = [
                 'jumlah' => (int) ($rows[$key]->jml ?? 0),
-                'total'  => (int) ($rows[$key]->total ?? 0),
+                'total' => (int) ($rows[$key]->total ?? 0),
             ];
         }
 
         $lunasNominal = (int) ($rows[SppPembayaran::STATUS_LUNAS]->total ?? 0);
-        $pelunasan    = $totalTagihan > 0 ? round($lunasNominal / $totalTagihan * 100, 1) : 0;
+        $pelunasan = $totalTagihan > 0 ? round($lunasNominal / $totalTagihan * 100, 1) : 0;
 
         $metrics = [
-            'tahun_ajaran'  => $data['tahun_ajaran'],
+            'tahun_ajaran' => $data['tahun_ajaran'],
             'total_tagihan' => $totalTagihan,
-            'jumlah_trx'    => $jumlahTrx,
-            'pelunasan'     => $pelunasan,
-            'rincian'       => $rincian,
+            'jumlah_trx' => $jumlahTrx,
+            'pelunasan' => $pelunasan,
+            'rincian' => $rincian,
         ];
 
         $rp = fn ($n) => 'Rp '.number_format($n, 0, ',', '.');
@@ -238,16 +243,13 @@ class AiAnalyzeController extends Controller
         return $this->narrate($request, 'analyze_keuangan', config('ai.analyze.keuangan'), $prompt, $metrics);
     }
 
-    /** Pipeline bersama: rate limit → Gemini (base+kind prompt) → audit → JSON. */
+    /** Pipeline bersama: rate limit -> Gemini (base+kind prompt) -> audit -> JSON. */
     private function narrate(Request $request, string $feature, string $kindPrompt, string $prompt, array $metrics): JsonResponse
     {
         $userId = $request->user()->uuid;
 
-        if (! $this->gemini->enabled()) {
-            return response()->json([
-                'ok' => false,
-                'message' => 'Narasi Data memakai kunci AI sekolah di server (.env). Minta admin mengisi GEMINI_API_KEY atau OpenRouter — berbeda dari API key pribadi Asisten Guru.',
-            ], 422);
+        if (! $this->aiConfiguredFor($request->user())) {
+            return response()->json($this->missingAiConfigurationPayload(), 422);
         }
 
         if ($limited = $this->aiRateLimited($feature, $userId)) {
@@ -259,9 +261,9 @@ class AiAnalyzeController extends Controller
         try {
             $result = $this->gemini->generate($prompt, [
                 'system' => $system,
-                'temperature' => 0.4, // lebih faktual untuk laporan
+                'temperature' => 0.4,
                 'max_output_tokens' => 1536,
-            ]);
+            ] + $this->personalAiOptions($request->user()));
         } catch (RuntimeException $e) {
             $this->logAiUsage($userId, $feature, config('ai.model'), 0, 0, 'error');
 
@@ -278,10 +280,19 @@ class AiAnalyzeController extends Controller
         );
 
         return response()->json([
-            'ok'     => true,
-            'data'   => $metrics,
-            'source' => $prompt, // angka mentah yang dikirim ke AI (untuk verifikasi)
+            'ok' => true,
+            'data' => $metrics,
+            'source' => $prompt,
             'answer' => $result['text'],
         ]);
+    }
+
+    /** @return array{ok:false,message:string} */
+    private function missingAiConfigurationPayload(): array
+    {
+        return [
+            'ok' => false,
+            'message' => 'Fitur narasi belum siap. Lengkapi pengaturan akun atau minta admin mengaktifkan konfigurasi sekolah.',
+        ];
     }
 }

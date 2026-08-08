@@ -11,6 +11,8 @@ use App\Services\GameQuizImporter;
 use App\Services\GeminiService;
 use App\Services\TeacherMaterialException;
 use App\Services\TeacherMaterialService;
+use App\Support\BlueprintDocument;
+use App\Support\BlueprintDocxBuilder;
 use App\Support\DocumentText;
 use App\Support\LearningDocument;
 use App\Support\LearningDocxBuilder;
@@ -127,11 +129,12 @@ class AiTeacherController extends Controller
     public function externalPrompt(Request $request): JsonResponse
     {
         $tool = $request->validate([
-            'tool' => ['required', 'in:quiz,learning,summary,feedback,chat'],
+            'tool' => ['required', 'in:quiz,blueprint,learning,summary,feedback,chat'],
         ])['tool'];
 
         $built = match ($tool) {
             'quiz' => $this->composeQuiz($request),
+            'blueprint' => $this->composeBlueprint($request),
             'learning' => $this->composeLearningForExternal($request),
             'summary' => $this->composeSummary($request),
             'feedback' => $this->composeFeedback($request),
@@ -165,13 +168,14 @@ class AiTeacherController extends Controller
     public function externalResult(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'tool' => ['required', 'in:quiz,learning,summary,feedback,chat'],
+            'tool' => ['required', 'in:quiz,blueprint,learning,summary,feedback,chat'],
             'title' => ['nullable', 'string', 'max:180'],
             'answer' => ['required', 'string', 'min:1', 'max:100000'],
         ]);
 
         $meta = match ($data['tool']) {
             'quiz' => ['type' => 'quiz', 'type_label' => 'Generator Soal'],
+            'blueprint' => ['type' => 'blueprint', 'type_label' => 'Kisi-kisi'],
             'learning' => ['type' => 'rpp', 'type_label' => 'RPM Learning'],
             'summary' => ['type' => 'summary', 'type_label' => 'Perangkum Materi'],
             'feedback' => ['type' => 'feedback', 'type_label' => 'Catatan Siswa'],
@@ -884,6 +888,29 @@ class AiTeacherController extends Controller
         return response()->json($payload);
     }
 
+    /** POST /ai/teacher/blueprint - generator kisi-kisi asesmen. */
+    public function blueprint(Request $request): JsonResponse
+    {
+        $built = $this->composeBlueprint($request);
+        if ($built instanceof JsonResponse) {
+            return $built;
+        }
+
+        return $this->respond(
+            $request,
+            'teacher_blueprint',
+            $built['system'],
+            $built['prompt'],
+            $this->teacherMaxOutputTokens(),
+            [
+                'answer_style' => $built['answer_style'],
+                'thinking_level' => 'low',
+                'timeout' => (int) config('ai.long_timeout'),
+            ],
+            $built['history'],
+        );
+    }
+
     /**
      * Estimasi jatah keluaran generator soal.
      * Tingkat sulit + banyak nomor mudah kena finishReason MAX_TOKENS di 4096
@@ -931,7 +958,21 @@ class AiTeacherController extends Controller
     public function previewQuiz(Request $request): JsonResponse
     {
         $data = $this->validatedQuizExport($request);
-        $doc = QuizDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
+        $content = SchoolLetterhead::ensurePrefix($data['content']);
+        if (BlueprintDocument::looksLike($content)) {
+            $doc = BlueprintDocument::parse($content);
+
+            return response()->json([
+                'ok' => true,
+                'parsed' => $doc['parsed'],
+                'html' => view('ai.teacher-blueprint-preview', [
+                    'doc' => $doc,
+                    'content' => $doc['text'],
+                ])->render(),
+            ]);
+        }
+
+        $doc = QuizDocument::parse($content);
 
         return response()->json([
             'ok' => true,
@@ -957,11 +998,19 @@ class AiTeacherController extends Controller
             abort(500, 'Gagal membuat file Word.');
         }
 
-        // Dokumen soal berformat dirender sebagai dokumen Word formal; selain itu paragraf polos.
-        $doc = QuizDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
-        $written = $doc['parsed']
-            ? QuizDocxBuilder::write($path, $doc)
-            : $this->writeDocx($path, $title, $doc['text'], false, false);
+        // Dokumen berformat dirender dengan builder yang sesuai; selain itu paragraf polos.
+        $content = SchoolLetterhead::ensurePrefix($data['content']);
+        if (BlueprintDocument::looksLike($content)) {
+            $doc = BlueprintDocument::parse($content);
+            $written = $doc['parsed']
+                ? BlueprintDocxBuilder::write($path, $doc)
+                : $this->writeDocx($path, $title, $doc['text'], false, false);
+        } else {
+            $doc = QuizDocument::parse($content);
+            $written = $doc['parsed']
+                ? QuizDocxBuilder::write($path, $doc)
+                : $this->writeDocx($path, $title, $doc['text'], false, false);
+        }
 
         if (! $written) {
             abort(500, 'Gagal membuat file Word.');
@@ -980,7 +1029,22 @@ class AiTeacherController extends Controller
 
         // Konten berformat dirender lewat partial yang sama dengan pratinjau & Word;
         // konten bebas jatuh ke render teks polos.
-        $doc = QuizDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
+        $content = SchoolLetterhead::ensurePrefix($data['content']);
+        if (BlueprintDocument::looksLike($content)) {
+            $doc = BlueprintDocument::parse($content);
+            $pdf = Pdf::loadView('ai.teacher-blueprint-pdf', [
+                'title' => $title,
+                'content' => $doc['text'],
+                'doc' => $doc,
+            ])->setPaper('a4', 'landscape');
+
+            return $pdf->download($fileName)->withHeaders($this->attachmentHeaders(
+                $fileName,
+                'application/pdf'
+            ));
+        }
+
+        $doc = QuizDocument::parse($content);
 
         $pdf = Pdf::loadView('ai.teacher-quiz-pdf', [
             'title' => $title,
@@ -1333,6 +1397,151 @@ class AiTeacherController extends Controller
                     'file' => $request->file('file')?->getClientOriginalName() ?? $document?->title,
                     'document_uuid' => $document?->uuid,
                     'source' => $materialSource ?? 'topic',
+                    'via' => 'sims',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array{system:string,prompt:string,answer_style:string,history:array,title:string}|JsonResponse
+     */
+    private function composeBlueprint(Request $request): array|JsonResponse
+    {
+        $maxMaterial = max(4000, (int) config('ai.max_input_chars', 8000) * 2);
+        $data = $request->validate([
+            'topik' => ['required', 'string', 'max:500'],
+            'mapel' => ['nullable', 'string', 'max:120'],
+            'jenjang' => ['nullable', 'string', 'max:120'],
+            'jumlah' => ['required', 'integer', 'min:1', 'max:60'],
+            'bentuk_penilaian' => ['required', 'string', 'max:120'],
+            'kompetensi' => ['nullable', 'string', 'max:4000'],
+            'catatan' => ['nullable', 'string', 'max:2000'],
+            'file' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
+            'source_text' => ['nullable', 'string', 'max:'.$maxMaterial],
+        ]);
+
+        $topik = trim((string) $data['topik']);
+        $mapel = trim((string) ($data['mapel'] ?? '')) ?: '[Mata Pelajaran]';
+        $jenjang = trim((string) ($data['jenjang'] ?? '')) ?: '[Kelas / Semester]';
+        $kompetensi = trim((string) ($data['kompetensi'] ?? ''));
+        $catatan = trim((string) ($data['catatan'] ?? ''));
+        $kop = SchoolLetterhead::asPlainText();
+        $sourceText = trim((string) ($data['source_text'] ?? ''));
+        $sourceName = '';
+        $sourceType = 'manual';
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $extension = strtolower($file->getClientOriginalExtension() ?: DocumentText::extensionFromMime($file->getMimeType()));
+            $sourceText = $this->extractQuizDocumentText($file->getRealPath(), $extension, true);
+            $sourceName = $file->getClientOriginalName();
+            $sourceType = 'file';
+
+            if ($sourceText === '') {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Teks dari file belum bisa dibaca. Pakai PDF teks/Word, atau kirim hasil Generator Soal ke Kisi-kisi.',
+                    'error_code' => 'material_extract_failed',
+                    'suggest_camera' => false,
+                    'quota' => $this->aiPublicQuotaUsage(),
+                ], 422);
+            }
+        } elseif ($sourceText !== '') {
+            $sourceName = 'Hasil Generator Soal';
+            $sourceType = 'generated_quiz';
+        }
+
+        $sourceBlock = '';
+        if ($sourceText !== '') {
+            $sourceBlock = <<<TXT
+
+SUMBER SOAL WAJIB DIIKUTI:
+{$sourceText}
+
+ATURAN KHUSUS BERDASARKAN SUMBER:
+- Susun kisi-kisi dari SUMBER SOAL WAJIB DIIKUTI di atas, bukan dari pengetahuan umum.
+- Nomor soal, bentuk soal, kunci jawaban, materi, dan indikator harus konsisten dengan sumber.
+- Jika sumber berisi kunci jawaban, salin/olah kunci sesuai nomor soal. Jika kunci suatu nomor tidak tersedia, tulis "[perlu verifikasi]" pada kunci/penjelasan nomor itu.
+- Jangan menambah nomor soal di luar sumber. Jika jumlah pada form berbeda dari sumber, prioritaskan nomor yang benar-benar ada di sumber dan jelaskan di CATATAN.
+- Gunakan topik, TP/CP, dan catatan guru hanya untuk memperjelas indikator; jangan dipakai untuk membuat fakta baru yang tidak ada pada sumber.
+TXT;
+        }
+
+        $prompt = <<<TXT
+Buat kisi-kisi asesmen sekolah siap pakai BESERTA kunci jawabannya.
+Model export harus sama seperti contoh PDF "Kisi-Kisi_Guru_Beserta_jawabannya.pdf": halaman awal berisi header kisi-kisi, identitas asesmen, tabel kisi-kisi; halaman berikutnya berisi Kunci Jawaban per bentuk soal dan Rekap Penilaian.
+
+{$kop}
+KISI-KISI PENILAIAN {$data['bentuk_penilaian']}
+{$mapel}
+
+Satuan Pendidikan : [Satuan Pendidikan]
+Mata Pelajaran : {$mapel}
+Kelas / Semester : {$jenjang}
+Tahun Pelajaran : [Tahun Pelajaran]
+Topik / Materi : {$topik}
+Bentuk Penilaian : {$data['bentuk_penilaian']}
+Jumlah Soal : {$data['jumlah']}
+Alokasi Waktu : [Alokasi Waktu]
+Kurikulum : [Kurikulum]
+
+Tujuan Pembelajaran / Kompetensi:
+{$kompetensi}
+
+Catatan guru:
+{$catatan}
+{$sourceBlock}
+
+FORMAT WAJIB:
+1. Judul dua baris: "KISI-KISI PENILAIAN [BENTUK]" lalu nama mata pelajaran/topik.
+2. Identitas memakai label persis: Satuan Pendidikan, Mata Pelajaran, Kelas / Semester, Tahun Pelajaran, Jumlah Soal, Alokasi Waktu, Kurikulum.
+3. Tulis marker "TABEL KISI-KISI", lalu tabel dengan delimiter "|" dan kolom persis:
+No | Elemen / Capaian Pembelajaran | Materi Pokok | Indikator Soal | Level Kognitif (Taksonomi Bloom) | Bentuk Soal | No. Soal
+4. Tulis "LEGENDA LEVEL KOGNITIF", "CATATAN", dan "TANDA TANGAN".
+5. Tulis halaman kunci dengan judul "KUNCI JAWABAN [BENTUK] - [MATA PELAJARAN]" dan subjudul kelas/semester/tahun.
+6. Kelompokkan kunci per bagian:
+A. PILIHAN GANDA (Soal No. ...)
+No | Kunci | Jawaban
+B. BENAR / SALAH (Soal No. ...)
+No | Kunci | Penjelasan / Alasan
+C. PILIHAN GANDA KOMPLEKS (Soal No. ...)
+No | Kunci (Jawaban Benar) | Uraian Jawaban yang Benar
+D. MENJODOHKAN (Soal No. ...)
+Soal | Istilah / Konsep | Pasangan yang Tepat
+7. Tulis "REKAP PENILAIAN", lalu tabel:
+Bagian | Bentuk Soal | Jumlah Soal | Skor per Soal | Total Skor
+
+ATURAN:
+- Total nomor soal harus {$data['jumlah']}.
+- Indikator harus operasional dan bisa diuji.
+- Level kognitif gunakan C1-C6 atau label setara bila lebih sesuai.
+- Jangan mengarang data resmi sekolah di luar input.
+- Jika ada SUMBER SOAL WAJIB DIIKUTI, jangan mengarang soal/kunci baru di luar sumber itu.
+- Wajib sertakan kunci jawaban dan rekap penilaian.
+- Tulis teks polos; tabel WAJIB memakai delimiter "|" agar bisa diexport sama persis model PDF.
+TXT;
+
+        $title = 'Kisi-kisi '.$topik;
+
+        return [
+            'system' => (string) config('ai.teacher.blueprint'),
+            'prompt' => $prompt,
+            'answer_style' => 'Tulis sebagai dokumen kisi-kisi teks polos. Tabel WAJIB memakai delimiter pipe "|" sesuai format yang diminta agar export mengikuti model PDF acuan.',
+            'title' => $title,
+            'history' => [
+                'type' => 'blueprint',
+                'type_label' => 'Kisi-kisi',
+                'title' => $title,
+                'metadata' => [
+                    'topik' => $topik,
+                    'mapel' => $data['mapel'] ?? null,
+                    'jenjang' => $data['jenjang'] ?? null,
+                    'jumlah' => $data['jumlah'],
+                    'bentuk_penilaian' => $data['bentuk_penilaian'],
+                    'source' => $sourceType,
+                    'source_file' => $sourceName ?: null,
+                    'source_chars' => $sourceText !== '' ? mb_strlen($sourceText) : 0,
                     'via' => 'sims',
                 ],
             ],

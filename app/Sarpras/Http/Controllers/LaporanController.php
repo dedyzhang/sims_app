@@ -4,8 +4,12 @@ namespace App\Sarpras\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Sarpras\Exports\AsetExport;
+use App\Sarpras\Exports\KibExport;
+use App\Sarpras\Exports\KirExport;
 use App\Sarpras\Exports\MutasiExport;
 use App\Sarpras\Models\Aset;
+use App\Sarpras\Models\DenahRuangan;
+use App\Sarpras\Models\SarprasActivityLog;
 use App\Sarpras\Support\Rupiah;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -21,7 +25,6 @@ class LaporanController extends Controller
             ->selectRaw('kondisi, count(*) as jml, sum(nilai_perolehan) as nilai')
             ->groupBy('kondisi')->get();
 
-        // Total nilai via BCMath.
         $total = '0';
         foreach (Aset::pluck('nilai_perolehan') as $n) {
             $total = Rupiah::add($total, (int) $n);
@@ -33,12 +36,14 @@ class LaporanController extends Controller
         ]);
     }
 
-    /**
-     * Audit log tidak dipakai di SIMS — redirect agar bookmark/URL lama tidak dead-end.
-     */
-    public function aktivitas(): RedirectResponse
+    public function aktivitas(): View
     {
-        return redirect()->route('sarpras.laporan.index');
+        $logs = SarprasActivityLog::with('pelaku:uuid,username')
+            ->latest('created_at')
+            ->limit(100)
+            ->get();
+
+        return view('sarpras.laporan.aktivitas', compact('logs'));
     }
 
     public function exportAsetExcel()
@@ -67,5 +72,15 @@ class LaporanController extends Controller
             new MutasiExport($request->dari, $request->sampai),
             'laporan-mutasi-' . now()->format('Ymd') . '.xlsx'
         );
+    }
+
+    public function exportKib(Aset $aset)
+    {
+        return Excel::download(new KibExport($aset), 'KIB-' . $aset->kode . '.xlsx');
+    }
+
+    public function exportKir(DenahRuangan $ruangan)
+    {
+        return Excel::download(new KirExport($ruangan), 'KIR-' . $ruangan->kode . '.xlsx');
     }
 }

@@ -13,9 +13,11 @@
             <h1 class="page-title">Guru Tidak Hadir</h1>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Otomatis dari Absensi PTK, dilengkapi input manual guru piket. Setiap guru tidak hadir menampilkan jam pelajaran yang kosong.</p>
         </div>
+        @if(auth()->user()?->isAdmin())
         <a href="{{ route('piket.jadwal') }}" class="btn-white flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition">
             <i data-lucide="calendar-days" class="w-4 h-4"></i> Jadwal Piket
         </a>
+        @endif
     </div>
 
     {{-- Navigasi tanggal --}}

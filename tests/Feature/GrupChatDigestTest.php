@@ -2,11 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Console\Commands\GrupChatKirimNotif;
+use App\Jobs\SendFcmNotificationJob;
 use App\Models\GrupChatMember;
 use App\Notifications\GrupChatDigestNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Tests\Feature\Concerns\MembangunSekolahGrupChat;
 use Tests\TestCase;
 
@@ -105,6 +106,32 @@ class GrupChatDigestTest extends TestCase
         $this->artisan('grupchat:kirim-notif');
 
         Notification::assertNotSentTo($this->siswa7a, GrupChatDigestNotification::class);
+    }
+
+    public function test_digest_mendorong_push_fcm_ke_siswa_dan_orangtua(): void
+    {
+        Queue::fake();
+        $grupKelas = $this->grupKelas($this->kelas7a);
+        $grupPaguyuban = $this->grupPaguyuban($this->kelas7a);
+
+        $this->actingAs($this->wali7a)->postJson(route('grup.pesan', $grupKelas), ['body' => 'tugas kelas']);
+        $this->actingAs($this->wali7a)->postJson(route('grup.pesan', $grupPaguyuban), ['body' => 'info ortu']);
+
+        $this->artisan('grupchat:kirim-notif')->assertSuccessful();
+
+        Queue::assertPushed(SendFcmNotificationJob::class, function (SendFcmNotificationJob $job) {
+            return $job->userUuid === $this->siswa7a->uuid
+                && $job->connection === 'sync'
+                && $job->payload['type'] === 'grup_chat_digest'
+                && $job->payload['sound'] === 'notif_sims';
+        });
+
+        Queue::assertPushed(SendFcmNotificationJob::class, function (SendFcmNotificationJob $job) {
+            return $job->userUuid === $this->ortu7a->uuid
+                && $job->connection === 'sync'
+                && $job->payload['type'] === 'grup_chat_digest'
+                && $job->payload['sound'] === 'notif_sims';
+        });
     }
 
     public function test_satu_user_dengan_unread_di_dua_grup_dapat_satu_digest(): void

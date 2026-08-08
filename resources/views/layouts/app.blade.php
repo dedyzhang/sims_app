@@ -631,11 +631,11 @@
                     $groups['akademik'] = ['Akademik', 'book-open-check', $akademik];
                 }
 
-                // ── Analisis AI (Fase 4) — narasi data untuk pimpinan/staf ──
+                // ── Analisis Data (Fase 4) — narasi data untuk pimpinan/staf ──
                 if ($modulOn('analisis_ai') && ($isAdmin || in_array($access, ['kepala', 'kurikulum', 'kesiswaan']))) {
-                    $groups['analisis'] = ['Analisis AI', 'sparkles', [
-                        ['ai.analyze.index', ['ai.analyze.*'], 'chart-line', 'Narasi Data AI'],
-                        ['ai.rag.index',     ['ai.rag.*'],     'file-search', 'Dokumen AI'],
+                    $groups['analisis'] = ['Analisis Data', 'sparkles', [
+                        ['ai.analyze.index', ['ai.analyze.*'], 'chart-line', 'Narasi Data'],
+                        ['ai.rag.index',     ['ai.rag.*'],     'file-search', 'Asisten Dokumen'],
                     ]];
                 }
 
@@ -661,18 +661,22 @@
                 // ── Piket Guru & Substitusi Kelas ──
                 if ($modulOn('piket')) {
                     $piketItems = [];
-                    
-                    // Menu kelola piket hanya untuk admin/kepsek/kurikulum atau guru piket aktif
-                    $bolehKelolaPiket = in_array($access, ['kepala', 'kurikulum', 'admin', 'superadmin']) || 
-                                        (auth()->user()?->guru?->uuid && \App\Models\JadwalPiket::isPiketAktif(auth()->user()->guru->uuid));
-                    
-                    if ($bolehKelolaPiket) {
-                        $piketItems = [
-                            ['piket.jadwal', ['piket.jadwal'], 'calendar-days', 'Jadwal Piket'],
+
+                    // Rotasi jadwal: admin saja (selaras JadwalPiketPolicy::manage)
+                    if ($isAdmin) {
+                        $piketItems[] = ['piket.jadwal', ['piket.jadwal'], 'calendar-days', 'Jadwal Piket'];
+                    }
+
+                    // Operasional harian: kepala/kurikulum (read-only) atau guru piket aktif
+                    $bolehOperasionalPiket = in_array($access, ['kepala', 'kurikulum', 'admin', 'superadmin'])
+                        || (auth()->user()?->guru?->uuid && \App\Models\JadwalPiket::isPiketAktif(auth()->user()->guru->uuid));
+
+                    if ($bolehOperasionalPiket) {
+                        $piketItems = array_merge($piketItems, [
                             ['piket.tidak-hadir', ['piket.tidak-hadir'], 'user-x', 'Guru Tidak Hadir'],
                             ['piket.penugasan', ['piket.penugasan*'], 'user-cog', 'Penugasan Pengganti'],
                             ['piket.tugas', ['piket.tugas', 'piket.tugas.unduh'], 'briefcase', 'Tugas Kelas'],
-                        ];
+                        ]);
                     }
                     
                     // Semua guru bisa melapor ketidakhadiran mandiri / isi tugas
@@ -789,28 +793,23 @@
 
                 // ── Sarana & Prasarana ──
                 if ($modulOn('sarpras')) {
-                    $bolehKelolaSarpras = $isAdmin || auth()->user()?->canAccess('manage_sarpras');
+                    $bolehKelolaSarpras = $isAdmin
+                        || auth()->user()?->canAccess('manage_sarpras')
+                        || auth()->user()?->can('sarpras.aset.kelola');
                     if ($bolehKelolaSarpras) {
                         $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
                             ['sarpras.dashboard',        ['sarpras.dashboard'],                          'layout-dashboard', 'Dashboard'],
-                            ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
-                            ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Lapor Kerusakan'],
-                            ['sarpras.aset.index',       ['sarpras.aset.*','sarpras.kategori.*'],        'package',          'Inventaris Barang'],
-                            ['sarpras.pengadaan.index',  ['sarpras.pengadaan.*'],                        'shopping-cart',    'Pengadaan'],
-                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman Barang'],
-                            ['sarpras.booking.index',    ['sarpras.booking.*'],                          'calendar-clock',   'Booking Ruangan'],
-                            ['sarpras.perbaikan.index',  ['sarpras.perbaikan.*','sarpras.teknisi.*','sarpras.jadwal.*'], 'wrench', 'Perbaikan & Teknisi'],
-                            ['sarpras.mutasi.index',     ['sarpras.mutasi.*','sarpras.penghapusan.*'],   'trash-2',          'Mutasi & Hapus'],
-                            ['sarpras.supplier.index',   ['sarpras.supplier.*'],                         'truck',            'Supplier'],
-                            ['sarpras.laporan.index',    ['sarpras.laporan.*'],                          'file-bar-chart',   'Laporan'],
+                            ['sarpras.aset.index',       ['sarpras.aset.*','sarpras.kategori.*','sarpras.supplier.*'], 'package', 'Inventaris'],
+                            ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Ruangan & Denah'],
+                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman'],
+                            ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*','sarpras.perbaikan.*','sarpras.jadwal.*'], 'wrench', 'Kerusakan & Perawatan'],
+                            ['sarpras.laporan.index',    ['sarpras.laporan.*','sarpras.mutasi.*','sarpras.penghapusan.*','sarpras.pengadaan.*','sarpras.stok-opname.*'], 'file-bar-chart', 'Laporan & Administrasi'],
                         ]];
-                    } elseif (auth()->user()?->guru || auth()->user()?->siswa || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru'], true)) {
-                        // Menu staff: aksi harian dulu, denah sebagai pendukung.
+                    } elseif (auth()->user()?->guru || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru'], true)) {
                         $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
-                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Pinjam Barang'],
-                            ['sarpras.booking.index',    ['sarpras.booking.*'],                          'calendar-clock',   'Booking Ruangan'],
+                            ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman'],
                             ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Lapor Kerusakan'],
-                            ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Denah Sekolah'],
+                            ['sarpras.denah.index',      ['sarpras.denah.*','sarpras.ruangan.*'],        'map',              'Ruangan & Denah'],
                         ]];
                     }
                 }
@@ -818,8 +817,8 @@
                 // ── Keuangan ──
                 if ($modulOn('keuangan') && ($isAdmin || auth()->user()?->canAccess('manage_keuangan'))) {
                     $groups['keuangan'] = ['Keuangan / SPP', 'wallet', [
-                        ['keuangan.index',      ['keuangan.index','keuangan.kelas'], 'layout-dashboard', 'Pembayaran SPP'],
-                        ['keuangan.verifikasi', ['keuangan.verifikasi'],             'badge-check',      'Verifikasi'],
+                        ['keuangan.index',      ['keuangan.index','keuangan.kelas','keuangan.bendahara-ai.wawasan','keuangan.bendahara-ai.export-paket'], 'layout-dashboard', 'Pembayaran SPP'],
+                        ['keuangan.verifikasi', ['keuangan.verifikasi','keuangan.bendahara-ai.*'],             'badge-check',      'Verifikasi'],
                         ['keuangan.bank',       ['keuangan.bank'],                   'landmark',         'Bank & Metode'],
                     ]];
                 }

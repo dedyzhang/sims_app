@@ -21,11 +21,9 @@
             </select>
         </div>
         <div>
-            <label class="block text-gray-700 mb-1">Teknisi</label>
-            <select name="teknisi_id" class="w-full border rounded px-3 py-2">
-                <option value="">—</option>
-                @foreach ($teknisi as $t)<option value="{{ $t->id }}" @selected(old('teknisi_id')===$t->id)>{{ $t->nama }}</option>@endforeach
-            </select>
+            <label class="block text-gray-700 mb-1">Nama Teknisi</label>
+            <input name="nama_teknisi" type="text" value="{{ old('nama_teknisi') }}" placeholder="Contoh: Budi (teknisi internal) atau PT Servis ABC"
+                   class="w-full border rounded px-3 py-2">
         </div>
         <div>
             <label class="block text-gray-700 mb-1">Deskripsi</label>

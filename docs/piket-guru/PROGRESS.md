@@ -2,7 +2,16 @@
 
 > **Agent:** baca file ini + `PRD.md` + `features/*.md` di folder ini sebelum mengerjakan task modul Piket Guru. Status task di `features/NN-*.md` (suffix `[DONE]`) harus sinkron dengan checklist di bawah. Jangan lompat fase tanpa approval FL untuk task yang menyentuh migration, auth/policy, atau alur nilai/agenda.
 
-**Verifikasi terakhir:** 2026-08-01 — **Fase 1-5 selesai dan diverifikasi end-to-end**. Ditambahkan penanda `is_ketua` pada `jadwal_piket`: admin memilih tepat satu ketua untuk setiap Senin-Jumat, dan hanya ketua yang dapat mengatur penugasan pengganti/titip tugas. Integrasi penugasan memakai struktur jadwal sekolah (`jadwals.hari` + `id_jam`, fallback `jam_ke`), mengecualikan guru yang mengajar/tidak hadir/sudah mengisi slot lain, dan validasi server-side mengunci guru kandidat untuk mencegah double-assignment race. Full suite terakhir sebelum perubahan ketua: **881 passed, 22 skipped, 4086 assertions**. **Belum diverifikasi visual di browser sungguhan.**
+**Verifikasi terakhir:** 2026-08-08 — **Fase 1-4 selesai**; perbaikan integrasi dashboard sync + H1 reminder (lihat catatan di bawah). Fase 5 dihapus dari navigasi.
+
+**Perbaikan 2026-08-08:**
+- **Dashboard sync:** `PiketSyncService` dipakai di `DashboardController` agar widget ketidakhadiran guru piket otomatis menyinkronkan `presensi_gurus` → `guru_tidak_hadir` saat dashboard dibuka (uji: `PiketDashboardSyncTest`).
+- **H1 reminder:** `PiketH1Reminder` memakai query `hari` ISO (bukan tanggal absolut) selaras skema rotasi per hari; notifikasi idempoten via `jadwal_piket_id` + `tanggal_piket` (uji: `PiketH1ReminderTest`).
+- **Menu vs policy:** sidebar "Jadwal Piket" hanya untuk admin (`JadwalPiketPolicy::manage`); kepala/kurikulum tetap akses operasional read-only.
+- **Route orphan:** `piket.dashboard` / `piket.rekap` redirect ke dashboard utama (bookmark lama).
+- **Panduan:** `docs/PANDUAN_PENGGUNAAN_SIMS_APP.md` §15 + `docs/PANDUAN_VISUAL_PIKET_GURU_GRUP_CHAT.md` disinkronkan dengan struktur menu/sidebar saat ini (2026-08-08).
+
+**Verifikasi sebelumnya:** 2026-08-01 — **Fase 1-5 selesai dan diverifikasi end-to-end**. Ditambahkan penanda `is_ketua` pada `jadwal_piket`: admin memilih tepat satu ketua untuk setiap Senin-Jumat, dan hanya ketua yang dapat mengatur penugasan pengganti/titip tugas. Integrasi penugasan memakai struktur jadwal sekolah (`jadwals.hari` + `id_jam`, fallback `jam_ke`), mengecualikan guru yang mengajar/tidak hadir/sudah mengisi slot lain, dan validasi server-side mengunci guru kandidat untuk mencegah double-assignment race. Full suite terakhir sebelum perubahan ketua: **881 passed, 22 skipped, 4086 assertions**. **Belum diverifikasi visual di browser sungguhan.**
 
 ---
 

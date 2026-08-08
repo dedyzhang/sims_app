@@ -108,9 +108,7 @@
                                             <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold">
                                                 <a href="{{ route('sarpras.denah.show', $d) }}" class="text-primary hover:underline">Buka</a>
                                                 @can('sarpras.denah.kelola')
-                                                    <a href="{{ route('sarpras.denah.gambar', $d) }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">Gambar</a>
                                                     @include('sarpras.denah.partials.import-button', ['denah' => $d, 'gaya' => 'link'])
-                                                    <a href="{{ route('sarpras.denah.hotspot', $d) }}" class="text-emerald-600 dark:text-emerald-400 hover:underline">Blok Ruangan</a>
                                                     <a href="{{ route('sarpras.denah.edit', $d) }}" class="text-slate-500 dark:text-slate-400 hover:underline">Edit</a>
                                                 @endcan
                                             </div>

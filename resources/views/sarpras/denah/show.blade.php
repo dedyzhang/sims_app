@@ -24,11 +24,8 @@
                     </button>
                 </form>
             @endif
-            <a href="{{ route('sarpras.denah.gambar', $denah) }}" class="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700">
-                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Gambar Denah
-            </a>
-            <a href="{{ route('sarpras.denah.hotspot', $denah) }}" class="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700">
-                <i data-lucide="grid-2x2" class="w-3.5 h-3.5"></i> Atur Blok Ruangan
+            <a href="{{ route('sarpras.denah.edit', $denah) }}" class="inline-flex items-center gap-1.5 bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800">
+                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i> Edit Denah
             </a>
         @endcan
     </div>
@@ -280,11 +277,6 @@
                 </a>
                 @can('sarpras.denah.kelola')
                     <div class="flex items-center gap-1 shrink-0 pr-2">
-                        <a href="{{ route('sarpras.denah.hotspot', $denah) }}"
-                           class="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition"
-                           title="Atur Tata Letak / Posisi (Drag & Drop)">
-                            <i data-lucide="move" class="w-4 h-4"></i>
-                        </a>
                         <button type="button" @click="editForm.action='{{ route('sarpras.ruangan.update', $r) }}'; editForm.kode='{{ $r->kode }}'; editForm.nama='{{ $r->nama }}'; editForm.kapasitas='{{ $r->kapasitas }}'; editForm.warna='{{ $r->warna_hex }}'; editForm.pos_x='{{ $r->pos_x }}'; editForm.pos_y='{{ $r->pos_y }}'; editForm.lebar='{{ $r->lebar }}'; editForm.tinggi='{{ $r->tinggi }}'; openEdit=true"
                                 class="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition" title="Edit Ruangan">
                             <i data-lucide="edit-2" class="w-4 h-4"></i>

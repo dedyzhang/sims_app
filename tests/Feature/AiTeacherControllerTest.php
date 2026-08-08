@@ -140,6 +140,168 @@ class AiTeacherControllerTest extends TestCase
         $this->assertStringContainsString('Foto buku', (string) $response->json('hint'));
     }
 
+    public function test_generator_kisi_kisi_memakai_prompt_dan_history_sendiri(): void
+    {
+        $user = User::create([
+            'username' => 'guru-blueprint',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $capturedPrompt = '';
+        $capturedOptions = [];
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt, &$capturedOptions) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt, array $options) use (&$capturedPrompt, &$capturedOptions) {
+                    $capturedPrompt = $prompt;
+                    $capturedOptions = $options;
+
+                    return str_contains($prompt, 'KISI-KISI PENILAIAN')
+                        && str_contains($prompt, 'Persamaan Linear')
+                        && str_contains($prompt, 'TABEL KISI-KISI')
+                        && str_contains($prompt, 'KUNCI JAWABAN')
+                        && str_contains($prompt, 'REKAP PENILAIAN')
+                        && str_contains((string) ($options['system'] ?? ''), 'penyusun kisi-kisi asesmen sekolah')
+                        && ($options['thinking_level'] ?? null) === 'low';
+                })
+                ->andReturn([
+                    'text' => $this->strukturKisiKisi(),
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 20,
+                    'completion_tokens' => 12,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.blueprint'), [
+            'topik' => 'Persamaan Linear',
+            'mapel' => 'Matematika',
+            'jenjang' => 'Kelas 7 / Semester 1',
+            'jumlah' => 20,
+            'bentuk_penilaian' => 'Ulangan Harian',
+            'kompetensi' => 'Menyelesaikan persamaan linear satu variabel.',
+            'catatan' => 'Sertakan 2 soal HOTS.',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('history.type', 'blueprint')
+            ->assertJsonPath('history.type_label', 'Kisi-kisi')
+            ->assertJsonPath('history.metadata.jumlah', 20)
+            ->assertJsonPath('history.metadata.bentuk_penilaian', 'Ulangan Harian');
+
+        $this->assertStringContainsString('Jumlah Soal : 20', $capturedPrompt);
+        $this->assertStringContainsString('Tabel WAJIB memakai delimiter pipe', (string) ($capturedOptions['answer_style'] ?? ''));
+        $this->assertSame('low', $capturedOptions['thinking_level']);
+        $this->assertDatabaseHas('ai_usage_logs', [
+            'user_uuid' => $user->uuid,
+            'feature' => 'teacher_blueprint',
+            'status' => 'success',
+        ]);
+    }
+
+    public function test_generator_kisi_kisi_bisa_dikunci_dari_hasil_generator_soal(): void
+    {
+        $user = User::create([
+            'username' => 'guru-blueprint-from-quiz',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $source = "SOAL EVALUASI IPA\n1. Proses perubahan air menjadi uap disebut ...\nA. Evaporasi\nB. Kondensasi\nKunci Jawaban: 1. A";
+        $capturedPrompt = '';
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt, $source) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt) use (&$capturedPrompt, $source) {
+                    $capturedPrompt = $prompt;
+
+                    return str_contains($prompt, 'SUMBER SOAL WAJIB DIIKUTI')
+                        && str_contains($prompt, $source)
+                        && str_contains($prompt, 'jangan mengarang soal/kunci baru di luar sumber');
+                })
+                ->andReturn([
+                    'text' => $this->strukturKisiKisi(),
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 20,
+                    'completion_tokens' => 12,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.blueprint'), [
+            'topik' => 'Daur air',
+            'mapel' => 'IPA',
+            'jenjang' => 'Kelas 5',
+            'jumlah' => 1,
+            'bentuk_penilaian' => 'Ulangan Harian',
+            'source_text' => $source,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('history.metadata.source', 'generated_quiz')
+            ->assertJsonPath('history.metadata.source_file', 'Hasil Generator Soal')
+            ->assertJsonPath('history.metadata.source_chars', mb_strlen($source));
+
+        $this->assertStringContainsString('Nomor soal, bentuk soal, kunci jawaban, materi, dan indikator harus konsisten dengan sumber.', $capturedPrompt);
+    }
+
+    public function test_generator_kisi_kisi_bisa_memakai_upload_file_soal(): void
+    {
+        $user = User::create([
+            'username' => 'guru-blueprint-file',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $filePath = tempnam(sys_get_temp_dir(), 'blueprint-source-docx');
+        $this->makeDocx($filePath, "SOAL EVALUASI IPA\n1. Perubahan air menjadi uap disebut evaporasi.\nKunci Jawaban: 1. A");
+
+        $capturedPrompt = '';
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt) use (&$capturedPrompt) {
+                    $capturedPrompt = $prompt;
+
+                    return str_contains($prompt, 'SUMBER SOAL WAJIB DIIKUTI')
+                        && str_contains($prompt, 'Perubahan air menjadi uap')
+                        && str_contains($prompt, 'Jika sumber berisi kunci jawaban');
+                })
+                ->andReturn([
+                    'text' => $this->strukturKisiKisi(),
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 20,
+                    'completion_tokens' => 12,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.blueprint'), [
+            'topik' => 'Daur air',
+            'mapel' => 'IPA',
+            'jenjang' => 'Kelas 5',
+            'jumlah' => 1,
+            'bentuk_penilaian' => 'Ulangan Harian',
+            'file' => new UploadedFile(
+                $filePath,
+                'soal-daur-air.docx',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                null,
+                true,
+            ),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('history.metadata.source', 'file')
+            ->assertJsonPath('history.metadata.source_file', 'soal-daur-air.docx');
+
+        $this->assertStringContainsString('SOAL EVALUASI IPA', $capturedPrompt);
+    }
+
     public function test_generator_soal_mandarin_menyertakan_instruksi_bahasa_dan_melewati_global_prompt(): void
     {
         $user = User::create([
@@ -1258,6 +1420,71 @@ class AiTeacherControllerTest extends TestCase
         $this->assertStringStartsWith('%PDF', $response->getContent());
     }
 
+    public function test_preview_dan_export_pdf_kisi_kisi_memakai_model_acuan(): void
+    {
+        $user = User::create([
+            'username' => 'guru-blueprint-export',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $preview = $this->actingAs($user)->postJson(route('ai.teacher.quiz.preview'), [
+            'content' => $this->strukturKisiKisi(),
+        ]);
+
+        $preview->assertOk()
+            ->assertJsonPath('parsed', true);
+        $this->assertStringContainsString('KISI-KISI PENILAIAN AKHIR TAHUN', $preview->json('html'));
+        $this->assertStringContainsString('KUNCI JAWABAN PAT', $preview->json('html'));
+        $this->assertStringContainsString('REKAP PENILAIAN', $preview->json('html'));
+        $this->assertStringContainsString('#5b2d91', $preview->json('html'));
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz.export-pdf'), [
+            'title' => 'Kisi-kisi PAT Agama Buddha',
+            'content' => $this->strukturKisiKisi(),
+        ]);
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
+
+    public function test_export_word_kisi_kisi_memakai_model_acuan(): void
+    {
+        $user = User::create([
+            'username' => 'guru-blueprint-word',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz.export-word'), [
+            'title' => 'Kisi-kisi PAT Agama Buddha',
+            'content' => $this->strukturKisiKisi(),
+        ]);
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'exported-blueprint-docx');
+        file_put_contents($tempPath, $response->streamedContent());
+
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($tempPath));
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        $this->assertIsString($xml);
+        $this->assertStringContainsString('w:orient="landscape"', $xml);
+        $this->assertStringContainsString('w:fill="5B2D91"', $xml);
+        $this->assertStringContainsString('w:fill="2E7D32"', $xml);
+        $this->assertStringContainsString('KISI-KISI PENILAIAN AKHIR TAHUN', $xml);
+        $this->assertStringContainsString('Elemen / Capaian Pembelajaran', $xml);
+        $this->assertStringContainsString('KUNCI JAWABAN PAT', $xml);
+        $this->assertStringContainsString('REKAP PENILAIAN', $xml);
+    }
+
     public function test_export_pdf_soal_tak_berformat_tetap_valid(): void
     {
         $user = User::create([
@@ -1613,5 +1840,55 @@ class AiTeacherControllerTest extends TestCase
         $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
         $zip->addFromString('word/document.xml', '<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>'.htmlspecialchars($body, ENT_XML1).'</w:t></w:r></w:p></w:body></w:document>');
         $zip->close();
+    }
+
+    private function strukturKisiKisi(): string
+    {
+        return <<<'TXT'
+KISI-KISI PENILAIAN AKHIR TAHUN (PAT)
+PENDIDIKAN AGAMA BUDDHA DAN BUDI PEKERTI
+Satuan Pendidikan : SMP Maitreyawira Tanjungpinang
+Mata Pelajaran : Pendidikan Agama Buddha dan Budi Pekerti (PAT002)
+Kelas / Semester : VIII / Genap
+Tahun Pelajaran : 2025/2026
+Jumlah Soal : 58 Soal (PG: 30 | B/S: 10 | PG Kompleks: 15 | Menjodohkan: 3)
+Alokasi Waktu : 60 Menit
+Kurikulum : Kurikulum Merdeka (Fase D)
+
+TABEL KISI-KISI
+No | Elemen / Capaian Pembelajaran | Materi Pokok | Indikator Soal | Level Kognitif (Taksonomi Bloom) | Bentuk Soal | No. Soal
+1 | Sejarah (Kitab Suci & Sutta) | Sutta-Sutta dalam Tipitaka: Sigalovadha Sutta; Mangala Sutta; Parabhava Sutta | Peserta didik dapat mengidentifikasi sutta yang mengatur tata cara kehidupan bermasyarakat Buddhis | C1 Mengingat | PG | 3
+2 | Akhlak Mulia (Sila & Moralitas) | Lima Sila (Pancasila Buddhis) & Kesehatan Mental | Peserta didik dapat menganalisis hubungan antara pelaksanaan lima sila dengan kesehatan mental | C4 Menganalisis | PG | 24
+3 | Akhlak Mulia (Pergaulan & Persahabatan) | Kalyanamitta & Akalyanamitta | Peserta didik dapat menjodohkan istilah kalyanamitta, akalyanamitta, dan sila dengan pengertiannya | C1 Mengingat | Menjodohkan | 57
+LEGENDA LEVEL KOGNITIF
+C1 - Mengingat    C2 - Memahami    C4 - Menganalisis
+CATATAN: Kisi-kisi ini disusun mengacu pada Kurikulum Merdeka.
+TANDA TANGAN
+
+KUNCI JAWABAN PAT - PENDIDIKAN AGAMA BUDDHA DAN BUDI PEKERTI
+Kelas VIII | Semester Genap | TP 2025/2026
+A. PILIHAN GANDA (Soal No. 1 - 30)
+No | Kunci | Jawaban
+1 | A | mendengarkan Dharma Desana dengan baik
+2 | D | semua pernyataan benar
+B. BENAR / SALAH (Soal No. 31 - 40)
+No | Kunci | Penjelasan / Alasan
+31 | BENAR | Masa pubertas adalah masa perubahan fisik, psikis, dan kematangan fungsi tubuh
+32 | SALAH | Remaja malas yang mengandalkan orang tua tidak akan otomatis sukses
+C. PILIHAN GANDA KOMPLEKS (Soal No. 41 - 55)
+No | Kunci (Jawaban Benar) | Uraian Jawaban yang Benar
+41 | C, D | Sila menjadi dasar bertindak dalam agama Buddha
+D. MENJODOHKAN (Soal No. 56 - 58)
+Soal | Istilah / Konsep | Pasangan yang Tepat
+56 | Masa pubertas | Masa seorang anak mengalami perubahan fisik, psikis, dan kematangan fungsi tubuh
+REKAP PENILAIAN
+Bagian | Bentuk Soal | Jumlah Soal | Skor per Soal | Total Skor
+A | Pilihan Ganda | 30 | 2 | 60
+B | Benar / Salah | 10 | 1 | 10
+C | PG Kompleks | 15 | 2 | 30
+D | Menjodohkan | 3 | per pasangan | -
+TOTAL |  | 58 |  | 100
+Keterangan: Skor PG Kompleks diberikan penuh jika semua pilihan benar dipilih.
+TXT;
     }
 }

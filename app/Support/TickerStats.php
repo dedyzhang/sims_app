@@ -36,7 +36,7 @@ class TickerStats
             $kerusakan = class_exists(\App\Sarpras\Models\LaporanKerusakan::class)
                 ? \App\Sarpras\Models\LaporanKerusakan::whereIn('status', ['dilaporkan', 'diterima'])->count() : 0;
             $peminjaman = class_exists(\App\Sarpras\Models\Peminjaman::class)
-                ? \App\Sarpras\Models\Peminjaman::whereIn('status', ['disetujui', 'dipinjam', 'terlambat'])->count() : 0;
+                ? \App\Sarpras\Models\Peminjaman::whereIn('status', ['dipinjam', 'terlambat'])->count() : 0;
 
             $semester = Semester::where('aktif', true)->first();
 

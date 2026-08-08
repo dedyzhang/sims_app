@@ -40,6 +40,14 @@ class NotificationGate
             $excluded[] = 'absensi_siswa';
         }
 
+        if (! in_array($user->access, ['orangtua', 'siswa'], true)) {
+            $excluded[] = 'spp_pembayaran_status';
+        }
+
+        if (! $user->canAccess('manage_keuangan')) {
+            $excluded[] = 'spp_bukti_diunggah';
+        }
+
         if (! in_array($user->access, ['kepala', 'admin', 'superadmin'], true)) {
             $excluded[] = 'presensi_terlambat';
             $excluded[] = 'presensi_izin_pulang';
@@ -83,6 +91,9 @@ class NotificationGate
                 $classroomIds[] = $data['classroom_id'];
             }
             if ($type === 'absensi_siswa' && is_string($data['siswa_id'] ?? null)) {
+                $siswaIds[] = $data['siswa_id'];
+            }
+            if ($type === 'spp_pembayaran_status' && is_string($data['siswa_id'] ?? null)) {
                 $siswaIds[] = $data['siswa_id'];
             }
             if ($type === 'grup_chat_digest') {
@@ -170,6 +181,9 @@ class NotificationGate
             'sarpras_kerusakan', 'sarpras_pemeliharaan' => self::canViewSarpras($user),
             'jadwal_harian', 'jadwal_sesi', 'jadwal_agenda' => true, // personal: hanya pernah disimpan di user guru target
 
+            'spp_bukti_diunggah' => $user->canAccess('manage_keuangan'),
+            'spp_pembayaran_status' => self::canViewSppPembayaranStatus($user, $data['siswa_id'] ?? null, $preload),
+
             'presensi_terlambat', 'presensi_izin_pulang' => in_array($user->access, ['kepala', 'admin', 'superadmin'], true),
             default => self::canViewByUrl($user, $data),
         };
@@ -217,6 +231,30 @@ class NotificationGate
         }
 
         if (! is_string($siswaId) || $siswaId === '') {
+            return false;
+        }
+
+        if ($preload !== null) {
+            return isset($preload['parent_siswa_ids'][$siswaId]);
+        }
+
+        return Orangtua::query()
+            ->where('id_login', $user->getKey())
+            ->where('id_siswa', $siswaId)
+            ->exists();
+    }
+
+    private static function canViewSppPembayaranStatus(User $user, mixed $siswaId, ?array $preload): bool
+    {
+        if (! is_string($siswaId) || $siswaId === '') {
+            return false;
+        }
+
+        if ($user->siswa && (string) $user->siswa->uuid === $siswaId) {
+            return true;
+        }
+
+        if ($user->access !== 'orangtua') {
             return false;
         }
 

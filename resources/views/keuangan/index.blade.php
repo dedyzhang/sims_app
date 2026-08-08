@@ -21,6 +21,22 @@
                     @endforeach
                 </select>
             </form>
+            <a href="{{ route('keuangan.bendahara-ai.wawasan', ['ta'=>$ta]) }}"
+               class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-indigo-200 dark:border-indigo-700 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition">
+                <i data-lucide="lightbulb" class="w-4 h-4"></i> <span class="hidden sm:inline">Wawasan</span>
+            </a>
+            <div class="relative" x-data="{ open: false }">
+                <button @click="open=!open" type="button"
+                        class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                    <i data-lucide="download" class="w-4 h-4"></i> <span class="hidden sm:inline">Ekspor</span>
+                </button>
+                <div x-show="open" @click.outside="open=false" x-cloak
+                     class="absolute right-0 mt-1 w-48 card p-1 shadow-lg z-20">
+                    <a href="{{ route('keuangan.bendahara-ai.export-paket', ['ta'=>$ta, 'format'=>'excel']) }}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Excel — semua status</a>
+                    <a href="{{ route('keuangan.bendahara-ai.export-paket', ['ta'=>$ta, 'format'=>'pdf']) }}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">PDF — semua status</a>
+                    <a href="{{ route('keuangan.bendahara-ai.export-paket', ['ta'=>$ta, 'format'=>'excel', 'status'=>'menunggu']) }}" class="block px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-amber-700">Excel — menunggu</a>
+                </div>
+            </div>
             <a href="{{ route('keuangan.verifikasi', ['ta'=>$ta]) }}"
                class="relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition">
                 <i data-lucide="badge-check" class="w-4 h-4"></i> Verifikasi
@@ -35,13 +51,34 @@
         </div>
     </div>
 
-    @if($menungguTotal>0)
-    <a href="{{ route('keuangan.verifikasi', ['ta'=>$ta]) }}" class="block card p-4 border-l-4 border-amber-400 hover:shadow-md transition">
+    @if(session('info'))
+    <div class="card p-3 border-l-4 border-indigo-400 text-sm text-indigo-700 dark:text-indigo-300">{{ session('info') }}</div>
+    @endif
+
+    @include('keuangan.partials.spp-dashboard', ['ringkasan' => $ringkasan, 'bulanIni' => $bulanIni, 'ta' => $ta, 'taOptions' => $taOptions])
+
+    @if(($ringkasanAntrian['menumpuk'] ?? false) && $menungguTotal > 0)
+    <a href="{{ route('keuangan.verifikasi', ['ta'=>$ta, 'prioritas'=>1]) }}" class="block card p-4 border-l-4 border-rose-400 hover:shadow-md transition">
+        <div class="flex items-center gap-3">
+            <span class="grid place-items-center w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600"><i data-lucide="alert-circle" class="w-5 h-5"></i></span>
+            <div>
+                <p class="font-bold text-slate-800 dark:text-slate-100">Antrian menumpuk — {{ $ringkasanAntrian['menunggu'] }} bukti menunggu verifikasi</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    @if($ringkasanAntrian['menunggu_lama'] > 0)
+                        {{ $ringkasanAntrian['menunggu_lama'] }} sudah lebih dari {{ config('keuangan-ai.digest.usia_hari_min', 3) }} hari.
+                    @endif
+                    Buka antrian prioritas untuk meninjau yang paling mendesak.
+                </p>
+            </div>
+        </div>
+    </a>
+    @elseif($menungguTotal > 0)
+    <a href="{{ route('keuangan.verifikasi', ['ta'=>$ta, 'prioritas'=>1]) }}" class="block card p-4 border-l-4 border-amber-400 hover:shadow-md transition">
         <div class="flex items-center gap-3">
             <span class="grid place-items-center w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600"><i data-lucide="clock" class="w-5 h-5"></i></span>
             <div>
-                <p class="font-bold text-slate-800 dark:text-slate-100">{{ $menungguTotal }} bukti pembayaran menunggu verifikasi</p>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Klik untuk meninjau & menyetujui pembayaran siswa.</p>
+                <p class="font-bold text-slate-800 dark:text-slate-100">{{ $menungguTotal }} pembayaran menunggu verifikasi / validasi bank</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Klik untuk membuka antrian prioritas verifikasi.</p>
             </div>
         </div>
     </a>

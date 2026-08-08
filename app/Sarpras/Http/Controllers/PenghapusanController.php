@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Sarpras\Http\Requests\PenghapusanRequest;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\Penghapusan;
+use App\Sarpras\Services\SarprasActivityLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,6 +41,8 @@ class PenghapusanController extends Controller
 
         $penghapusan = Penghapusan::create($data);
 
+        SarprasActivityLogger::log('penghapusan.diajukan', $penghapusan);
+
         return redirect()->route('sarpras.penghapusan.show', $penghapusan)
             ->with('sukses', 'Pengajuan penghapusan terkirim.');
     }
@@ -65,6 +68,8 @@ class PenghapusanController extends Controller
             ]);
             // Update status aset -> dihapus (tercatat di activitylog).
             $penghapusan->aset?->update(['status' => 'dihapus']);
+
+            SarprasActivityLogger::log('penghapusan.disetujui', $penghapusan);
         });
 
         return back()->with('sukses', 'Penghapusan disetujui. Status aset diperbarui.');

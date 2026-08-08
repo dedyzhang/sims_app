@@ -268,17 +268,13 @@ class RagService
     }
 
     /**
-     * Opsi embed untuk dokumen: materi guru memakai key pribadi pemilik dulu.
-     * Dokumen admin → rantai default (key sekolah saja).
+     * Opsi embed untuk dokumen: key pribadi pemilik dokumen dipakai dulu.
+     * GeminiService akan memakai key sekolah sebagai cadangan saat perlu.
      *
      * @return array{api_key?:string}
      */
     public function embedOptionsForDocument(AiDocument $doc): array
     {
-        if ($doc->source !== AiDocument::SOURCE_TEACHER_MATERIAL) {
-            return [];
-        }
-
         $user = User::query()->find($doc->user_uuid);
         $key = $user?->plainGeminiApiKey();
 

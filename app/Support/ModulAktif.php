@@ -32,8 +32,8 @@ class ModulAktif
                 'ikon' => 'sparkles',
             ],
             'analisis_ai' => [
-                'label' => 'Analisis AI',
-                'deskripsi' => 'Narasi data sekolah dan tanya-jawab berbasis dokumen (RAG).',
+                'label' => 'Analisis Data',
+                'deskripsi' => 'Narasi data sekolah dan tanya-jawab berbasis dokumen.',
                 'ikon' => 'brain',
             ],
             'arena_belajar' => [

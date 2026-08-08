@@ -185,76 +185,7 @@ class SppService
      */
     public function previewRekeningKoran(array $transaksi): array
     {
-        $siswaByVa = [];
-        $vaGanda   = [];
-        foreach (Siswa::whereNotNull('va')->where('va', '!=', '')->get(['uuid', 'nama', 'va', 'id_kelas']) as $s) {
-            $suffix = substr(preg_replace('/\D/', '', (string) $s->va), -6);
-            if ($suffix === '' || strlen($suffix) < 6) {
-                continue;
-            }
-            if (isset($siswaByVa[$suffix])) {
-                $vaGanda[$suffix] = true;
-            }
-            $siswaByVa[$suffix] = $s;
-        }
-
-        $preview = [];
-        foreach ($transaksi as $t) {
-            $suffix = substr($t['no_pelanggan'], -6);
-            $row = [
-                'no_pelanggan'          => $t['no_pelanggan'],
-                'nominal'               => $t['nominal'],
-                'tanggal'               => $t['tanggal']->toDateString(),
-                'siswa'                 => null,
-                'status'                => 'va_tidak_ditemukan',
-                'pesan'                 => "Tidak ada siswa dengan VA berakhiran {$suffix}.",
-                'saran_pembayaran_uuid' => null,
-                'opsi'                  => collect(),
-            ];
-
-            if (isset($vaGanda[$suffix])) {
-                $row['status'] = 'va_ganda';
-                $row['pesan'] = "VA {$suffix} dipakai lebih dari satu siswa — perbaiki data VA dulu.";
-                $preview[] = $row;
-                continue;
-            }
-
-            $siswa = $siswaByVa[$suffix] ?? null;
-            if (!$siswa) {
-                $preview[] = $row;
-                continue;
-            }
-            $row['siswa'] = $siswa;
-
-            $opsi = SppPembayaran::where('id_siswa', $siswa->uuid)
-                ->whereIn('status', [
-                    SppPembayaran::STATUS_TERVERIFIKASI,
-                    SppPembayaran::STATUS_BELUM,
-                    SppPembayaran::STATUS_MENUNGGU,
-                    SppPembayaran::STATUS_DITOLAK,
-                ])
-                ->get()
-                ->sortBy(fn ($p) => [TahunAjaran::tahunAwal($p->tahun_ajaran), $p->bulan <= 6 ? $p->bulan + 12 : $p->bulan])
-                ->values();
-            $row['opsi'] = $opsi;
-
-            $sarankan = $opsi->firstWhere('nominal', $t['nominal']);
-            if ($sarankan) {
-                $row['status'] = 'saran_otomatis';
-                $row['pesan'] = "Cocok dengan {$sarankan->label_bulan} — Rp " . number_format($sarankan->nominal, 0, ',', '.') . '.';
-                $row['saran_pembayaran_uuid'] = $sarankan->uuid;
-            } elseif ($opsi->isNotEmpty()) {
-                $row['status'] = 'perlu_pilih_manual';
-                $row['pesan'] = 'Tidak ada tagihan senilai persis Rp ' . number_format($t['nominal'], 0, ',', '.') . ' — pilih bulan manual.';
-            } else {
-                $row['status'] = 'tidak_ada_tagihan';
-                $row['pesan'] = "{$siswa->nama}: semua tagihan sudah lunas / belum ada baris tagihan aktif.";
-            }
-
-            $preview[] = $row;
-        }
-
-        return $preview;
+        return app(SppMutasiMatchingService::class)->preview($transaksi);
     }
 
     /**
@@ -269,8 +200,9 @@ class SppService
     public function applyRekeningKoran(array $keputusan, ?string $actorUuid): array
     {
         $hasil = [];
+        $lunas = collect();
 
-        DB::transaction(function () use ($keputusan, $actorUuid, &$hasil) {
+        DB::transaction(function () use ($keputusan, $actorUuid, &$hasil, &$lunas) {
             foreach ($keputusan as $k) {
                 $p = SppPembayaran::with('siswa')->find($k['pembayaran_uuid']);
                 if (!$p) {
@@ -291,9 +223,12 @@ class SppService
                 $p->diverifikasi_pada = now();
                 $p->save();
 
+                $lunas->push($p);
                 $hasil[] = ['pesan' => ($p->siswa->nama ?? '-') . ": {$p->label_bulan} ditandai LUNAS.", 'berhasil' => true];
             }
         });
+
+        SppNotifier::statusDiperbarui($lunas, 'lunas');
 
         return $hasil;
     }

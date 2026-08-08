@@ -5,12 +5,22 @@ namespace App\Http\Controllers\Keuangan;
 use App\Http\Controllers\Controller;
 use App\Models\Kelas;
 use App\Models\SppPembayaran;
+use App\Services\Keuangan\BendaharaAntrianDigest;
+use App\Services\Keuangan\SppAnomalyDetector;
+use App\Services\Keuangan\SppMonthlyDashboard;
+use App\Services\Keuangan\SppMutasiMatchingService;
 use App\Services\Keuangan\SppService;
+use App\Services\Keuangan\SppActivityLogger;
+use App\Services\Keuangan\SppNotifier;
+use App\Services\Keuangan\SppOcrAssistService;
+use App\Services\Keuangan\SppVerificationQueue;
+use Spatie\Activitylog\Models\Activity;
 use App\Support\KeuanganBank;
-use App\Support\RekeningKoranBcaParser;
+use App\Support\RekeningKoran\RekeningKoranParserResolver;
 use App\Support\TahunAjaran;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Modul Keuangan untuk Bendahara (juga admin/superadmin).
@@ -24,8 +34,11 @@ class KeuanganController extends Controller
     public function __construct(private SppService $spp) {}
 
     /** Daftar kelas + ringkasan untuk dipilih bendahara. */
-    public function index(Request $request)
-    {
+    public function index(
+        Request $request,
+        SppMonthlyDashboard $dashboard,
+        BendaharaAntrianDigest $digest,
+    ) {
         $ta = $this->resolveTahunAjaran($request);
 
         $kelas = Kelas::withCount('siswa')->orderBy('tingkat')->orderBy('kelas')->get();
@@ -39,16 +52,21 @@ class KeuanganController extends Controller
             ->get()
             ->keyBy('id_kelas');
 
-        $menungguTotal = SppPembayaran::where('tahun_ajaran', $ta)
-            ->whereIn('status', [SppPembayaran::STATUS_MENUNGGU, SppPembayaran::STATUS_TERVERIFIKASI])
-            ->count();
+        $ringkasanAntrian = $digest->ringkasan($ta);
+        $menungguTotal = $ringkasanAntrian['menunggu'] + $ringkasanAntrian['terverifikasi'];
+
+        $tahun = (int) $request->query('tahun', now()->year);
+        $bulan = (int) $request->query('bulan', now()->month);
 
         return view('keuangan.index', [
-            'kelasList'     => $kelas,
-            'lunasPerKelas' => $lunasPerKelas,
-            'menungguTotal' => $menungguTotal,
-            'ta'            => $ta,
-            'taOptions'     => TahunAjaran::options(),
+            'kelasList'        => $kelas,
+            'lunasPerKelas'    => $lunasPerKelas,
+            'menungguTotal'    => $menungguTotal,
+            'ringkasanAntrian' => $ringkasanAntrian,
+            'ringkasan'        => $dashboard->ringkasanTahun($ta),
+            'bulanIni'         => $dashboard->ringkasanBulanKalender($tahun, $bulan),
+            'ta'               => $ta,
+            'taOptions'        => TahunAjaran::options(),
         ]);
     }
 
@@ -137,6 +155,8 @@ class KeuanganController extends Controller
             ->whereIn('bulan', $selectedBulans)
             ->get();
 
+        $statusBerubah = collect();
+
         foreach ($payments as $p) {
             if (array_key_exists('nominal', $data) && $data['nominal'] !== null) {
                 $p->nominal = $data['nominal'];
@@ -155,12 +175,35 @@ class KeuanganController extends Controller
             }
 
             if (!empty($data['status'])) {
+                $sebelum = $p->status;
                 $this->applyStatus($p, $data['status'], $data['tanggal_bayar'] ?? null);
+                if ($sebelum !== $p->status) {
+                    SppActivityLogger::logStatusChange($p, 'spp_status_diubah', $sebelum, $p->status, auth()->id());
+                    if (in_array($p->status, [
+                        SppPembayaran::STATUS_TERVERIFIKASI,
+                        SppPembayaran::STATUS_LUNAS,
+                        SppPembayaran::STATUS_DITOLAK,
+                    ], true)) {
+                        $statusBerubah->push($p);
+                    }
+                }
             } elseif (array_key_exists('tanggal_bayar', $data)) {
                 $p->tanggal_bayar = $data['tanggal_bayar'];
             }
 
             $p->save();
+        }
+
+        foreach ($statusBerubah->groupBy('status') as $status => $group) {
+            $event = match ($status) {
+                SppPembayaran::STATUS_TERVERIFIKASI => 'terverifikasi',
+                SppPembayaran::STATUS_LUNAS => 'lunas',
+                SppPembayaran::STATUS_DITOLAK => 'ditolak',
+                default => null,
+            };
+            if ($event) {
+                SppNotifier::statusDiperbarui($group->values(), $event);
+            }
         }
 
         if ($request->wantsJson()) {
@@ -177,37 +220,112 @@ class KeuanganController extends Controller
      * 1) menunggu        → perlu dicek buktinya (→ terverifikasi)
      * 2) terverifikasi   → perlu divalidasi via rekening koran bank (→ lunas)
      */
-    public function verifikasi(Request $request)
-    {
+    public function verifikasi(
+        Request $request,
+        SppVerificationQueue $queue,
+        SppAnomalyDetector $anomaly,
+        SppMutasiMatchingService $matching,
+    ) {
         $ta = $this->resolveTahunAjaran($request);
         $q  = trim((string) $request->query('q', ''));
+        $prioritas = $request->boolean('prioritas');
+        $filterAnomali = $request->query('filter') === 'anomali';
+        $anomaliMap = $anomaly->scan($ta)->keyBy(fn ($row) => $row['pembayaran']->uuid);
 
-        $rows = SppPembayaran::with('siswa.kelas')
-            ->where('tahun_ajaran', $ta)
-            ->whereIn('status', [SppPembayaran::STATUS_MENUNGGU, SppPembayaran::STATUS_TERVERIFIKASI])
-            ->when($q !== '', function ($query) use ($q) {
-                $query->whereHas('siswa', function ($s) use ($q) {
-                    $s->where('nama', 'like', "%{$q}%")
-                      ->orWhere('nis', 'like', "%{$q}%")
-                      ->orWhereHas('kelas', function ($k) use ($q) {
-                          $k->where('tingkat', 'like', "%{$q}%")->orWhere('kelas', 'like', "%{$q}%");
-                      });
-                });
-            })
-            ->orderBy('bulan')
-            ->get();
+        if ($prioritas) {
+            $groups = $queue->prioritizedGroups($ta, $q !== '' ? $q : null);
+            if ($filterAnomali) {
+                $groups = $groups->filter(function ($scoredGroup) use ($anomaliMap) {
+                    return $scoredGroup->contains(fn ($item) => $anomaliMap->has($item['pembayaran']->uuid));
+                })->values();
+            }
 
-        $byStatus = fn (string $status) => $rows
-            ->where('status', $status)
-            ->groupBy(fn ($p) => $p->batch_id ?? $p->uuid)
-            ->sortByDesc(fn ($g) => $g->first()->updated_at)
-            ->values();
+            $menungguGroups = $groups
+                ->filter(fn ($g) => $g->first()['pembayaran']->status === SppPembayaran::STATUS_MENUNGGU)
+                ->map(fn ($scoredGroup) => [
+                    'group'          => $scoredGroup->pluck('pembayaran'),
+                    'priorityScore'  => $scoredGroup->max('skor'),
+                    'priorityAlasan' => $scoredGroup->first()['alasan'] ?? [],
+                ])
+                ->values();
+
+            $terverifikasiGroups = $groups
+                ->filter(fn ($g) => $g->first()['pembayaran']->status === SppPembayaran::STATUS_TERVERIFIKASI)
+                ->map(fn ($scoredGroup) => [
+                    'group'          => $scoredGroup->pluck('pembayaran'),
+                    'priorityScore'  => $scoredGroup->max('skor'),
+                    'priorityAlasan' => $scoredGroup->first()['alasan'] ?? [],
+                ])
+                ->values();
+
+            $menungguCount = $menungguGroups->sum(fn ($g) => $g['group']->count());
+            $terverifikasiCount = $terverifikasiGroups->sum(fn ($g) => $g['group']->count());
+        } else {
+            $rows = SppPembayaran::with('siswa.kelas')
+                ->where('tahun_ajaran', $ta)
+                ->whereIn('status', [SppPembayaran::STATUS_MENUNGGU, SppPembayaran::STATUS_TERVERIFIKASI])
+                ->when($q !== '', function ($query) use ($q) {
+                    $query->whereHas('siswa', function ($s) use ($q) {
+                        $s->where('nama', 'like', "%{$q}%")
+                          ->orWhere('nis', 'like', "%{$q}%")
+                          ->orWhereHas('kelas', function ($k) use ($q) {
+                              $k->where('tingkat', 'like', "%{$q}%")->orWhere('kelas', 'like', "%{$q}%");
+                          });
+                    });
+                })
+                ->when($filterAnomali, function ($query) use ($anomaliMap) {
+                    $query->whereIn('uuid', $anomaliMap->keys());
+                })
+                ->orderBy('bulan')
+                ->get();
+
+            $byStatus = fn (string $status) => $rows
+                ->where('status', $status)
+                ->groupBy(fn ($p) => $p->batch_id ?? $p->uuid)
+                ->sortByDesc(fn ($g) => $g->first()->updated_at)
+                ->map(fn ($group) => [
+                    'group'          => $group,
+                    'priorityScore'  => null,
+                    'priorityAlasan' => [],
+                ])
+                ->values();
+
+            $menungguGroups = $byStatus(SppPembayaran::STATUS_MENUNGGU);
+            $terverifikasiGroups = $byStatus(SppPembayaran::STATUS_TERVERIFIKASI);
+            $menungguCount = $rows->where('status', SppPembayaran::STATUS_MENUNGGU)->count();
+            $terverifikasiCount = $rows->where('status', SppPembayaran::STATUS_TERVERIFIKASI)->count();
+        }
+
+        $rekonsiliasiAntrian = $matching->antrianValidasiBank($ta);
+        $rekonsiliasiRingkas = [
+            'belum_cocok'  => $rekonsiliasiAntrian->count(),
+            'sudah_lunas'  => SppPembayaran::where('tahun_ajaran', $ta)
+                ->where('status', SppPembayaran::STATUS_LUNAS)
+                ->count(),
+        ];
+
+        $auditLogs = Activity::inLog(SppActivityLogger::LOG_NAME)
+            ->latest()
+            ->paginate(30);
+
+        $tab = $request->query('tab');
+        if (! in_array($tab, ['cek', 'validasi', 'audit'], true)) {
+            $tab = $menungguCount > 0 ? 'cek' : ($terverifikasiCount > 0 ? 'validasi' : 'cek');
+        }
 
         return view('keuangan.verifikasi', [
-            'menungguGroups'      => $byStatus(SppPembayaran::STATUS_MENUNGGU),
-            'terverifikasiGroups' => $byStatus(SppPembayaran::STATUS_TERVERIFIKASI),
-            'menungguCount'       => $rows->where('status', SppPembayaran::STATUS_MENUNGGU)->count(),
-            'terverifikasiCount'  => $rows->where('status', SppPembayaran::STATUS_TERVERIFIKASI)->count(),
+            'menungguGroups'      => $menungguGroups,
+            'terverifikasiGroups' => $terverifikasiGroups,
+            'menungguCount'       => $menungguCount,
+            'terverifikasiCount'  => $terverifikasiCount,
+            'anomaliMap'          => $anomaliMap,
+            'anomaliCount'        => $anomaliMap->count(),
+            'rekonsiliasiAntrian' => $rekonsiliasiAntrian,
+            'rekonsiliasiRingkas' => $rekonsiliasiRingkas,
+            'auditLogs'           => $auditLogs,
+            'prioritas'           => $prioritas,
+            'filterAnomali'       => $filterAnomali,
+            'activeTab'           => $tab,
             'q'                   => $q,
             'ta'                  => $ta,
             'taOptions'           => TahunAjaran::options(),
@@ -250,19 +368,34 @@ class KeuanganController extends Controller
     {
         $data = $request->validate(['ids' => 'required|array', 'ids.*' => 'string']);
 
-        $rows = SppPembayaran::whereIn('uuid', $data['ids'])
-            ->where('status', SppPembayaran::STATUS_MENUNGGU)
-            ->get();
+        $n = 0;
+        $terverifikasi = collect();
+        DB::transaction(function () use ($data, &$n, &$terverifikasi) {
+            foreach ($data['ids'] as $id) {
+                $p = SppPembayaran::where('uuid', $id)
+                    ->where('status', SppPembayaran::STATUS_MENUNGGU)
+                    ->lockForUpdate()
+                    ->first();
 
-        foreach ($rows as $p) {
-            $p->status = SppPembayaran::STATUS_TERVERIFIKASI;
-            $p->diverifikasi_oleh = auth()->id();
-            $p->diverifikasi_pada = now();
-            $p->catatan = null;
-            $p->save();
-        }
+                if (! $p) {
+                    continue;
+                }
 
-        $n = $rows->count();
+                $sebelum = $p->status;
+                $p->status = SppPembayaran::STATUS_TERVERIFIKASI;
+                $p->diverifikasi_oleh = auth()->id();
+                $p->diverifikasi_pada = now();
+                $p->catatan = null;
+                $p->save();
+                SppActivityLogger::logStatusChange($p, 'spp_verifikasi_disetujui', $sebelum, $p->status, auth()->id());
+                app(SppOcrAssistService::class)->purgeForPembayaran($p);
+                $terverifikasi->push($p);
+                $n++;
+            }
+        });
+
+        SppNotifier::statusDiperbarui($terverifikasi, 'terverifikasi');
+
         return back()->with('success', $n > 1
             ? "{$n} bulan terverifikasi. Lanjut validasi via rekening koran bank."
             : 'Bukti terverifikasi. Lanjut validasi via rekening koran bank.');
@@ -273,17 +406,31 @@ class KeuanganController extends Controller
     {
         $data = $request->validate(['ids' => 'required|array', 'ids.*' => 'string']);
 
-        $rows = SppPembayaran::whereIn('uuid', $data['ids'])
-            ->where('status', SppPembayaran::STATUS_TERVERIFIKASI)
-            ->get();
+        $n = 0;
+        $lunas = collect();
+        DB::transaction(function () use ($data, &$n, &$lunas) {
+            foreach ($data['ids'] as $id) {
+                $p = SppPembayaran::where('uuid', $id)
+                    ->where('status', SppPembayaran::STATUS_TERVERIFIKASI)
+                    ->lockForUpdate()
+                    ->first();
 
-        foreach ($rows as $p) {
-            $this->applyStatus($p, SppPembayaran::STATUS_LUNAS, $p->tanggal_bayar?->toDateString());
-            $p->catatan = null;
-            $p->save();
-        }
+                if (! $p) {
+                    continue;
+                }
 
-        $n = $rows->count();
+                $sebelum = $p->status;
+                $this->applyStatus($p, SppPembayaran::STATUS_LUNAS, $p->tanggal_bayar?->toDateString());
+                $p->catatan = null;
+                $p->save();
+                SppActivityLogger::logStatusChange($p, 'spp_validasi_lunas', $sebelum, $p->status, auth()->id());
+                $lunas->push($p);
+                $n++;
+            }
+        });
+
+        SppNotifier::statusDiperbarui($lunas, 'lunas');
+
         return back()->with('success', $n > 1
             ? "{$n} bulan divalidasi & LUNAS."
             : 'Pembayaran divalidasi & LUNAS.');
@@ -298,19 +445,33 @@ class KeuanganController extends Controller
             'catatan' => 'required|string|max:500',
         ]);
 
-        $rows = SppPembayaran::whereIn('uuid', $data['ids'])
-            ->whereIn('status', [SppPembayaran::STATUS_MENUNGGU, SppPembayaran::STATUS_TERVERIFIKASI])
-            ->get();
+        $n = 0;
+        $ditolak = collect();
+        DB::transaction(function () use ($data, &$n, &$ditolak) {
+            foreach ($data['ids'] as $id) {
+                $p = SppPembayaran::where('uuid', $id)
+                    ->whereIn('status', [SppPembayaran::STATUS_MENUNGGU, SppPembayaran::STATUS_TERVERIFIKASI])
+                    ->lockForUpdate()
+                    ->first();
 
-        foreach ($rows as $p) {
-            $p->status = SppPembayaran::STATUS_DITOLAK;
-            $p->catatan = $data['catatan'];
-            $p->diverifikasi_oleh = auth()->id();
-            $p->diverifikasi_pada = now();
-            $p->save();
-        }
+                if (! $p) {
+                    continue;
+                }
 
-        $n = $rows->count();
+                $sebelum = $p->status;
+                $p->status = SppPembayaran::STATUS_DITOLAK;
+                $p->catatan = $data['catatan'];
+                $p->diverifikasi_oleh = auth()->id();
+                $p->diverifikasi_pada = now();
+                $p->save();
+                SppActivityLogger::logStatusChange($p, 'spp_verifikasi_ditolak', $sebelum, $p->status, auth()->id());
+                $ditolak->push($p);
+                $n++;
+            }
+        });
+
+        SppNotifier::statusDiperbarui($ditolak, 'ditolak');
+
         return back()->with('success', "{$n} bulan ditolak. Ortu/siswa dapat mengunggah ulang.");
     }
 
@@ -330,16 +491,20 @@ class KeuanganController extends Controller
             'file.mimes' => 'File harus berupa .txt (laporan transaksi VA dari bank).',
         ]);
 
-        $content   = (string) file_get_contents($request->file('file')->getRealPath());
-        $transaksi = RekeningKoranBcaParser::parse($content);
+        $content = (string) file_get_contents($request->file('file')->getRealPath());
+        $parsed  = RekeningKoranParserResolver::resolve($content);
+        $transaksi = $parsed['transaksi'];
 
         if (empty($transaksi)) {
-            return back()->with('error', 'Tidak ada baris transaksi yang terbaca dari file ini. Pastikan file laporan VA asli dari bank (belum diedit/dipotong).');
+            return back()->with('error', 'Tidak ada baris transaksi yang terbaca dari file ini. Pastikan file laporan VA asli dari bank (BCA R-5401 atau Mandiri CSV).');
         }
 
         $preview = $this->spp->previewRekeningKoran($transaksi);
 
-        return view('keuangan.import-rekening-koran-preview', compact('preview'));
+        return view('keuangan.import-rekening-koran-preview', [
+            'preview'    => $preview,
+            'bankParser' => $parsed['bank'],
+        ]);
     }
 
     /** Terapkan baris-baris yang dicentang bendahara di halaman pratinjau import rekening koran. */
@@ -371,6 +536,13 @@ class KeuanganController extends Controller
         $berhasil = collect($hasil)->where('berhasil', true)->count();
         $dilewati = collect($hasil)->where('berhasil', false)->values();
 
+        SppActivityLogger::logImport(
+            $request->input('bank_parser', 'BCA'),
+            $berhasil,
+            $dilewati->count(),
+            auth()->id(),
+        );
+
         $msg = "{$berhasil} pembayaran ditandai LUNAS.";
         if ($dilewati->isNotEmpty()) {
             $n = $dilewati->count();
@@ -385,10 +557,21 @@ class KeuanganController extends Controller
     }
 
     /** Halaman pengaturan bank/metode pembayaran. */
-    public function bank()
+    public function bank(SppMutasiMatchingService $matching)
     {
+        $ta = TahunAjaran::current();
+        $rekonsiliasiAntrian = $matching->antrianValidasiBank($ta);
+
         return view('keuangan.bank', [
             'banks' => KeuanganBank::all(),
+            'ta'    => $ta,
+            'rekonsiliasiRingkas' => [
+                'belum_cocok' => $rekonsiliasiAntrian->count(),
+                'sudah_lunas' => SppPembayaran::where('tahun_ajaran', $ta)
+                    ->where('status', SppPembayaran::STATUS_LUNAS)
+                    ->count(),
+            ],
+            'rekonsiliasiAntrian' => $rekonsiliasiAntrian,
         ]);
     }
 

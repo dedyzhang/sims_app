@@ -18,6 +18,7 @@
                         <tr>
                             <th class="p-3 text-left w-8"></th>
                             <th class="p-3 text-left">Transaksi Bank</th>
+                            <th class="p-3 text-left">Skor</th>
                             <th class="p-3 text-left">Siswa</th>
                             <th class="p-3 text-left">Diterapkan ke Bulan</th>
                             <th class="p-3 text-left">Keterangan</th>
@@ -35,6 +36,22 @@
                                 <p class="font-mono text-xs text-slate-500">{{ $row['no_pelanggan'] }}</p>
                                 <p class="font-semibold text-slate-700 dark:text-slate-200">Rp {{ number_format($row['nominal'], 0, ',', '.') }}</p>
                                 <p class="text-xs text-slate-400">{{ \Illuminate\Support\Carbon::parse($row['tanggal'])->format('d/m/Y') }}</p>
+                            </td>
+                            <td class="p-3 align-top">
+                                @if(($row['skor'] ?? 0) > 0)
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-indigo-100 dark:bg-indigo-900 text-indigo-700">
+                                        {{ $row['skor'] }}
+                                    </span>
+                                    @if(!empty($row['alasan_skor']))
+                                        <div class="flex flex-wrap gap-0.5 mt-1">
+                                            @foreach($row['alasan_skor'] as $v)
+                                                <span class="text-[10px] text-slate-400">{{ $v }}</span>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                @else
+                                    <span class="text-slate-300">—</span>
+                                @endif
                             </td>
                             <td class="p-3 align-top">
                                 @if($row['siswa'])

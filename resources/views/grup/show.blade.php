@@ -5,7 +5,7 @@
 {{-- Pesan awal disuntikkan sebagai JSON inline (bukan HTML server-side + append JS)
      supaya markup bubble hanya ditulis SEKALI. Tidak ada flash layar kosong karena
      datanya sudah ada di dokumen — Alpine merender tanpa menunggu request apa pun. --}}
-<div class="flex flex-col h-[calc(100vh-11rem)] min-h-[400px]"
+<div class="flex flex-col h-[calc(100dvh-11rem)] min-h-[400px]"
      x-data="grupChat({
         pollUrl: @js(route('grup.poll', $grup->uuid)),
         kirimUrl: @js(route('grup.pesan', $grup->uuid)),
