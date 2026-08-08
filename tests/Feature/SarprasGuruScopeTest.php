@@ -175,4 +175,19 @@ class SarprasGuruScopeTest extends TestCase
         $this->assertNotNull($denah);
         $response->assertRedirect(route('sarpras.denah.show', $denah));
     }
+
+    public function test_staff_sarpras_melihat_menu_kelola_lengkap(): void
+    {
+        $sarpras = User::create([
+            'username' => 'staff_sarpras_menu',
+            'password' => Hash::make('password'),
+            'access' => 'sarpras',
+        ]);
+
+        $html = $this->actingAs($sarpras)->get('/sarpras')->assertOk()->getContent();
+
+        $this->assertStringContainsString('Inventaris', $html);
+        $this->assertStringContainsString('Laporan', $html);
+        $this->assertStringContainsString('Dashboard', $html);
+    }
 }

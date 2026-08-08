@@ -12,6 +12,8 @@ use App\Sarpras\Models\LaporanKerusakan;
 use App\Sarpras\Models\Peminjaman;
 use App\Sarpras\Models\Perbaikan;
 use App\Sarpras\Models\Pengadaan;
+use App\Sarpras\Models\StokOpname;
+use App\Sarpras\Models\StokOpnameItem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -136,5 +138,43 @@ class SarprasDashboardTest extends TestCase
             ->get(route('sarpras.laporan.aktivitas'))
             ->assertOk()
             ->assertSee('Log Aktivitas');
+    }
+
+    public function test_stok_opname_store_membuat_item_untuk_semua_aset(): void
+    {
+        $sarpras = User::create([
+            'username' => 'sap_stok_opname',
+            'password' => Hash::make('password'),
+            'access' => 'sarpras',
+        ]);
+
+        $kategori = KategoriAset::create(['kode' => 'ATK', 'nama' => 'ATK']);
+        Aset::create([
+            'kode' => 'AST-OP-1',
+            'nama' => 'Kursi',
+            'kategori_id' => $kategori->id,
+            'kondisi' => 'baik',
+            'status' => 'aktif',
+            'nilai_perolehan' => 100000,
+        ]);
+        Aset::create([
+            'kode' => 'AST-OP-2',
+            'nama' => 'Meja',
+            'kategori_id' => $kategori->id,
+            'kondisi' => 'baik',
+            'status' => 'aktif',
+            'nilai_perolehan' => 200000,
+        ]);
+
+        $this->actingAs($sarpras)
+            ->post('/sarpras/stok-opname', [
+                'periode' => '2026-S1',
+                'judul' => 'Opname Semester 1',
+            ])
+            ->assertRedirect();
+
+        $opname = StokOpname::first();
+        $this->assertNotNull($opname);
+        $this->assertSame(2, StokOpnameItem::where('opname_id', $opname->id)->count());
     }
 }

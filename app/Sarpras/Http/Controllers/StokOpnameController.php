@@ -10,6 +10,7 @@ use App\Sarpras\Services\SarprasActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class StokOpnameController extends Controller
@@ -28,22 +29,35 @@ class StokOpnameController extends Controller
             'judul' => ['required', 'string', 'max:255'],
         ]);
 
-        $opname = StokOpname::create([
-            'periode' => $data['periode'],
-            'judul' => $data['judul'],
-            'status' => 'draft',
-            'dibuat_oleh' => $request->user()->getKey(),
-        ]);
-
-        $asetIds = Aset::pluck('id');
-        foreach ($asetIds as $asetId) {
-            $aset = Aset::find($asetId);
-            StokOpnameItem::create([
-                'opname_id' => $opname->id,
-                'aset_id' => $asetId,
-                'kondisi_sistem' => $aset?->kondisi,
+        $opname = DB::transaction(function () use ($request, $data) {
+            $opname = StokOpname::create([
+                'periode' => $data['periode'],
+                'judul' => $data['judul'],
+                'status' => 'draft',
+                'dibuat_oleh' => $request->user()->getKey(),
             ]);
-        }
+
+            $now = now();
+            $schoolId = StokOpname::SCHOOL_ID;
+            $rows = Aset::query()
+                ->get(['id', 'kondisi'])
+                ->map(fn (Aset $aset) => [
+                    'id' => (string) Str::uuid(),
+                    'school_id' => $schoolId,
+                    'opname_id' => $opname->id,
+                    'aset_id' => $aset->id,
+                    'kondisi_sistem' => $aset->kondisi,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])
+                ->all();
+
+            foreach (array_chunk($rows, 500) as $chunk) {
+                StokOpnameItem::insert($chunk);
+            }
+
+            return $opname;
+        });
 
         SarprasActivityLogger::log('stok_opname.dibuat', $opname);
 

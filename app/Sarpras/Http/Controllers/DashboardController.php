@@ -26,7 +26,7 @@ class DashboardController extends Controller
             ->pluck('jml', 'kondisi');
 
         $nilaiBuku = '0';
-        foreach (Aset::query()->get(['nilai_perolehan', 'tgl_perolehan', 'masa_manfaat_tahun']) as $aset) {
+        foreach (Aset::query()->select(['nilai_perolehan', 'tgl_perolehan', 'masa_manfaat_tahun'])->cursor() as $aset) {
             $nilaiBuku = Rupiah::add($nilaiBuku, $aset->nilaiBuku($today));
         }
 

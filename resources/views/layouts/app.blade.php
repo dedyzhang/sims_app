@@ -793,7 +793,9 @@
 
                 // ── Sarana & Prasarana ──
                 if ($modulOn('sarpras')) {
-                    $bolehKelolaSarpras = $isAdmin || auth()->user()?->canAccess('manage_sarpras');
+                    $bolehKelolaSarpras = $isAdmin
+                        || auth()->user()?->canAccess('manage_sarpras')
+                        || auth()->user()?->can('sarpras.aset.kelola');
                     if ($bolehKelolaSarpras) {
                         $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
                             ['sarpras.dashboard',        ['sarpras.dashboard'],                          'layout-dashboard', 'Dashboard'],
