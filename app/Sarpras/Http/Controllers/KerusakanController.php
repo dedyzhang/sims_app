@@ -90,6 +90,11 @@ class KerusakanController extends Controller
 
     public function show(LaporanKerusakan $kerusakan): View
     {
+        $user = auth()->user();
+        if (! $user->can('sarpras.kerusakan.kelola') && $kerusakan->pelapor_id !== $user->getKey()) {
+            abort(403);
+        }
+
         $kerusakan->load(['pelapor:uuid,username', 'penangan:uuid,username', 'aset', 'ruangan', 'foto', 'perbaikan']);
 
         return view('sarpras.kerusakan.show', compact('kerusakan'));

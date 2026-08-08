@@ -7,6 +7,7 @@ use App\Sarpras\Http\Requests\PeminjamanRequest;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\DenahRuangan;
 use App\Sarpras\Models\Peminjaman;
+use App\Sarpras\Models\PeminjamanItem;
 use App\Sarpras\Services\RuanganJadwalService;
 use App\Sarpras\Services\SarprasActivityLogger;
 use Illuminate\Http\RedirectResponse;
@@ -84,6 +85,11 @@ class PeminjamanController extends Controller
                 ->with('gagal', 'Jadwal bentrok: ruangan sudah dipesan pada rentang waktu tersebut.');
         }
 
+        $asetIds = array_values(array_filter($data['aset_id'] ?? []));
+        if ($pesanAset = $this->pesanAsetBentrok($asetIds, $mulai, $selesai)) {
+            return back()->withInput()->with('gagal', $pesanAset);
+        }
+
         $peminjaman = DB::transaction(function () use ($request, $data, $mulai, $selesai) {
             $peminjaman = Peminjaman::create([
                 'kode' => 'PJM-' . now()->format('Ymd') . '-' . Str::upper(Str::random(4)),
@@ -156,6 +162,12 @@ class PeminjamanController extends Controller
 
     public function show(Peminjaman $peminjaman): View
     {
+        $user = auth()->user();
+        $canKelola = $user->can('sarpras.peminjaman.setujui') || $user->can('sarpras.peminjaman.kelola');
+        if (! $canKelola && $peminjaman->peminjam_id !== $user->getKey()) {
+            abort(403);
+        }
+
         $peminjaman->load(['peminjam:uuid,username', 'penyetuju:uuid,username', 'ruangan:id,kode,nama', 'items.aset:id,kode,nama']);
 
         return view('sarpras.peminjaman.show', compact('peminjaman'));
@@ -174,6 +186,16 @@ class PeminjamanController extends Controller
             $peminjaman->id,
         )) {
             return back()->with('gagal', 'Tidak bisa disetujui: jadwal ruangan bentrok dengan peminjaman lain.');
+        }
+
+        $asetIds = $peminjaman->items()->pluck('aset_id')->filter()->all();
+        if ($pesanAset = $this->pesanAsetBentrok($asetIds, $peminjaman->mulai, $peminjaman->selesai, $peminjaman->id)) {
+            return back()->with('gagal', 'Tidak bisa disetujui: ' . $pesanAset);
+        }
+
+        $asetTidakAktif = Aset::whereIn('id', $asetIds)->where('status', '!=', 'aktif')->exists();
+        if ($asetTidakAktif) {
+            return back()->with('gagal', 'Tidak bisa disetujui: ada aset yang tidak tersedia (sudah dipinjam atau sedang perbaikan).');
         }
 
         DB::transaction(function () use ($request, $peminjaman) {
@@ -227,5 +249,34 @@ class PeminjamanController extends Controller
         SarprasActivityLogger::log('peminjaman.dikembalikan', $peminjaman);
 
         return back()->with('sukses', 'Peminjaman selesai / aset dikembalikan.');
+    }
+
+    /**
+     * @param  list<string>  $asetIds
+     */
+    private function pesanAsetBentrok(array $asetIds, Carbon $mulai, Carbon $selesai, ?string $kecualiPeminjamanId = null): ?string
+    {
+        if ($asetIds === []) {
+            return null;
+        }
+
+        $item = PeminjamanItem::query()
+            ->whereIn('aset_id', $asetIds)
+            ->whereHas('peminjaman', function ($q) use ($mulai, $selesai, $kecualiPeminjamanId) {
+                $q->whereIn('status', ['diajukan', 'dipinjam', 'terlambat'])
+                    ->where('mulai', '<', $selesai)
+                    ->where('selesai', '>', $mulai)
+                    ->when($kecualiPeminjamanId, fn ($q) => $q->where('id', '!=', $kecualiPeminjamanId));
+            })
+            ->with('aset:id,kode,nama')
+            ->first();
+
+        if (! $item) {
+            return null;
+        }
+
+        $label = $item->aset?->kode ?? $item->aset_id;
+
+        return "Aset {$label} sudah diajukan atau dipinjam pada rentang waktu tersebut.";
     }
 }

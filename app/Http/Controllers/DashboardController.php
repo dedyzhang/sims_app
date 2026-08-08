@@ -58,7 +58,7 @@ class DashboardController extends Controller
                 'nilaiTotalRp'     => Rupiah::format(Aset::sum('nilai_perolehan')),
                 'kerusakanTerbuka' => LaporanKerusakan::whereIn('status', ['dilaporkan', 'diterima'])->count(),
                 'kerusakanDarurat' => LaporanKerusakan::whereIn('status', ['dilaporkan', 'diterima'])->whereIn('urgensi', ['tinggi', 'darurat'])->count(),
-                'peminjamanAktif'  => Peminjaman::whereIn('status', ['disetujui', 'dipinjam', 'terlambat'])->count(),
+                'peminjamanAktif'  => Peminjaman::whereIn('status', ['dipinjam', 'terlambat'])->count(),
                 'peminjamanMenunggu' => Peminjaman::where('status', 'diajukan')->count(),
                 'pengadaanPending' => Pengadaan::where('status', 'diajukan')->count(),
                 'pengadaanDisetujui' => Pengadaan::where('status', 'disetujui')->count(),

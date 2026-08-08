@@ -101,13 +101,11 @@ class DenahController extends Controller
 
         $denah = Denah::create($data);
 
-        // Bila belum mengunggah gambar, arahkan ke editor sketsa (gambar dulu).
-        $tujuan = empty($data['gambar_path']) ? 'sarpras.denah.gambar' : 'sarpras.denah.hotspot';
+        $pesan = empty($data['gambar_path'])
+            ? 'Denah dibuat. Unggah gambar denah lalu tambahkan ruangan dari halaman ini.'
+            : 'Denah dibuat. Tambahkan atau atur ruangan dari halaman denah.';
 
-        return redirect()->route($tujuan, $denah)
-            ->with('sukses', 'Denah dibuat. ' . ($tujuan === 'sarpras.denah.gambar'
-                ? 'Gambar denahnya, lalu atur blok ruangan.'
-                : 'Sekarang atur blok ruangan.'));
+        return redirect()->route('sarpras.denah.show', $denah)->with('sukses', $pesan);
     }
 
     public function edit(Denah $denah): View
@@ -178,8 +176,8 @@ class DenahController extends Controller
             return back()->with('gagal', 'Gagal mengimpor gambar denah: ' . $e->getMessage());
         }
 
-        return redirect()->route('sarpras.denah.hotspot', $denah)
-            ->with('sukses', 'Gambar denah berhasil diimpor. Sekarang atur blok ruangan.');
+        return redirect()->route('sarpras.denah.show', $denah)
+            ->with('sukses', 'Gambar denah berhasil diimpor. Tambahkan atau atur ruangan dari halaman ini.');
     }
 
     /** Simpan hasil gambar kanvas (data URL base64) sebagai gambar denah. */
@@ -206,8 +204,8 @@ class DenahController extends Controller
             return back()->with('gagal', 'Gagal menyimpan gambar denah: ' . $e->getMessage());
         }
 
-        return redirect()->route('sarpras.denah.hotspot', $denah)
-            ->with('sukses', 'Gambar denah tersimpan. Sekarang atur blok ruangan.');
+        return redirect()->route('sarpras.denah.show', $denah)
+            ->with('sukses', 'Gambar denah tersimpan. Tambahkan atau atur ruangan dari halaman ini.');
     }
 
     /** Hapus gambar denah (mis. hasil import yang tidak sesuai). Blok ruangan tetap. */
@@ -224,8 +222,8 @@ class DenahController extends Controller
             return back()->with('gagal', 'Gagal menghapus gambar denah: ' . $e->getMessage());
         }
 
-        return redirect()->route('sarpras.denah.hotspot', $denah)
-            ->with('sukses', 'Gambar denah dihapus. Anda bisa import ulang atau menggambar baru.');
+        return redirect()->route('sarpras.denah.show', $denah)
+            ->with('sukses', 'Gambar denah dihapus. Anda bisa import ulang dari halaman ini.');
     }
 
     /**
