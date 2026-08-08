@@ -24,11 +24,8 @@
                     </button>
                 </form>
             @endif
-            <a href="{{ route('sarpras.denah.gambar', $denah) }}" class="inline-flex items-center gap-1.5 bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700">
-                <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Gambar Denah
-            </a>
-            <a href="{{ route('sarpras.denah.hotspot', $denah) }}" class="inline-flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700">
-                <i data-lucide="grid-2x2" class="w-3.5 h-3.5"></i> Atur Blok Ruangan
+            <a href="{{ route('sarpras.denah.edit', $denah) }}" class="inline-flex items-center gap-1.5 bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800">
+                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i> Edit Denah
             </a>
         @endcan
     </div>

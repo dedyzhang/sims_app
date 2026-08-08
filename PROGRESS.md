@@ -115,8 +115,7 @@ modul ini â€” dibangun langsung via sesi chat, dilacak di sini saja.
         `GrupChatSinkronTest`, `GrupChatLampiranTest`, `GrupChatDigestTest`) + 2 test
         baru (guru tidak pernah masuk grup kelas; mode grup kelas vs paguyuban
         self-healing). Total sekarang 72 test grup chat.
-      - `docs/PANDUAN_PENGGUNAAN_SIMS_APP.md` bagian 15 diperbarui (keanggotaan +
-        siapa boleh kirim pesan baru vs hanya balas).
+      - `docs/PANDUAN_PENGGUNAAN_SIMS_APP.md` §16 + `docs/PANDUAN_VISUAL_PIKET_GURU_GRUP_CHAT.md` disinkronkan (digest/private chat/notifikasi, 2026-08-08).
 - [x] Code review Fase 6 (`/compound-engineering:ce-code-review`, 9 reviewer) â€” semua temuan
       diterapkan langsung, tidak ada yang menunggu:
       - Update mode `syncKelas()` dipindah ke DALAM `DB::transaction()` yang sama dgn
@@ -247,6 +246,8 @@ Ref: `docs/keuangan-ai/PRD.md` · Fase A detail: `docs/keuangan-ai/features/01-a
 | **B** | Matching mutasi ↔ tagihan (skor + konfirmasi), duplikat/anomali flag, notifikasi antrian | [x] Implementasi Fase B |
 | **C** | Wawasan naratif non-nominal internal bendahara, ekspor paket verifikasi, integrasi gateway opsional | [x] Implementasi Fase C (C3 gateway deferred) |
 
+**2026-08-08 — Integrasi UI:** Menu sidebar Asisten Bendahara dihapus; fitur A/B/C tersebar di **Pembayaran SPP** (dashboard + wawasan/ekspor), **Verifikasi** (antrian prioritas, rekonsiliasi, anomali, jejak audit), **Bank & Metode** (ringkasan rekonsiliasi). Route `bendahara-ai/*` lama redirect + OCR/wawasan/ekspor tetap aktif. Panduan: `docs/PANDUAN_PENGGUNAAN_SIMS_APP.md` §18 + `resources/panduan/visual.html` kartu Keuangan diperbarui.
+
 ---
 
 ## Ringkasan tes
@@ -274,3 +275,17 @@ Ref: `docs/keuangan-ai/PRD.md` · Fase A detail: `docs/keuangan-ai/features/01-a
 | `skip` | Lewati task (sebut alasan) |
 
 **Gate approval FL** wajib sebelum task: migration/schema baru, uang/pembayaran, auth/policy, hapus data produksi.
+
+---
+
+## Modul Sarpras — Refactor Penyederhanaan (2026-08-08)
+
+Ref: `docs/sarpras/PRD.md`, `docs/sarpras/features/01-refactor-simplify.md`
+
+- [x] Gabung booking → peminjaman terpadu + `RuanganJadwalService`
+- [x] Sederhanakan denah (hapus route editor kanvas/hotspot)
+- [x] Pengadaan → Usulan Kebutuhan + BA serah terima PDF
+- [x] Menu sidebar 6 item; hapus tab internal modul
+- [x] Export KIB/KIR, stok opname ATK, activity log ringan
+- [x] Tes `php artisan test --filter=Sarpras`
+- [x] Panduan: `docs/PANDUAN_PENGGUNAAN_SIMS_APP.md` §17 + `resources/panduan/visual.html` kartu Sarpras (6 menu, tanpa booking/kanvas).

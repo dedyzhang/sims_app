@@ -230,11 +230,11 @@
         </form>
 
         {{-- Form tolak --}}
-        <form x-show="rejectOpen" x-transition x-cloak method="POST" action="{{ route('keuangan.reject-batch') }}" class="mt-3 flex gap-2">
+        <form x-show="rejectOpen" x-transition x-cloak method="POST" action="{{ route('keuangan.reject-batch') }}" class="mt-3 flex flex-col sm:flex-row gap-2">
             @csrf
             @foreach($group as $p)<input type="hidden" name="ids[]" value="{{ $p->uuid }}">@endforeach
-            <input type="text" name="catatan" required maxlength="500" placeholder="Alasan penolakan (mis. nominal kurang / dana tidak masuk)" class="form-input text-sm flex-1">
-            <button class="px-4 py-2 rounded-xl text-sm font-bold text-white bg-rose-500 hover:bg-rose-600">Tolak {{ $jumlah > 1 ? 'Semua' : '' }}</button>
+            <input type="text" name="catatan" required maxlength="500" placeholder="Alasan penolakan (mis. nominal kurang / dana tidak masuk)" class="form-input text-sm flex-1 min-w-0">
+            <button class="w-full sm:w-auto shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-white bg-rose-500 hover:bg-rose-600">Tolak {{ $jumlah > 1 ? 'Semua' : '' }}</button>
         </form>
     </div>
 </div>

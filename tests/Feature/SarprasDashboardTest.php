@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Sarpras\Models\Aset;
-use App\Sarpras\Models\BookingRuangan;
 use App\Sarpras\Models\Denah;
 use App\Sarpras\Models\DenahRuangan;
 use App\Sarpras\Models\JadwalPemeliharaan;
@@ -73,12 +72,15 @@ class SarprasDashboardTest extends TestCase
             'status' => 'diajukan',
         ]);
 
-        BookingRuangan::create([
+        Peminjaman::create([
+            'kode' => 'PJM-RUANG-001',
+            'peminjam_id' => $admin->uuid,
             'ruangan_id' => $ruangan->id,
-            'pemohon_id' => $admin->uuid,
             'keperluan' => 'Rapat sarpras',
             'mulai' => Carbon::parse('2026-07-09 10:00'),
             'selesai' => Carbon::parse('2026-07-09 11:00'),
+            'tgl_pinjam' => '2026-07-09',
+            'tgl_kembali_rencana' => '2026-07-09',
             'status' => 'diajukan',
         ]);
 
@@ -115,15 +117,14 @@ class SarprasDashboardTest extends TestCase
             ->assertSee('Persetujuan Menunggu')
             ->assertSee('Aset Perlu Tindakan')
             ->assertSee('Pemeliharaan 14 Hari')
-            ->assertSee('Booking Ruangan Hari Ini')
+            ->assertSee('Jadwal Ruangan Hari Ini')
             ->assertSee('Proyektor Lab')
             ->assertSee('Pengadaan LCD')
             ->assertSee('Rapat sarpras')
-            ->assertSee('Booking Ruangan')
-            ->assertSee('Peminjaman Barang');
+            ->assertSee('Peminjaman Ruangan');
     }
 
-    public function test_laporan_aktivitas_redirect_ke_index(): void
+    public function test_laporan_aktivitas_menampilkan_halaman_log(): void
     {
         $admin = User::create([
             'username' => 'sap_laporan_redirect',
@@ -133,6 +134,7 @@ class SarprasDashboardTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('sarpras.laporan.aktivitas'))
-            ->assertRedirect(route('sarpras.laporan.index'));
+            ->assertOk()
+            ->assertSee('Log Aktivitas');
     }
 }

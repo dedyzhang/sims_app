@@ -68,7 +68,7 @@ class DenahController extends Controller
 
         // Ruangan yang sedang dipinjam/dibooking pada saat ini.
         $sedangDipinjam = Peminjaman::whereIn('ruangan_id', $ruanganIds)
-            ->whereIn('status', ['disetujui', 'dipinjam', 'terlambat'])
+            ->whereIn('status', ['diajukan', 'dipinjam', 'terlambat'])
             ->where('mulai', '<=', now())->where('selesai', '>=', now())
             ->pluck('ruangan_id')->unique()->flip();
 

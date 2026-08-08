@@ -176,7 +176,7 @@ class AiAnalyzeController extends Controller
         return $this->narrate($request, 'analyze_absensi', config('ai.analyze.absensi'), $prompt, $metrics);
     }
 
-    /** POST /ai/analyze/keuangan - narasi rekap SPP satu tahun ajaran. */
+    /** POST /ai/analyze/keuangan — @deprecated UI dihapus; endpoint tetap untuk backward compat API. */
     public function keuangan(Request $request): JsonResponse
     {
         if (! ModulAktif::aktif('keuangan')) {

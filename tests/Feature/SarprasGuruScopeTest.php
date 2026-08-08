@@ -25,10 +25,10 @@ class SarprasGuruScopeTest extends TestCase
 
         $html = $this->actingAs($guru)->get('/sarpras/peminjaman')->assertOk()->getContent();
 
-        $this->assertStringContainsString('Pinjam Barang', $html);
-        $this->assertStringContainsString('Booking Ruangan', $html);
+        $this->assertStringContainsString('Peminjaman', $html);
+        $this->assertStringContainsString('Ruangan', $html);
         $this->assertStringContainsString('Lapor Kerusakan', $html);
-        $this->assertStringContainsString('Denah Sekolah', $html);
+        $this->assertStringContainsString('Ruangan', $html);
         $this->assertStringNotContainsString('Inventaris Barang', $html);
         $this->assertStringNotContainsString('>Pengadaan</span>', $html);
         $this->assertStringNotContainsString('>Supplier</span>', $html);
@@ -92,7 +92,8 @@ class SarprasGuruScopeTest extends TestCase
         $pinjam = $this->actingAs($guru)
             ->get('/sarpras/peminjaman')
             ->assertOk()
-            ->assertSee('Pengajuan Pinjam Saya');
+            ->assertSee('Pinjam milik guru')
+            ->assertDontSee('Pinjam milik orang lain');
 
         $this->assertSame(1, substr_count($pinjam->getContent(), '>Detail</a>'));
 

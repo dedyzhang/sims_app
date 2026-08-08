@@ -158,7 +158,7 @@ class SarprasTableWrappingTest extends TestCase
             '/sarpras/aset',
             '/sarpras/kerusakan',
             '/sarpras/peminjaman',
-            '/sarpras/booking',
+            '/sarpras/peminjaman?tab=ruangan',
             '/sarpras/pengadaan',
             '/sarpras/perbaikan',
             '/sarpras/kategori',

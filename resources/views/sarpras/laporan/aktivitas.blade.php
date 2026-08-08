@@ -1,24 +1,25 @@
 @extends('sarpras.layouts.app')
 @section('title', 'Log Aktivitas Sarpras')
+@section('sarpras_title', 'Log Aktivitas')
 
 @section('sarpras_body')
-<h2 class="text-lg font-semibold text-gray-800 mb-4">Laporan Aktivitas Sarpras</h2>
-<div class="bg-white rounded-lg shadow overflow-x-auto">
-    <table class="w-full text-sm">
-        <thead><tr class="text-left text-gray-500 border-b">
-            <th class="py-2 px-4">Waktu</th><th>Aksi</th><th>Objek</th><th>Oleh</th>
-        </tr></thead>
-        <tbody>
-        @foreach($aktivitas as $a)
-            <tr class="border-b">
-                <td class="py-2 px-4">{{ $a->created_at->format('d/m/Y H:i') }}</td>
-                <td class="capitalize">{{ $a->description ?? $a->event }}</td>
-                <td>{{ class_basename($a->subject_type) }} #{{ \Illuminate\Support\Str::limit($a->subject_id, 8, '') }}</td>
-                <td>{{ $a->causer?->name ?? 'sistem' }}</td>
-            </tr>
-        @endforeach
-        </tbody>
-    </table>
+<div class="card p-5">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="text-left text-slate-400 border-b"><th class="pb-2">Waktu</th><th class="pb-2">Aksi</th><th class="pb-2">Pelaku</th><th class="pb-2">Detail</th></tr></thead>
+            <tbody>
+            @forelse($logs as $log)
+                <tr class="border-b border-slate-50">
+                    <td class="py-2">{{ $log->created_at?->format('d/m/Y H:i') }}</td>
+                    <td class="py-2 font-mono text-xs">{{ $log->aksi }}</td>
+                    <td class="py-2">{{ $log->pelaku?->name ?? '—' }}</td>
+                    <td class="py-2 text-xs text-slate-500">{{ $log->subjek_tipe ? class_basename($log->subjek_tipe) : '—' }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="4" class="py-8 text-center text-slate-500">Belum ada aktivitas tercatat.</td></tr>
+            @endforelse
+            </tbody>
+        </table>
+    </div>
 </div>
-
 @endsection

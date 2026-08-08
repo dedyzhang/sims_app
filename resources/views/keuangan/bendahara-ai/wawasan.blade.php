@@ -36,7 +36,7 @@
     <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
             <nav class="text-xs text-slate-400 mb-1">
-                <a href="{{ route('keuangan.bendahara-ai.index', ['ta'=>$ta]) }}" class="hover:underline">Asisten Bendahara</a> / Wawasan
+                <a href="{{ route('keuangan.index', ['ta'=>$ta]) }}" class="hover:underline">Keuangan</a> / Wawasan
             </nav>
             <h1 class="page-title">Wawasan Operasional</h1>
             <p class="text-sm text-slate-500 dark:text-slate-400">Pola antrian & waktu bayar · <strong>bukan</strong> narasi pimpinan · tanpa nominal rupiah di narasi AI</p>

@@ -38,7 +38,7 @@ class BendaharaAntrianDigestNotification extends Notification
             'type'    => 'bendahara_antrian_digest',
             'judul'   => 'Antrian verifikasi SPP menumpuk',
             'message' => $message,
-            'url'     => '/keuangan/bendahara-ai/antrian',
+            'url'     => '/keuangan/verifikasi?prioritas=1',
             'ringkasan' => $this->ringkasan,
         ];
     }

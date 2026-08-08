@@ -7,6 +7,7 @@ use App\Sarpras\Http\Requests\MutasiRequest;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\DenahRuangan;
 use App\Sarpras\Models\MutasiAset;
+use App\Sarpras\Services\SarprasActivityLogger;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +40,7 @@ class MutasiController extends Controller
             // Asal default dari posisi aset saat ini bila tak diisi.
             $asal = $data['ruangan_asal_id'] ?? $aset->ruangan_id;
 
-            MutasiAset::create([
+            $mutasi = MutasiAset::create([
                 'aset_id' => $aset->id,
                 'ruangan_asal_id' => $asal,
                 'ruangan_tujuan_id' => $data['ruangan_tujuan_id'],
@@ -48,8 +49,13 @@ class MutasiController extends Controller
                 'dilakukan_oleh' => $request->user()->getKey(),
             ]);
 
-            // Pindahkan aset ke ruangan tujuan (tercatat di activitylog).
+            // Pindahkan aset ke ruangan tujuan.
             $aset->update(['ruangan_id' => $data['ruangan_tujuan_id'], 'status' => 'aktif']);
+
+            SarprasActivityLogger::log('mutasi.dicatat', $mutasi, [
+                'aset_id' => $aset->id,
+                'ruangan_tujuan_id' => $data['ruangan_tujuan_id'],
+            ]);
         });
 
         return redirect()->route('sarpras.mutasi.index')->with('sukses', 'Mutasi aset tercatat.');

@@ -21,7 +21,7 @@ class PengadaanRequest extends FormRequest
             'item.*.qty' => ['required', 'integer', 'min:1'],
             'item.*.satuan' => ['nullable', 'string', 'max:30'],
             // UANG: integer rupiah per unit.
-            'item.*.estimasi_harga' => ['required', 'integer', 'min:0'],
+            'item.*.estimasi_harga' => ['nullable', 'integer', 'min:0'],
             'item.*.kategori_id' => ['nullable', 'uuid', 'exists:sarpras_kategori_aset,id'],
             'item.*.supplier_id' => ['nullable', 'uuid', 'exists:sarpras_supplier,id'],
         ];

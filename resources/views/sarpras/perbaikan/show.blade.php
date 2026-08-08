@@ -12,7 +12,7 @@
     </div>
     <p class="text-sm text-gray-700 mb-3">{{ $perbaikan->deskripsi }}</p>
     <dl class="text-sm grid grid-cols-2 gap-2 mb-4">
-        <dt class="text-gray-500">Teknisi</dt><dd>{{ $perbaikan->teknisi?->nama ?? '-' }}</dd>
+        <dt class="text-gray-500">Teknisi</dt><dd>{{ $perbaikan->nama_teknisi ?: ($perbaikan->teknisi?->nama ?? '-') }}</dd>
         <dt class="text-gray-500">Biaya</dt><dd>{{ $perbaikan->biaya_rp }}</dd>
         <dt class="text-gray-500">Mulai</dt><dd>{{ optional($perbaikan->tgl_mulai)->format('d/m/Y') ?? '-' }}</dd>
         <dt class="text-gray-500">Selesai</dt><dd>{{ optional($perbaikan->tgl_selesai)->format('d/m/Y') ?? '-' }}</dd>
@@ -24,7 +24,7 @@
             @csrf @method('PUT')
             <input type="hidden" name="deskripsi" value="{{ $perbaikan->deskripsi }}">
             <input type="hidden" name="aset_id" value="{{ $perbaikan->aset_id }}">
-            <input type="hidden" name="teknisi_id" value="{{ $perbaikan->teknisi_id }}">
+            <input type="hidden" name="nama_teknisi" value="{{ $perbaikan->nama_teknisi }}">
             <div class="grid grid-cols-2 gap-3">
                 <select name="status" class="border rounded px-3 py-2">
                     @foreach (['antri','dikerjakan','selesai','batal'] as $s)

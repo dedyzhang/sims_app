@@ -80,22 +80,6 @@
                     <i data-lucide="sparkles" class="w-4 h-4"></i> Buat Narasi
                 </button>
             </div>
-
-            {{-- Keuangan --}}
-            <div x-show="tab === 'keuangan'" class="space-y-4" x-cloak>
-                <div>
-                    <label class="form-label">Tahun Ajaran <span class="text-rose-500">*</span></label>
-                    <select x-model="keuangan.tahun_ajaran" class="form-input">
-                        @foreach($tahunAjaran as $ta)
-                            <option value="{{ $ta }}" @selected($ta === $taAktif)>{{ $ta }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <button type="button" @click="submit('keuangan')" :disabled="loading || !keuangan.tahun_ajaran" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="sparkles" class="w-4 h-4"></i> Buat Narasi
-                </button>
-                <p class="text-[11px] text-slate-400">Nominal dikirim apa adanya dari sistem; AI tidak menghitung ulang uang.</p>
-            </div>
         </div>
 
         {{-- ─── Hasil ─── --}}
@@ -154,18 +138,13 @@
             tabs: [
                 { key: 'nilai',    label: 'Ringkasan Nilai',  icon: 'graduation-cap' },
                 { key: 'absensi',  label: 'Tren Absensi',      icon: 'clipboard-check' },
-                @if($keuanganModulAktif ?? true)
-                { key: 'keuangan', label: 'Catatan SPP',  icon: 'wallet' },
-                @endif
             ],
             aiConfigured: @js((bool) ($aiConfigured ?? false)),
             nilai:    { kelas_id: '', semester_id: '' },
             absensi:  { kelas_id: '', dari: '', sampai: '' },
-            keuangan: { tahun_ajaran: '{{ $taAktif }}' },
             urls: {
                 nilai:    '{{ route('ai.analyze.nilai') }}',
                 absensi:  '{{ route('ai.analyze.absensi') }}',
-                keuangan: '{{ route('ai.analyze.keuangan') }}',
             },
 
             reset() { this.answer = ''; this.source = ''; this.error = ''; },

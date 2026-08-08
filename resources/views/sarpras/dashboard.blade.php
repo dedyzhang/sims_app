@@ -53,7 +53,7 @@
         [
             'label' => 'Persetujuan Menunggu',
             'value' => $persetujuanMenunggu . ' usulan',
-            'note' => $peminjamanMenunggu . ' pinjam · ' . $bookingMenunggu . ' booking · ' . $pengadaanPending . ' pengadaan',
+            'note' => $peminjamanMenunggu . ' pinjam menunggu · ' . $pengadaanPending . ' usulan',
             'icon' => 'clipboard-check',
             'tone' => 'blue',
             'url' => route('sarpras.peminjaman.index', ['status' => 'diajukan']),
@@ -252,12 +252,12 @@
         <div class="space-y-4">
             <section class="card p-5">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="font-extrabold text-slate-800 dark:text-slate-100">Booking Ruangan Hari Ini</h2>
-                    <a href="{{ route('sarpras.booking.index') }}" class="text-xs font-bold text-primary hover:underline">Semua booking</a>
+                    <h2 class="font-extrabold text-slate-800 dark:text-slate-100">Jadwal Ruangan Hari Ini</h2>
+                    <a href="{{ route('sarpras.peminjaman.index', ['tab' => 'ruangan']) }}" class="text-xs font-bold text-primary hover:underline">Semua jadwal ruang</a>
                 </div>
                 <div class="space-y-2.5">
                     @forelse($bookingHariIni as $b)
-                        <a href="{{ route('sarpras.booking.index') }}" class="block p-3 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-800 transition">
+                        <a href="{{ route('sarpras.peminjaman.index', ['tab' => 'ruangan']) }}" class="block p-3 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-800 transition">
                             <div class="flex items-center justify-between gap-3">
                                 <p class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{{ $b->ruangan?->nama ?? $b->ruangan?->kode ?? 'Ruangan' }}</p>
                                 <span class="text-xs font-extrabold text-blue-600 shrink-0">{{ $b->mulai?->format('H:i') }}-{{ $b->selesai?->format('H:i') }}</span>
@@ -354,7 +354,7 @@
                 <a href="{{ route('sarpras.aset.create') }}" class="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"><i data-lucide="package-plus" class="w-5 h-5 text-primary"></i><span class="block text-sm font-bold mt-3 text-slate-700 dark:text-slate-200">Tambah Aset</span></a>
             @endcan
             @can('sarpras.peminjaman.ajukan')
-                <a href="{{ route('sarpras.booking.index') }}" class="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"><i data-lucide="calendar-clock" class="w-5 h-5 text-cyan-600"></i><span class="block text-sm font-bold mt-3 text-slate-700 dark:text-slate-200">Booking Ruangan</span></a>
+                <a href="{{ route('sarpras.peminjaman.index', ['tab' => 'ruangan']) }}" class="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"><i data-lucide="calendar-clock" class="w-5 h-5 text-cyan-600"></i><span class="block text-sm font-bold mt-3 text-slate-700 dark:text-slate-200">Peminjaman Ruangan</span></a>
             @endcan
             @can('sarpras.pengadaan.ajukan')
                 <a href="{{ route('sarpras.pengadaan.create') }}" class="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition"><i data-lucide="shopping-cart" class="w-5 h-5 text-violet-600"></i><span class="block text-sm font-bold mt-3 text-slate-700 dark:text-slate-200">Ajukan Pengadaan</span></a>

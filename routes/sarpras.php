@@ -1,7 +1,6 @@
 <?php
 
 use App\Sarpras\Http\Controllers\AsetController;
-use App\Sarpras\Http\Controllers\BookingController;
 use App\Sarpras\Http\Controllers\DashboardController;
 use App\Sarpras\Http\Controllers\DenahController;
 use App\Sarpras\Http\Controllers\JadwalController;
@@ -14,6 +13,7 @@ use App\Sarpras\Http\Controllers\PenghapusanController;
 use App\Sarpras\Http\Controllers\PengadaanController;
 use App\Sarpras\Http\Controllers\PerbaikanController;
 use App\Sarpras\Http\Controllers\RuanganController;
+use App\Sarpras\Http\Controllers\StokOpnameController;
 use App\Sarpras\Http\Controllers\SupplierController;
 use App\Sarpras\Http\Controllers\TeknisiController;
 use Illuminate\Support\Facades\Route;
@@ -56,15 +56,10 @@ Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sa
         Route::get('denah/{denah}/edit', [DenahController::class, 'edit'])->name('denah.edit');
         Route::put('denah/{denah}', [DenahController::class, 'update'])->name('denah.update');
         Route::delete('denah/{denah}', [DenahController::class, 'destroy'])->name('denah.destroy');
-        // Editor sketsa: menggambar denah langsung di aplikasi (kanvas).
-        Route::get('denah/{denah}/gambar', [DenahController::class, 'editorGambar'])->name('denah.gambar');
-        Route::post('denah/{denah}/gambar', [DenahController::class, 'simpanGambar'])->name('denah.gambar.simpan');
         // Import gambar denah dari file (jpg/png/webp/gif/bmp).
         Route::post('denah/{denah}/import', [DenahController::class, 'imporGambar'])->name('denah.import');
         // Hapus gambar denah (mis. hasil import yang tidak sesuai).
         Route::delete('denah/{denah}/gambar', [DenahController::class, 'hapusGambar'])->name('denah.gambar.hapus');
-        // Editor hotspot (penempatan ruangan dengan koordinat persen).
-        Route::get('denah/{denah}/hotspot', [DenahController::class, 'editorHotspot'])->name('denah.hotspot');
         Route::post('denah/{denah}/ruangan', [RuanganController::class, 'store'])->name('ruangan.store');
         // Import data ruangan ke denah dari Excel/CSV + unduh template.
         Route::get('ruangan-import/template', [RuanganController::class, 'templateImport'])->name('ruangan.import.template');
@@ -91,6 +86,8 @@ Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sa
         ->middleware('can:sarpras.pengadaan.kelola')->name('pengadaan.terima');
     Route::post('pengadaan/{pengadaan}/dokumen', [PengadaanController::class, 'uploadDokumen'])
         ->middleware('can:sarpras.pengadaan.kelola')->name('pengadaan.dokumen');
+    Route::get('pengadaan/{pengadaan}/berita-acara', [PengadaanController::class, 'beritaAcara'])
+        ->middleware('can:sarpras.pengadaan.lihat')->name('pengadaan.berita');
     Route::resource('supplier', SupplierController::class)
         ->middleware('can:sarpras.supplier.kelola')
         ->except(['show']);
@@ -114,17 +111,9 @@ Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sa
         Route::delete('aset/{aset}', [AsetController::class, 'destroy'])->name('aset.destroy');
     });
 
-    /* 5a. RUANGAN & BOOKING */
-    Route::get('booking', [BookingController::class, 'index'])
-        ->middleware('can:sarpras.peminjaman.lihat')->name('booking.index');
-    Route::post('booking', [BookingController::class, 'store'])
-        ->middleware('can:sarpras.peminjaman.ajukan')->name('booking.store');
-    Route::post('booking/{booking}/setujui', [BookingController::class, 'setujui'])
-        ->middleware('can:sarpras.booking.kelola')->name('booking.setujui');
-    Route::post('booking/{booking}/tolak', [BookingController::class, 'tolak'])
-        ->middleware('can:sarpras.booking.kelola')->name('booking.tolak');
-
-    /* 5. PEMINJAMAN (terintegrasi dengan booking ruangan) */
+    /* 5. PEMINJAMAN (barang + ruangan terpadu) */
+    Route::redirect('booking', 'sarpras/peminjaman?tab=ruangan')->name('booking.index');
+    Route::post('booking', fn () => redirect()->route('sarpras.peminjaman.index', ['tab' => 'ruangan']));
     Route::middleware('can:sarpras.peminjaman.lihat')->group(function () {
         Route::get('peminjaman', [PeminjamanController::class, 'index'])->name('peminjaman.index');
         Route::get('peminjaman/{peminjaman}', [PeminjamanController::class, 'show'])->name('peminjaman.show');
@@ -133,6 +122,8 @@ Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sa
         ->middleware('can:sarpras.peminjaman.ajukan')->name('peminjaman.create');
     Route::post('peminjaman', [PeminjamanController::class, 'store'])
         ->middleware('can:sarpras.peminjaman.ajukan')->name('peminjaman.store');
+    Route::post('peminjaman-ruangan', [PeminjamanController::class, 'storeRuangan'])
+        ->middleware('can:sarpras.peminjaman.ajukan')->name('peminjaman.ruangan.store');
     Route::post('peminjaman/{peminjaman}/setujui', [PeminjamanController::class, 'setujui'])
         ->middleware('can:sarpras.peminjaman.setujui')->name('peminjaman.setujui');
     Route::post('peminjaman/{peminjaman}/tolak', [PeminjamanController::class, 'tolak'])
@@ -182,11 +173,20 @@ Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sa
     Route::middleware('can:sarpras.laporan.lihat')->group(function () {
         Route::get('laporan', [LaporanController::class, 'index'])->name('laporan.index');
         Route::get('laporan/aktivitas', [LaporanController::class, 'aktivitas'])->name('laporan.aktivitas');
+        Route::get('stok-opname', [StokOpnameController::class, 'index'])->name('stok-opname.index');
+        Route::get('stok-opname/{opname}', [StokOpnameController::class, 'show'])->name('stok-opname.show');
     });
     Route::middleware('can:sarpras.laporan.export')->group(function () {
         Route::get('laporan/aset/excel', [LaporanController::class, 'exportAsetExcel'])->name('laporan.aset.excel');
         Route::get('laporan/aset/pdf', [LaporanController::class, 'exportAsetPdf'])->name('laporan.aset.pdf');
         Route::get('laporan/mutasi/excel', [LaporanController::class, 'exportMutasiExcel'])->name('laporan.mutasi.excel');
+        Route::get('laporan/kib/{aset}', [LaporanController::class, 'exportKib'])->name('laporan.kib');
+        Route::get('laporan/kir/{ruangan}', [LaporanController::class, 'exportKir'])->name('laporan.kir');
+    });
+    Route::middleware('can:sarpras.pengaturan.kelola')->group(function () {
+        Route::post('stok-opname', [StokOpnameController::class, 'store'])->name('stok-opname.store');
+        Route::post('stok-opname/{opname}/item', [StokOpnameController::class, 'simpanItem'])->name('stok-opname.item');
+        Route::post('stok-opname/{opname}/selesai', [StokOpnameController::class, 'selesai'])->name('stok-opname.selesai');
     });
     // Import kategori aset dari Excel/CSV + unduh template (sebelum resource).
     Route::middleware('can:sarpras.pengaturan.kelola')->group(function () {

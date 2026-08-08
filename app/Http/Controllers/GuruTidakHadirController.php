@@ -4,16 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\Guru;
 use App\Models\GuruTidakHadir;
-use App\Models\PresensiGuru;
 use App\Services\Piket\JamKosongService;
+use App\Services\Piket\PiketSyncService;
 use App\Models\PenugasanPengganti;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class GuruTidakHadirController extends Controller
 {
-    public function __construct(private JamKosongService $jamKosong)
-    {
+    public function __construct(
+        private JamKosongService $jamKosong,
+        private PiketSyncService $piketSync,
+    ) {
     }
 
     /**
@@ -27,7 +29,7 @@ class GuruTidakHadirController extends Controller
         $tanggal = $request->tanggal && preg_match('/^\d{4}-\d{2}-\d{2}$/', $request->tanggal)
             ? $request->tanggal : now()->toDateString();
 
-        $this->syncDariPresensi($tanggal);
+        $this->piketSync->syncDariPresensi($tanggal);
 
         $daftar = GuruTidakHadir::with(['guru:uuid,nama', 'pencatat:uuid,username'])
             ->where('tanggal', $tanggal)
@@ -87,34 +89,6 @@ class GuruTidakHadirController extends Controller
             'jam_kosong' => $this->jamKosong->untukGuru($entri->id_guru, $entri->tanggal->toDateString())
                 ->map(fn ($j) => $this->jamKosong->format($j))->values()->all(),
         ]);
-    }
-
-    private function syncDariPresensi(string $tanggal): void
-    {
-        $presensiTidakHadir = PresensiGuru::whereIn('status', array_keys(GuruTidakHadir::ALASAN_DARI_PRESENSI))
-            ->whereDate('tanggal', $tanggal)
-            ->get();
-
-        $existingIds = GuruTidakHadir::where('tanggal', $tanggal)
-            ->pluck('id_guru')
-            ->toArray();
-
-        foreach ($presensiTidakHadir as $presensi) {
-            if (in_array($presensi->id_guru, $existingIds)) {
-                continue;
-            }
-
-            GuruTidakHadir::create([
-                'id_guru' => $presensi->id_guru,
-                'tanggal' => $tanggal,
-                'sumber' => 'otomatis_presensi',
-                'alasan' => GuruTidakHadir::ALASAN_DARI_PRESENSI[$presensi->status],
-                'keterangan' => $presensi->keterangan,
-                'id_presensi_guru' => $presensi->uuid,
-            ]);
-            
-            $existingIds[] = $presensi->id_guru;
-        }
     }
 
     public function laporMandiri(Request $request)

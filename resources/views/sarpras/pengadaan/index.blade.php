@@ -1,7 +1,7 @@
 @extends('sarpras.layouts.app')
-@section('title', 'Pengadaan')
-@section('sarpras_title', 'Pengadaan Barang')
-@section('sarpras_subtitle', 'Pengajuan kebutuhan aset, approval, pencatatan penerimaan, dan dokumen nota pengadaan sekolah.')
+@section('title', 'Usulan Kebutuhan')
+@section('sarpras_title', 'Usulan Kebutuhan')
+@section('sarpras_subtitle', 'Perencanaan kebutuhan barang sekolah — bukan pengganti ARKAS. Penerimaan barang + BA serah terima.')
 
 @section('sarpras_actions')
     @can('sarpras.pengadaan.ajukan')
@@ -19,13 +19,14 @@
         'diajukan' => 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
         'disetujui' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
         'ditolak' => 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+        'diterima' => 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
         'selesai' => 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
     ];
 @endphp
 
 <div class="space-y-4">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        @foreach(['diajukan' => 'Diajukan', 'disetujui' => 'Disetujui', 'ditolak' => 'Ditolak', 'selesai' => 'Selesai'] as $key => $label)
+        @foreach(['diajukan' => 'Diajukan', 'disetujui' => 'Disetujui', 'ditolak' => 'Ditolak', 'diterima' => 'Diterima'] as $key => $label)
             <a href="{{ route('sarpras.pengadaan.index', ['status' => $key]) }}" class="card card-hover p-4 min-w-0">
                 <p class="text-[11px] font-extrabold uppercase text-slate-400 dark:text-slate-500 truncate">{{ $label }}</p>
                 <p class="text-2xl font-extrabold text-slate-800 dark:text-slate-100 mt-1">{{ (int) ($statusCounts[$key] ?? 0) }}</p>

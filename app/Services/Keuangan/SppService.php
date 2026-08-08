@@ -200,8 +200,9 @@ class SppService
     public function applyRekeningKoran(array $keputusan, ?string $actorUuid): array
     {
         $hasil = [];
+        $lunas = collect();
 
-        DB::transaction(function () use ($keputusan, $actorUuid, &$hasil) {
+        DB::transaction(function () use ($keputusan, $actorUuid, &$hasil, &$lunas) {
             foreach ($keputusan as $k) {
                 $p = SppPembayaran::with('siswa')->find($k['pembayaran_uuid']);
                 if (!$p) {
@@ -222,9 +223,12 @@ class SppService
                 $p->diverifikasi_pada = now();
                 $p->save();
 
+                $lunas->push($p);
                 $hasil[] = ['pesan' => ($p->siswa->nama ?? '-') . ": {$p->label_bulan} ditandai LUNAS.", 'berhasil' => true];
             }
         });
+
+        SppNotifier::statusDiperbarui($lunas, 'lunas');
 
         return $hasil;
     }

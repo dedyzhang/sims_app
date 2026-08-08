@@ -61,13 +61,23 @@ class KeuanganAiFaseATest extends TestCase
     public function test_bendahara_bisa_buka_antrian_prioritas(): void
     {
         $bendahara = $this->makeUser('bendahara', 'bendahara_ai1');
-        $this->actingAs($bendahara)->get(route('keuangan.bendahara-ai.antrian'))->assertOk();
+        $ta = TahunAjaran::current();
+
+        $this->actingAs($bendahara)
+            ->get(route('keuangan.verifikasi', ['prioritas' => 1]))
+            ->assertOk()
+            ->assertSee('Antrian prioritas', false);
+
+        $this->actingAs($bendahara)
+            ->get(route('keuangan.bendahara-ai.antrian'))
+            ->assertRedirect(route('keuangan.verifikasi', ['ta' => $ta, 'prioritas' => 1]));
     }
 
     public function test_guru_dilarang_akses_asisten_bendahara(): void
     {
         $guru = $this->makeUser('guru', 'guru_ai1');
         $this->actingAs($guru)->get(route('keuangan.bendahara-ai.index'))->assertForbidden();
+        $this->actingAs($guru)->get(route('keuangan.verifikasi', ['prioritas' => 1]))->assertForbidden();
     }
 
     public function test_antrian_prioritas_urutkan_nominal_lebih_tinggi_dulu(): void
@@ -121,7 +131,15 @@ class KeuanganAiFaseATest extends TestCase
     public function test_bendahara_bisa_buka_dashboard_spp(): void
     {
         $bendahara = $this->makeUser('bendahara', 'bendahara_dash');
-        $this->actingAs($bendahara)->get(route('keuangan.bendahara-ai.dashboard'))->assertOk();
+        $ta = TahunAjaran::current();
+        $this->actingAs($bendahara)
+            ->get(route('keuangan.index'))
+            ->assertOk()
+            ->assertSee('Ringkasan Pendapatan SPP', false);
+
+        $this->actingAs($bendahara)
+            ->get(route('keuangan.bendahara-ai.dashboard'))
+            ->assertRedirect(route('keuangan.index', ['ta' => $ta]));
     }
 
     // ─── A4: Parser rekening koran ───────────────────────────────────────
@@ -176,7 +194,15 @@ class KeuanganAiFaseATest extends TestCase
     public function test_bendahara_bisa_lihat_jejak_audit(): void
     {
         $bendahara = $this->makeUser('bendahara', 'bendahara_audit');
-        $this->actingAs($bendahara)->get(route('keuangan.bendahara-ai.log'))->assertOk();
+        $ta = TahunAjaran::current();
+        $this->actingAs($bendahara)
+            ->get(route('keuangan.verifikasi', ['tab' => 'audit']))
+            ->assertOk()
+            ->assertSee('Jejak Audit', false);
+
+        $this->actingAs($bendahara)
+            ->get(route('keuangan.bendahara-ai.log'))
+            ->assertRedirect(route('keuangan.verifikasi', ['ta' => $ta, 'tab' => 'audit']));
     }
 
     // ─── A2: OCR tidak auto-post ─────────────────────────────────────────
@@ -199,7 +225,7 @@ class KeuanganAiFaseATest extends TestCase
         ]);
 
         $p = SppPembayaran::where('id_siswa', $siswa->uuid)->firstOrFail();
-        $html = $this->actingAs($bendahara)->get(route('keuangan.bendahara-ai.antrian'))->assertOk()->getContent();
+        $html = $this->actingAs($bendahara)->get(route('keuangan.verifikasi', ['prioritas' => 1]))->assertOk()->getContent();
 
         $this->assertStringContainsString('Baca Bukti', $html);
         $this->assertStringContainsString($p->uuid, $html);

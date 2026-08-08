@@ -7,6 +7,7 @@ use App\Models\Orangtua;
 use App\Models\Siswa;
 use App\Models\SppPembayaran;
 use App\Services\Keuangan\SppActivityLogger;
+use App\Services\Keuangan\SppNotifier;
 use App\Services\Keuangan\SppService;
 use App\Support\KeuanganBank;
 use App\Support\TahunAjaran;
@@ -141,6 +142,8 @@ class TagihanController extends Controller
             ])->save();
             SppActivityLogger::logStatusChange($t, 'spp_verifikasi_diajukan', $sebelum, $t->status, auth()->id());
         }
+
+        SppNotifier::buktiDiunggah($siswa->loadMissing('kelas'), $targets->count(), $batchId);
 
         $n   = $targets->count();
         $msg = $n > 1

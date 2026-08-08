@@ -54,4 +54,16 @@
         </div>
     </div>
 </div>
+
+<div class="card p-5 mt-4">
+    <h3 class="font-bold mb-3">Administrasi</h3>
+    <div class="flex flex-wrap gap-2 text-sm">
+        <a href="{{ route('sarpras.pengadaan.index') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold">Usulan Kebutuhan</a>
+        <a href="{{ route('sarpras.mutasi.index') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold">Mutasi Aset</a>
+        <a href="{{ route('sarpras.penghapusan.index') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold">Penghapusan</a>
+        <a href="{{ route('sarpras.stok-opname.index') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold">Stok Opname</a>
+        <a href="{{ route('sarpras.laporan.aktivitas') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold">Log Aktivitas</a>
+        <a href="{{ route('sarpras.kategori.index') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold">Kategori & Supplier</a>
+    </div>
+</div>
 @endsection

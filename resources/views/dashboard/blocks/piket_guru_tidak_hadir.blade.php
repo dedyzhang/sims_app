@@ -25,18 +25,18 @@
                         <div class="mt-1 space-y-2">
                             @foreach($gth->penugasanPengganti as $tugas)
                                 <div class="bg-white dark:bg-slate-900 rounded-lg p-2.5 border border-slate-100 dark:border-slate-700 text-xs">
-                                    <div class="flex items-center justify-between">
-                                        <div class="font-semibold text-slate-700 dark:text-slate-200">
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <div class="font-semibold text-slate-700 dark:text-slate-200 min-w-0">
                                             {{ \Carbon\Carbon::parse($tugas->jadwal?->jam_mulai)->format('H:i') }} - {{ \Carbon\Carbon::parse($tugas->jadwal?->jam_selesai)->format('H:i') }} 
                                              (Kelas {{ trim(($tugas->jadwal?->kelas?->tingkat ?? '').' '.($tugas->jadwal?->kelas?->kelas ?? '')) ?: '-' }})
                                         </div>
-                                        <div>
+                                        <div class="shrink-0">
                                             @if($tugas->status === 'menunggu')
-                                                <span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold uppercase">Menunggu</span>
+                                                <span class="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold uppercase">Menunggu</span>
                                             @elseif($tugas->status === 'ditugaskan')
-                                                <span class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase">Oleh: {{ $tugas->guru_pengisi ?? 'Guru' }}</span>
+                                                <span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase">Oleh: {{ $tugas->guru_pengisi ?? 'Guru' }}</span>
                                             @elseif($tugas->status === 'selesai')
-                                                <span class="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold uppercase">Selesai</span>
+                                                <span class="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold uppercase">Selesai</span>
                                             @endif
                                         </div>
                                     </div>

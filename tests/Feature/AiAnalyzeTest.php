@@ -130,7 +130,7 @@ class AiAnalyzeTest extends TestCase
             ->assertJsonPath('answer', 'Kehadiran stabil.');
     }
 
-    public function test_keuangan_blocked_when_modul_off(): void
+    public function test_keuangan_api_blocked_when_modul_off(): void
     {
         Setting::set(ModulAktif::settingKey('keuangan'), '0');
         $admin = $this->admin();
@@ -147,6 +147,6 @@ class AiAnalyzeTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        $this->assertStringNotContainsString("key: 'keuangan'", $html);
+        $this->assertStringNotContainsString('Catatan SPP', $html);
     }
 }

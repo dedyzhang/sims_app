@@ -8,7 +8,6 @@ use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\JadwalPemeliharaan;
 use App\Sarpras\Models\LaporanKerusakan;
 use App\Sarpras\Models\Perbaikan;
-use App\Sarpras\Models\Teknisi;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +42,6 @@ class PerbaikanController extends Controller
         return view('sarpras.perbaikan.form', [
             'perbaikan' => new Perbaikan(['status' => 'antri', 'biaya' => 0]),
             'aset' => Aset::orderBy('nama')->get(['id', 'kode', 'nama']),
-            'teknisi' => Teknisi::orderBy('nama')->get(['id', 'nama']),
             'laporan' => LaporanKerusakan::whereIn('status', ['diterima'])->get(['id', 'kode']),
         ]);
     }

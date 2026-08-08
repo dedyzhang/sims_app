@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 
 /*
-| Pengingat H-1 untuk guru yang dijadwalkan piket besok.
+| Pengingat H-1 untuk guru yang dijadwalkan piket besok (skema rotasi per hari ISO).
 | Dijalankan harian oleh scheduler (routes/console.php).
 */
 class PiketH1Reminder extends Command
@@ -19,11 +19,19 @@ class PiketH1Reminder extends Command
 
     public function handle(): int
     {
-        $besok = Carbon::tomorrow()->toDateString();
+        $besok = Carbon::tomorrow();
+        $hariBesok = $besok->dayOfWeekIso;
+
+        if ($hariBesok > 5) {
+            $this->info('Besok akhir pekan — tidak ada jadwal piket sekolah.');
+
+            return self::SUCCESS;
+        }
+
+        $tanggalBesok = $besok->toDateString();
 
         $jadwalBesok = JadwalPiket::with('guru.user')
-            ->whereDate('tanggal', $besok)
-            ->where('status', '!=', 'dibatalkan')
+            ->where('hari', $hariBesok)
             ->get();
 
         if ($jadwalBesok->isEmpty()) {
@@ -42,12 +50,13 @@ class PiketH1Reminder extends Command
             $sudahAda = $user->notifications()
                 ->where('type', PiketH1Notification::class)
                 ->whereJsonContains('data->jadwal_piket_id', $jadwal->uuid)
+                ->whereJsonContains('data->tanggal_piket', $tanggalBesok)
                 ->exists();
             if ($sudahAda) {
                 continue;
             }
 
-            $user->notify(new PiketH1Notification($jadwal));
+            $user->notify(new PiketH1Notification($jadwal, $tanggalBesok));
             $terkirim++;
         }
 

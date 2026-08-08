@@ -8,7 +8,9 @@ use App\Sarpras\Models\KategoriAset;
 use App\Sarpras\Models\Pengadaan;
 use App\Sarpras\Models\Supplier;
 use App\Sarpras\Services\FotoCompressor;
+use App\Sarpras\Services\SarprasActivityLogger;
 use App\Sarpras\Support\Rupiah;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +48,7 @@ class PengadaanController extends Controller
         $pengadaan = DB::transaction(function () use ($request, $data) {
             // Total estimasi = sum(harga*qty) via BCMath.
             $total = Rupiah::sumItems(array_map(fn ($i) => [
-                'harga' => $i['estimasi_harga'], 'qty' => $i['qty'],
+                'harga' => (int) ($i['estimasi_harga'] ?? 0), 'qty' => $i['qty'],
             ], $data['item']));
 
             $pengadaan = Pengadaan::create([
@@ -65,7 +67,7 @@ class PengadaanController extends Controller
                     'nama_barang' => $item['nama_barang'],
                     'qty' => $item['qty'],
                     'satuan' => $item['satuan'] ?? 'unit',
-                    'estimasi_harga' => $item['estimasi_harga'],
+                    'estimasi_harga' => (int) ($item['estimasi_harga'] ?? 0),
                 ]);
             }
 
@@ -73,7 +75,7 @@ class PengadaanController extends Controller
         });
 
         return redirect()->route('sarpras.pengadaan.show', $pengadaan)
-            ->with('sukses', 'Pengajuan pengadaan terkirim.');
+            ->with('sukses', 'Usulan kebutuhan terkirim.');
     }
 
     public function show(Pengadaan $pengadaan): View
@@ -95,7 +97,9 @@ class PengadaanController extends Controller
             'disetujui_pada' => now(),
         ]);
 
-        return back()->with('sukses', 'Pengadaan disetujui.');
+        SarprasActivityLogger::log('usulan.disetujui', $pengadaan);
+
+        return back()->with('sukses', 'Usulan disetujui.');
     }
 
     public function tolak(Request $request, Pengadaan $pengadaan): RedirectResponse
@@ -133,10 +137,12 @@ class PengadaanController extends Controller
                     'tgl_terima' => $request->tgl_terima,
                 ]);
             }
-            $pengadaan->update(['status' => 'selesai']);
+            $pengadaan->update(['status' => 'diterima']);
         });
 
-        return back()->with('sukses', 'Penerimaan barang dicatat.');
+        SarprasActivityLogger::log('usulan.diterima', $pengadaan);
+
+        return back()->with('sukses', 'Penerimaan barang dicatat. Cetak BA Serah Terima jika diperlukan.');
     }
 
     /** Upload nota / bukti (dikompres <=2MB). */
@@ -156,5 +162,14 @@ class PengadaanController extends Controller
         $pengadaan->dokumen()->create(['nama' => $request->nama, 'file_path' => $path]);
 
         return back()->with('sukses', 'Dokumen ditambahkan.');
+    }
+
+    public function beritaAcara(Pengadaan $pengadaan)
+    {
+        $pengadaan->load(['pengaju:uuid,username', 'items.kategori:id,nama']);
+        $pdf = Pdf::loadView('sarpras.pengadaan.berita-acara', compact('pengadaan'))
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->stream('BA-serah-terima-' . $pengadaan->kode . '.pdf');
     }
 }

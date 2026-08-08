@@ -18,11 +18,16 @@ use App\Sarpras\Models\Peminjaman;
 use App\Sarpras\Models\Pengadaan;
 use App\Sarpras\Support\Rupiah;
 use App\Support\UserRole;
+use App\Services\Piket\PiketSyncService;
+use App\Support\ModulAktif;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
     use InteractsWithAi;
+
+    public function __construct(private PiketSyncService $piketSync) {}
+
     public function index()
     {
         $user      = auth()->user();
@@ -68,7 +73,14 @@ class DashboardController extends Controller
 
         // ── Data Piket (Bila user adalah guru piket hari ini) ──
         $piketGuruTidakHadir = collect();
-        if ($user->guru && \App\Models\JadwalPiket::isPiketAktif($user->guru->uuid)) {
+        if (
+            ModulAktif::aktif('piket')
+            && $user->guru
+            && \App\Models\JadwalPiket::isPiketAktif($user->guru->uuid)
+        ) {
+            $tanggalPiket = now()->toDateString();
+            $this->piketSync->syncHariIni($tanggalPiket);
+
             $piketGuruTidakHadir = \App\Models\GuruTidakHadir::with([
                 'guru:uuid,nama',
                 'penugasanPengganti.jadwal.pelajaran',

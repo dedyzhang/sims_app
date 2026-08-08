@@ -1,14 +1,9 @@
 @extends('sarpras.layouts.app')
 @section('title', 'Perbaikan & Teknisi')
-@section('sarpras_title', 'Perbaikan, Teknisi & Pemeliharaan')
-@section('sarpras_subtitle', 'Pencatatan perbaikan barang rusak, penugasan teknisi internal/eksternal, serta jadwal pemeliharaan rutin berulang.')
+@section('sarpras_title', 'Perbaikan & Pemeliharaan')
+@section('sarpras_subtitle', 'Pencatatan perbaikan barang rusak, penugasan teknisi, serta jadwal pemeliharaan rutin.')
 
 @section('sarpras_actions')
-    @can('sarpras.teknisi.kelola')
-        <a href="{{ route('sarpras.teknisi.index') }}" class="inline-flex items-center gap-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-700">
-            <i data-lucide="users" class="w-4 h-4"></i> Kelola Teknisi
-        </a>
-    @endcan
     @can('sarpras.jadwal.kelola')
         <a href="{{ route('sarpras.jadwal.create') }}" class="inline-flex items-center gap-2 bg-slate-900 dark:bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold">
             <i data-lucide="calendar-plus" class="w-4 h-4"></i> Jadwalkan Pemeliharaan
@@ -48,8 +43,7 @@
                             @if($p->catatan ?? $p->deskripsi)<p class="text-[11px] text-slate-400 italic mt-0.5">Notes: {{ $p->catatan ?? $p->deskripsi }}</p>@endif
                         </td>
                         <td class="py-3">
-                            <p class="text-slate-700 dark:text-slate-200">{{ $p->teknisi?->nama ?? '—' }}</p>
-                            @if($p->teknisi)<p class="text-[11px] text-slate-400 capitalize">Tipe: {{ $p->teknisi->tipe }}</p>@endif
+                            <p class="text-slate-700 dark:text-slate-200">{{ $p->nama_teknisi ?: ($p->teknisi?->nama ?? '—') }}</p>
                         </td>
                         <td class="py-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">{{ $p->biaya_rp }}</td>
                         <td class="py-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">{{ optional($p->tgl_mulai)->format('d/m/Y') ?? '—' }}</td>

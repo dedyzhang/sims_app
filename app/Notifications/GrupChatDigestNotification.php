@@ -36,6 +36,7 @@ class GrupChatDigestNotification extends Notification
             'message' => $data['message'],
             'url' => $data['url'],
             'type' => $data['type'],
+            'sound' => 'notif_sims',
         ];
     }
 

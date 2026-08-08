@@ -7,30 +7,22 @@ use App\Http\Controllers\Controller;
 use App\Models\SppPembayaran;
 use App\Exports\Keuangan\BendaharaVerifikasiPaketExport;
 use App\Services\GeminiService;
-use App\Services\Keuangan\BendaharaAntrianDigest;
 use App\Services\Keuangan\BendaharaWawasanService;
-use App\Services\Keuangan\SppActivityLogger;
-use App\Services\Keuangan\SppAnomalyDetector;
-use App\Services\Keuangan\SppMonthlyDashboard;
-use App\Services\Keuangan\SppMutasiMatchingService;
 use App\Services\Keuangan\SppOcrAssistService;
 use App\Services\Keuangan\SppVerifikasiPaketService;
-use App\Services\Keuangan\SppVerificationQueue;
 use App\Support\TahunAjaran;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
-use Spatie\Activitylog\Models\Activity;
 
 /**
- * Asisten operasional Bendahara SPP (Fase A) — terpisah dari AiAnalyzeController pimpinan.
+ * Asisten operasional Bendahara SPP — route legacy redirect ke halaman Keuangan terintegrasi.
  *
- * A1 antrian prioritas · A2 OCR saran · A3 dashboard SPP · A5 jejak audit.
- * B1 rekonsiliasi matching · B2 anomali · B3 digest antrian.
- * C1 wawasan non-nominal · C2 ekspor paket verifikasi.
+ * Wawasan, ekspor paket, dan OCR tetap di route bendahara-ai.* untuk API/bookmark.
  */
 class BendaharaAiController extends Controller
 {
@@ -38,86 +30,48 @@ class BendaharaAiController extends Controller
 
     public function __construct(
         private GeminiService $gemini,
-        private SppVerificationQueue $queue,
-        private SppMonthlyDashboard $dashboard,
         private SppOcrAssistService $ocr,
-        private SppMutasiMatchingService $matching,
-        private SppAnomalyDetector $anomaly,
-        private BendaharaAntrianDigest $digest,
         private BendaharaWawasanService $wawasan,
         private SppVerifikasiPaketService $paket,
     ) {}
 
-    /** Hub asisten bendahara. */
-    public function index(Request $request): View
+    /** @deprecated Terintegrasi ke Pembayaran SPP — redirect untuk bookmark/notifikasi. */
+    public function index(Request $request): RedirectResponse
     {
-        $ta = $this->resolveTahunAjaran($request);
-        $ringkasanAntrian = $this->digest->ringkasan($ta);
-        $anomaliCount = $this->anomaly->scan($ta)->count();
-
-        return view('keuangan.bendahara-ai.index', [
-            'ta'               => $ta,
-            'taOptions'        => TahunAjaran::options(),
-            'ringkasanAntrian' => $ringkasanAntrian,
-            'anomaliCount'     => $anomaliCount,
-        ]);
+        return redirect()
+            ->route('keuangan.index', ['ta' => $this->resolveTahunAjaran($request)])
+            ->with('info', 'Asisten Bendahara kini terintegrasi di halaman Pembayaran SPP.');
     }
 
-    /** A1 — Antrian prioritas verifikasi. */
-    public function antrian(Request $request): View
+    /** @deprecated Terintegrasi ke Verifikasi — antrian prioritas. */
+    public function antrian(Request $request): RedirectResponse
     {
-        $ta = $this->resolveTahunAjaran($request);
-        $q  = trim((string) $request->query('q', ''));
-
-        $groups = $this->queue->prioritizedGroups($ta, $q !== '' ? $q : null);
-        $anomaliMap = $this->anomaly->scan($ta)->keyBy(fn ($row) => $row['pembayaran']->uuid);
-
-        $menunggu = $groups->filter(fn ($g) => $g->first()['pembayaran']->status === SppPembayaran::STATUS_MENUNGGU);
-        $terverifikasi = $groups->filter(fn ($g) => $g->first()['pembayaran']->status === SppPembayaran::STATUS_TERVERIFIKASI);
-
-        return view('keuangan.bendahara-ai.antrian', [
-            'menungguGroups'      => $menunggu,
-            'terverifikasiGroups' => $terverifikasi,
-            'menungguCount'       => $menunggu->sum(fn ($g) => $g->count()),
-            'terverifikasiCount'  => $terverifikasi->sum(fn ($g) => $g->count()),
-            'anomaliMap'          => $anomaliMap,
-            'q'                   => $q,
-            'ta'                  => $ta,
-            'taOptions'           => TahunAjaran::options(),
-        ]);
+        return redirect()
+            ->route('keuangan.verifikasi', [
+                'ta'        => $this->resolveTahunAjaran($request),
+                'prioritas' => 1,
+                'q'         => $request->query('q'),
+            ])
+            ->with('info', 'Antrian prioritas kini di halaman Verifikasi.');
     }
 
-    /** A3 — Dashboard pendapatan SPP bulanan. */
-    public function dashboard(Request $request): View
+    /** @deprecated Dashboard terintegrasi di Pembayaran SPP. */
+    public function dashboard(Request $request): RedirectResponse
     {
-        $ta = $this->resolveTahunAjaran($request);
-        $ringkasan = $this->dashboard->ringkasanTahun($ta);
-
-        $tahun = (int) $request->query('tahun', now()->year);
-        $bulan = (int) $request->query('bulan', now()->month);
-        $bulanIni = $this->dashboard->ringkasanBulanKalender($tahun, $bulan);
-
-        return view('keuangan.bendahara-ai.dashboard', [
-            'ta'         => $ta,
-            'taOptions'  => TahunAjaran::options(),
-            'ringkasan'  => $ringkasan,
-            'bulanIni'   => $bulanIni,
-            'filterTahun'=> $tahun,
-            'filterBulan'=> $bulan,
-        ]);
+        return redirect()
+            ->route('keuangan.index', ['ta' => $this->resolveTahunAjaran($request)])
+            ->with('info', 'Dashboard pendapatan SPP kini di halaman Pembayaran SPP.');
     }
 
-    /** A5 — Jejak audit transisi keuangan. */
-    public function log(Request $request): View
+    /** @deprecated Jejak audit terintegrasi di Verifikasi (tab Audit). */
+    public function log(Request $request): RedirectResponse
     {
-        $logs = Activity::inLog(SppActivityLogger::LOG_NAME)
-            ->latest()
-            ->paginate(30);
-
-        return view('keuangan.bendahara-ai.log', [
-            'logs' => $logs,
-            'ta'   => $this->resolveTahunAjaran($request),
-        ]);
+        return redirect()
+            ->route('keuangan.verifikasi', [
+                'ta'  => $this->resolveTahunAjaran($request),
+                'tab' => 'audit',
+            ])
+            ->with('info', 'Jejak audit kini di halaman Verifikasi.');
     }
 
     /** A2 — OCR asisten bukti (saran HITL, bukan auto-post). */
@@ -160,30 +114,28 @@ class BendaharaAiController extends Controller
         ]);
     }
 
-    /** B1 — Rekonsiliasi: tagihan terverifikasi menunggu validasi bank. */
-    public function rekonsiliasi(Request $request): View
+    /** @deprecated Rekonsiliasi terintegrasi di Verifikasi (tab Validasi). */
+    public function rekonsiliasi(Request $request): RedirectResponse
     {
-        $ta = $this->resolveTahunAjaran($request);
-        $antrian = $this->matching->antrianValidasiBank($ta);
-
-        return view('keuangan.bendahara-ai.rekonsiliasi', [
-            'ta'        => $ta,
-            'taOptions' => TahunAjaran::options(),
-            'antrian'   => $antrian,
-        ]);
+        return redirect()
+            ->route('keuangan.verifikasi', [
+                'ta'  => $this->resolveTahunAjaran($request),
+                'tab' => 'validasi',
+            ])
+            ->withFragment('validasi')
+            ->with('info', 'Rekonsiliasi mutasi kini di halaman Verifikasi.');
     }
 
-    /** B2 — Daftar anomali / flag peringatan. */
-    public function anomali(Request $request): View
+    /** @deprecated Anomali terintegrasi di Verifikasi (filter anomali). */
+    public function anomali(Request $request): RedirectResponse
     {
-        $ta = $this->resolveTahunAjaran($request);
-        $items = $this->anomaly->scan($ta);
-
-        return view('keuangan.bendahara-ai.anomali', [
-            'ta'        => $ta,
-            'taOptions' => TahunAjaran::options(),
-            'items'     => $items,
-        ]);
+        return redirect()
+            ->route('keuangan.verifikasi', [
+                'ta'       => $this->resolveTahunAjaran($request),
+                'filter'   => 'anomali',
+                'prioritas'=> 1,
+            ])
+            ->with('info', 'Daftar anomali kini di halaman Verifikasi.');
     }
 
     /** C1 — Wawasan operasional non-nominal (rule-based + narasi AI opsional). */

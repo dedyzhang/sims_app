@@ -17,6 +17,7 @@ class PerbaikanRequest extends FormRequest
             'aset_id' => ['nullable', 'uuid', 'exists:sarpras_aset,id'],
             'laporan_id' => ['nullable', 'uuid', 'exists:sarpras_laporan_kerusakan,id'],
             'teknisi_id' => ['nullable', 'uuid', 'exists:sarpras_teknisi,id'],
+            'nama_teknisi' => ['nullable', 'string', 'max:120'],
             'deskripsi' => ['required', 'string', 'max:2000'],
             'status' => ['required', 'in:antri,dikerjakan,selesai,batal'],
             // UANG: integer rupiah.

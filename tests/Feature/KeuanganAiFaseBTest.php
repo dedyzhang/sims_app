@@ -109,7 +109,15 @@ class KeuanganAiFaseBTest extends TestCase
     public function test_bendahara_bisa_buka_halaman_rekonsiliasi(): void
     {
         $bendahara = $this->makeUser('bendahara', 'bendahara_rekon');
-        $this->actingAs($bendahara)->get(route('keuangan.bendahara-ai.rekonsiliasi'))->assertOk();
+        $ta = TahunAjaran::current();
+        $this->actingAs($bendahara)
+            ->get(route('keuangan.verifikasi', ['tab' => 'validasi']))
+            ->assertOk()
+            ->assertSee('Rekonsiliasi Mutasi Bank', false);
+
+        $response = $this->actingAs($bendahara)
+            ->get(route('keuangan.bendahara-ai.rekonsiliasi'));
+        $response->assertRedirect(route('keuangan.verifikasi', ['ta' => $ta, 'tab' => 'validasi']).'#validasi');
     }
 
     // ─── B2: Anomali flag ────────────────────────────────────────────────
@@ -161,7 +169,15 @@ class KeuanganAiFaseBTest extends TestCase
     public function test_bendahara_bisa_buka_halaman_anomali(): void
     {
         $bendahara = $this->makeUser('bendahara', 'bendahara_anomali');
-        $this->actingAs($bendahara)->get(route('keuangan.bendahara-ai.anomali'))->assertOk();
+        $ta = TahunAjaran::current();
+        $this->actingAs($bendahara)
+            ->get(route('keuangan.verifikasi', ['filter' => 'anomali', 'prioritas' => 1]))
+            ->assertOk()
+            ->assertSee('Filter anomali', false);
+
+        $this->actingAs($bendahara)
+            ->get(route('keuangan.bendahara-ai.anomali'))
+            ->assertRedirect(route('keuangan.verifikasi', ['ta' => $ta, 'filter' => 'anomali', 'prioritas' => 1]));
     }
 
     // ─── B3: Digest antrian ──────────────────────────────────────────────
@@ -206,7 +222,7 @@ class KeuanganAiFaseBTest extends TestCase
             'nominal' => 150000, 'status' => 'menunggu',
         ]);
 
-        $html = $this->actingAs($bendahara)->get(route('keuangan.bendahara-ai.index'))->assertOk()->getContent();
+        $html = $this->actingAs($bendahara)->get(route('keuangan.index'))->assertOk()->getContent();
         $this->assertStringContainsString('Antrian menumpuk', $html);
     }
 }

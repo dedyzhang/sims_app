@@ -118,9 +118,15 @@ Buka menu **Dashboard** di daftar menu sebelah kiri.
 
 **Yang bisa Anda lakukan di sini:**
 
-- Melihat pemberitahuan dari pengumuman, forum, ruang kelas, dan sarpras.
-- Mendengar suara saat ada notifikasi.
-- Menerima notifikasi langsung di ponsel Android Anda.
+- Melihat pemberitahuan dari pengumuman, forum, ruang kelas, sarpras, grup chat, tagihan SPP, dan pesan privat.
+- Mendengar suara saat ada notifikasi di browser.
+- Menerima notifikasi push di ponsel Android bila Anda memakai APK SIMS dan kredensial Firebase sudah dikonfigurasi di server.
+
+**Pola notifikasi penting:**
+
+- **Grup Chat:** sistem mengirim satu notifikasi ringkasan setiap 15 menit (bukan satu notifikasi per pesan) sampai Anda membuka grup.
+- **Private Chat (wali kelas ↔ siswa/orang tua):** notifikasi push dikirim langsung saat ada pesan baru.
+- **SPP:** orang tua/siswa mengunggah bukti → bendahara mendapat notifikasi; setelah verifikasi, lunas, atau tolak → orang tua/siswa mendapat notifikasi status.
 
 **Langkah-langkahnya:**
 
@@ -347,25 +353,32 @@ Menu sidebar grup **Absensi** → item **Absensi** (sebelumnya “Presensi Saya�
 3. Lihat status/riwayat; gunakan form keterlambatan atau izin pulang awal bila tersedia.
 4. Absen masuk/pulang mandiri: pakai **Absen QR** di grup yang sama.
 
-### Analisis AI
+### Narasi Data (Analisis Data)
 
-Buka menu **Analisis AI > Narasi Data AI**.
+Menu **Analisis Data** hanya muncul bila modul analisis AI aktif di pengaturan sekolah. Akses umum untuk admin, kepala sekolah, kesiswaan, dan kurikulum.
+
+Buka menu **Analisis Data > Narasi Data**.
+
+**Tab yang tersedia:**
+
+- **Ringkasan Nilai** — narasi AI berdasarkan data nilai per kelas/mata pelajaran.
+- **Tren Absensi** — narasi AI berdasarkan tren kehadiran.
 
 **Langkah-langkahnya:**
 
-1. Buka menu **Narasi Data AI**.
-2. Pilih jenis analisis: nilai, absensi, atau keuangan.
-3. Pilih periode bila tersedia.
+1. Buka menu **Narasi Data**.
+2. Pilih tab Ringkasan Nilai atau Tren Absensi.
+3. Pilih kelas, mata pelajaran, atau periode bila diminta.
 4. Jalankan analisis.
 5. Gunakan hasilnya sebagai bahan pertimbangan, bukan sebagai keputusan akhir.
 
-### Dokumen AI (Pencarian Referensi)
+### Asisten Dokumen (RAG)
 
-Buka menu **Analisis AI > Dokumen AI**.
+Buka menu **Analisis Data > Asisten Dokumen**.
 
 **Langkah-langkahnya:**
 
-1. Buka menu **Dokumen AI**.
+1. Buka menu **Asisten Dokumen**.
 2. Unggah dokumen Anda.
 3. Tunggu dokumen selesai diproses.
 4. Ajukan pertanyaan berdasarkan isi dokumen.
@@ -1288,7 +1301,61 @@ Buka menu **Forum Diskusi** di daftar menu sebelah kiri.
 4. Hapus topik atau komentar yang tidak sesuai.
 5. Atur izin akses lewat menu **Forum > Akses**.
 
-## 15. Grup Chat (Grup Kelas & Paguyuban Orang Tua)
+## 15. Guru Piket & Substitusi Kelas
+
+Buka menu **Guru Piket** di daftar menu sebelah kiri (bila modul piket aktif).
+
+**Siapa melihat apa:**
+
+- **Admin:** menu **Jadwal Piket** untuk mengatur rotasi guru piket Senin–Jumat (satu ketua wajib per hari).
+- **Guru piket aktif hari ini, kepala sekolah, dan kurikulum:** halaman operasional Guru Tidak Hadir, Penugasan Pengganti, dan Tugas Kelas. Kepala/kurikulum melihat tanpa mengubah data.
+- **Semua guru:** **Penugasan Ketidakhadiran** untuk lapor ketidakhadiran mandiri atau mengisi tugas kelas.
+
+**Widget dashboard:**
+
+Guru piket yang bertugas hari ini melihat widget ketidakhadiran di **Dashboard** utama. Widget otomatis menyinkronkan data presensi guru ke daftar tidak hadir saat dashboard dibuka.
+
+### Jadwal Piket (Admin)
+
+1. Buka menu **Guru Piket > Jadwal Piket**.
+2. Centang guru piket untuk setiap hari Senin–Jumat.
+3. Pilih satu **Ketua** untuk setiap hari (radio hanya aktif bila guru dipilih piket).
+4. Klik **Simpan Jadwal**.
+5. Sistem mengirim pengingat H-1 ke guru piket besok (notifikasi in-app, berdasarkan jadwal per hari).
+
+Catatan: bookmark lama `/piket/dashboard` atau `/piket/rekap` dialihkan ke dashboard utama.
+
+### Guru Tidak Hadir
+
+1. Buka **Guru Tidak Hadir**.
+2. Periksa daftar guru absen hari ini (sumber: presensi, laporan mandiri, atau entri manual).
+3. Klik rincian untuk melihat jam kosong yang perlu pengganti.
+4. Lanjut ke penugasan pengganti bila perlu.
+
+### Penugasan Guru Pengganti
+
+Hanya **ketua piket** hari itu yang dapat menugaskan pengganti atau mengambil alih slot.
+
+1. Buka **Penugasan Pengganti**.
+2. Untuk tiap slot kosong, pilih guru pengganti dari daftar kandidat atau klik **Saya yang masuk**.
+3. Konfirmasi penugasan.
+4. Pantau status slot (menunggu, ditugaskan, selesai).
+
+### Tugas Kelas & Penugasan Ketidakhadiran
+
+**Guru yang berhalangan:**
+
+1. Buka **Penugasan Ketidakhadiran**.
+2. Laporkan ketidakhadiran atau unggah tugas untuk kelas yang Anda tidak bisa hadir.
+3. Kirim sebelum guru piket terbitkan ke siswa.
+
+**Guru piket / ketua:**
+
+1. Buka **Tugas Kelas**.
+2. Periksa tugas yang dikirim guru absen.
+3. Konfirmasi atau terbitkan ke siswa di Ruang Kelas.
+
+## 16. Grup Chat (Grup Kelas & Paguyuban Orang Tua)
 
 Buka menu **Grup Chat** di daftar menu sebelah kiri. Menu ini hanya muncul bila Anda tergabung di minimal satu grup (atau Anda pengelola).
 
@@ -1348,43 +1415,50 @@ Catatan: di **Grup Kelas**, kotak ini hanya aktif untuk wali kelas. Siswa akan m
 - **Grup Kelas** memakai **mode pengumuman**: hanya wali kelas yang bisa menulis pesan baru. Siswa tetap bisa **membalas** pesan wali kelas (misalnya untuk menjawab "sudah dibaca, Bu") — kotak balas baru muncul setelah Anda menekan tombol **Balas** pada pesan wali kelas.
 - **Grup Paguyuban** tidak dibatasi — wali kelas dan orang tua bebas menulis pesan baru kapan saja.
 - Grup yang **diarsipkan** hanya bisa dibaca — tidak bisa mengirim pesan atau balasan sama sekali.
-- Bila ada pesan yang belum Anda baca, sistem mengirim satu notifikasi ringkasan setiap 15 menit (bukan satu notifikasi per pesan) sampai Anda membuka grupnya.
+- Bila ada pesan yang belum Anda baca, sistem mengirim satu notifikasi ringkasan setiap 15 menit (bukan satu notifikasi per pesan) sampai Anda membuka grupnya. Notifikasi push memerlukan APK SIMS dan kredensial Firebase di server.
 
-## 16. Sarana dan Prasarana (Sarpras)
+### Private Chat (Wali Kelas)
+
+Dari modal **Anggota** di Grup Kelas atau Paguyuban, wali kelas dapat membuka percakapan privat dengan siswa (Grup Kelas) atau orang tua (Paguyuban) di kelas yang sama.
+
+1. Buka grup kelas atau paguyuban.
+2. Klik ikon anggota.
+3. Klik **Chat privat** pada baris siswa atau orang tua.
+4. Kirim pesan teks — notifikasi push langsung ke penerima (bila memakai APK).
+
+Akses percakapan dibatasi oleh relasi wali kelas dengan anggota grup, bukan hanya tautan URL.
+
+## 17. Sarana dan Prasarana (Sarpras)
 
 Buka menu **Sarana & Prasarana** di daftar menu sebelah kiri.
 
-- Pengelola: superadmin, admin, dan waka sarpras.
-- Staf, guru, dan siswa tertentu bisa melihat denah, melapor kerusakan, dan mengajukan peminjaman sesuai izin.
+- **Pengelola inventaris** (superadmin, admin, waka sarpras): enam menu utama — Dashboard, Inventaris, Ruangan & Denah, Peminjaman, Kerusakan & Perawatan, Laporan & Administrasi.
+- **Guru/staf**: Peminjaman, Lapor Kerusakan, dan Ruangan & Denah (tanpa menu inventaris penuh).
+- Siswa tidak ditampilkan di menu Sarpras staf secara default.
 
 ### Dashboard Sarpras
 
 **Langkah-langkahnya:**
 
 1. Buka menu **Dashboard Sarpras**.
-2. Pantau jumlah aset, kondisinya, laporan kerusakan, peminjaman, pengadaan, dan kegiatan.
+2. Pantau KPI: aset, kerusakan baru, peminjaman menunggu, pemeliharaan jatuh tempo, dan jadwal ruangan hari ini.
 
-### Denah Interaktif
+### Ruangan & Denah
 
 **Yang bisa Anda lakukan di sini:**
 
 - Mengelola denah gedung dan lantai.
-- Mengunggah gambar denah.
-- Menggambar denah sendiri di kanvas.
-- Mengatur titik ruangan pada denah.
+- Mengunggah gambar denah lantai (tanpa editor kanvas).
 - Menambah atau mengimpor ruangan.
-- Mengubah posisi ruangan.
-- Mengekspor denah ke JPEG atau PDF.
+- Melihat rincian ruangan dan aset di dalamnya.
 
 **Cara membuat denah:**
 
-1. Buka menu **Denah Interaktif**.
+1. Buka menu **Ruangan & Denah**.
 2. Klik tambah lantai atau denah.
 3. Isi nama gedung atau lantai.
 4. Klik **Simpan**.
-5. Unggah gambar denah atau gambar sendiri.
-6. Buka editor titik ruangan.
-7. Tambahkan ruangan dan atur posisinya pada denah.
+5. Unggah gambar denah lantai bila ada.
 
 **Cara mengimpor ruangan:**
 
@@ -1396,9 +1470,9 @@ Buka menu **Sarana & Prasarana** di daftar menu sebelah kiri.
 
 **Cara melihat ruangan:**
 
-1. Buka denah.
-2. Klik titik ruangan.
-3. Lihat rincian ruangan dan aset di dalamnya.
+1. Buka daftar ruangan dari denah.
+2. Klik rincian ruangan.
+3. Lihat aset yang berada di ruangan tersebut.
 
 ### Melapor Kerusakan
 
@@ -1410,7 +1484,7 @@ Buka menu **Sarana & Prasarana** di daftar menu sebelah kiri.
 
 **Cara melapor:**
 
-1. Buka menu **Maintenance Lapor**.
+1. Buka menu **Kerusakan & Perawatan** → **Lapor Kerusakan**.
 2. Klik lapor kerusakan.
 3. Pilih aset atau ruangan.
 4. Isi keterangannya.
@@ -1470,76 +1544,64 @@ Buka menu **Sarana & Prasarana** di daftar menu sebelah kiri.
 2. Tambahkan kategori aset.
 3. Gunakan impor bila kategorinya banyak.
 
-### Pengadaan Aset
+### Usulan Kebutuhan Barang
 
 **Yang bisa Anda lakukan di sini:**
 
-- Mengajukan pengadaan.
-- Menambah rincian barang yang diajukan.
-- Menyetujui atau menolak pengajuan.
-- Mencatat penerimaan barang.
-- Mengunggah dokumen atau nota.
+- Mengajukan usulan kebutuhan barang (perencanaan, bukan penatausahaan dana ARKAS).
+- Menyetujui atau menolak usulan.
+- Mencatat penerimaan barang dan mencetak **Berita Acara Serah Terima**.
 
 **Cara mengajukan:**
 
-1. Buka menu **Pengadaan Aset**.
-2. Klik pengadaan baru.
-3. Isi judul dan rincian barang.
-4. Tambah barang bila lebih dari satu.
-5. Kirim pengajuan.
+1. Buka menu **Laporan & Administrasi** → **Usulan Kebutuhan**.
+2. Klik usulan baru.
+3. Isi nama barang, jumlah, prioritas, alasan, dan ruang tujuan.
+4. Kirim pengajuan.
 
 **Cara menyetujui:**
 
-1. Buka rincian pengadaan.
+1. Buka rincian usulan.
 2. Klik setujui atau tolak.
-3. Bila disetujui dan barang datang, isi penerimaan.
-4. Unggah nota atau dokumen pendukung.
+3. Bila barang datang, klik **Terima** dan cetak BA serah terima.
+4. Opsional: buat aset baru di inventaris dari data usulan.
 
-### Peminjaman Aset dan Booking Ruangan
+### Peminjaman (Barang & Ruangan)
 
 **Yang bisa Anda lakukan di sini:**
 
-- Mengajukan peminjaman aset.
-- Mengajukan pemakaian ruangan.
+- Mengajukan peminjaman aset dan/atau pemakaian ruangan dalam satu modul.
 - Menyetujui atau menolak pengajuan.
 - Menandai pengembalian.
 
-**Cara meminjam aset:**
+**Cara meminjam:**
 
-1. Buka menu **Peminjaman Aset**.
-2. Klik ajukan peminjaman.
-3. Pilih aset atau ruangan dan tanggalnya.
-4. Isi keperluan.
-5. Kirim.
-
-**Cara memesan ruangan:**
-
-1. Buka halaman pemesanan dari menu peminjaman.
-2. Pilih ruangan, tanggal, jam mulai, jam selesai, dan keperluan.
-3. Kirim pengajuan.
+1. Buka menu **Peminjaman**.
+2. Tab **Barang**: klik ajukan pinjam, pilih aset, isi keperluan dan jadwal.
+3. Tab **Ruangan**: pilih ruangan, tanggal, jam mulai/selesai, dan keperluan.
+4. Kirim pengajuan.
 
 **Untuk pengelola:**
 
-1. Buka rincian peminjaman atau pemesanan.
+1. Buka rincian peminjaman atau antrian persetujuan di tab Ruangan.
 2. Setujui atau tolak.
 3. Setelah barang kembali, klik kembalikan.
 
-### Perbaikan dan Teknisi
+### Perbaikan & Pemeliharaan
 
 **Yang bisa Anda lakukan di sini:**
 
-- Membuat order perbaikan.
-- Mengubah order perbaikan.
+- Membuat order perbaikan dari laporan kerusakan.
+- Mengisi nama teknisi langsung di form perbaikan.
 - Menandai perbaikan selesai.
-- Mengatur data teknisi.
 - Menyusun jadwal pemeliharaan.
 
 **Cara membuat order perbaikan:**
 
-1. Buka menu **Perbaikan & Teknisi**.
+1. Buka menu **Kerusakan & Perawatan** → perbaikan.
 2. Klik order perbaikan baru.
-3. Pilih aset, laporan kerusakan, atau teknisi.
-4. Isi keluhan, tindakan, biaya, dan tanggal bila ada.
+3. Pilih aset atau laporan kerusakan terkait.
+4. Isi nama teknisi, keluhan, tindakan, biaya, dan tanggal bila ada.
 5. Klik **Simpan**.
 
 **Cara menandai selesai:**
@@ -1548,14 +1610,9 @@ Buka menu **Sarana & Prasarana** di daftar menu sebelah kiri.
 2. Perbarui datanya.
 3. Klik selesai.
 
-**Cara mengatur teknisi:**
-
-1. Buka menu teknisi.
-2. Tambah, ubah, atau hapus teknisi internal maupun luar.
-
 **Cara mengatur jadwal pemeliharaan:**
 
-1. Buka menu jadwal pemeliharaan.
+1. Buka menu jadwal pemeliharaan dari **Kerusakan & Perawatan**.
 2. Tambahkan jadwal untuk aset atau ruangan.
 3. Isi tanggal, frekuensi, dan catatan.
 4. Klik **Simpan**.
@@ -1572,7 +1629,7 @@ Buka menu **Sarana & Prasarana** di daftar menu sebelah kiri.
 
 **Cara memindahkan aset:**
 
-1. Buka menu **Mutasi & Hapus > Mutasi**.
+1. Buka menu **Laporan & Administrasi** → **Mutasi**.
 2. Klik mutasi baru.
 3. Pilih aset, ruangan asal, dan ruangan tujuan.
 4. Isi alasannya.
@@ -1588,45 +1645,46 @@ Buka menu **Sarana & Prasarana** di daftar menu sebelah kiri.
 5. Pengelola menyetujui atau menolak.
 6. Cetak berita acara bila disetujui.
 
-### Supplier
+### Master Data (Kategori & Supplier)
 
 **Yang bisa Anda lakukan di sini:**
 
-- Mendata pemasok (supplier) untuk pengadaan.
-- Menambah, mengubah, dan menghapus pemasok.
+- Mengelola kategori aset dan data pemasok (supplier) dari area **Laporan & Administrasi** atau inventaris.
 
 **Langkah-langkahnya:**
 
-1. Buka menu **Supplier**.
-2. Klik tambah supplier.
-3. Isi nama, kontak, alamat, dan catatan.
-4. Klik **Simpan**.
+1. Buka **Laporan & Administrasi** → kategori atau supplier.
+2. Tambah, ubah, atau hapus data sesuai kebutuhan.
 
-### Laporan Sarpras
+### Laporan & Administrasi Sarpras
 
 **Yang bisa Anda lakukan di sini:**
 
-- Melihat laporan aset.
-- Melihat laporan kegiatan.
-- Mengekspor aset ke Excel/PDF.
-- Mengekspor mutasi ke Excel.
+- Mengekspor **KIB** (Kartu Inventaris Barang) per aset.
+- Mengekspor **KIR** (Kartu Inventaris Ruangan) per ruangan.
+- Melihat log aktivitas transaksi sensitif.
+- Stok opname ATK triwulan.
+- Mengekspor aset dan mutasi ke Excel/PDF.
 
 **Langkah-langkahnya:**
 
-1. Buka menu **Laporan**.
-2. Pilih jenis laporan.
+1. Buka menu **Laporan & Administrasi**.
+2. Pilih jenis laporan atau export.
 3. Gunakan saringan bila tersedia.
-4. Ekspor ke Excel atau PDF sesuai kebutuhan.
+4. Ekspor ke Excel sesuai kebutuhan akreditasi.
 
-## 17. Keuangan SPP
+## 18. Keuangan SPP
 
-Menu admin/bendahara: **Keuangan**. Menu siswa/orang tua: **Tagihan SPP**.
+Menu admin/bendahara: **Keuangan / SPP** (tiga item: Pembayaran SPP, Verifikasi, Bank & Metode). Menu siswa/orang tua: **Tagihan SPP**.
+
+Fitur wawasan bendahara, antrian prioritas verifikasi, rekonsiliasi mutasi, dan ekspor paket verifikasi terintegrasi di **Pembayaran SPP** dan **Verifikasi** — tidak ada menu terpisah Asisten Bendahara.
 
 ### Pembayaran SPP (Admin/Bendahara)
 
 **Yang bisa Anda lakukan di sini:**
 
-- Melihat ringkasan pembayaran SPP.
+- Melihat ringkasan pendapatan SPP (dashboard kompak).
+- Melihat wawasan operasional dan mengekspor paket verifikasi.
 - Melihat daftar kelas.
 - Melihat rincian pembayaran per kelas.
 - Mengubah nominal, nomor virtual account, dan status pembayaran tiap siswa per bulan.
@@ -1645,8 +1703,10 @@ Menu admin/bendahara: **Keuangan**. Menu siswa/orang tua: **Tagihan SPP**.
 
 **Yang bisa Anda lakukan di sini:**
 
-- Memeriksa bukti bayar dari siswa atau orang tua.
+- Memeriksa bukti bayar dari siswa atau orang tua (termasuk antrian prioritas).
 - Memvalidasi beberapa pembayaran sekaligus.
+- Mengimpor mutasi rekening koran bank.
+- Melihat jejak audit transisi status.
 - Meminta perbaikan bukti.
 - Menolak pembayaran.
 
@@ -1665,12 +1725,15 @@ Menu admin/bendahara: **Keuangan**. Menu siswa/orang tua: **Tagihan SPP**.
 **Yang bisa Anda lakukan di sini:**
 
 - Mengatur rekening dan cara pembayaran sekolah.
+- Melihat ringkasan rekonsiliasi mutasi bank.
 
 **Langkah-langkahnya:**
 
 1. Buka menu **Keuangan > Bank & Metode**.
-2. Isi nama bank, nomor rekening, atas nama, dan petunjuk pembayaran.
-3. Klik simpan.
+2. Lihat ringkasan tagihan yang belum cocok mutasi.
+3. Klik impor mutasi untuk membuka tab validasi di Verifikasi.
+4. Isi nama bank, nomor rekening, atas nama, dan petunjuk pembayaran.
+5. Klik simpan.
 
 ### Tagihan SPP (Siswa/Orang Tua)
 
@@ -1688,7 +1751,12 @@ Menu admin/bendahara: **Keuangan**. Menu siswa/orang tua: **Tagihan SPP**.
 4. Tunggu status berubah setelah diperiksa bendahara.
 5. Bila diminta memperbaiki, unggah ulang buktinya.
 
-## 18. Cetak Data
+### Notifikasi SPP
+
+- Orang tua/siswa mengunggah bukti → bendahara/admin keuangan mendapat notifikasi (in-app dan FCM bila APK aktif).
+- Bendahara memverifikasi, menandai lunas, atau menolak → orang tua/siswa mendapat notifikasi status pembayaran (in-app dan FCM bila APK aktif).
+
+## 19. Cetak Data
 
 Buka menu **Cetak Data** di daftar menu sebelah kiri.
 
@@ -1721,7 +1789,7 @@ Buka menu **Cetak Data** di daftar menu sebelah kiri.
 - Agenda dan Buku Batas memakai rentang tanggal dan/atau guru/kelas.
 - Nilai memakai kelas atau mata pelajaran sesuai halamannya.
 
-## 19. Sistem dan Pengaturan
+## 20. Sistem dan Pengaturan
 
 Buka menu **Sistem** di daftar menu sebelah kiri.
 
@@ -1811,7 +1879,7 @@ Buka menu **Sistem > Hak Akses**.
 3. Klik simpan.
 4. Minta pengguna terkait keluar lalu masuk lagi bila menunya belum berubah.
 
-## 20. Unduh Aplikasi
+## 21. Unduh Aplikasi
 
 Buka menu **Unduh Aplikasi** di daftar menu sebelah kiri.
 
@@ -1831,7 +1899,7 @@ Buka menu **Unduh Aplikasi** di daftar menu sebelah kiri.
 
 Catatan: berkas aplikasi disimpan aman dan hanya bisa diunduh lewat halaman ini.
 
-## 21. Kartu Pelajar Digital untuk Siswa
+## 22. Kartu Pelajar Digital untuk Siswa
 
 Menu siswa: **Kartu Pelajar**.
 
@@ -1843,7 +1911,7 @@ Menu siswa: **Kartu Pelajar**.
 
 Catatan: bila admin mengunggah kartu khusus, kartu itulah yang dipakai. Bila tidak ada, aplikasi membuatkan kartu bawaan.
 
-## 22. Alur Kegiatan Harian yang Disarankan
+## 23. Alur Kegiatan Harian yang Disarankan
 
 ### Admin/Operator
 
@@ -1902,28 +1970,35 @@ Catatan: guru mata pelajaran tidak ikut di Grup Chat kelas — grup ini khusus j
 
 ### Bendahara
 
-1. Buka menu Keuangan.
-2. Atur bank dan cara pembayaran.
-3. Atur tagihan tiap kelas.
-4. Periksa bukti pembayaran yang masuk.
+1. Buka menu **Keuangan / SPP**.
+2. Atur bank dan cara pembayaran di **Bank & Metode**.
+3. Atur tagihan tiap kelas di **Pembayaran SPP**.
+4. Periksa antrian prioritas di **Verifikasi**.
 5. Verifikasi, validasi, minta perbaikan, atau tolak bukti.
-6. Pantau ringkasan pembayaran.
+6. Pantau ringkasan dan wawasan di **Pembayaran SPP**.
+
+### Guru Piket (hari bertugas)
+
+1. Buka **Dashboard** — periksa widget ketidakhadiran guru (auto-sync).
+2. Buka **Guru Tidak Hadir** untuk detail jam kosong.
+3. Atur **Penugasan Pengganti** (ketua piket).
+4. Terbitkan **Tugas Kelas** ke siswa bila ada guru absen.
 
 ### Waka Sarpras
 
 1. Periksa dashboard Sarpras.
 2. Periksa laporan kerusakan.
 3. Kelola aset dan ruangan.
-4. Proses pengadaan, peminjaman, dan perbaikan.
+4. Proses usulan kebutuhan, peminjaman terpadu (barang+ruang), dan perbaikan.
 5. Catat pemindahan dan penghapusan aset.
 6. Ekspor laporan aset atau mutasi.
 
-## 23. Checklist Agar Tidak Terlewat Saat Pelatihan Pengguna
+## 24. Checklist Agar Tidak Terlewat Saat Pelatihan Pengguna
 
 Gunakan daftar ini saat memperkenalkan aplikasi ke sekolah:
 
 - Masuk, keluar, ganti kata sandi, PIN, dan daftar wajah.
-- Dashboard dan notifikasi.
+- Dashboard dan notifikasi (grup chat digest 15 menit, private chat langsung, SPP, FCM/APK).
 - Pengumuman.
 - Obrolan pengguna dan kotak masuk admin.
 - Data Guru: impor, reset, dan penugasan mengajar.
@@ -1949,19 +2024,20 @@ Gunakan daftar ini saat memperkenalkan aplikasi ke sekolah:
 - Sistem Poin atau P3 sesuai pengaturan aktif.
 - Wali Kelas: siswa kelas, sekretaris, absensi kelas, disiplin kelas, dan nilai kelas.
 - Forum Diskusi dan pengaturan aksesnya.
-- Grup Chat: Grup Kelas dan Grup Paguyuban, kirim/balas pesan, lampiran, hapus/moderasi pesan, mode pengumuman, dan notifikasi grup.
+- Grup Chat: Grup Kelas dan Grup Paguyuban, kirim/balas pesan, lampiran, hapus/moderasi pesan, mode pengumuman, private chat wali kelas, dan notifikasi digest.
+- Guru Piket: jadwal rotasi (admin), guru tidak hadir, penugasan pengganti, tugas kelas, penugasan ketidakhadiran, widget dashboard, dan pengingat H-1.
 - Asisten Guru: Generator Soal, RPM Learning, Rangkuman Materi, Catatan Siswa, ekspor, dan riwayat.
-- Analisis AI dan Dokumen AI.
-- Sarpras lengkap: dashboard, denah, ruangan, kerusakan, aset, kategori, pengadaan, supplier, peminjaman, pemesanan, perbaikan, teknisi, jadwal, mutasi, penghapusan, dan laporan.
-- Keuangan: pembayaran SPP, verifikasi, bank/metode, dan tagihan siswa/orang tua.
+- Analisis Data: Narasi Data (Ringkasan Nilai + Tren Absensi) dan Asisten Dokumen (RAG).
+- Sarpras: dashboard, inventaris (aset/kategori), ruangan & denah, peminjaman terpadu (barang+ruang), kerusakan & perawatan, usulan kebutuhan, mutasi/penghapusan, stok opname, export KIB/KIR, dan laporan administrasi.
+- Keuangan: pembayaran SPP (wawasan/ekspor), verifikasi (antrian prioritas), bank/metode (rekonsiliasi), notifikasi SPP, dan tagihan siswa/orang tua.
 - Cetak Data (semua ekspor).
 - Sistem: pengaturan umum, kop rapor, penjabaran, hak akses, dan unggah aplikasi.
 - Unduh Aplikasi.
 
-## 24. Catatan Tinjauan Teknis Singkat
+## 25. Catatan Tinjauan Teknis Singkat
 
 - Aplikasi ini adalah sistem informasi sekolah dengan banyak modul, bukan hanya ruang belajar daring.
-- Modul besar yang tersedia: data master, absensi/presensi, 7 KAIH, akademik, agenda, agenda rapat, disiplin Poin/P3, wali kelas, forum, grup chat, sarpras, keuangan SPP, AI, obrolan, pengumuman, cetak data, dan pengaturan.
+- Modul besar yang tersedia: data master, absensi/presensi, 7 KAIH, akademik, agenda, agenda rapat, disiplin Poin/P3, wali kelas, forum, guru piket, grup chat, sarpras, keuangan SPP, AI, obrolan, pengumuman, cetak data, dan pengaturan.
 - Sarpras memiliki jalur halaman terpisah dan perlu dimasukkan dalam pelatihan pengguna.
 - Hak akses diatur lewat beberapa lapisan: hak akses sistem umum, matriks forum, izin sarpras, dan aturan ruang kelas.
 - Beberapa menu hanya muncul berdasarkan peran, izin, atau pengaturan yang aktif. Saat pelatihan, cobalah masuk dengan beberapa peran berbeda agar semua fitur terlihat.

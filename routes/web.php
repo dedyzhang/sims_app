@@ -655,6 +655,12 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/{tugasKelas}/unduh', 'download')->name('.unduh');
         Route::delete('/{tugasKelas}', 'destroy')->name('.destroy');
     });
+    // Fase 5 dihapus dari navigasi (keputusan FL) — redirect bookmark lama ke dashboard utama
+    Route::middleware('modul:piket')->group(function () {
+        Route::redirect('/piket/dashboard', '/dashboard')->name('piket.dashboard');
+        Route::redirect('/piket/rekap', '/dashboard')->name('piket.rekap');
+        Route::redirect('/piket/rekap/export', '/dashboard')->name('piket.rekap.export');
+    });
 
     // ─── Agenda Rapat / Notulen Rapat — admin/kurikulum/kepala atau guru sekretaris ───
     Route::middleware('modul:agenda')->prefix('rapat')->name('rapat.')->controller(RapatController::class)->group(function () {
