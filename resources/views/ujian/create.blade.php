@@ -5,7 +5,13 @@
 <div class="max-w-2xl mx-auto space-y-5">
     <div>
         <h1 class="page-title">Buat Ujian</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Isi info dasar dulu — soal & kelas ditetapkan di langkah berikutnya.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            @if($bolehAturKelas)
+                Isi info dasar dan tetapkan kelasnya — soal disusun di langkah berikutnya.
+            @else
+                Isi info dasar ujiannya — kelas & soal disusun di langkah berikutnya.
+            @endif
+        </p>
     </div>
 
     @if($errors->any())
@@ -17,7 +23,12 @@
     @endif
 
     <form method="POST" action="{{ route('ujian.store') }}" class="card p-6 space-y-4"
-          x-data="{ target: '{{ old('target_nilai', 'pts') }}' }">
+          x-data="{
+              target: '{{ old('target_nilai', 'pts') }}',
+              pelajaran: '{{ old('id_pelajaran') }}',
+              kelasMap: {{ Js::from($kelasByPelajaran) }},
+              get kelasTersedia() { return this.kelasMap[this.pelajaran] || []; },
+          }">
         @csrf
 
         <div>
@@ -67,13 +78,31 @@
 
         <div x-show="target !== 'sumatif'" x-cloak>
             <label class="form-label">Mata Pelajaran <span class="text-rose-500">*</span></label>
-            <select name="id_pelajaran" class="form-select">
+            <select name="id_pelajaran" x-model="pelajaran" class="form-select">
                 <option value="">Pilih mata pelajaran</option>
                 @foreach($ngajars->unique('id_pelajaran') as $n)
                     <option value="{{ $n->id_pelajaran }}" @selected(old('id_pelajaran')===$n->id_pelajaran)>{{ $n->pelajaran?->nama }}</option>
                 @endforeach
             </select>
         </div>
+
+        @if($bolehAturKelas)
+        <div x-show="target !== 'sumatif'" x-cloak>
+            <label class="form-label">Kelas <span class="text-rose-500">*</span></label>
+            <select name="id_kelas[]" multiple class="form-select h-32" :disabled="kelasTersedia.length === 0">
+                <template x-for="k in kelasTersedia" :key="k.uuid">
+                    <option :value="k.uuid" x-text="k.label"></option>
+                </template>
+            </select>
+            <p class="text-xs text-slate-400 mt-1" x-show="!pelajaran">Pilih mata pelajaran dulu.</p>
+            <p class="text-xs text-amber-600 dark:text-amber-400 mt-1" x-show="pelajaran && kelasTersedia.length === 0">Belum ada kelas yang diajar mata pelajaran ini (cek data Ngajar).</p>
+            <p class="text-xs text-slate-400 mt-1" x-show="kelasTersedia.length > 0">Hanya kelas yang benar-benar diajar mata pelajaran ini (via data Ngajar) yang muncul di sini. Bisa pilih lebih dari satu — kelas satu tingkat otomatis berbagi token masuk.</p>
+        </div>
+        @else
+        <div x-show="target !== 'sumatif'" x-cloak class="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 text-xs text-slate-500 dark:text-slate-400">
+            Kelas & token masuk ditetapkan oleh admin/pengelola setelah ujian ini dibuat — cukup susun soalnya dulu.
+        </div>
+        @endif
 
         <div x-show="target === 'sumatif'" x-cloak>
             <label class="form-label">Materi (Penugasan Mengajar) <span class="text-rose-500">*</span></label>

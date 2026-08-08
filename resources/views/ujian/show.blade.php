@@ -24,6 +24,9 @@
         <a href="{{ route('ujian.edit', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
             <i data-lucide="list-checks" class="w-4 h-4 inline"></i> Susun Soal ({{ $ujian->soal->count() }})
         </a>
+        <a href="{{ route('ujian.pengaturan.edit', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
+            <i data-lucide="settings" class="w-4 h-4 inline"></i> Pengaturan
+        </a>
         @unless($ujian->status === 'draft')
         <a href="{{ route('ujian.monitor.index', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
             <i data-lucide="radar" class="w-4 h-4 inline"></i> Pemantauan Live
@@ -62,21 +65,35 @@
         </div>
         @if($ujian->butuhSatuKelas())
         <p class="text-xs text-amber-600 dark:text-amber-400">Target nilai Sumatif — ujian ini hanya boleh untuk satu kelas.</p>
+        @elseif($bolehAturKelas)
+        <p class="text-xs text-slate-400">Cuma kelas yang benar-benar diajar mapel ini (via data Ngajar) yang muncul di sini. Token masuk dibagi rata per TINGKAT — semua kelas dalam satu tingkat memakai token yang sama.</p>
         @else
-        <p class="text-xs text-slate-400">Token masuk dibagi rata per TINGKAT — semua kelas dalam satu tingkat memakai token yang sama.</p>
+        <p class="text-xs text-slate-400">Kelas ditetapkan oleh admin/pengelola. Token masuk dibagi rata per TINGKAT — semua kelas dalam satu tingkat memakai token yang sama.</p>
         @endif
 
+        @if($bolehAturKelas)
+        @php
+            // Gabung kelas yg valid (via Ngajar) DENGAN kelas yg SUDAH ter-assign sebelumnya —
+            // supaya kelas lama yg mungkin sudah tak "valid" lagi (mis. Ngajar-nya dihapus, atau
+            // mapel ujian baru diganti) tetap kelihatan di sini (bisa dilepas manual), bukan
+            // diam2 hilang dari daftar pilihan tanpa penjelasan.
+            $kelasOpsi = $kelasPilihan->concat($ujian->kelas->pluck('kelas')->filter())
+                ->unique('uuid')->sortBy(fn($k) => [$k->tingkat, $k->kelas]);
+        @endphp
         <form method="POST" action="{{ route('ujian.kelas.sync', $ujian) }}" class="space-y-3">
             @csrf
             <select name="id_kelas[]" multiple {{ $ujian->butuhSatuKelas() ? '' : 'multiple' }} class="form-select h-32" {{ $ujian->isClosed() ? 'disabled' : '' }}>
-                @foreach(\App\Models\Kelas::orderBy('tingkat')->orderBy('kelas')->get() as $k)
+                @forelse($kelasOpsi as $k)
                     <option value="{{ $k->uuid }}" @selected($ujian->kelas->pluck('id_kelas')->contains($k->uuid))>{{ $k->tingkat }}{{ $k->kelas }}</option>
-                @endforeach
+                @empty
+                    <option value="" disabled>Belum ada kelas yang diajar mapel ini (cek data Ngajar)</option>
+                @endforelse
             </select>
             @unless($ujian->isClosed())
             <button type="submit" class="px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">Simpan Kelas</button>
             @endunless
         </form>
+        @endif
 
         <div class="divide-y divide-slate-100 dark:divide-slate-700">
             @forelse($ujian->kelas->sortBy(fn($uk) => [$uk->kelas?->tingkat, $uk->kelas?->kelas])->groupBy(fn($uk) => $uk->kelas?->tingkat) as $tingkat => $grup)

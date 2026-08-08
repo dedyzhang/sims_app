@@ -93,4 +93,22 @@ class UjianModuleGatingTest extends TestCase
         $html = $this->actingAs($siswaUser)->get('/dashboard')->assertOk()->getContent();
         $this->assertStringNotContainsString('Ujian Saya', $html);
     }
+
+    public function test_sidebar_menu_ujian_tampil_utk_staf_dual_role_yg_mengajar(): void
+    {
+        Setting::set(ModulAktif::settingKey('ujian'), '1');
+
+        // Staf kesiswaan yg JUGA punya profil Guru (dual-role, sungguhan mengajar) — menu
+        // "Kelola Ujian" harus tampil, sama spt pola "Buku Guru" (auth()->user()?->guru).
+        $kesiswaanGuru = User::create(['username' => 'kesiswaan_sidebar', 'password' => Hash::make('rahasia123'), 'access' => 'kesiswaan']);
+        Guru::create(['id_login' => $kesiswaanGuru->uuid, 'nama' => 'Kesiswaan Guru', 'nik' => '5050505050', 'jk' => 'P', 'face_descriptor' => [0.1, 0.2]]);
+
+        $html = $this->actingAs($kesiswaanGuru)->get('/dashboard')->assertOk()->getContent();
+        $this->assertStringContainsString('Kelola Ujian', $html);
+
+        // Staf sapras TANPA profil Guru (murni non-pengajar) — menu tidak boleh muncul.
+        $saprasSaja = User::create(['username' => 'sapras_sidebar', 'password' => Hash::make('rahasia123'), 'access' => 'sapras']);
+        $html2 = $this->actingAs($saprasSaja)->get('/dashboard')->assertOk()->getContent();
+        $this->assertStringNotContainsString('Kelola Ujian', $html2);
+    }
 }

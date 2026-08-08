@@ -146,13 +146,33 @@ class UjianFoundationTest extends TestCase
     public function test_policy_create_hanya_guru_admin_atau_pemegang_permission(): void
     {
         $policy = new UjianPolicy();
-        $guru = User::create(['username' => 'guru_create', 'password' => 'x', 'access' => 'guru']);
+        [$guru] = $this->buatGuru('guru_create');
         $siswa = User::create(['username' => 'siswa_create', 'password' => 'x', 'access' => 'siswa']);
         $admin = User::create(['username' => 'admin_create', 'password' => 'x', 'access' => 'admin']);
 
         $this->assertTrue($policy->create($guru));
         $this->assertTrue($policy->create($admin));
         $this->assertFalse($policy->create($siswa));
+    }
+
+    public function test_policy_create_staf_dual_role_yg_juga_mengajar_boleh_buat_ujian(): void
+    {
+        $policy = new UjianPolicy();
+
+        // Staf kurikulum TANPA profil Guru (tak pernah mengajar) — tak boleh.
+        $kurikulumSaja = User::create(['username' => 'kurikulum_saja', 'password' => 'x', 'access' => 'kurikulum']);
+        $this->assertFalse($policy->create($kurikulumSaja));
+
+        // Staf kesiswaan yg JUGA punya profil Guru (dual-role, mengajar sungguhan) — boleh,
+        // sama spt pola "Buku Guru" di sidebar (auth()->user()?->guru, bukan access==='guru').
+        $kesiswaanGuru = User::create(['username' => 'kesiswaan_guru', 'password' => 'x', 'access' => 'kesiswaan']);
+        Guru::create(['id_login' => $kesiswaanGuru->uuid, 'nama' => 'Kesiswaan Guru', 'nik' => (string) random_int(1000000000, 9999999999), 'jk' => 'P']);
+        $this->assertTrue($policy->create($kesiswaanGuru));
+
+        // Staf sapras dual-role juga boleh.
+        $saprasGuru = User::create(['username' => 'sapras_guru', 'password' => 'x', 'access' => 'sapras']);
+        Guru::create(['id_login' => $saprasGuru->uuid, 'nama' => 'Sapras Guru', 'nik' => (string) random_int(1000000000, 9999999999), 'jk' => 'L']);
+        $this->assertTrue($policy->create($saprasGuru));
     }
 
     public function test_policy_take_hanya_siswa_anggota_kelas_ter_assign_dan_jendela_terbuka(): void

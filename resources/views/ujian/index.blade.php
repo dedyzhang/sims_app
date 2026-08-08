@@ -17,8 +17,8 @@
 
     <div class="grid gap-3">
         @forelse($ujians as $ujian)
-        <a href="{{ route('ujian.show', $ujian) }}" class="card p-5 flex items-center justify-between gap-4 hover:border-primary transition">
-            <div class="min-w-0">
+        <div class="card p-5 flex items-center justify-between gap-4 hover:border-primary transition">
+            <a href="{{ route('ujian.show', $ujian) }}" class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="badge bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{{ $ujian->jenisLabel() }}</span>
                     @php
@@ -34,9 +34,25 @@
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     {{ $ujian->pelajaran?->nama }} · {{ $ujian->soal_count }} soal · {{ $ujian->kelas->count() }} kelas · {{ $ujian->durasi_menit }} menit
                 </p>
+            </a>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                @can('manage', $ujian)
+                    @if($ujian->status === 'published')
+                        @if($ujian->kelas->count() > 0)
+                        <form method="POST" action="{{ route('ujian.token.reset', $ujian) }}" onsubmit="return confirmAction(this, 'Buat token baru untuk SEMUA kelas ujian ini? Token lama tidak berlaku lagi.', 'orange')">
+                            @csrf
+                            <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">Reset Token</button>
+                        </form>
+                        @endif
+                        <form method="POST" action="{{ route('ujian.close', $ujian) }}" onsubmit="return confirmAction(this, 'Tutup ujian ini? Siswa tidak bisa lagi memulai/melanjutkan.', 'red')">
+                            @csrf
+                            <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-700">Tutup</button>
+                        </form>
+                    @endif
+                @endcan
+                <a href="{{ route('ujian.show', $ujian) }}"><i data-lucide="chevron-right" class="w-5 h-5 text-slate-400"></i></a>
             </div>
-            <i data-lucide="chevron-right" class="w-5 h-5 text-slate-400 flex-shrink-0"></i>
-        </a>
+        </div>
         @empty
         <div class="card p-10 text-center text-slate-400">
             <i data-lucide="file-check-2" class="w-10 h-10 mx-auto mb-2 opacity-30"></i>

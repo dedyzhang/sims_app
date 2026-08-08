@@ -17,7 +17,10 @@ class UjianPolicy
 {
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->canAccess('manage_ujian') || $user->access === 'guru';
+        // $user->guru (bukan $user->access==='guru') supaya staf dual-role — kurikulum/
+        // kesiswaan/sapras yg JUGA punya penugasan mengajar (Ngajar) via profil Guru mereka —
+        // ikut bisa buat ujian utk mapel yg mereka ajar, sama spt pola Buku Guru di sidebar.
+        return $user->isAdmin() || $user->canAccess('manage_ujian') || $user->guru !== null;
     }
 
     public function manage(User $user, Ujian $ujian): bool

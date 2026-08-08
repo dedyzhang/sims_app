@@ -1049,11 +1049,13 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
         Route::get('/{ujian}', [UjianController::class, 'show'])->name('show');
         Route::get('/{ujian}/edit', [UjianController::class, 'edit'])->name('edit');
+        Route::get('/{ujian}/pengaturan', [UjianController::class, 'editPengaturan'])->name('pengaturan.edit');
         Route::post('/{ujian}/update', [UjianController::class, 'update'])->name('update');
         Route::post('/{ujian}/kelas', [UjianController::class, 'syncKelas'])->name('kelas.sync');
         Route::post('/{ujian}/terbit', [UjianController::class, 'publish'])->name('publish');
         Route::post('/{ujian}/tutup', [UjianController::class, 'close'])->name('close');
         Route::post('/{ujian}/kelas/{ujianKelas}/token-baru', [UjianController::class, 'regenerateToken'])->name('kelas.token');
+        Route::post('/{ujian}/token-baru', [UjianController::class, 'regenerateSemuaToken'])->name('token.reset');
         Route::delete('/{ujian}', [UjianController::class, 'destroy'])->name('destroy');
 
         Route::post('/unggah-gambar', [UjianSoalController::class, 'uploadGambar'])->middleware('throttle:30,1')->name('soal.unggah-gambar');

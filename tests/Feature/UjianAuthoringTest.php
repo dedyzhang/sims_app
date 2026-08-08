@@ -50,13 +50,37 @@ class UjianAuthoringTest extends TestCase
         [$user, $guru] = $this->buatGuru('guru_ujian1');
         $this->ngajarMilik($guru);
 
+        // Guru tetap boleh KIRIM id_kelas (mis. form lama/klien nakal), tapi server harus
+        // MENGABAIKANNYA — penetapan kelas kini eksklusif admin/pengelola (lihat
+        // bolehAturKelas()), guru cuma menyusun soal.
         $res = $this->actingAs($user)->post(route('ujian.store'), [
             'judul' => 'PTS Ganjil Matematika', 'jenis' => 'pts', 'target_nilai' => 'pts',
-            'id_pelajaran' => $this->pelajaran->uuid, 'durasi_menit' => 90,
+            'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$this->kelas->uuid], 'durasi_menit' => 90,
         ]);
 
         $res->assertRedirect();
-        $this->assertDatabaseHas('ujians', ['judul' => 'PTS Ganjil Matematika', 'created_by' => $user->uuid]);
+        $ujian = Ujian::where('judul', 'PTS Ganjil Matematika')->first();
+        $this->assertNotNull($ujian);
+        $this->assertSame($user->uuid, $ujian->created_by);
+        $this->assertSame(0, $ujian->kelas()->count(), 'Kelas TIDAK ikut ditetapkan krn dibuat oleh guru — menunggu admin/pengelola.');
+    }
+
+    public function test_admin_membuat_ujian_pts_langsung_menetapkan_kelas(): void
+    {
+        $admin = User::create(['username' => 'admin_ujian1', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
+        // kelasPilihan() memvalidasi kelas via data Ngajar (lintas guru manapun) — sediakan
+        // satu supaya kelas ini dianggap "beneran diajar" mapel tsb.
+        [, $guruSiapapun] = $this->buatGuru('guru_ngajar_utk_admin_test');
+        $this->ngajarMilik($guruSiapapun);
+
+        $res = $this->actingAs($admin)->post(route('ujian.store'), [
+            'judul' => 'PTS Admin', 'jenis' => 'pts', 'target_nilai' => 'pts',
+            'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$this->kelas->uuid], 'durasi_menit' => 90,
+        ]);
+        $res->assertRedirect();
+
+        $ujian = Ujian::where('judul', 'PTS Admin')->firstOrFail();
+        $this->assertDatabaseHas('ujian_kelas', ['id_ujian' => $ujian->uuid, 'id_kelas' => $this->kelas->uuid]);
     }
 
     public function test_guru_yg_tak_mengajar_mapel_ditolak_membuat_ujian(): void
@@ -65,7 +89,7 @@ class UjianAuthoringTest extends TestCase
 
         $this->actingAs($user)->post(route('ujian.store'), [
             'judul' => 'PTS Nekat', 'jenis' => 'pts', 'target_nilai' => 'pts',
-            'id_pelajaran' => $this->pelajaran->uuid, 'durasi_menit' => 90,
+            'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$this->kelas->uuid], 'durasi_menit' => 90,
         ])->assertForbidden();
 
         $this->assertDatabaseMissing('ujians', ['judul' => 'PTS Nekat']);
@@ -85,13 +109,20 @@ class UjianAuthoringTest extends TestCase
 
         $ujian = Ujian::where('judul', 'Ulangan Harian Bab 1')->firstOrFail();
         $this->assertSame($this->pelajaran->uuid, $ujian->id_pelajaran, 'id_pelajaran harus otomatis ikut mapel dari Ngajar pemilik Materi.');
+        // store() kini otomatis menetapkan kelas TUNGGAL dari Materi->Ngajar sekaligus (tak perlu
+        // langkah syncKelas() terpisah lagi utk kasus sumatif — kelasnya sudah pasti tunggal).
+        $this->assertSame(1, $ujian->kelas()->count());
+        $this->assertDatabaseHas('ujian_kelas', ['id_ujian' => $ujian->uuid, 'id_kelas' => $this->kelas->uuid]);
 
+        // Penetapan kelas (syncKelas) eksklusif admin/pengelola — guru pengampu bukan lagi
+        // aktor yg tepat utk cek ini, jadi dites lewat admin.
+        $admin = User::create(['username' => 'admin_ujian_sumatif', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
         $kelasLain = Kelas::create(['tingkat' => 7, 'kelas' => 'B']);
-        $this->actingAs($user)->post(route('ujian.kelas.sync', $ujian), [
+        $this->actingAs($admin)->post(route('ujian.kelas.sync', $ujian), [
             'id_kelas' => [$this->kelas->uuid, $kelasLain->uuid],
         ])->assertSessionHasErrors('id_kelas');
 
-        $this->assertSame(0, $ujian->kelas()->count(), 'Belum ada kelas tersimpan krn percobaan assign 2 kelas ditolak.');
+        $this->assertSame(1, $ujian->kelas()->count(), 'Kelas tetap 1 (yg sudah ada dari awal) krn percobaan assign 2 kelas ditolak.');
     }
 
     public function test_publish_gagal_tanpa_soal_atau_tanpa_kelas(): void
@@ -117,7 +148,9 @@ class UjianAuthoringTest extends TestCase
         $this->actingAs($user)->post(route('ujian.publish', $ujian))->assertSessionHas('error');
         $this->assertSame('draft', $ujian->fresh()->status);
 
-        $this->actingAs($user)->post(route('ujian.kelas.sync', $ujian), ['id_kelas' => [$this->kelas->uuid]])->assertRedirect();
+        // Penetapan kelas eksklusif admin/pengelola — guru tak bisa lagi syncKelas sendiri.
+        $admin = User::create(['username' => 'admin_ujian4', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
+        $this->actingAs($admin)->post(route('ujian.kelas.sync', $ujian), ['id_kelas' => [$this->kelas->uuid]])->assertRedirect();
         $this->actingAs($user)->post(route('ujian.publish', $ujian))->assertSessionHas('success');
         $this->assertSame('published', $ujian->fresh()->status);
 
@@ -243,7 +276,9 @@ class UjianAuthoringTest extends TestCase
         ]);
         // Kelas 7A & 7B (tingkat sama) sama-sama ditetapkan ke ujian ini, tapi masing-masing
         // diampu guru BERBEDA — hanya guruPembuat yg mengajar 7A, hanya guruLain yg mengajar 7B.
-        $this->actingAs($pembuat)->post(route('ujian.kelas.sync', $ujian), [
+        // Penetapan kelas eksklusif admin/pengelola (bukan pembuat ujian) — dites lewat admin.
+        $admin = User::create(['username' => 'admin_kolab', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
+        $this->actingAs($admin)->post(route('ujian.kelas.sync', $ujian), [
             'id_kelas' => [$this->kelas->uuid, $kelasB->uuid],
         ])->assertRedirect();
 
