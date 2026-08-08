@@ -60,8 +60,24 @@ class UjianController extends Controller implements HasMiddleware
 
         [$ngajars] = $this->ngajarPilihan($request->user());
         $materiByNgajar = Materi::whereIn('id_ngajar', $ngajars->pluck('uuid'))->orderBy('nama')->get()->groupBy('id_ngajar');
+        // Peta pelajaran → kelas yg beneran diajar mapel itu (via Ngajar, LINTAS SEMUA guru —
+        // sama spt kelasPilihan() yg dipakai store()/syncKelas() memvalidasi, supaya opsi yg
+        // tampil di form konsisten dgn apa yg SERVER benar2 terima; guru tetap cuma bisa MEMULAI
+        // dari pelajaran yg dia ajar sendiri — $ngajars di atas sudah scoped ke situ). Dipakai
+        // Alpine di create.blade.php utk mengisi ulang pilihan Kelas begitu Mata Pelajaran
+        // dipilih — "menyesuaikan dgn data ngajarnya" drpd nampilin SEMUA kelas sekolah.
+        $bolehAturKelas = $this->bolehAturKelas($request->user());
+        // Guru tak perlu (& tak boleh) menetapkan kelas sendiri saat membuat ujian — kelas
+        // memang keputusan admin/pengelola (koordinasi jadwal lintas kelas/tingkat), guru
+        // fokus ke konten (soal). Peta ini cuma dihitung & dikirim ke view kalau memang
+        // dipakai (admin/pengelola) — lihat bolehAturKelas().
+        $kelasByPelajaran = $bolehAturKelas
+            ? $ngajars->unique('id_pelajaran')->mapWithKeys(
+                fn ($n) => [$n->id_pelajaran => $this->kelasPilihan($n->id_pelajaran)->map(fn ($k) => ['uuid' => $k->uuid, 'label' => $k->tingkat . $k->kelas])->values()]
+              )
+            : collect();
 
-        return view('ujian.create', ['ngajars' => $ngajars, 'materiByNgajar' => $materiByNgajar]);
+        return view('ujian.create', ['ngajars' => $ngajars, 'materiByNgajar' => $materiByNgajar, 'kelasByPelajaran' => $kelasByPelajaran, 'bolehAturKelas' => $bolehAturKelas]);
     }
 
     public function store(Request $request)
@@ -76,53 +92,85 @@ class UjianController extends Controller implements HasMiddleware
             'target_nilai'          => 'required|in:pts,pas,sumatif',
             'id_pelajaran'          => 'required_if:target_nilai,pts,pas|nullable|uuid|exists:pelajarans,uuid',
             'id_materi'             => 'required_if:target_nilai,sumatif|nullable|uuid|exists:materi,uuid',
+            // TIDAK required_if lagi — guru tak mengirim id_kelas sama sekali (lihat blok
+            // target_nilai!=sumatif di bawah); admin/pengelola tetap diwajibkan isi minimal
+            // satu lewat abort_if manual, bukan validasi, supaya pesannya konsisten dgn
+            // "kelas tak sesuai Ngajar" di bawahnya.
+            'id_kelas'              => 'nullable|array',
+            'id_kelas.*'            => 'uuid|exists:kelas,uuid',
             'durasi_menit'          => 'required|integer|min:5|max:600',
             'acak_soal'             => 'nullable|boolean',
             'acak_opsi'             => 'nullable|boolean',
             'tampilkan_pembahasan'  => 'nullable|boolean',
         ]);
 
-        // target_nilai=sumatif: id_pelajaran diturunkan dari Materi->Ngajar (bukan dari
-        // input pengguna) — Materi selalu benar mencerminkan mapel Ngajar pemiliknya.
+        // target_nilai=sumatif: id_pelajaran & kelas diturunkan dari Materi->Ngajar (bukan dari
+        // input pengguna) — Materi selalu benar mencerminkan mapel+kelas Ngajar pemiliknya, dan
+        // sudah pasti tunggal (satu Materi = satu penugasan mengajar = satu kelas).
+        $idKelas = [];
         if ($data['target_nilai'] === 'sumatif') {
-            $materi = Materi::with('ngajar')->findOrFail($data['id_materi']);
+            $materi = Materi::with('ngajar.kelas')->findOrFail($data['id_materi']);
             abort_unless($materi->ngajar, 422, 'Materi ini tidak terhubung ke penugasan mengajar yang valid.');
             if (!$user->isAdmin() && !$user->canAccess('manage_ujian')) {
                 abort_unless($materi->ngajar->id_guru === $user->guru?->uuid, 403, 'Materi ini bukan milik penugasan mengajar Anda.');
             }
             $data['id_pelajaran'] = $materi->ngajar->id_pelajaran;
+            if ($materi->ngajar->id_kelas) {
+                $idKelas = [$materi->ngajar->id_kelas];
+            }
         } else {
             $data['id_materi'] = null;
-            if (!$user->isAdmin() && !$user->canAccess('manage_ujian')) {
+            if (!$this->bolehAturKelas($user)) {
                 $mengajar = Ngajar::where('id_guru', $user->guru?->uuid ?? '-')
                     ->where('id_pelajaran', $data['id_pelajaran'])->exists();
                 abort_unless($mengajar, 403, 'Anda tidak mengajar mata pelajaran ini.');
+                // Guru tak menetapkan kelas sendiri saat membuat ujian — itu keputusan admin/
+                // pengelola (koordinasi jadwal lintas kelas/tingkat), ditetapkan belakangan
+                // lewat panel "Kelas & Token Masuk" di halaman ujian.
+            } else {
+                abort_if(empty($data['id_kelas'] ?? []), 422, 'Pilih minimal satu kelas untuk ujian ini.');
+                // Kelas yg boleh dipilih WAJIB benar2 diajar mapel ini (via Ngajar) — cegah
+                // admin menetapkan ujian ke kelas yg sama sekali tak ada penugasan mengajarnya
+                // utk mapel tsb, walau id-nya valid di tabel kelas.
+                $kelasValid = $this->kelasPilihan($data['id_pelajaran'])->pluck('uuid');
+                $idKelas = collect($data['id_kelas'])->intersect($kelasValid)->values()->all();
+                abort_if(empty($idKelas), 422, 'Kelas yang dipilih tidak sesuai dengan data penugasan mengajar (Ngajar) untuk mata pelajaran ini.');
             }
         }
 
-        $ujian = Ujian::create([
-            'id_pelajaran'          => $data['id_pelajaran'],
-            'id_materi'             => $data['id_materi'] ?? null,
-            'created_by'            => $user->uuid,
-            'judul'                 => $data['judul'],
-            'instruksi'             => $data['instruksi'] ?? null,
-            'jenis'                 => $data['jenis'],
-            'target_nilai'          => $data['target_nilai'],
-            'durasi_menit'          => $data['durasi_menit'],
-            'acak_soal'             => $request->boolean('acak_soal', true),
-            'acak_opsi'             => $request->boolean('acak_opsi', true),
-            'tampilkan_pembahasan'  => $request->boolean('tampilkan_pembahasan', false),
-        ]);
+        $ujian = DB::transaction(function () use ($request, $data, $user, $idKelas) {
+            $ujian = Ujian::create([
+                'id_pelajaran'          => $data['id_pelajaran'],
+                'id_materi'             => $data['id_materi'] ?? null,
+                'created_by'            => $user->uuid,
+                'judul'                 => $data['judul'],
+                'instruksi'             => $data['instruksi'] ?? null,
+                'jenis'                 => $data['jenis'],
+                'target_nilai'          => $data['target_nilai'],
+                'durasi_menit'          => $data['durasi_menit'],
+                'acak_soal'             => $request->boolean('acak_soal', true),
+                'acak_opsi'             => $request->boolean('acak_opsi', true),
+                'tampilkan_pembahasan'  => $request->boolean('tampilkan_pembahasan', false),
+            ]);
 
-        return redirect()->route('ujian.show', $ujian)->with('success', 'Ujian dibuat. Lanjutkan menyusun soal dan menetapkan kelas.');
+            if (!empty($idKelas)) {
+                $this->assignKelas($ujian, $idKelas);
+            }
+
+            return $ujian;
+        });
+
+        return redirect()->route('ujian.show', $ujian)->with('success', 'Ujian dibuat' . (!empty($idKelas) ? ' dan kelas ditetapkan' : '') . '. Lanjutkan menyusun soal.');
     }
 
     public function show(Request $request, Ujian $ujian)
     {
         $this->authorize('manage', $ujian);
         $ujian->load(['soal.opsi', 'kelas.kelas', 'pelajaran', 'materi']);
+        $kelasPilihan = $ujian->id_pelajaran ? $this->kelasPilihan($ujian->id_pelajaran) : collect();
+        $bolehAturKelas = $this->bolehAturKelas($request->user());
 
-        return view('ujian.show', compact('ujian'));
+        return view('ujian.show', compact('ujian', 'kelasPilihan', 'bolehAturKelas'));
     }
 
     public function edit(Request $request, Ujian $ujian)
@@ -131,6 +179,17 @@ class UjianController extends Controller implements HasMiddleware
         $ujian->load(['soal.opsi', 'pelajaran']);
 
         return view('ujian.edit', compact('ujian'));
+    }
+
+    /** Halaman "Pengaturan Ujian" — metadata (judul/jenis/durasi/pelajaran/toggle), TERPISAH dari Susun Soal (ujian.edit). */
+    public function editPengaturan(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+        $ujian->load('pelajaran');
+        [$ngajars] = $this->ngajarPilihan($request->user());
+        $pelajaranPilihan = $ngajars->pluck('pelajaran')->filter()->unique('uuid')->sortBy('nama')->values();
+
+        return view('ujian.pengaturan', compact('ujian', 'pelajaranPilihan'));
     }
 
     public function update(Request $request, Ujian $ujian)
@@ -142,13 +201,14 @@ class UjianController extends Controller implements HasMiddleware
             'judul'                 => 'required|string|max:150',
             'instruksi'             => 'nullable|string|max:5000',
             'jenis'                 => 'required|in:harian,pts,pas,uas',
+            'id_pelajaran'          => 'nullable|uuid|exists:pelajarans,uuid',
             'durasi_menit'          => 'required|integer|min:5|max:600',
             'acak_soal'             => 'nullable|boolean',
             'acak_opsi'             => 'nullable|boolean',
             'tampilkan_pembahasan'  => 'nullable|boolean',
         ]);
 
-        $ujian->update([
+        $update = [
             'judul'                 => $data['judul'],
             'instruksi'             => $data['instruksi'] ?? null,
             'jenis'                 => $data['jenis'],
@@ -156,9 +216,27 @@ class UjianController extends Controller implements HasMiddleware
             'acak_soal'             => $request->boolean('acak_soal'),
             'acak_opsi'             => $request->boolean('acak_opsi'),
             'tampilkan_pembahasan'  => $request->boolean('tampilkan_pembahasan'),
-        ]);
+        ];
 
-        return back()->with('success', 'Ujian diperbarui.');
+        // Mata pelajaran cuma boleh diubah selama masih draf & bukan sumatif (sumatif diturunkan
+        // dari Materi->Ngajar, tak masuk akal diubah lepas dari situ) — cegah ujian yg sudah
+        // terbit/sudah ada kelas+token/soal tiba2 pindah konteks mapel di tengah jalan.
+        if (!empty($data['id_pelajaran']) && $ujian->status === 'draft' && !$ujian->butuhSatuKelas()) {
+            $user = $request->user();
+            if (!$user->isAdmin() && !$user->canAccess('manage_ujian')) {
+                abort_unless(Ngajar::where('id_guru', $user->guru?->uuid ?? '-')->where('id_pelajaran', $data['id_pelajaran'])->exists(), 403, 'Anda tidak mengajar mata pelajaran ini.');
+            }
+            if ($data['id_pelajaran'] !== $ujian->id_pelajaran) {
+                // Ganti mapel bikin kelas+token LAMA (kalau ada) tak relevan lagi (kelas itu blm
+                // tentu diajar mapel BARU) — lepas semua drpd diam2 nyimpen kelas salah konteks.
+                $ujian->kelas()->delete();
+            }
+            $update['id_pelajaran'] = $data['id_pelajaran'];
+        }
+
+        $ujian->update($update);
+
+        return redirect()->route('ujian.show', $ujian)->with('success', 'Ujian diperbarui.');
     }
 
     /**
@@ -171,7 +249,9 @@ class UjianController extends Controller implements HasMiddleware
     public function syncKelas(Request $request, Ujian $ujian)
     {
         $this->authorize('manage', $ujian);
+        abort_unless($this->bolehAturKelas($request->user()), 403, 'Hanya admin/pengelola yang bisa mengatur kelas ujian — guru pengampu fokus menyusun soal, kelas ditetapkan admin/pengelola.');
         abort_if($ujian->isClosed(), 422, 'Ujian yang sudah ditutup tidak bisa diubah kelasnya.');
+        abort_unless($ujian->id_pelajaran, 422, 'Ujian ini belum punya mata pelajaran.');
 
         $data = $request->validate([
             'id_kelas'   => 'required|array|min:1',
@@ -182,33 +262,63 @@ class UjianController extends Controller implements HasMiddleware
             return back()->withErrors(['id_kelas' => 'Ujian dengan target nilai Sumatif (jenis Harian) hanya boleh untuk satu kelas — Materi bersifat khusus satu penugasan mengajar.'])->withInput();
         }
 
-        DB::transaction(function () use ($ujian, $data) {
-            $existing = $ujian->kelas()->pluck('id_kelas', 'id_kelas');
-            $kelasByUuid = \App\Models\Kelas::whereIn('uuid', $data['id_kelas'])->get()->keyBy('uuid');
+        // Kelas yg boleh ditetapkan WAJIB benar2 diajar mapel ujian ini (via Ngajar) — sama
+        // spt di store(), cegah menetapkan kelas yg tak ada penugasan mengajarnya utk mapel ini.
+        $kelasValid = $this->kelasPilihan($ujian->id_pelajaran)->pluck('uuid');
+        $idKelas = collect($data['id_kelas'])->intersect($kelasValid)->values()->all();
+        if (empty($idKelas)) {
+            return back()->withErrors(['id_kelas' => 'Kelas yang dipilih tidak sesuai dengan data penugasan mengajar (Ngajar) untuk mata pelajaran ujian ini.'])->withInput();
+        }
 
-            // Token yg sudah dipakai per tingkat pada ujian ini (dari kelas yg sudah ter-assign
-            // sebelumnya) — kelas baru di tingkat yg sama ikut token ini, bukan bikin token baru.
-            $tokenByTingkat = $ujian->kelas()->with('kelas')->get()
-                ->filter(fn ($uk) => $uk->kelas)
-                ->keyBy(fn ($uk) => $uk->kelas->tingkat)
-                ->map(fn ($uk) => $uk->token_masuk);
-
-            foreach ($data['id_kelas'] as $idKelas) {
-                if ($existing->has($idKelas)) {
-                    continue;
-                }
-                $tingkat = $kelasByUuid->get($idKelas)?->tingkat;
-                $token = $tokenByTingkat->get($tingkat) ?? UjianKelas::generateToken();
-                $tokenByTingkat[$tingkat] = $token; // kelas lain di tingkat sama dlm batch ini ikut token ini juga
-
-                UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $idKelas, 'token_masuk' => $token]);
-            }
-            // Kelas yg tidak lagi dipilih dilepas — aman selama belum ada attempt (FK cascade
-            // akan ikut menghapus attempt jika ada; UI harus memperingatkan sebelum submit).
-            $ujian->kelas()->whereNotIn('id_kelas', $data['id_kelas'])->delete();
-        });
+        DB::transaction(fn () => $this->assignKelas($ujian, $idKelas));
 
         return back()->with('success', 'Kelas ujian diperbarui.');
+    }
+
+    /**
+     * Kelas yg BENERAN diajar mapel ini (via Ngajar) — SENGAJA lintas SEMUA guru (bukan
+     * cuma guru yg sedang login), sama spt filosofi kolaborasi UjianPolicy::manage(): satu
+     * ujian PTS/PAS bisa mencakup banyak kelas satu tingkat yg diampu guru BERBEDA-BEDA
+     * (lihat test_guru_lain_yg_mengajar_kelas_lain...). Ini murni cek VALIDITAS DATA ("apakah
+     * kelas ini beneran diajar mapel ini oleh SIAPAPUN"), bukan cek IZIN user saat ini —
+     * izin "apakah user boleh kelola ujian ini" tetap ditegakkan terpisah lewat
+     * UjianPolicy::manage() (utk kelas yg sudah ditetapkan) & cek `mengajar` di store() (utk
+     * mapel yg mau dipakai). Dipakai baik saat Buat Ujian maupun panel "Kelas & Token Masuk".
+     */
+    private function kelasPilihan(string $idPelajaran)
+    {
+        return Ngajar::with('kelas')->where('id_pelajaran', $idPelajaran)->whereNotNull('id_kelas')
+            ->get()->pluck('kelas')->filter()->unique('uuid')
+            ->sortBy(fn ($k) => [$k->tingkat, $k->kelas])->values();
+    }
+
+    /**
+     * Inti logika assign kelas+token (dipakai store() saat buat-sekaligus-tetapkan-kelas, DAN
+     * syncKelas() saat ubah belakangan) — kelas dlm TINGKAT yg sama berbagi SATU token_masuk.
+     */
+    private function assignKelas(Ujian $ujian, array $idKelas): void
+    {
+        $existing = $ujian->kelas()->pluck('id_kelas', 'id_kelas');
+        $kelasByUuid = \App\Models\Kelas::whereIn('uuid', $idKelas)->get()->keyBy('uuid');
+
+        $tokenByTingkat = $ujian->kelas()->with('kelas')->get()
+            ->filter(fn ($uk) => $uk->kelas)
+            ->keyBy(fn ($uk) => $uk->kelas->tingkat)
+            ->map(fn ($uk) => $uk->token_masuk);
+
+        foreach ($idKelas as $id) {
+            if ($existing->has($id)) {
+                continue;
+            }
+            $tingkat = $kelasByUuid->get($id)?->tingkat;
+            $token = $tokenByTingkat->get($tingkat) ?? UjianKelas::generateToken();
+            $tokenByTingkat[$tingkat] = $token;
+
+            UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $id, 'token_masuk' => $token]);
+        }
+        // Kelas yg tidak lagi dipilih dilepas — aman selama belum ada attempt (FK cascade
+        // akan ikut menghapus attempt jika ada; UI harus memperingatkan sebelum submit).
+        $ujian->kelas()->whereNotIn('id_kelas', $idKelas)->delete();
     }
 
     /**
@@ -232,6 +342,30 @@ class UjianController extends Controller implements HasMiddleware
         }
 
         return back()->with('success', 'Token masuk diperbarui untuk semua kelas tingkat ' . $tingkat . ' pada ujian ini.');
+    }
+
+    /**
+     * Reset token utk SEMUA kelas ujian ini sekaligus (dipakai dari kartu ringkas /ujian —
+     * tanpa perlu buka halaman detail dulu) — tiap grup tingkat tetap dapat token barunya
+     * sendiri-sendiri, sama spt regenerateToken() per-tingkat di halaman detail.
+     */
+    public function regenerateSemuaToken(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+        abort_if($ujian->isClosed(), 422, 'Ujian yang sudah ditutup tidak bisa diubah tokennya.');
+        abort_if($ujian->kelas()->count() === 0, 422, 'Ujian ini belum punya kelas ditetapkan.');
+
+        $ujian->kelas()->with('kelas')->get()
+            ->filter(fn ($uk) => $uk->kelas)
+            ->groupBy(fn ($uk) => $uk->kelas->tingkat)
+            ->each(function ($grup, $tingkat) use ($ujian) {
+                $token = UjianKelas::generateToken();
+                UjianKelas::where('id_ujian', $ujian->uuid)
+                    ->whereHas('kelas', fn ($q) => $q->where('tingkat', $tingkat))
+                    ->update(['token_masuk' => $token]);
+            });
+
+        return back()->with('success', 'Token masuk diperbarui untuk semua kelas pada ujian ini.');
     }
 
     public function publish(Request $request, Ujian $ujian)
@@ -311,6 +445,15 @@ class UjianController extends Controller implements HasMiddleware
         $transfer->transfer($attempt);
 
         return back()->with('success', 'Transfer nilai dicoba ulang — status: ' . $attempt->fresh()->status_transfer_nilai);
+    }
+
+    /**
+     * Guru pengampu fokus menyusun soal — penetapan/perubahan KELAS ujian (siapa yg ambil,
+     * koordinasi lintas kelas/tingkat) adalah keputusan admin/pengelola, bukan guru per-mapel.
+     */
+    private function bolehAturKelas($user): bool
+    {
+        return $user->isAdmin() || $user->canAccess('manage_ujian');
     }
 
     /** @return array{0: \Illuminate\Support\Collection} */

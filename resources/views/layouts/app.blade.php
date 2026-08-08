@@ -825,7 +825,11 @@
                 }
 
                 // ── Ujian (formal: Harian/PTS/PAS/UAS) — terpisah dari Ruang Kelas/Arena Belajar ──
-                if ($modulOn('ujian') && ($isAdmin || auth()->user()?->canAccess('manage_ujian') || in_array($access, ['guru', 'kepala', 'kurikulum'], true))) {
+                // auth()->user()?->guru (bukan cuma access==='guru') supaya staf dual-role
+                // kurikulum/kesiswaan/sapras yg JUGA mengajar (punya profil Guru + Ngajar)
+                // ikut lihat menu ini — kepala/kurikulum tetap dipertahankan terpisah krn
+                // mereka boleh MEMANTAU semua ujian (UjianPolicy::monitor()) walau tak mengajar.
+                if ($modulOn('ujian') && ($isAdmin || auth()->user()?->canAccess('manage_ujian') || auth()->user()?->guru || in_array($access, ['kepala', 'kurikulum'], true))) {
                     $groups['ujian'] = ['Ujian', 'file-check-2', [
                         ['ujian.index', ['ujian.*'], 'file-check-2', 'Kelola Ujian'],
                         ['bank-soal.index', ['bank-soal.*'], 'library', 'Bank Soal'],

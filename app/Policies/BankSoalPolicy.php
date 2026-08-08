@@ -15,7 +15,10 @@ class BankSoalPolicy
 {
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->canAccess('manage_ujian') || $user->access === 'guru';
+        // $user->guru (bukan $user->access==='guru') — sama alasan spt UjianPolicy::create():
+        // staf dual-role (kurikulum/kesiswaan/sapras) yg juga mengajar tetap bisa kelola bank
+        // soal mapel yg diajarnya.
+        return $user->isAdmin() || $user->canAccess('manage_ujian') || $user->guru !== null;
     }
 
     public function viewPelajaran(User $user, string $idPelajaran): bool
