@@ -208,7 +208,19 @@
     <script>
         $(document).ready(function() {
             if (window.location.pathname.includes('/sarpras') && typeof $.fn.DataTable === 'function') {
-                $('table:not(.ttd, .no-dt)').addClass('display w-full').DataTable({
+                var $tables = $('table:not(.ttd, .no-dt)');
+                // Beberapa view Sarpras merender baris placeholder "Belum ada data" sbg satu
+                // <td colspan> penuh saat koleksinya kosong. DataTable salah hitung jumlah kolom
+                // baris itu (makin ketat krn scrollX:true) -> muncul alert "Incorrect column
+                // count" (tn/18) & tabel gagal ter-render. Kosongkan tbody-nya di sini supaya
+                // DataTables sendiri yg tampilkan status kosong lewat language.emptyTable.
+                $tables.each(function () {
+                    var $rows = $(this).find('tbody tr');
+                    if ($rows.length === 1 && $rows.children().length === 1 && $rows.find('td[colspan]').length === 1) {
+                        $(this).find('tbody').empty();
+                    }
+                });
+                $tables.addClass('display w-full').DataTable({
                     scrollX: true,
                     pageLength: 15,
                     autoWidth: false,
@@ -219,6 +231,7 @@
                         info: "Menampilkan _START_–_END_ dari _TOTAL_",
                         infoEmpty: "Tidak ada data",
                         zeroRecords: "Data tidak ditemukan",
+                        emptyTable: "Belum ada data",
                         paginate: { first: "Awal", last: "Akhir", next: "Selanjutnya", previous: "Sebelumnya" }
                     }
                 });

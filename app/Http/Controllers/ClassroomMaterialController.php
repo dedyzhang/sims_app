@@ -82,23 +82,8 @@ class ClassroomMaterialController extends Controller implements \Illuminate\Rout
     public function show(Request $request, ClassroomMaterial $material)
     {
         $classUuid = $request->query('class');
-        $classroom = null;
-        if ($classUuid) {
-            $classroom = $material->classrooms()->where('uuid', $classUuid)->first();
-        }
-        if (!$classroom) {
-            $user = $request->user();
-            if ($user->access === 'siswa' && $user->siswa?->id_kelas) {
-                $classroom = $material->classrooms()->where('id_kelas', $user->siswa->id_kelas)->first();
-            }
-            if (!$classroom && $user->guru) {
-                $ids = Ngajar::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
-                $classroom = $material->classrooms()->whereIn('id_kelas', $ids)->first();
-            }
-            if (!$classroom) {
-                $classroom = $material->classroom;
-            }
-        }
+        $classroom = $classUuid ? $material->classrooms()->where('uuid', $classUuid)->first() : null;
+        $classroom ??= $this->resolveViewableClassroom($material, $request->user());
 
         $this->authorize('view', $classroom);
         $user = $request->user();
@@ -168,24 +153,50 @@ class ClassroomMaterialController extends Controller implements \Illuminate\Rout
         return redirect()->route('classroom.show', $classroom)->with('success', 'Materi dihapus.');
     }
 
-    public function download(ClassroomMaterialFile $file)
+    public function download(Request $request, ClassroomMaterialFile $file)
     {
-        $this->authorize('view', $file->material->classroom);
+        $this->authorize('view', $this->resolveViewableClassroom($file->material, $request->user()));
         abort_unless(Storage::disk('public')->exists($file->path), 404);
 
         return Storage::disk('public')->download($file->path, $file->original_name);
     }
 
     /** Tampilkan file (gambar/PDF) inline di modal tanpa pindah halaman — dibutuhkan utk materi terkunci (layar penuh). */
-    public function preview(ClassroomMaterialFile $file)
+    public function preview(Request $request, ClassroomMaterialFile $file)
     {
-        $this->authorize('view', $file->material->classroom);
+        $this->authorize('view', $this->resolveViewableClassroom($file->material, $request->user()));
         abort_unless(Storage::disk('public')->exists($file->path), 404);
 
         return response()->file(Storage::disk('public')->path($file->path), [
             'Content-Type' => $file->mime,
             'Content-Disposition' => 'inline; filename="' . $file->original_name . '"',
         ]);
+    }
+
+    /**
+     * Satu materi bisa ditaut ke BANYAK kelas sekaligus (classroom_material_links) — kelas
+     * "asal" (`ClassroomMaterial::classroom()`) cuma satu, dipakai buat breadcrumb. Siswa/guru
+     * yg mengakses materi ini lewat kelas MEREKA SENDIRI (bukan kelas asal) harus tetap lolos
+     * — cari dulu kelas yg ditaut & relevan ke user ini, baru fallback ke kelas asal kalau
+     * tak ketemu (mis. guru/admin pengelola yg bukan anggota kelas manapun).
+     */
+    private function resolveViewableClassroom(ClassroomMaterial $material, User $user): ?Classroom
+    {
+        if ($user->access === 'siswa' && $user->siswa?->id_kelas) {
+            $classroom = $material->classrooms()->where('id_kelas', $user->siswa->id_kelas)->first();
+            if ($classroom) {
+                return $classroom;
+            }
+        }
+        if ($user->guru) {
+            $ids = Ngajar::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
+            $classroom = $material->classrooms()->whereIn('id_kelas', $ids)->first();
+            if ($classroom) {
+                return $classroom;
+            }
+        }
+
+        return $material->classroom;
     }
 
     // ─────────────── Materi terkunci (token + layar penuh) — via HandlesContentLock ───────────────

@@ -114,9 +114,11 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
     public function download(ClassroomSubmissionFile $file)
     {
         $submission = $file->submission;
-        // Boleh: pengelola kelas ATAU pemilik submission.
+        // Boleh: pengelola kelas TEMPAT SUBMISSION INI DIKUMPULKAN (bukan kelas asal tugas —
+        // satu tugas bisa ditaut ke banyak kelas, guru yg mengajar kelas lain yg ditaut jangan
+        // sampai 403 gara2 ceknya ke kelas asal) ATAU pemilik submission.
         abort_unless(
-            auth()->user()->can('manage', $submission->assignment->classroom) || $submission->student_id === auth()->id(),
+            auth()->user()->can('manage', $submission->classroom ?? $submission->assignment->classroom) || $submission->student_id === auth()->id(),
             403
         );
 

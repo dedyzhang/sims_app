@@ -31,6 +31,12 @@ class ClassroomSubmission extends Model
         return $this->belongsTo(ClassroomAssignment::class, 'assignment_id', 'uuid');
     }
 
+    /** Kelas TEMPAT siswa mengumpulkan (bukan kelas asal tugas — tugas bisa ditaut ke banyak kelas). */
+    public function classroom()
+    {
+        return $this->belongsTo(Classroom::class, 'classroom_id', 'uuid');
+    }
+
     public function student()
     {
         return $this->belongsTo(User::class, 'student_id', 'uuid');

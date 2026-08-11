@@ -101,6 +101,13 @@ Route::post('/login/pin', [LoginController::class, 'loginPin'])->middleware('thr
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/password/request', [LoginController::class, 'requestResetPassword'])->middleware('throttle:6,1')->name('password.request');
 
+// ─── Unduh Aplikasi dari halaman login — SEBELUM login, jadi tanpa 'auth'. Controller
+//     yang sama dgn menu sidebar (app.download.*) — download()/page() di sana murni baca
+//     Setting/Storage, tak pernah menyentuh auth()->user(), aman diekspos publik juga. ───
+Route::controller(AppDownloadController::class)->group(function () {
+    Route::get('/unduh-aplikasi-tamu/{platform}', 'download')->name('guest.app.download.file');
+});
+
 // WebAuthn (Fingerprint / Face ID)
 WebAuthnRoutes::register('webauthn');
 
@@ -957,6 +964,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/semester', 'updateSemester')->name('setting.semester');
             Route::post('/semester/store', 'storeSemester')->name('setting.semester.store');
             Route::post('/identitas', 'setIdentitasSekolah')->name('setting.identitas');
+            Route::post('/login-background', 'setLoginBackground')->name('setting.loginBackground');
             Route::post('/jenjang-sekolah', 'setJenjangSekolah')->name('setting.jenjangSekolah');
             Route::post('/media-sosial', 'setMediaSosial')->name('setting.mediaSosial');
             Route::post('/poin-terlambat', 'setPoinTerlambat')->name('setting.poinTerlambat');

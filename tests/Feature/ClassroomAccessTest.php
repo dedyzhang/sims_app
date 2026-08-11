@@ -355,6 +355,134 @@ class ClassroomAccessTest extends TestCase
         $response->assertDontSee('PPKN Kelas VII-B');
     }
 
+    /**
+     * Regresi: materi/tugas yg ditaut ke BANYAK kelas (classroom_material_links /
+     * classroom_assignment_links) punya SATU kelas "asal" (ClassroomMaterial::classroom(),
+     * dipakai buat breadcrumb) tapi bisa ditaut ke kelas lain juga. download()/preview() dulu
+     * cuma authorize() ke kelas ASAL itu — siswa yg akses materi/tugas ini lewat kelas MEREKA
+     * sendiri (bukan kelas asal) dapat 403 walau halaman show()-nya sendiri sukses dimuat
+     * (krn show() sudah benar resolve kelas dinamis). Ini bug produksi nyata (siswa gagal buka
+     * PDF materi lewat kelas non-asal) — lihat resolveViewableClassroom() di kedua controller.
+     */
+    public function test_siswa_di_kelas_non_asal_tetap_bisa_unduh_dan_pratinjau_file_materi(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $student = User::create(['username' => 'student_7d_file', 'password' => Hash::make('password'), 'access' => 'siswa']);
+        $semester = Semester::create(['semester' => 1, 'tahun' => '2024/2025', 'aktif' => true]);
+        $kelas7B = Kelas::create(['tingkat' => 7, 'kelas' => 'B']);
+        $kelas7D = Kelas::create(['tingkat' => 7, 'kelas' => 'D']);
+        \App\Models\Siswa::create(['id_login' => $student->uuid, 'id_kelas' => $kelas7D->uuid, 'nama' => 'Student 7D', 'nis' => '12346', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+
+        $pelajaran = Pelajaran::create(['nama' => 'Pendidikan Pancasila', 'ringkasan' => 'PPKN', 'kkm' => 75]);
+        $classroom7B = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7B->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-B', 'status' => 'published', 'class_code' => 'FILE7B', 'created_by' => $student->uuid]);
+        $classroom7D = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7D->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-D', 'status' => 'published', 'class_code' => 'FILE7D', 'created_by' => $student->uuid]);
+
+        \App\Models\ClassroomMember::create(['classroom_id' => $classroom7D->uuid, 'user_id' => $student->uuid, 'role_in_class' => 'siswa', 'joined_at' => now()]);
+
+        // Materi dibuat di 7B (kelas "asal"), lalu ditaut jg ke 7D.
+        $material = \App\Models\ClassroomMaterial::create([
+            'classroom_id' => $classroom7B->uuid, 'uploaded_by' => $student->uuid,
+            'title' => 'Materi PDF', 'is_published' => true,
+        ]);
+        \Illuminate\Support\Facades\DB::table('classroom_material_links')->insert([
+            ['material_id' => $material->uuid, 'classroom_id' => $classroom7B->uuid, 'created_at' => now(), 'updated_at' => now()],
+            ['material_id' => $material->uuid, 'classroom_id' => $classroom7D->uuid, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $path = 'classroom/materials/bab1.pdf';
+        \Illuminate\Support\Facades\Storage::disk('public')->put($path, 'isi pdf dummy');
+        $file = \App\Models\ClassroomMaterialFile::create([
+            'material_id' => $material->uuid, 'original_name' => 'BAB1New.pdf', 'stored_name' => 'bab1.pdf',
+            'path' => $path, 'mime' => 'application/pdf', 'size_original' => 100, 'size_compressed' => 100, 'sort_order' => 1,
+        ]);
+
+        // Siswa 7D (BUKAN anggota kelas asal 7B) tetap harus bisa unduh & pratinjau.
+        $this->actingAs($student)->get(route('classroom.material.file', $file))->assertStatus(200);
+        $this->actingAs($student)->get(route('classroom.material.file.preview', $file))->assertStatus(200);
+    }
+
+    public function test_siswa_di_kelas_non_asal_tetap_bisa_unduh_file_tugas(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $teacher = User::create(['username' => 'teacher_tugas_file', 'password' => Hash::make('password'), 'access' => 'guru']);
+        $student = User::create(['username' => 'student_7d_tugas_file', 'password' => Hash::make('password'), 'access' => 'siswa']);
+        $semester = Semester::create(['semester' => 1, 'tahun' => '2024/2025', 'aktif' => true]);
+        $kelas7B = Kelas::create(['tingkat' => 7, 'kelas' => 'B']);
+        $kelas7D = Kelas::create(['tingkat' => 7, 'kelas' => 'D']);
+        \App\Models\Siswa::create(['id_login' => $student->uuid, 'id_kelas' => $kelas7D->uuid, 'nama' => 'Student 7D Tugas', 'nis' => '12347', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+
+        $pelajaran = Pelajaran::create(['nama' => 'Pendidikan Pancasila', 'ringkasan' => 'PPKN', 'kkm' => 75]);
+        $classroom7B = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7B->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-B Tugas', 'status' => 'published', 'class_code' => 'TUGAS7B', 'created_by' => $teacher->uuid]);
+        $classroom7D = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7D->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-D Tugas', 'status' => 'published', 'class_code' => 'TUGAS7D', 'created_by' => $teacher->uuid]);
+
+        \App\Models\ClassroomMember::create(['classroom_id' => $classroom7D->uuid, 'user_id' => $student->uuid, 'role_in_class' => 'siswa', 'joined_at' => now()]);
+
+        // Tugas dibuat di 7B (kelas "asal"), ditaut jg ke 7D.
+        $assignment = \App\Models\ClassroomAssignment::create([
+            'classroom_id' => $classroom7B->uuid, 'created_by' => $teacher->uuid,
+            'title' => 'Tugas Ada File', 'status' => 'published', 'max_score' => 100,
+        ]);
+        \Illuminate\Support\Facades\DB::table('classroom_assignment_links')->insert([
+            ['assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7B->uuid, 'created_at' => now(), 'updated_at' => now()],
+            ['assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7D->uuid, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $path = 'classroom/assignments/lembar-kerja.pdf';
+        \Illuminate\Support\Facades\Storage::disk('public')->put($path, 'isi pdf dummy');
+        $file = \App\Models\ClassroomAssignmentFile::create([
+            'assignment_id' => $assignment->uuid, 'original_name' => 'LembarKerja.pdf', 'stored_name' => 'lembar-kerja.pdf',
+            'path' => $path, 'mime' => 'application/pdf', 'size_original' => 100, 'size_compressed' => 100,
+        ]);
+
+        $this->actingAs($student)->get(route('classroom.assignment.file', $file))->assertStatus(200);
+    }
+
+    public function test_guru_pengampu_kelas_non_asal_tetap_bisa_unduh_file_submission(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $teacher = User::create(['username' => 'teacher_submission_file', 'password' => Hash::make('password'), 'access' => 'guru']);
+        $guru = Guru::create(['id_login' => $teacher->uuid, 'nama' => 'Guru Submission', 'nik' => '3333333333', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+        $student = User::create(['username' => 'student_7d_submission_file', 'password' => Hash::make('password'), 'access' => 'siswa']);
+
+        $semester = Semester::create(['semester' => 1, 'tahun' => '2024/2025', 'aktif' => true]);
+        $kelas7B = Kelas::create(['tingkat' => 7, 'kelas' => 'B']);
+        $kelas7D = Kelas::create(['tingkat' => 7, 'kelas' => 'D']);
+        \App\Models\Siswa::create(['id_login' => $student->uuid, 'id_kelas' => $kelas7D->uuid, 'nama' => 'Student 7D Sub', 'nis' => '12348', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+
+        $pelajaran = Pelajaran::create(['nama' => 'Pendidikan Pancasila', 'ringkasan' => 'PPKN', 'kkm' => 75]);
+        $classroom7B = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7B->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-B Sub', 'status' => 'published', 'class_code' => 'SUB7B', 'created_by' => $teacher->uuid]);
+        $classroom7D = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7D->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-D Sub', 'status' => 'published', 'class_code' => 'SUB7D', 'created_by' => $teacher->uuid]);
+
+        // Guru mengajar 7D (bukan 7B — kelas asal tugas) via Ngajar.
+        Ngajar::create(['id_guru' => $guru->uuid, 'id_kelas' => $kelas7D->uuid, 'id_pelajaran' => $pelajaran->uuid]);
+
+        $assignment = \App\Models\ClassroomAssignment::create([
+            'classroom_id' => $classroom7B->uuid, 'created_by' => $teacher->uuid,
+            'title' => 'Tugas Submission', 'status' => 'published', 'max_score' => 100,
+        ]);
+        \Illuminate\Support\Facades\DB::table('classroom_assignment_links')->insert([
+            ['assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7B->uuid, 'created_at' => now(), 'updated_at' => now()],
+            ['assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7D->uuid, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $submission = \App\Models\ClassroomSubmission::create([
+            'assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7D->uuid,
+            'student_id' => $student->uuid, 'status' => 'submitted', 'submitted_at' => now(),
+        ]);
+
+        $path = 'classroom/submissions/jawaban.pdf';
+        \Illuminate\Support\Facades\Storage::disk('public')->put($path, 'isi pdf dummy');
+        $file = \App\Models\ClassroomSubmissionFile::create([
+            'submission_id' => $submission->uuid, 'original_name' => 'Jawaban.pdf', 'stored_name' => 'jawaban.pdf',
+            'path' => $path, 'mime' => 'application/pdf', 'size_original' => 100, 'size_compressed' => 100,
+        ]);
+
+        $this->actingAs($teacher)->get(route('classroom.submission.file', $file))->assertStatus(200);
+    }
+
     public function test_comments_and_submissions_are_segregated_by_classroom()
     {
         $teacher = User::create([

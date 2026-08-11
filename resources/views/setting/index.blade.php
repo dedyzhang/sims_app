@@ -79,6 +79,138 @@
             <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
         </form>
 
+        {{-- Latar Panel Login: default (gradien biru bawaan), warna polos, atau gambar unggahan
+             dgn fokus/zoom yg bisa diatur (preview live meniru persis rendering di halaman login). --}}
+        @php
+            $loginBgImgPath = $settings['login_bg_image'] ?? null;
+            $loginBgHasImg = $loginBgImgPath && \Illuminate\Support\Facades\Storage::disk('public')->exists($loginBgImgPath);
+            $loginBgImgUrl = $loginBgHasImg ? asset('storage/' . $loginBgImgPath) : null;
+        @endphp
+        <form method="POST" action="{{ route('setting.loginBackground') }}" enctype="multipart/form-data" class="card p-6 space-y-4 mt-5"
+              x-data="loginBgForm({
+                  type: {{ Js::from(old('login_bg_type', $settings['login_bg_type'] ?? 'default')) }},
+                  color: {{ Js::from(old('login_bg_color', $settings['login_bg_color'] ?? '#1e3a8a')) }},
+                  existingUrl: {{ Js::from($loginBgImgUrl) }},
+                  focusX: {{ (float) ($settings['login_bg_focus_x'] ?? 50) }},
+                  focusY: {{ (float) ($settings['login_bg_focus_y'] ?? 50) }},
+                  zoom: {{ (float) ($settings['login_bg_zoom'] ?? 100) }},
+              })">
+            @csrf
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="image" class="w-4 h-4 text-primary"></i> Latar Panel Login</h2>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">Ganti tampilan panel kiri (biru) di halaman login: pakai gradien bawaan, warna polos, atau unggah gambar sendiri.</p>
+            </div>
+
+            {{-- Pilihan tipe --}}
+            <div class="grid grid-cols-3 gap-2">
+                <label class="cursor-pointer">
+                    <input type="radio" name="login_bg_type" value="default" x-model="type" class="hidden peer">
+                    <div class="border-2 rounded-xl p-3 text-center transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600">
+                        <i data-lucide="sparkles" class="w-4 h-4 mx-auto text-slate-400 mb-1"></i>
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Default</p>
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="login_bg_type" value="color" x-model="type" class="hidden peer">
+                    <div class="border-2 rounded-xl p-3 text-center transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600">
+                        <i data-lucide="palette" class="w-4 h-4 mx-auto text-slate-400 mb-1"></i>
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Warna Polos</p>
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="login_bg_type" value="image" x-model="type" class="hidden peer">
+                    <div class="border-2 rounded-xl p-3 text-center transition peer-checked:border-primary peer-checked:bg-primary-50 border-slate-200 dark:border-slate-600">
+                        <i data-lucide="image" class="w-4 h-4 mx-auto text-slate-400 mb-1"></i>
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Gambar</p>
+                    </div>
+                </label>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-5 items-start pt-2">
+                {{-- Kontrol kiri --}}
+                <div class="space-y-4">
+                    <div x-show="type==='color'" x-cloak>
+                        <label class="form-label">Warna Latar</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color" x-model="color" class="w-12 h-10 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer">
+                            <input type="text" name="login_bg_color" x-model="color" maxlength="7" class="form-input font-mono text-sm" placeholder="#1e3a8a">
+                        </div>
+                    </div>
+
+                    <div x-show="type==='image'" x-cloak class="space-y-4">
+                        <div>
+                            <label class="form-label">Unggah Gambar</label>
+                            <input type="file" name="login_bg_image" accept="image/*" @change="onFile($event)"
+                                   class="text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-50 file:text-primary hover:file:bg-primary-100 cursor-pointer">
+                            @error('login_bg_image')<p class="text-xs text-rose-500 mt-1">{{ $message }}</p>@enderror
+                            @if($loginBgHasImg)
+                            <label class="inline-flex items-center gap-1.5 text-xs text-rose-600 cursor-pointer mt-2">
+                                <input type="checkbox" name="hapus_login_bg_image" value="1" class="rounded border-slate-300 text-rose-600 focus:ring-rose-500"> Hapus gambar (kembali ke default)
+                            </label>
+                            @endif
+                        </div>
+
+                        <template x-if="previewUrl">
+                            <div class="space-y-3">
+                                <div>
+                                    {{-- Panel login selalu hidden di HP/tablet (cuma tampil di layar desktop, lebar
+                                         setengah layar & tinggi penuh) — pilihan di sini SENGAJA meniru rasio layar
+                                         desktop nyata (~4:5 s.d. persegi), BUKAN bentuk HP potret/lanskap yg tak
+                                         relevan krn panel ini tak pernah muncul di HP sama sekali. --}}
+                                    <label class="form-label text-xs">Bentuk Pratinjau (meniru rasio panel login di layar desktop — cuma bantu pas atur, bukan crop permanen)</label>
+                                    <select x-model="previewAspect" class="form-select py-1.5 text-sm">
+                                        <option value="4/5">Monitor Umum — 4:5 (rekomendasi)</option>
+                                        <option value="1/1">Persegi — 1:1</option>
+                                        <option value="3/4">Monitor Lebar — 3:4</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="form-label text-xs">Geser Horizontal <span x-text="Math.round(focusX)+'%'" class="text-primary font-bold"></span></label>
+                                    <input type="range" name="login_bg_focus_x" x-model.number="focusX" min="0" max="100" step="1" class="w-full accent-primary">
+                                </div>
+                                <div>
+                                    <label class="form-label text-xs">Geser Vertikal <span x-text="Math.round(focusY)+'%'" class="text-primary font-bold"></span></label>
+                                    <input type="range" name="login_bg_focus_y" x-model.number="focusY" min="0" max="100" step="1" class="w-full accent-primary">
+                                </div>
+                                <div>
+                                    <label class="form-label text-xs">Perbesaran (Zoom) <span x-text="Math.round(zoom)+'%'" class="text-primary font-bold"></span></label>
+                                    <input type="range" name="login_bg_zoom" x-model.number="zoom" min="100" max="300" step="5" class="w-full accent-primary">
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="!previewUrl">
+                            <p class="text-xs text-slate-400">Pilih gambar dulu utk mengatur posisi & perbesaran.</p>
+                        </template>
+                    </div>
+
+                    <p x-show="type==='default'" x-cloak class="text-xs text-slate-400">Gradien biru gelap bawaan — tidak ada pengaturan tambahan.</p>
+                </div>
+
+                {{-- Pratinjau live: teknik render-nya SAMA PERSIS dgn halaman login (img +
+                     object-fit:cover, BUKAN background-size:%) — object-fit menghitung crop dari
+                     rasio ASLI gambar, jadi framing-nya konsisten walau bentuk kontainer beda
+                     (kotak pratinjau di sini vs panel asli yg ukurannya ikut layar pengunjung). --}}
+                <div class="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm mx-auto w-full max-w-[220px]"
+                     :style="'aspect-ratio:' + (type==='image' ? previewAspect : '4/5')">
+                    <div class="w-full h-full relative flex items-center justify-center text-white" :style="previewStyle"
+                         :class="type==='default' ? 'bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900' : ''">
+                        <template x-if="type==='image' && previewUrl">
+                            <img :src="previewUrl" class="absolute inset-0 w-full h-full object-cover" :style="imgStyle">
+                        </template>
+                        <template x-if="type==='image' && previewUrl">
+                            <div class="absolute inset-0 bg-gradient-to-br from-black/55 via-black/45 to-black/60"></div>
+                        </template>
+                        <div class="relative z-10 text-center px-3">
+                            <p class="font-black text-sm tracking-tight">SIMS</p>
+                            <p class="text-[9px] text-slate-300 mt-0.5">Pratinjau panel login</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
+        </form>
+
         {{-- Jenjang Sekolah: menentukan rentang tingkat kelas yang ditawarkan di Data Kelas --}}
         <form method="POST" action="{{ route('setting.jenjangSekolah') }}" class="card p-6 space-y-4 mt-5">
             @csrf
@@ -809,6 +941,37 @@
 <script src="{{ asset('js/geo-location.js') }}?v={{ filemtime(public_path('js/geo-location.js')) }}"></script>
 <script src="{{ asset('js/geo-map-layers.js') }}"></script>
 <script>
+function loginBgForm(cfg) {
+    return {
+        type: cfg.type || 'default',
+        color: cfg.color || '#1e3a8a',
+        previewUrl: cfg.existingUrl || null,
+        focusX: cfg.focusX ?? 50,
+        focusY: cfg.focusY ?? 50,
+        zoom: cfg.zoom ?? 100,
+        // Meniru rasio panel login DESKTOP nyata (~4:5) — panel itu hidden total di HP/tablet
+        // (cuma tampil lg:flex, setengah lebar layar & tinggi penuh), jadi bentuk pratinjau
+        // potret-HP/lanskap-lebar tak relevan sama sekali di sini.
+        previewAspect: '4/5',
+        onFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => { this.previewUrl = ev.target.result; };
+            reader.readAsDataURL(file);
+        },
+        get previewStyle() {
+            return this.type === 'color' ? 'background-color:' + this.color + ';' : '';
+        },
+        // object-position + transform:scale (BUKAN background-size:%) — lihat catatan di
+        // markup pratinjau & auth/login.blade.php: object-fit menghitung crop dari rasio ASLI
+        // gambar, konsisten dgn halaman login sungguhan walau bentuk kontainer beda.
+        get imgStyle() {
+            return `object-position:${this.focusX}% ${this.focusY}%;transform:scale(${this.zoom / 100});transform-origin:${this.focusX}% ${this.focusY}%;`;
+        },
+    };
+}
+
 function qrLokasi(cfg){
     return {
         lat: cfg.lat || '', lng: cfg.lng || '',

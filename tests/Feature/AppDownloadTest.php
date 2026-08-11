@@ -104,4 +104,45 @@ class AppDownloadTest extends TestCase
         $this->actingAs($siswa)->get(route('app.download'))->assertNotFound();
         $this->actingAs($siswa)->get(route('app.download.file', 'apk'))->assertNotFound();
     }
+
+    /**
+     * Halaman login (sebelum auth) juga bisa langsung unduh APK/installer — dipakai lewat
+     * route TERPISAH (guest.app.download.file) yg SENGAJA di luar middleware 'auth', supaya
+     * pengunjung yg belum punya akun pun bisa pasang aplikasinya duluan. Controller yg dipakai
+     * SAMA (AppDownloadController::download()) — method itu sendiri tak pernah baca
+     * auth()->user(), jadi aman diekspos publik jg.
+     */
+    public function test_tamu_belum_login_bisa_unduh_apk_lewat_route_publik(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('app-downloads/guest_apk_test.apk', 'DUMMYAPK');
+        Setting::set('app_download_aktif', '1');
+        Setting::set('app_apk_path', 'app-downloads/guest_apk_test.apk');
+        Setting::set('app_apk_name', 'sims.apk');
+
+        // Tanpa actingAs() sama sekali — benar-benar tamu.
+        $this->get(route('guest.app.download.file', 'apk'))
+            ->assertOk()
+            ->assertDownload('sims.apk');
+    }
+
+    public function test_tamu_belum_login_bisa_unduh_windows_lewat_route_publik(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('app-downloads/guest_win_test.exe', 'DUMMYEXE');
+        Setting::set('app_download_aktif', '1');
+        Setting::set('app_windows_path', 'app-downloads/guest_win_test.exe');
+        Setting::set('app_windows_name', 'sims-setup.exe');
+
+        $this->get(route('guest.app.download.file', 'windows'))
+            ->assertOk()
+            ->assertDownload('sims-setup.exe');
+    }
+
+    public function test_route_publik_juga_404_saat_nonaktif(): void
+    {
+        Setting::set('app_download_aktif', '0');
+
+        $this->get(route('guest.app.download.file', 'apk'))->assertNotFound();
+    }
 }

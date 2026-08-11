@@ -124,6 +124,53 @@ class SettingController extends Controller
         return back()->with('success', 'Identitas sekolah disimpan.');
     }
 
+    /**
+     * Latar panel kiri halaman login: default (gradien bawaan), warna polos, atau gambar
+     * unggahan. Utk gambar, focus_x/y + zoom (dikirim dari slider live-preview di halaman
+     * setting) dipakai sbg background-position/-size di CSS — bukan crop pixel permanen,
+     * supaya tetap adaptif ke tinggi layar admin yg beda-beda (panel ini full-height,
+     * lebar tetap 50% desktop) sambil admin tetap bisa "atur aspect ratio" tampilannya.
+     */
+    public function setLoginBackground(Request $request)
+    {
+        abort_unless(auth()->user()->canAccess('manage_settings'), 403);
+
+        $data = $request->validate([
+            'login_bg_type'   => 'required|in:default,color,image',
+            'login_bg_color'  => 'nullable|regex:/^#[0-9a-fA-F]{6}$/',
+            'login_bg_image'  => 'nullable|image|mimes:png,jpg,jpeg,webp|max:5120',
+            'login_bg_focus_x' => 'nullable|numeric|min:0|max:100',
+            'login_bg_focus_y' => 'nullable|numeric|min:0|max:100',
+            'login_bg_zoom'    => 'nullable|numeric|min:100|max:300',
+        ]);
+
+        Setting::set('login_bg_type', $data['login_bg_type']);
+        if (!empty($data['login_bg_color'])) {
+            Setting::set('login_bg_color', $data['login_bg_color']);
+        }
+        Setting::set('login_bg_focus_x', (string) ($data['login_bg_focus_x'] ?? 50));
+        Setting::set('login_bg_focus_y', (string) ($data['login_bg_focus_y'] ?? 50));
+        Setting::set('login_bg_zoom', (string) ($data['login_bg_zoom'] ?? 100));
+
+        if ($request->hasFile('login_bg_image')) {
+            $old = Setting::get('login_bg_image');
+            if ($old && Storage::disk('public')->exists($old)) {
+                Storage::disk('public')->delete($old);
+            }
+            $ext = Uploads::safeExtension($request->file('login_bg_image'), ['png', 'jpg', 'jpeg', 'webp'], 'jpg');
+            $path = $request->file('login_bg_image')->storeAs('login-bg', 'login_bg_'.now()->format('YmdHis').'.'.$ext, 'public');
+            Setting::set('login_bg_image', $path);
+        } elseif ($request->boolean('hapus_login_bg_image')) {
+            $old = Setting::get('login_bg_image');
+            if ($old && Storage::disk('public')->exists($old)) {
+                Storage::disk('public')->delete($old);
+            }
+            Setting::set('login_bg_image', '');
+        }
+
+        return back()->with('success', 'Latar belakang halaman login disimpan.');
+    }
+
     /** Wajib/tidaknya registrasi wajah dipaksa saat login pertama (gate EnsureFaceRegistered). */
     public function setWajibDaftarWajah(Request $request)
     {

@@ -212,11 +212,31 @@
 <body class="min-h-screen bg-slate-50 flex overflow-x-hidden relative">
 
     {{-- 1. LEFT SIDE: Branding Panel (Visible only on Desktop) --}}
-    <div class="login-brand-panel hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900 relative items-center justify-center text-white overflow-hidden select-none">
-        {{-- Mesh overlay & Glowing Blobs --}}
+    @php
+        // Dua sumber gaya: kelas Tailwind (dipakai kalau 'default') vs inline style (dipakai
+        // utk 'color', krn nilainya dinamis dari admin — tak bisa jadi kelas Tailwind).
+        $brandPanelClass = $loginBgType === 'default' ? 'bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-900' : '';
+        $brandPanelStyle = $loginBgType === 'color' ? 'background-color: ' . $loginBgColor . ';' : '';
+    @endphp
+    <div class="login-brand-panel hidden lg:flex lg:w-1/2 {{ $brandPanelClass }} relative items-center justify-center text-white overflow-hidden select-none" style="{{ $brandPanelStyle }}">
+        @if($loginBgType === 'image')
+        {{-- <img> + object-fit:cover (BUKAN background-size:%) — object-fit menghitung crop
+             berdasar RASIO ASLI GAMBAR vs kontainer, jadi framing-nya konsisten persis dgn
+             pratinjau di halaman Pengaturan walau bentuk kontainer beda (kotak admin vs panel
+             login asli yg lebar/tingginya ikut ukuran layar pengunjung) — background-size:%
+             lama dulu dihitung relatif ke kontainer SENDIRI, hasilnya beda drastis antar bentuk
+             kontainer beda, itu penyebab "rasio gambar di halaman login tak sama dgn yg diupload". --}}
+        <img src="{{ $loginBgImageUrl }}" alt="" class="absolute inset-0 w-full h-full object-cover"
+             style="object-position: {{ $loginBgFocusX }}% {{ $loginBgFocusY }}%; transform: scale({{ $loginBgZoom / 100 }}); transform-origin: {{ $loginBgFocusX }}% {{ $loginBgFocusY }}%;">
+        {{-- Overlay gelap supaya teks putih tetap terbaca di atas foto bebas admin --}}
+        <div class="absolute inset-0 bg-gradient-to-br from-black/55 via-black/45 to-black/60"></div>
+        @endif
+        {{-- Mesh overlay & Glowing Blobs — dipakai utk default & warna polos (netral di atas warna apa pun), disembunyikan utk foto (sudah ada overlay gelap sendiri) --}}
+        @if($loginBgType !== 'image')
         <div class="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
         <div class="blob-1 absolute -top-40 -left-40 w-96 h-96 rounded-full bg-blue-600/20 filter blur-[90px]"></div>
         <div class="blob-2 absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-amber-500/15 filter blur-[90px]"></div>
+        @endif
 
         {{-- Content Container --}}
         <div class="login-brand-inner relative z-10 max-w-md flex flex-col space-y-8">
@@ -456,6 +476,57 @@
                     </form>
                 </div>
             </div>
+
+            {{-- Unduh Aplikasi: apk Android / installer Windows — tampil kalau admin aktifkan
+                 & file-nya ada, bisa diakses TANPA login (route guest.app.download.file). --}}
+            @php
+                $loginAppDownloadOn = \App\Models\Setting::get('app_download_aktif') === '1';
+                $loginApkPath = \App\Models\Setting::get('app_apk_path');
+                $loginApkOk = $loginAppDownloadOn && $loginApkPath && \Illuminate\Support\Facades\Storage::disk('local')->exists($loginApkPath);
+                $loginWinPath = \App\Models\Setting::get('app_windows_path');
+                $loginWinOk = $loginAppDownloadOn && $loginWinPath && \Illuminate\Support\Facades\Storage::disk('local')->exists($loginWinPath);
+            @endphp
+            @if($loginApkOk || $loginWinOk)
+            <div class="mt-6 pt-5 border-t border-slate-200/70">
+                <p class="text-center text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">Unduh Aplikasi</p>
+                <div class="flex items-center justify-center gap-3 flex-wrap">
+                    @if($loginApkOk)
+                    <a href="{{ route('guest.app.download.file', 'apk') }}" class="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.98] transition shadow-sm">
+                        <span class="grid place-items-center w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex-shrink-0">
+                            <svg viewBox="0 0 24 24" fill="currentColor" class="w-[18px] h-[18px]" aria-hidden="true">
+                                <path d="M6 9v6a1 1 0 0 0 1 1h1v3a1.5 1.5 0 0 0 3 0v-3h2v3a1.5 1.5 0 0 0 3 0v-3h1a1 1 0 0 0 1-1V9H6Z"/>
+                                <path d="M7.5 6.5 6.3 4.6a.5.5 0 1 1 .85-.53L8.4 6.1a7.9 7.9 0 0 1 7.2 0l1.25-2.03a.5.5 0 1 1 .85.53L16.5 6.5A6.9 6.9 0 0 1 19 9H5a6.9 6.9 0 0 1 2.5-2.5Z"/>
+                                <circle cx="9" cy="8.2" r=".7" fill="#fff"/>
+                                <circle cx="15" cy="8.2" r=".7" fill="#fff"/>
+                                <rect x="3.2" y="9.5" width="1.6" height="5" rx=".8"/>
+                                <rect x="19.2" y="9.5" width="1.6" height="5" rx=".8"/>
+                            </svg>
+                        </span>
+                        <span class="text-left leading-tight">
+                            <span class="block text-[10px] text-slate-400 font-semibold">Android</span>
+                            <span class="block text-xs font-bold text-slate-700">Unduh APK</span>
+                        </span>
+                    </a>
+                    @endif
+                    @if($loginWinOk)
+                    <a href="{{ route('guest.app.download.file', 'windows') }}" class="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.98] transition shadow-sm">
+                        <span class="grid place-items-center w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 flex-shrink-0">
+                            <svg viewBox="0 0 24 24" fill="currentColor" class="w-[18px] h-[18px]" aria-hidden="true">
+                                <rect x="3" y="3" width="8" height="8" rx="1"/>
+                                <rect x="13" y="3" width="8" height="8" rx="1"/>
+                                <rect x="3" y="13" width="8" height="8" rx="1"/>
+                                <rect x="13" y="13" width="8" height="8" rx="1"/>
+                            </svg>
+                        </span>
+                        <span class="text-left leading-tight">
+                            <span class="block text-[10px] text-slate-400 font-semibold">Windows</span>
+                            <span class="block text-xs font-bold text-slate-700">Unduh Installer</span>
+                        </span>
+                    </a>
+                    @endif
+                </div>
+            </div>
+            @endif
 
             <p class="login-footer-mobile text-center text-xs text-slate-400 mt-8 font-medium lg:hidden">&copy; {{ date('Y') }} {{ $namaSekolah ?? 'Edutive' }} • Hak Cipta Dilindungi</p>
         </div>

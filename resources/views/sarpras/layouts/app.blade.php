@@ -132,17 +132,40 @@
 .sarpras-scope .dataTables_scrollBody {
     overflow-x:auto;
 }
-.sarpras-scope table:not(.ttd) { max-width:100%; }
-.sarpras-scope table:not(.ttd) th,
-.sarpras-scope table:not(.ttd) td,
-.sarpras-scope table.dataTable.nowrap th,
-.sarpras-scope table.dataTable.nowrap td,
+/* Tabel BUKAN DataTables: batasi max-width spy tak keluar kartu (word-break di th+td-nya). */
+.sarpras-scope table:not(.ttd):not(.dataTable) { max-width:100%; }
+.sarpras-scope table:not(.ttd):not(.dataTable) th,
+.sarpras-scope table:not(.ttd):not(.dataTable) td,
 .sarpras-scope .data-table th,
 .sarpras-scope .data-table td {
     white-space:normal !important;
     overflow-wrap:anywhere;
     word-break:break-word;
     vertical-align:top;
+}
+/* Tabel DataTables (scrollX): JANGAN di-max-width:100% — itu memaksa tabel internal DataTables
+   muat di lebar kontainer sempit (mis. layar HP), sehingga kolom terpaksa dipepetkan sampai
+   teks header pecah di tengah kata ("Peminjam" -> "Pemi"/"njam"). scrollX sudah punya scroll
+   horizontal sendiri (.dataTables_scrollBody { overflow-x:auto } di atas) — biarkan tabelnya
+   melebar natural & discroll, bukan dipaksa muat. Header (th) sengaja TIDAK di-word-break biar
+   label kolom tetap 1 baris; body (td) tetap boleh wrap utk teks panjang di kolom yg sudah lega. */
+.sarpras-scope table.dataTable td {
+    white-space:normal !important;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+    vertical-align:top;
+}
+/* overflow-wrap:anywhere di .sarpras-scope (baris atas) ke-inherit turun ke SEMUA elemen di
+   bawahnya termasuk th DataTables, walau th tak disebut di rule manapun di atas — inherited
+   value tetap "anywhere" kalau tak di-reset eksplisit. Itu bikin browser hitung intrinsic width
+   header jadi nyaris nol (krn "anywhere" boleh potong di mana saja, bukan cuma di whitespace),
+   sehingga scrollX DataTables salah kira tabel muat di kontainer sempit & label kolom terpepet
+   sampai pecah di tengah kata. Reset eksplisit ke "normal" di sini spy th kembali dihitung
+   berdasar lebar kata utuh & scrollX bisa melebarkan tabel + scroll horizontal spt seharusnya. */
+.sarpras-scope table.dataTable thead th {
+    overflow-wrap:normal;
+    word-break:normal;
+    white-space:nowrap;
 }
 .sarpras-scope td .badge,
 .sarpras-scope th .badge,
@@ -385,11 +408,11 @@
     border-color:#1a73e8 !important;
     box-shadow:0 0 0 3px rgba(26,115,232,.14);
 }
-.sarpras-google-shell [class*="bg-slate-900"],
-.sarpras-google-shell [class*="hover:bg-slate-800"]:hover {
+.sarpras-google-shell [class~="bg-slate-900"],
+.sarpras-google-shell [class~="hover:bg-slate-800"]:hover {
     background-color:#1a73e8 !important;
 }
-.sarpras-google-shell [class*="bg-primary"] {
+.sarpras-google-shell [class~="bg-primary"] {
     background-color:#1a73e8 !important;
 }
 .sarpras-google-shell .text-primary,

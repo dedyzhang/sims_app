@@ -81,6 +81,14 @@ class AppServiceProvider extends ServiceProvider
             $alamat = null;
             $logoUrl = null;
             $logoExt = null;
+            // Latar panel login: 'default' (gradien bawaan) selalu jadi fallback aman kalau
+            // tipe 'image' dipilih tapi filenya somehow hilang/belum diunggah.
+            $loginBgType = 'default';
+            $loginBgColor = '#1e3a8a';
+            $loginBgImageUrl = null;
+            $loginBgFocusX = 50.0;
+            $loginBgFocusY = 50.0;
+            $loginBgZoom = 100.0;
             try {
                 if (Schema::hasTable('settings')) {
                     $nama   = Setting::get('nama_sekolah', 'Edutive') ?: 'Edutive';
@@ -90,6 +98,19 @@ class AppServiceProvider extends ServiceProvider
                         $logoUrl = asset('storage/' . $logoPath);
                         $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
                     }
+
+                    $loginBgType = Setting::get('login_bg_type', 'default') ?: 'default';
+                    $loginBgColor = Setting::get('login_bg_color', '#1e3a8a') ?: '#1e3a8a';
+                    $bgPath = Setting::get('login_bg_image');
+                    if ($bgPath && file_exists(storage_path('app/public/' . $bgPath))) {
+                        $loginBgImageUrl = asset('storage/' . $bgPath);
+                    }
+                    if ($loginBgType === 'image' && !$loginBgImageUrl) {
+                        $loginBgType = 'default';
+                    }
+                    $loginBgFocusX = (float) (Setting::get('login_bg_focus_x', 50) ?: 50);
+                    $loginBgFocusY = (float) (Setting::get('login_bg_focus_y', 50) ?: 50);
+                    $loginBgZoom = (float) (Setting::get('login_bg_zoom', 100) ?: 100);
                 }
             } catch (\Throwable $e) {
                 // tabel belum ada (mis. saat migrate) — pakai default
@@ -97,7 +118,13 @@ class AppServiceProvider extends ServiceProvider
             $view->with('namaSekolah', $nama)
                  ->with('alamatSekolah', $alamat)
                  ->with('sekolahLogoUrl', $logoUrl)
-                 ->with('sekolahLogoExt', $logoExt);
+                 ->with('sekolahLogoExt', $logoExt)
+                 ->with('loginBgType', $loginBgType)
+                 ->with('loginBgColor', $loginBgColor)
+                 ->with('loginBgImageUrl', $loginBgImageUrl)
+                 ->with('loginBgFocusX', $loginBgFocusX)
+                 ->with('loginBgFocusY', $loginBgFocusY)
+                 ->with('loginBgZoom', $loginBgZoom);
         });
 
         // Popup "Apa yang Baru" kini dievaluasi langsung di view layout (via whats-new-modal)

@@ -10,9 +10,11 @@ use App\Models\ClassroomAssignment;
 use App\Models\ClassroomAssignmentFile;
 use App\Models\ClassroomSubmission;
 use App\Models\Materi;
+use App\Models\Ngajar;
 use App\Models\NilaiFormatif;
 use App\Models\NilaiSumatif;
 use App\Models\TujuanPembelajaran;
+use App\Models\User;
 use App\Support\Audit;
 use App\Support\RichText;
 use Illuminate\Http\Request;
@@ -107,23 +109,8 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
     public function show(Request $request, ClassroomAssignment $assignment)
     {
         $classUuid = $request->query('class');
-        $classroom = null;
-        if ($classUuid) {
-            $classroom = $assignment->classrooms()->where('uuid', $classUuid)->first();
-        }
-        if (!$classroom) {
-            $user = $request->user();
-            if ($user->access === 'siswa' && $user->siswa?->id_kelas) {
-                $classroom = $assignment->classrooms()->where('id_kelas', $user->siswa->id_kelas)->first();
-            }
-            if (!$classroom && $user->guru) {
-                $ids = \App\Models\Ngajar::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
-                $classroom = $assignment->classrooms()->whereIn('id_kelas', $ids)->first();
-            }
-            if (!$classroom) {
-                $classroom = $assignment->classroom;
-            }
-        }
+        $classroom = $classUuid ? $assignment->classrooms()->where('uuid', $classUuid)->first() : null;
+        $classroom ??= $this->resolveViewableClassroom($assignment, $request->user());
 
         $this->authorize('view', $classroom);
         $user = $request->user();
@@ -345,23 +332,8 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
     public function submissions(Request $request, ClassroomAssignment $assignment)
     {
         $classUuid = $request->query('class');
-        $classroom = null;
-        if ($classUuid) {
-            $classroom = $assignment->classrooms()->where('uuid', $classUuid)->first();
-        }
-        if (!$classroom) {
-            $user = $request->user();
-            if ($user->access === 'siswa' && $user->siswa?->id_kelas) {
-                $classroom = $assignment->classrooms()->where('id_kelas', $user->siswa->id_kelas)->first();
-            }
-            if (!$classroom && $user->guru) {
-                $ids = \App\Models\Ngajar::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
-                $classroom = $assignment->classrooms()->whereIn('id_kelas', $ids)->first();
-            }
-            if (!$classroom) {
-                $classroom = $assignment->classroom;
-            }
-        }
+        $classroom = $classUuid ? $assignment->classrooms()->where('uuid', $classUuid)->first() : null;
+        $classroom ??= $this->resolveViewableClassroom($assignment, $request->user());
 
         $this->authorize('manage', $classroom);
 
@@ -382,11 +354,37 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         return view('classroom.grading', compact('assignment', 'classroom', 'submissions'));
     }
 
-    public function download(ClassroomAssignmentFile $file)
+    public function download(Request $request, ClassroomAssignmentFile $file)
     {
-        $this->authorize('view', $file->assignment->classroom);
+        $this->authorize('view', $this->resolveViewableClassroom($file->assignment, $request->user()));
 
         abort_unless(Storage::disk('public')->exists($file->path), 404);
         return Storage::disk('public')->download($file->path, $file->original_name);
+    }
+
+    /**
+     * Satu tugas bisa ditaut ke BANYAK kelas sekaligus (classroom_assignment_links) — kelas
+     * "asal" (`ClassroomAssignment::classroom()`) cuma satu, dipakai buat breadcrumb. Siswa/
+     * guru yg mengakses tugas ini lewat kelas MEREKA SENDIRI (bukan kelas asal) harus tetap
+     * lolos — cari dulu kelas yg ditaut & relevan ke user ini, baru fallback ke kelas asal
+     * kalau tak ketemu (mis. guru/admin pengelola yg bukan anggota kelas manapun).
+     */
+    private function resolveViewableClassroom(ClassroomAssignment $assignment, User $user): ?Classroom
+    {
+        if ($user->access === 'siswa' && $user->siswa?->id_kelas) {
+            $classroom = $assignment->classrooms()->where('id_kelas', $user->siswa->id_kelas)->first();
+            if ($classroom) {
+                return $classroom;
+            }
+        }
+        if ($user->guru) {
+            $ids = Ngajar::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
+            $classroom = $assignment->classrooms()->whereIn('id_kelas', $ids)->first();
+            if ($classroom) {
+                return $classroom;
+            }
+        }
+
+        return $assignment->classroom;
     }
 }
