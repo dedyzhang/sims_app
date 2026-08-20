@@ -42,6 +42,8 @@
                 @endif
             </p>
 
+            @include('components.teacher-audio-player', ['audioLinks' => $quiz->audioLinks])
+
             <div class="arena-rx-cta-row pt-1"
                  @if(auth()->user()->access === 'siswa')
                  x-data="arenaSoloJoin({
@@ -248,7 +250,7 @@
                         @csrf
                         <button type="submit" class="arena-rx-tool tone-publish is-spotlight"
                                 @click="showPublishCoach = false"
-                                onclick="return confirm('Terbitkan experience ini? Siswa akan bisa main (solo butuh token).')">
+                                onclick="return confirm('Pastikan kualitas semua soal sudah dicek. Terbitkan experience ini sekarang? Siswa akan bisa main (solo butuh token).')">
                             <span class="arena-rx-tool-ico"><i data-lucide="rocket"></i></span>
                             <span class="arena-rx-tool-copy">
                                 <strong>Terbitkan</strong>
@@ -257,6 +259,11 @@
                             <span class="arena-rx-publish-glow" aria-hidden="true"></span>
                         </button>
                     </form>
+                    <a href="{{ route('classroom.arena.quality-page', [$classroom, $quiz]) }}"
+                       class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-[11px] font-black text-teal-700 transition hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-300 dark:hover:bg-teal-950/60">
+                        <i data-lucide="scan-search" class="h-4 w-4"></i>
+                        Cek kualitas dulu sebelum terbit
+                    </a>
                 </div>
                 @elseif($quiz->status === 'closed')
                 <form method="POST" action="{{ route('classroom.arena.reopen', [$classroom, $quiz]) }}" class="m-0">
@@ -409,15 +416,20 @@
             </form>
         </div>
 
-        <details class="arena-rx-preview">
+        <details id="preview-soal" class="arena-rx-preview" @if(request()->boolean('preview')) open @endif>
             <summary>
                 <span class="arena-rx-tool-ico tone-preview-ico"><i data-lucide="eye"></i></span>
                 <span>
                     <strong>Pratinjau soal</strong>
-                    <small>Kunci jawaban terlihat</small>
+                    <small>{{ $quiz->questions->count() }} soal · Kunci jawaban terlihat</small>
                 </span>
                 <i data-lucide="chevron-down" class="arena-rx-preview-chevron"></i>
             </summary>
+            <a href="{{ route('classroom.arena.quality-page', [$classroom, $quiz]) }}"
+               class="mt-3 inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-3 text-xs font-bold text-teal-700 transition hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-300 dark:hover:bg-teal-950/60">
+                <i data-lucide="scan-search" class="h-4 w-4"></i>
+                Cek kualitas semua soal ({{ $quiz->questions->count() }})
+            </a>
             <ol class="mt-3 space-y-3 list-decimal pl-5 text-sm">
                 @foreach($quiz->questions as $q)
                 <li>

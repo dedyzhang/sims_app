@@ -9,6 +9,7 @@ use App\Services\RagService;
 use App\Services\TeacherMaterialService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AiTeacherMaterialCancelTest extends TestCase
@@ -27,6 +28,8 @@ class AiTeacherMaterialCancelTest extends TestCase
     public function test_guru_can_cancel_owned_material(): void
     {
         $guru = $this->guru();
+        Storage::fake('local');
+        Storage::disk('local')->put('materials/math.pdf', 'materi test');
 
         $doc = AiDocument::create([
             'user_uuid' => $guru->uuid,
@@ -50,6 +53,7 @@ class AiTeacherMaterialCancelTest extends TestCase
 
         $this->assertDatabaseMissing('ai_documents', ['uuid' => $doc->uuid]);
         $this->assertDatabaseMissing('ai_document_chunks', ['document_id' => $doc->uuid]);
+        Storage::disk('local')->assertMissing('materials/math.pdf');
     }
 
     public function test_guru_cannot_cancel_material_owned_by_other(): void
@@ -88,5 +92,19 @@ class AiTeacherMaterialCancelTest extends TestCase
         $done = $rag->ingest($doc, __FILE__, 'text/plain');
 
         $this->assertSame(0, $done);
+    }
+
+    public function test_generator_soal_mendaftarkan_handler_hapus_materi(): void
+    {
+        $guru = $this->guru();
+
+        $html = $this->actingAs($guru)
+            ->get(route('ai.teacher.index'))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('async cancelMaterial(uuid)', $html);
+        $this->assertStringContainsString("method: 'DELETE'", $html);
+        $this->assertStringContainsString('this.urls.materialsCancel', $html);
     }
 }

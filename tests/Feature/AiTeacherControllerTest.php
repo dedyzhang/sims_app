@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AiTeacherHistory;
+use App\Models\AiDocument;
 use App\Models\AiUsageLog;
 use App\Models\Setting;
 use App\Models\User;
@@ -10,6 +11,7 @@ use App\Services\GeminiService;
 use App\Support\SchoolLetterhead;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
 use Tests\TestCase;
 use ZipArchive;
@@ -104,6 +106,149 @@ class AiTeacherControllerTest extends TestCase
             'feature' => 'teacher_quiz',
             'status' => 'success',
         ]);
+    }
+
+    public function test_generator_soal_bisa_memakai_pdf_scan_via_ai_studio(): void
+    {
+        $user = User::create([
+            'username' => 'guru-ai-pdf-scan',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru-pdf@belajar.id',
+        ]);
+
+        $filePath = tempnam(sys_get_temp_dir(), 'quiz-pdf-scan');
+        file_put_contents($filePath, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF");
+
+        $capturedPrompt = '';
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt) {
+            $mock->shouldReceive('documentText')
+                ->once()
+                ->withArgs(fn (array $documents, array $options) => ($documents[0]['mime'] ?? '') === 'application/pdf'
+                    && str_contains((string) ($documents[0]['name'] ?? ''), 'scan-bab-ekosistem.pdf')
+                    && trim((string) ($options['api_key'] ?? '')) !== '')
+                ->andReturn([
+                    'text' => 'Ekosistem sawah memiliki padi sebagai produsen dan belalang sebagai konsumen.',
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 20,
+                    'completion_tokens' => 30,
+                ]);
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt) use (&$capturedPrompt) {
+                    $capturedPrompt = $prompt;
+
+                    return str_contains($prompt, 'Ekosistem sawah memiliki padi')
+                        && str_contains($prompt, 'MATERI FILE:');
+                })
+                ->andReturn([
+                    'text' => "1. Contoh soal ekosistem\n\nKUNCI JAWABAN: A",
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 12,
+                    'completion_tokens' => 8,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz'), [
+            'topik' => 'Ekosistem sawah',
+            'jumlah' => 1,
+            'jenis' => 'pg',
+            'tingkat' => 'sedang',
+            'jenjang' => 'Kelas 5 SD',
+            'file' => new UploadedFile(
+                $filePath,
+                'scan-bab-ekosistem.pdf',
+                'application/pdf',
+                null,
+                true,
+            ),
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringContainsString('Ekosistem sawah memiliki padi', $capturedPrompt);
+        $this->assertDatabaseHas('ai_usage_logs', [
+            'user_uuid' => $user->uuid,
+            'feature' => 'teacher_pdf_extract',
+            'status' => 'success',
+        ]);
+        $this->assertDatabaseHas('ai_usage_logs', [
+            'user_uuid' => $user->uuid,
+            'feature' => 'teacher_quiz',
+            'status' => 'success',
+        ]);
+    }
+
+    public function test_pdf_scan_panjang_memakai_teks_ocr_sebagai_sumber_rag(): void
+    {
+        Storage::fake('local');
+        config()->set('ai.max_input_chars', 80);
+        config()->set('ai.rag.queue_ingest', false);
+        config()->set('ai.rag.chunk_chars', 2000);
+        config()->set('ai.rag.chunk_overlap', 0);
+
+        $user = User::create([
+            'username' => 'guru-ai-pdf-scan-long',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru-pdf-long@belajar.id',
+        ]);
+
+        $filePath = tempnam(sys_get_temp_dir(), 'quiz-pdf-scan-long');
+        file_put_contents($filePath, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF");
+
+        $ocrText = str_repeat('Bab ekosistem sawah menjelaskan padi sebagai produsen utama. ', 8);
+        $capturedPrompt = '';
+        $this->mock(GeminiService::class, function (MockInterface $mock) use ($ocrText, &$capturedPrompt) {
+            $mock->shouldReceive('documentText')
+                ->once()
+                ->andReturn([
+                    'text' => $ocrText,
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 20,
+                    'completion_tokens' => 120,
+                ]);
+            $mock->shouldReceive('embed')
+                ->atLeast()
+                ->once()
+                ->andReturn([0.1, 0.2, 0.3]);
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt) use (&$capturedPrompt) {
+                    $capturedPrompt = $prompt;
+
+                    return str_contains($prompt, 'Bab ekosistem sawah menjelaskan padi')
+                        && str_contains($prompt, 'MATERI FILE:');
+                })
+                ->andReturn([
+                    'text' => "1. Contoh soal dari RAG\n\nKUNCI JAWABAN: A",
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 12,
+                    'completion_tokens' => 8,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz'), [
+            'topik' => 'Ekosistem sawah',
+            'jumlah' => 1,
+            'jenis' => 'pg',
+            'tingkat' => 'sedang',
+            'jenjang' => 'Kelas 5 SD',
+            'file' => new UploadedFile(
+                $filePath,
+                'scan-panjang-ekosistem.pdf',
+                'application/pdf',
+                null,
+                true,
+            ),
+        ]);
+
+        $response->assertOk()->assertJsonPath('ok', true);
+        $this->assertStringContainsString('Bab ekosistem sawah menjelaskan padi', $capturedPrompt);
+
+        $document = AiDocument::where('user_uuid', $user->uuid)->firstOrFail();
+        $this->assertStringEndsWith('.txt', $document->file_path);
+        Storage::disk('local')->assertExists($document->file_path);
+        $this->assertStringContainsString('padi sebagai produsen utama', $document->chunks()->firstOrFail()->content);
     }
 
     public function test_upload_file_kosong_mengembalikan_petunjuk_foto_buku(): void
@@ -1572,6 +1717,7 @@ class AiTeacherControllerTest extends TestCase
 
         $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz.preview'), [
             'content' => $this->strukturSoal(),
+            'interactive_quality' => true,
         ]);
 
         $response->assertOk()->assertJson(['ok' => true, 'parsed' => true]);
@@ -1585,6 +1731,11 @@ class AiTeacherControllerTest extends TestCase
         $this->assertStringContainsString('Bagian A - Pilihan Ganda', $html);
         $this->assertStringContainsString('Apa itu evaporasi?', $html);
         $this->assertStringContainsString('<table class="kunci-pg">', $html);
+        $this->assertStringContainsString('quiz-quality-question-data', $html);
+        $this->assertStringNotContainsString('class="quiz-quality-trigger"', $html);
+        $this->assertStringNotContainsString('Cek kualitas soal ini', $html);
+        $this->assertSame('Apa itu evaporasi?', $response->json('quality_questions.0.question_text'));
+        $this->assertSame('A', $response->json('quality_questions.0.answer_key'));
     }
 
     public function test_pratinjau_generator_soal_lolos_untuk_konten_tak_berformat(): void
@@ -1602,6 +1753,35 @@ class AiTeacherControllerTest extends TestCase
 
         $response->assertOk()->assertJson(['ok' => true, 'parsed' => false]);
         $this->assertStringContainsString('Catatan bebas guru.', $response->json('html'));
+    }
+
+    public function test_pratinjau_generator_soal_menyediakan_payload_quality_dari_teks_importable(): void
+    {
+        $user = User::create([
+            'username' => 'guru-quiz-preview-importable',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.quiz.preview'), [
+            'content' => implode("\n", [
+                '1. Dalam ekosistem sawah, organisme yang berperan sebagai produsen adalah ....',
+                'A. Padi',
+                'B. Belalang',
+                'C. Katak',
+                'D. Burung elang',
+                '',
+                'Kunci Jawaban',
+                '1. A',
+            ]),
+            'interactive_quality' => true,
+        ]);
+
+        $response->assertOk()->assertJson(['ok' => true, 'parsed' => false]);
+        $this->assertSame('Dalam ekosistem sawah, organisme yang berperan sebagai produsen adalah ....', $response->json('quality_questions.0.question_text'));
+        $this->assertSame(['Padi', 'Belalang', 'Katak', 'Burung elang'], $response->json('quality_questions.0.options'));
+        $this->assertSame('A', $response->json('quality_questions.0.answer_key'));
     }
 
     /** Konten soal ringkas berformat acuan (kop, identitas, petunjuk, bagian, kunci). */
@@ -1726,6 +1906,26 @@ class AiTeacherControllerTest extends TestCase
         $this->actingAs($ortu)
             ->get(route('ai.teacher.index'))
             ->assertForbidden();
+    }
+
+    public function test_generator_soal_menyediakan_pemeriksaan_kualitas_kolektif_sebelum_kirim_ke_arena(): void
+    {
+        $user = User::create([
+            'username' => 'guru-quality-batch-generator',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('ai.teacher.index'))
+            ->assertOk()
+            ->assertSee('Pemeriksaan kualitas sebelum dikirim')
+            ->assertSee('Cek kualitas semua soal')
+            ->assertSee('Sedang memeriksa kualitas soal')
+            ->assertSee('quality-progress')
+            ->assertSee('qualityBatch')
+            ->assertSee(route('ai.teacher.quiz.quality-batch'), false);
     }
 
     public function test_generator_quiz_mencatat_log_per_panggilan_api_saat_auto_lanjut(): void

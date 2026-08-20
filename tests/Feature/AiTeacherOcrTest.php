@@ -240,6 +240,42 @@ class AiTeacherOcrTest extends TestCase
         $this->assertStringContainsString("ocr: '".route('ai.teacher.ocr')."'", $html);
     }
 
+    public function test_retry_materi_pending_memanggil_submit_dan_bukan_method_yang_tidak_ada(): void
+    {
+        $user = $this->guruWithKey();
+
+        $html = $this->actingAs($user)->get(route('ai.teacher.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('if (d.processing)', $html);
+        $this->assertStringContainsString('this.submit(tool);', $html);
+        $this->assertStringNotContainsString('this.doGenerate(tool);', $html);
+    }
+
+    public function test_retry_materi_pending_menampilkan_status_loading_bukan_error(): void
+    {
+        $user = $this->guruWithKey();
+
+        $html = $this->actingAs($user)->get(route('ai.teacher.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('materialProcessing = true', $html);
+        $this->assertStringContainsString("materialProcessingTool === 'quiz'", $html);
+        $this->assertStringNotContainsString(
+            "this.error = 'Materi sedang diproses (embedding). Menunggu 4 detik",
+            $html
+        );
+    }
+
+    public function test_panel_hasil_menampilkan_loading_saat_ai_generate_soal(): void
+    {
+        $user = $this->guruWithKey();
+
+        $html = $this->actingAs($user)->get(route('ai.teacher.index'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('loading || materialProcessing || ocr.loading', $html);
+        $this->assertStringContainsString('AI sedang generate soal…', $html);
+        $this->assertStringContainsString('aria-live="polite"', $html);
+    }
+
     public function test_learning_bisa_pakai_material_text_scan_buku(): void
     {
         $user = $this->guruWithKey();

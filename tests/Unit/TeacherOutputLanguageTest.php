@@ -12,6 +12,7 @@ class TeacherOutputLanguageTest extends TestCase
         $this->assertSame('zh-CN', TeacherOutputLanguage::normalize('zh'));
         $this->assertSame('zh-CN', TeacherOutputLanguage::normalize('zh-hans'));
         $this->assertSame('zh-CN', TeacherOutputLanguage::normalize('zh-CN'));
+        $this->assertSame('ar', TeacherOutputLanguage::normalize('ar-SA'));
     }
 
     public function test_unknown_code_falls_back_to_indonesia(): void
@@ -26,6 +27,7 @@ class TeacherOutputLanguageTest extends TestCase
         $this->assertFalse(TeacherOutputLanguage::usesGlobalSystemPrompt('zh-CN'));
         $this->assertFalse(TeacherOutputLanguage::usesGlobalSystemPrompt('en'));
         $this->assertFalse(TeacherOutputLanguage::usesGlobalSystemPrompt('ja'));
+        $this->assertFalse(TeacherOutputLanguage::usesGlobalSystemPrompt('ar'));
     }
 
     public function test_prompt_line_contains_target_language_hint(): void
@@ -33,6 +35,7 @@ class TeacherOutputLanguageTest extends TestCase
         $this->assertStringContainsString('简体中文', TeacherOutputLanguage::promptLine('zh-CN'));
         $this->assertStringContainsString('English', TeacherOutputLanguage::promptLine('en'));
         $this->assertStringContainsString('日本語', TeacherOutputLanguage::promptLine('ja'));
+        $this->assertStringContainsString('العربية', TeacherOutputLanguage::promptLine('ar'));
         $this->assertStringContainsString('Bahasa Indonesia', TeacherOutputLanguage::promptLine('id'));
     }
 

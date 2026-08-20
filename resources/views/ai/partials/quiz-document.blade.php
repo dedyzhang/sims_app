@@ -3,6 +3,9 @@
     tata letak file Word yang diexport (QuizDocxBuilder), jadi yang dilihat guru di
     layar = yang tercetak. Bila $doc['parsed'] false, pemanggil merender teks polos.
 --}}
+@php
+    $interactiveQuality = (bool) ($interactiveQuality ?? false);
+@endphp
 
 {{-- Kop sekolah --}}
 @if($doc['kop'])
@@ -52,6 +55,41 @@
     @endforeach
 
     @foreach($section['questions'] as $question)
+        @php
+            $sectionHeading = mb_strtolower((string) $section['heading']);
+            $qualityType = str_contains($sectionHeading, 'kompleks')
+                ? 'mcq_complex'
+                : (str_contains($sectionHeading, 'benar/salah') || str_contains($sectionHeading, 'benar salah')
+                    ? 'true_false'
+                    : (str_contains($sectionHeading, 'mencocokkan') || str_contains($sectionHeading, 'menjodohkan')
+                        ? 'match'
+                        : (str_contains($sectionHeading, 'isian')
+                            ? 'short_answer'
+                            : (str_contains($sectionHeading, 'esai') ? 'essay' : 'mcq'))));
+            $qualityAnswerKey = '';
+            foreach (($doc['kunci']['pg'] ?? []) as $answer) {
+                if ((string) ($answer['number'] ?? '') === (string) ($question['number'] ?? '')) {
+                    $qualityAnswerKey = (string) ($answer['answer'] ?? '');
+                    break;
+                }
+            }
+            if ($qualityAnswerKey === '' && $qualityType === 'true_false') {
+                foreach (($doc['kunci']['lainnya'] ?? []) as $answerSection) {
+                    foreach (($answerSection['lines'] ?? []) as $answerLine) {
+                        if (preg_match('/^'.preg_quote((string) $question['number'], '/').'[.)\-:]\s*(.+)$/u', trim((string) $answerLine), $answerMatch)) {
+                            $qualityAnswerKey = trim($answerMatch[1]);
+                            break 2;
+                        }
+                    }
+                }
+            }
+            $qualityPayload = [
+                'question_text' => (string) ($question['text'] ?? ''),
+                'question_type' => $qualityType,
+                'options' => array_values(array_map(fn ($option) => (string) ($option['text'] ?? ''), $question['options'] ?? [])),
+                'answer_key' => $qualityAnswerKey,
+            ];
+        @endphp
         <div class="soal">{{ $question['number'] }}. {{ $question['text'] }}</div>
         @foreach(($question['images'] ?? []) as $image)
             @php
@@ -78,6 +116,12 @@
         @endforeach
         @if($question['answer_space'])
             <div class="garis-jawab">_______________________________________________________________________</div>
+        @endif
+        @if($interactiveQuality)
+            {{-- Data soal dipakai oleh pemeriksaan kolektif Generator Soal.
+                 Tidak ada tombol pemeriksaan per butir agar guru menjalankan satu
+                 pemeriksaan untuk seluruh soal pada pratinjau. --}}
+            <span class="quiz-quality-question-data hidden" aria-hidden="true" data-quality-question="{{ base64_encode(json_encode($qualityPayload, JSON_UNESCAPED_UNICODE)) }}"></span>
         @endif
     @endforeach
 @endforeach

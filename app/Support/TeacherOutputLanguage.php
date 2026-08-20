@@ -15,6 +15,7 @@ final class TeacherOutputLanguage
         'zh-CN' => '中文 (简体) — Mandarin',
         'en' => 'English',
         'ja' => '日本語 — Japanese',
+        'ar' => 'العربية — Arabic',
     ];
 
     /** @return list<string> */
@@ -40,6 +41,9 @@ final class TeacherOutputLanguage
         $lower = strtolower($code);
         if (in_array($lower, ['zh', 'zh-hans', 'zh_cn', 'zh-cn'], true)) {
             return 'zh-CN';
+        }
+        if (in_array($lower, ['ar', 'ar-sa', 'arabic'], true)) {
+            return 'ar';
         }
 
         foreach (array_keys(self::OPTIONS) as $key) {
@@ -72,6 +76,8 @@ final class TeacherOutputLanguage
                 .'Keep the school letterhead and official identity lines (school name, principal NIP) exactly as provided in SIMS — do not translate those.',
             'ja' => 'ドキュメント全体（問題、指示、ルーブリック、RPMの本文、付録）を日本語で作成してください。'
                 .'学校のヘッダーと公式の身分欄（学校名、NIP）はSIMSのデータのままにしてください——翻訳しないでください。',
+            'ar' => 'اكتب محتوى الوثيقة كله باللغة العربية الفصحى المبسطة: الأسئلة، التعليمات، rubrik، narasi RPM، والملحقات. '
+                .'اترك ترويسة المدرسة وبيانات الهوية الرسمية مثل اسم المدرسة وNIP كما وردت في SIMS — لا تترجمها.',
             default => 'Gunakan Bahasa Indonesia baku, praktis, dan langsung bisa direview guru.',
         };
     }
@@ -83,6 +89,7 @@ final class TeacherOutputLanguage
             'zh-CN' => 'Bahasa output wajib 简体中文 untuk semua isi pembelajaran/soal. Hanya kop dan identitas resmi sekolah yang boleh non-Mandarin.',
             'en' => 'Output language must be English for all learning/quiz content. Only school letterhead and official identity lines may stay as provided.',
             'ja' => '出力言語は学習内容・問題文すべて日本語。学校ヘッダーと公式身分欄のみSIMSのまま。',
+            'ar' => 'Output language must be clear Modern Standard Arabic for all learning/quiz content. Only school letterhead and official identity lines may stay as provided.',
             default => '',
         };
     }
@@ -111,6 +118,7 @@ final class TeacherOutputLanguage
             'zh-CN' => 'mis. 第三课 打招呼, 数字和时间, 我的爱好',
             'en' => 'e.g. Linear Equations, Photosynthesis, Reading Comprehension',
             'ja' => '例: 自己紹介, 数字と時間',
+            'ar' => 'مثال: التعارف، الأرقام والوقت، النظام البيئي',
             default => 'mis. Bab 5 — Ekosistem, Fotosintesis, Pecahan...',
         };
     }

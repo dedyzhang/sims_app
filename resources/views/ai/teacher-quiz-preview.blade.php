@@ -116,6 +116,22 @@
         .quiz-doc .title { text-align: center; font-weight: 700; font-size: 15px; margin: 10px 0 6px; }
         .quiz-doc .section { margin-top: 12px; padding: 4px 6px; background: #e5e7eb; border: 1px solid #6b7280; font-weight: 700; text-transform: uppercase; }
         .quiz-doc .subsection { margin-top: 8px; font-weight: 700; }
+        .quiz-doc .quiz-quality-actions { margin: 6px 0 2px 2.15em; }
+        .quiz-doc .quiz-quality-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-height: 32px;
+            padding: 4px 9px;
+            border: 1px solid #047857;
+            border-radius: 7px;
+            background: #d1fae5;
+            color: #047857;
+            font: 600 11px/1.2 Arial, Helvetica, sans-serif;
+            cursor: pointer;
+        }
+        .quiz-doc .quiz-quality-trigger:hover { background: #a7f3d0; }
+        .quiz-doc .quiz-quality-icon { width: 14px; height: 14px; }
 
         /* HP portrait sempit */
         @media (max-width: 640px) {
@@ -132,6 +148,7 @@
             .quiz-doc .soal-gambar { margin-left: 8px; }
             .quiz-doc .garis-jawab { margin-left: 8px; max-width: calc(100% - 8px); }
             .quiz-doc table.kunci-pg td { padding: 4px 6px; font-size: 11px; }
+            .quiz-doc .quiz-quality-actions { margin-left: 8px; }
         }
 
         /* HP / WebView landscape: tinggi pendek — jangan kena jendela desktop pendek */
@@ -160,7 +177,7 @@
     </style>
 
     @if($doc['parsed'])
-        @include('ai.partials.quiz-document', ['doc' => $doc])
+        @include('ai.partials.quiz-document', ['doc' => $doc, 'interactiveQuality' => (bool) ($interactiveQuality ?? false)])
     @else
         @include('ai.partials.learning-plain', ['content' => $content])
     @endif

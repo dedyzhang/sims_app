@@ -19,7 +19,7 @@ class GameQuiz extends Model
 
     /** play_mode: 'bebas' (siswa pilih solo/live sendiri) | 'solo' (solo saja) | 'live' (live saja). */
     protected $fillable = [
-        'classroom_id', 'created_by', 'title', 'instructions', 'mode', 'template', 'scoring_mode',
+        'classroom_id', 'created_by', 'title', 'instructions', 'learning_objective', 'mode', 'template', 'scoring_mode',
         'max_score', 'hide_scores', 'show_leaderboard', 'instant_feedback',
         'is_locked', 'access_token', 'opens_at', 'due_at', 'status', 'play_mode',
     ];
@@ -37,6 +37,10 @@ class GameQuiz extends Model
         ];
     }
 
+    public function audioLinks()
+    {
+        return $this->hasMany(AiTeacherAudioLink::class, 'target_uuid', 'uuid')->where('target_type', 'game_quiz')->with('audio');
+    }
     public function classroom()
     {
         return $this->belongsTo(Classroom::class, 'classroom_id', 'uuid');

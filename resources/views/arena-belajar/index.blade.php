@@ -8,6 +8,7 @@
 
 @php
     $quizCount = $quizzes->count();
+    $previewQuiz = $quizzes->first(fn ($quiz) => (int) ($quiz->questions_count ?? 0) > 0);
     $missionCount = $missionAssignments->count();
     $artPairs = [
         ['#00c2b2', '#0b3d6e'],
@@ -98,6 +99,9 @@
             @if($canManage)
             <a href="{{ route('classroom.arena.create', $classroom) }}" class="arena-play-btn">
                 <i data-lucide="plus" class="w-5 h-5"></i> Buat kuis
+            </a>
+            <a href="{{ $previewQuiz ? route('classroom.arena.show', [$classroom, $previewQuiz]).'?preview=1#preview-soal' : route('classroom.arena.create', $classroom).'?generate=1#generate-soal' }}" class="arena-play-btn arena-play-btn-ghost">
+                <i data-lucide="scan-search" class="w-5 h-5"></i> Cek kualitas soal
             </a>
             <a href="{{ route('jagat-misi.index') }}" class="arena-play-btn arena-play-btn-amber">
                 <i data-lucide="compass" class="w-5 h-5"></i> Katalog misi
