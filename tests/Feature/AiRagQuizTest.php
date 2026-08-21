@@ -230,6 +230,52 @@ XML);
             ->assertJsonPath('document_uuid', $doc->uuid);
     }
 
+    public function test_materi_pending_diproses_saat_dipakai_lagi_agar_generator_tidak_stuck_loading(): void
+    {
+        Storage::fake('local');
+
+        $guru = $this->guru();
+        Storage::disk('local')->put(
+            'ai_documents/pending.txt',
+            'Fotosintesis terjadi di kloroplas daun dan menghasilkan glukosa sebagai sumber energi tumbuhan.',
+        );
+
+        $doc = AiDocument::create([
+            'user_uuid' => $guru->uuid,
+            'title' => 'Buku Pending.txt',
+            'file_path' => 'ai_documents/pending.txt',
+            'source' => AiDocument::SOURCE_TEACHER_MATERIAL,
+            'status' => AiDocument::STATUS_PENDING,
+        ]);
+
+        $this->mock(GeminiService::class, function (MockInterface $mock) {
+            // 1x embed chunk saat ingest sinkron, 1x embed query saat retrieval.
+            $mock->shouldReceive('embed')->twice()->andReturn([1.0, 0.0]);
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(fn (string $prompt) => str_contains($prompt, 'Fotosintesis terjadi di kloroplas daun'))
+                ->andReturn([
+                    'text' => "1. Contoh soal\n\nKUNCI JAWABAN: A",
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 10,
+                    'completion_tokens' => 5,
+                ]);
+        });
+
+        $this->actingAs($guru)
+            ->postJson(route('ai.teacher.quiz'), $this->quizPayload([
+                'document_uuid' => $doc->uuid,
+            ]))
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+
+        $this->assertDatabaseHas('ai_documents', [
+            'uuid' => $doc->uuid,
+            'status' => AiDocument::STATUS_PROCESSED,
+            'chunk_count' => 1,
+        ]);
+    }
+
     public function test_file_besar_disimpan_dan_diantre_untuk_embedding(): void
     {
         Storage::fake('local');

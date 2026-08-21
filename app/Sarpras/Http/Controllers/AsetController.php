@@ -113,7 +113,11 @@ class AsetController extends Controller
         $msg = "Import selesai — {$import->dibuat} aset baru, {$import->diperbarui} diperbarui";
         $msg .= $import->jumlahDilewati() ? ", {$import->jumlahDilewati()} catatan." : '.';
 
-        return redirect()->route('sarpras.aset.index')
+        $redirect = $request->string('after_import')->toString() === 'peminjaman_barang'
+            ? redirect()->route('sarpras.peminjaman.index', ['tab' => 'barang'])
+            : redirect()->route('sarpras.aset.index');
+
+        return $redirect
             ->with('sukses', $msg)
             ->with('import_catatan', $import->dilewati);
     }

@@ -2591,6 +2591,21 @@
                         <div x-show="qualityBatch.message" x-cloak class="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200" x-text="qualityBatch.message"></div>
 
                         <div x-show="qualityBatch.results.length" x-cloak class="mt-4 space-y-3">
+                            <div x-show="qualityBatch.appliedCount > 0" x-cloak
+                                 class="rounded-2xl border border-emerald-300 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                                 role="status" aria-live="polite">
+                                <div class="flex items-start gap-3">
+                                    <span class="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm dark:bg-emerald-500">
+                                        <i data-lucide="check-check" class="h-4 w-4" aria-hidden="true"></i>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="m-0 text-sm font-extrabold text-emerald-900 dark:text-emerald-100">Perbaikan sudah diterapkan</p>
+                                        <p class="m-0 mt-1" x-text="qualityBatch.appliedMessage"></p>
+                                        <p class="m-0 mt-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">Ringkasan nilai di bawah adalah hasil cek sebelum perbaikan. Klik “Cek ulang kualitas semua soal” untuk menghitung status terbaru.</p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                                 <div class="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200 dark:bg-slate-900/70 dark:ring-slate-700">
                                     <p class="m-0 text-[10px] font-black uppercase tracking-wide text-slate-400">Rata-rata</p>
@@ -2602,7 +2617,12 @@
                             </div>
 
                             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <p class="m-0 text-xs text-slate-500 dark:text-slate-400" x-show="!qualityBatchCurrent()">Hasil ini bukan lagi versi terbaru. Jalankan pemeriksaan ulang setelah mengubah atau menerapkan perbaikan.</p>
+                                <div class="space-y-1">
+                                    <p class="m-0 text-xs text-slate-500 dark:text-slate-400" x-show="!qualityBatchCurrent()">Hasil ini bukan lagi versi terbaru. Jalankan pemeriksaan ulang setelah mengubah atau menerapkan perbaikan.</p>
+                                    <p class="m-0 text-xs font-semibold text-emerald-700 dark:text-emerald-300" x-show="qualityBatchCurrent() && qualityBatch.results.some(item => item.data?.improved_question || (item.data?.improved_options || []).length)" x-cloak>
+                                        Versi perbaikan siap diterapkan ke teks hasil dan pratinjau soal.
+                                    </p>
+                                </div>
                                 <button type="button" x-show="tab === 'quiz' && qualityBatchCurrent() && qualityBatch.results.some(item => item.data?.improved_question || (item.data?.improved_options || []).length)" x-cloak
                                         @click="applyAllQuizQuality()" class="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-white transition hover:bg-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
                                     <i data-lucide="check-check" class="h-4 w-4"></i> Terapkan semua versi perbaikan
@@ -2928,6 +2948,8 @@
                 checkedSource: '',
                 questions: [],
                 results: [],
+                appliedCount: 0,
+                appliedMessage: '',
                 summary: { total: 0, average_score: 0, layak: 0, perlu_revisi: 0, tidak_layak: 0 },
             },
             deletingHistory: '',  // uuid item history yang sedang dihapus
@@ -4990,6 +5012,8 @@
                 this.qualityBatch.checkedSource = '';
                 this.qualityBatch.questions = [];
                 this.qualityBatch.results = [];
+                this.qualityBatch.appliedCount = 0;
+                this.qualityBatch.appliedMessage = '';
                 const context = this.qualityBatchContext();
                 try {
                     let questions = [];
@@ -5062,6 +5086,75 @@
                 const index = text.indexOf(needle);
                 return index < 0 ? text : text.slice(0, index) + String(replacement || '') + text.slice(index + needle.length);
             },
+            stripQuestionNumber(text) {
+                return String(text || '').trim().replace(/^\d+[\.)]\s+/, '').trim();
+            },
+            stripOptionLabel(text) {
+                return String(text || '').trim().replace(/^[A-Ja-j][\.)]\s+/, '').trim();
+            },
+            improvedQuestionBlock(questionNumber, original, improved) {
+                const questionText = this.stripQuestionNumber(improved?.improved_question || original?.question_text || '');
+                if (!questionText) return '';
+
+                const lines = [`${questionNumber}. ${questionText}`];
+                const improvedOptions = Array.isArray(improved?.improved_options) ? improved.improved_options : [];
+                const originalOptions = Array.isArray(original?.options) ? original.options : [];
+                const options = improvedOptions.length ? improvedOptions : originalOptions;
+                options.forEach((option, optionIndex) => {
+                    const optionText = this.stripOptionLabel(option);
+                    if (!optionText) return;
+                    lines.push(`${String.fromCharCode(65 + optionIndex)}. ${optionText}`);
+                });
+
+                return lines.join('\n');
+            },
+            applyQualityPatchToQuestionBlock(source, questionIndex, original, improved) {
+                const text = String(source || '');
+                const questionNumber = Number(questionIndex) + 1;
+                if (!Number.isFinite(questionNumber) || questionNumber < 1) {
+                    return { text, changed: false };
+                }
+
+                const answerKeyMatch = text.match(/(?:^|\n)\s*(?:KUNCI\s+JAWABAN|Kunci\s+Jawaban|Jawaban)\b/i);
+                const searchableEnd = answerKeyMatch ? answerKeyMatch.index : text.length;
+                const searchable = text.slice(0, searchableEnd);
+                const matches = Array.from(searchable.matchAll(/(^|\n)(\s*)(\d+)[\.)]\s+/g));
+                const currentIndex = matches.findIndex((match) => Number(match[3]) === questionNumber);
+                if (currentIndex < 0) {
+                    return { text, changed: false };
+                }
+
+                const current = matches[currentIndex];
+                const next = matches[currentIndex + 1];
+                const start = (current.index || 0) + current[1].length;
+                const end = next ? ((next.index || 0) + next[1].length) : searchableEnd;
+                const replacement = this.improvedQuestionBlock(questionNumber, original, improved);
+                if (!replacement) {
+                    return { text, changed: false };
+                }
+
+                const before = text.slice(0, start);
+                const after = text.slice(end).replace(/^\s*\n/, '\n');
+                const updated = before + replacement.trimEnd() + '\n' + after;
+
+                return { text: updated, changed: updated !== text };
+            },
+            applyQualityPatchByText(source, original, improved) {
+                let updated = String(source || '');
+                const before = updated;
+                if (improved.improved_question) {
+                    updated = this.replaceFirst(updated, original.question_text, improved.improved_question);
+                }
+                if (Array.isArray(improved.improved_options) && Array.isArray(original.options)) {
+                    improved.improved_options.forEach((option, optionIndex) => {
+                        if (original.options[optionIndex] && option) {
+                            updated = this.replaceFirst(updated, original.options[optionIndex], option);
+                        }
+                    });
+                }
+
+                return { text: updated, changed: updated !== before };
+            },
             applyAllQuizQuality() {
                 if (!this.qualityBatchCurrent()) {
                     this.qualityBatch.message = 'Jalankan pemeriksaan ulang sebelum menerapkan versi perbaikan.';
@@ -5074,16 +5167,11 @@
                     const improved = item?.data || {};
                     if (!original || !improved) return;
                     const before = updated;
-                    if (improved.improved_question) {
-                        updated = this.replaceFirst(updated, original.question_text, improved.improved_question);
+                    let patch = this.applyQualityPatchToQuestionBlock(updated, Number(item.index), original, improved);
+                    if (!patch.changed) {
+                        patch = this.applyQualityPatchByText(updated, original, improved);
                     }
-                    if (Array.isArray(improved.improved_options) && Array.isArray(original.options)) {
-                        improved.improved_options.forEach((option, optionIndex) => {
-                            if (original.options[optionIndex] && option) {
-                                updated = this.replaceFirst(updated, original.options[optionIndex], option);
-                            }
-                        });
-                    }
+                    updated = patch.text;
                     if (updated !== before) applied++;
                 });
                 if (!applied) {
@@ -5092,7 +5180,10 @@
                 }
                 this.result = updated;
                 this.qualityBatch.checkedResult = '';
-                this.qualityBatch.message = `${applied} versi perbaikan diterapkan ke hasil generator. Jalankan pemeriksaan ulang sebelum mengirim ke Arena.`;
+                this.qualityBatch.checkedSource = '';
+                this.qualityBatch.appliedCount = applied;
+                this.qualityBatch.appliedMessage = `${applied} versi perbaikan sudah diterapkan ke teks hasil dan pratinjau soal.`;
+                this.qualityBatch.message = `${applied} versi perbaikan diterapkan. Soal sudah diperbaiki di hasil dan pratinjau. Jalankan pemeriksaan ulang sebelum mengirim ke Arena.`;
                 this.previewHtml = '';
                 this.refreshPreview();
             },

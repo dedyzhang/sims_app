@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\AiRateLimitedException;
 use App\Models\AiDocument;
 use App\Models\AiUsageLog;
 use App\Models\User;
@@ -182,8 +183,19 @@ class TeacherMaterialService
      *
      * @throws TeacherMaterialException
      */
-    public function retrieveForTopic(AiDocument $document, string $topik, string $ownerUuid): string
+    public function retrieveForTopic(
+        AiDocument $document,
+        string $topik,
+        string $ownerUuid,
+        bool $processPending = true,
+    ): string
     {
+        if ($processPending) {
+            $document = $this->processPendingDocumentIfPossible($document);
+        } else {
+            $document->refresh();
+        }
+
         if (! in_array($document->status, AiDocument::searchableStatuses(), true)) {
             $message = match ($document->status) {
                 AiDocument::STATUS_FAILED => 'Materi gagal diproses: '.($document->error ?: 'penyebab tidak diketahui.'),
@@ -217,6 +229,32 @@ class TeacherMaterialService
         $material = implode("\n\n---\n\n", array_column($hits, 'content'));
 
         return mb_substr($material, 0, (int) config('ai.rag.quiz_material_chars', 24_000));
+    }
+
+    private function processPendingDocumentIfPossible(AiDocument $document): AiDocument
+    {
+        $document->refresh();
+
+        if ($document->status !== AiDocument::STATUS_PENDING || ! $document->file_path) {
+            return $document;
+        }
+
+        if (! Storage::disk('local')->exists($document->file_path)) {
+            return $document;
+        }
+
+        try {
+            $this->rag->ingest(
+                $document,
+                Storage::disk('local')->path($document->file_path),
+                null,
+                $this->rag->embedOptionsForDocument($document),
+            );
+        } catch (AiRateLimitedException) {
+            // Biarkan UI tetap pada status processing dan mencoba lagi otomatis.
+        }
+
+        return $document->refresh();
     }
 
     /**

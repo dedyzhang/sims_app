@@ -38,19 +38,10 @@ class LaporKerusakanRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        // Minimal salah satu: aset atau ruangan harus dipilih.
+        // Aset dan ruangan benar-benar opsional; deskripsi kerusakan tetap wajib.
         $this->merge([
             'aset_id' => $this->aset_id ?: null,
             'ruangan_id' => $this->ruangan_id ?: null,
         ]);
-    }
-
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($v) {
-            if (! $this->aset_id && ! $this->ruangan_id) {
-                $v->errors()->add('aset_id', 'Pilih aset atau ruangan yang dilaporkan.');
-            }
-        });
     }
 }

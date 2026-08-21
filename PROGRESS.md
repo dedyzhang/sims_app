@@ -215,6 +215,37 @@ Branch: `cursor/ai-fase-1-4` (merge `codex/sekretaris-absensi-scope` + stash Cod
 
 **Verifikasi AI:** `php artisan test --filter="AiAnalyzeTest|AiRagTest|AiTeacherControllerTest"` â†’ **55 passed**
 
+### 2026-08-15 - Upgrade Gemini AI Studio + TTS Asisten Guru
+
+- [x] Model teks key pribadi guru: `gemini-3.7-flash`; fallback `3.6 Flash` -> `3.5 Flash` -> `2.5 Flash`.
+- [x] Model audio khusus: `gemini-3.1-flash-tts-preview` (model teks 3.7 tidak dipakai untuk output audio).
+- [x] MP3 128 kbps tetap menjadi format distribusi default; WAV lossless tetap didukung untuk kebutuhan arsip/editing.
+- [x] TTS diproses lewat database queue dengan timeout 90 detik; kegagalan koneksi mencatat penyebab internal tanpa mengekspos API key.
+- [x] Verifikasi fokus: `AiTeacherControllerTest|AiTeacherAudioTest|TeacherOutputLanguageTest` -> **63 passed, 358 assertions**.
+- [x] Smoke test API AI Studio nyata: teks berhasil lewat `gemini-3.7-flash`; audio WAV 4 detik berhasil lewat `gemini-3.1-flash-tts-preview`.
+- [x] Transport TTS memakai `:streamGenerateContent?alt=sse`, parser SSE incremental, validasi `finishReason=STOP`, dan retry per chunk tanpa menggandakan PCM parsial.
+- [x] PCM ditulis ke temporary file lalu dikonversi satu kali menjadi MP3 128 kbps; temporary file selalu dibersihkan.
+- [x] Batas narasi 8.000 karakter/1.200 kata, job timeout 1.800 detik, stale processing 35 menit, dan counter batas tampil di UI.
+- [x] Free Tier quota-aware: chunk 1.000 karakter (maksimal sekitar 8 request untuk satu proses), pacing 21 detik, deteksi quota harian, serta fallback key sekolah hanya untuk quota harian bila dikonfigurasi.
+- [x] Verifikasi streaming/retry/limit: `GeminiTtsSseParserTest|AiTeacherAudioTest` -> **25 passed, 78 assertions**.
+- [x] Smoke nyata narasi pendek: MP3 85.293 byte, durasi 5,24 detik.
+- [ ] Smoke nyata 2.740 karakter sampai MP3 final menunggu reset quota harian AI Studio. Chunk streaming berhasil, tetapi project mencapai batas resmi Free Tier **10 request/hari** saat pengujian berulang.
+- [x] Panduan worker produksi: `docs/OPERASIONAL_TTS_ASISTEN_GURU.md`.
+
+### 2026-08-18 - Pemulihan antrean TTS lokal
+
+- [x] Akar masalah `Menunggu antrean`: job database `attempts=0` dan tidak ada proses `queue:work`; Gemini belum dipanggil.
+- [x] Job `Cerita Siklus Latar` diproses nyata sampai `ready`: MP3 2.362.029 byte, durasi 147,54 detik, antrean kembali kosong.
+- [x] Local Windows memakai `AI_TTS_DISPATCH=deferred` agar tidak bergantung pada terminal worker.
+- [x] Production memakai connection/queue khusus `tts` dengan `retry_after=1900s`, lebih panjang daripada timeout job `1800s`.
+- [x] Antrean `queued` lebih dari lima menit menjadi `failed` dengan pesan worker tidak aktif, bukan menunggu tanpa batas.
+- [x] Gate TTS/Asisten Guru: **77 passed, 396 assertions**; PHP lint dan `git diff --check` lulus.
+- [x] Playback MP3 diperbaiki dengan resolver ekstensi stream/download; target berbagi identik dideduplikasi dan label mapel/kelas tidak diulang.
+- [x] Gate setelah perbaikan playback/target: **79 passed, 407 assertions**; MP3 nyata berhasil didekode FFmpeg tanpa error.
+- [x] Audio multibahasa menerjemahkan narasi ke bahasa pilihan sebelum TTS; jalur Indonesia tetap tanpa request terjemahan.
+- [x] Bahasa audio diperluas menjadi 15 pilihan resmi: Indonesia, Mandarin, Jepang, Arab, Inggris, Korea, Melayu, Spanyol, Prancis, Jerman, Hindi, Thai, Vietnam, Portugis, dan Rusia.
+- [x] Smoke nyata Indonesia -> Mandarin: terjemahan 57 -> 14 karakter, MP3 69.165 byte/4,24 detik; gate akhir **81 passed, 416 assertions**.
+
 ---
 
 ## Modul Ujian + Bank Soal (dari Codex/dedyzhang) â€” SELESAI
@@ -251,6 +282,26 @@ Ref: `docs/keuangan-ai/PRD.md` · Fase A detail: `docs/keuangan-ai/features/01-a
 ---
 
 ## Ringkasan tes
+
+### 2026-08-18 — Prototype AI Question Quality Checker
+
+- [x] Service checker dengan output skor, status, Bloom, kesulitan, issues, saran, versi perbaikan, dan catatan guru
+- [x] Fallback rule-based saat key kosong, provider gagal, atau JSON AI tidak valid; tanpa migration/database baru
+- [x] Endpoint GET/POST di konteks Ruang Kelas dengan `ClassroomPolicy::manage`, validasi `FormRequest`, throttle, dan usage log AI
+- [x] UI Blade/Alpine dari Arena Belajar; loading/error/result, mobile 320/375/430 px tanpa horizontal overflow, tombol utama 44 px
+- [x] Code review hardening: AI rate limit terpusat, policy di FormRequest, schema output wajib, status konsisten dengan skor, prompt untrusted-data boundary, peringatan data pribadi, dan validasi per tipe soal
+- [x] Regression edge case: opsi angka `0`, kunci PG kompleks, opsi tersembunyi, Menjodohkan kosong, serta Benar/Salah tanpa kunci
+- [x] Smoke test AI nyata berhasil; gate `QuestionQualityChecker|GameQuiz|BankSoal|GeminiService` — 63 passed, 267 assertions
+- [x] Security dependency: Guzzle `7.13.2` → `7.15.3` beserta Promises `2.5.2` dan PSR-7 `2.13.0`; advisory Guzzle hilang dan regression seluruh AI — 210 passed, 952 assertions, 3 skipped
+- [x] Vite production build dan Pint untuk file baru lulus
+- [x] Pratinjau soal Generator Soal kini memiliki tombol cek kualitas per butir; modal mengirim konteks soal ke endpoint checker yang sama, sementara export Word/PDF tetap bersih
+
+### 2026-08-18 — Riwayat Audio Asisten Guru
+
+- [x] History 20 audio terbaru per guru, termasuk status, bahasa, durasi, dan waktu pembuatan
+- [x] Audio history dapat dibuka kembali untuk diputar, diunduh, dibagikan, atau dihapus
+- [x] History diperbarui otomatis saat generate dan polling selesai tanpa mengubah pipeline Gemini TTS/MP3
+- [x] Verifikasi fokus: `AiTeacherAudioTest` — 28 passed, 111 assertions
 
 | Area | Filter | Passed |
 |------|--------|--------|

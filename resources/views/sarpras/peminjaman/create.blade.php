@@ -1,7 +1,7 @@
 @extends('sarpras.layouts.app')
-@section('title', 'Ajukan Pinjam Barang')
-@section('sarpras_title', 'Ajukan Pinjam Barang')
-@section('sarpras_subtitle', 'Satu pengajuan dapat memuat aset inventaris. Ruangan opsional jika ikut dipakai bersama barang.')
+@section('title', 'Pinjam Barang')
+@section('sarpras_title', 'Pinjam Barang')
+@section('sarpras_subtitle', 'Sistem langsung mengecek jadwal dan ketersediaan. Jika kosong, peminjaman langsung tercatat tanpa menunggu persetujuan.')
 
 @section('sarpras_actions')
     <a href="{{ route('sarpras.peminjaman.index') }}" class="sarpras-google-btn inline-flex px-4 py-2 rounded-xl text-xs sm:text-sm font-bold">
@@ -20,7 +20,7 @@
             </span>
             <div>
                 <h2 class="text-base font-extrabold text-slate-800 dark:text-slate-100">Detail Peminjaman</h2>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Isi keperluan, waktu, lalu pilih aset dan/atau ruangan.</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Isi keperluan, waktu, lalu pilih aset dan/atau ruangan. Sistem menolak otomatis jika bentrok.</p>
             </div>
         </div>
 
@@ -49,7 +49,7 @@
                         <option value="{{ $r->id }}" @selected(old('ruangan_id') === $r->id)>{{ $r->kode }} — {{ $r->nama }}</option>
                     @endforeach
                 </select>
-                <p class="text-[11px] text-slate-400 mt-1.5">Bila dipilih, sistem menolak jika bentrok jadwal lain. Untuk booking ruang saja, pakai menu Booking Ruangan.</p>
+                <p class="text-[11px] text-slate-400 mt-1.5">Bila dipilih, sistem langsung membaca tanggal dan jam. Jika ruangan sudah digunakan/dipinjam, pengajuan ditolak otomatis.</p>
             </div>
         </div>
 
@@ -75,7 +75,7 @@
         <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/60">
             <a href="{{ route('sarpras.peminjaman.index') }}" class="sarpras-google-btn-ghost px-5 py-2.5 text-sm">Batal</a>
             <button type="submit" class="sarpras-google-btn-primary px-5 py-2.5 text-sm">
-                <i data-lucide="send" class="w-4 h-4"></i> Ajukan Pinjam
+                <i data-lucide="calendar-check" class="w-4 h-4"></i> Periksa & Ajukan
             </button>
         </div>
     </form>

@@ -1669,7 +1669,12 @@ class AiTeacherController extends Controller
 
             $material = $inlineMaterial;
             if ($material === '' && $document) {
-                $material = $this->materials->retrieveForTopic($document, $topik, $user->uuid);
+                $material = $this->materials->retrieveForTopic(
+                    $document,
+                    $topik,
+                    $user->uuid,
+                    ! $request->hasFile('file'),
+                );
             }
         } catch (TeacherMaterialException $e) {
             return response()->json($e->toArray(), $e->httpStatus);
@@ -1938,7 +1943,12 @@ TXT;
                         'document_uuid' => $document->uuid,
                     ], 422);
                 }
-                $material = $this->materials->retrieveForTopic($document, $topikForRag, $user->uuid);
+                $material = $this->materials->retrieveForTopic(
+                    $document,
+                    $topikForRag,
+                    $user->uuid,
+                    ! $request->hasFile('file'),
+                );
             }
         } catch (TeacherMaterialException $e) {
             return response()->json($e->toArray(), $e->httpStatus);

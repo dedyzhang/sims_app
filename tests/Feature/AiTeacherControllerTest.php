@@ -1928,6 +1928,25 @@ class AiTeacherControllerTest extends TestCase
             ->assertSee(route('ai.teacher.quiz.quality-batch'), false);
     }
 
+    public function test_tombol_terapkan_semua_perbaikan_memakai_patch_blok_soal_dan_memberi_status_jelas(): void
+    {
+        $user = User::create([
+            'username' => 'guru-quality-apply-all',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('ai.teacher.index'))
+            ->assertOk()
+            ->assertSee('applyQualityPatchToQuestionBlock')
+            ->assertSee('appliedCount')
+            ->assertSee('Versi perbaikan siap diterapkan')
+            ->assertSee('Perbaikan sudah diterapkan')
+            ->assertSee('Soal sudah diperbaiki di hasil dan pratinjau.');
+    }
+
     public function test_generator_quiz_mencatat_log_per_panggilan_api_saat_auto_lanjut(): void
     {
         $user = User::create([

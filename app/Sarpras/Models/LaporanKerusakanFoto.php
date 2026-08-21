@@ -3,7 +3,6 @@
 namespace App\Sarpras\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class LaporanKerusakanFoto extends SarprasModel
 {
@@ -16,9 +15,9 @@ class LaporanKerusakanFoto extends SarprasModel
         return $this->belongsTo(LaporanKerusakan::class, 'laporan_id');
     }
 
-    /** URL publik foto (path relatif -> Storage::url). */
+    /** URL foto lewat route Sarpras agar tidak bergantung ke APP_URL atau symlink public/storage. */
     public function getUrlAttribute(): ?string
     {
-        return $this->foto_path ? Storage::url($this->foto_path) : null;
+        return $this->foto_path ? route('sarpras.kerusakan.foto', $this->id, false) : null;
     }
 }

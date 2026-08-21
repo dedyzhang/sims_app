@@ -48,7 +48,17 @@ class PeminjamanController extends Controller
             $k => DenahRuangan::where('status', $k)->count(),
         ]);
 
-        $rooms = DenahRuangan::with('denah:id,nama')
+        $rooms = DenahRuangan::with([
+                'denah:id,nama',
+                'aset:id,kode,nama,kategori_id,ruangan_id,kondisi,status',
+                'aset.kategori:id,nama',
+            ])
+            ->withCount([
+                'aset as aset_count',
+                'aset as aset_baik_count' => fn ($q) => $q->where('kondisi', 'baik'),
+                'aset as aset_berisiko_count' => fn ($q) => $q->whereIn('kondisi', ['rusak_ringan', 'rusak_berat', 'hilang']),
+                'aset as aset_tidak_aktif_count' => fn ($q) => $q->where('status', '!=', 'aktif'),
+            ])
             ->when($request->status_ruangan, fn ($q, $v) => $q->where('status', $v))
             ->orderBy('kode')
             ->get();
@@ -80,9 +90,14 @@ class PeminjamanController extends Controller
         $mulai = Carbon::parse($data['mulai']);
         $selesai = Carbon::parse($data['selesai']);
 
+        if (! empty($data['ruangan_id']) && DenahRuangan::whereKey($data['ruangan_id'])->where('status', '!=', 'tersedia')->exists()) {
+            return back()->withInput()
+                ->with('gagal', 'Ruangan sudah digunakan atau tidak tersedia.');
+        }
+
         if (! empty($data['ruangan_id']) && $this->jadwalRuangan->bentrok($data['ruangan_id'], $mulai, $selesai)) {
             return back()->withInput()
-                ->with('gagal', 'Jadwal bentrok: ruangan sudah dipesan pada rentang waktu tersebut.');
+                ->with('gagal', 'Ruangan sudah digunakan atau dipinjam pada rentang waktu tersebut.');
         }
 
         $asetIds = array_values(array_filter($data['aset_id'] ?? []));
@@ -90,7 +105,11 @@ class PeminjamanController extends Controller
             return back()->withInput()->with('gagal', $pesanAset);
         }
 
-        $peminjaman = DB::transaction(function () use ($request, $data, $mulai, $selesai) {
+        if ($pesanAset = $this->pesanAsetTidakAktif($asetIds)) {
+            return back()->withInput()->with('gagal', $pesanAset);
+        }
+
+        $peminjaman = DB::transaction(function () use ($request, $data, $mulai, $selesai, $asetIds) {
             $peminjaman = Peminjaman::create([
                 'kode' => 'PJM-' . now()->format('Ymd') . '-' . Str::upper(Str::random(4)),
                 'peminjam_id' => $request->user()->getKey(),
@@ -100,7 +119,9 @@ class PeminjamanController extends Controller
                 'selesai' => $selesai,
                 'tgl_pinjam' => $mulai->toDateString(),
                 'tgl_kembali_rencana' => $selesai->toDateString(),
-                'status' => 'diajukan',
+                'status' => 'dipinjam',
+                'disetujui_oleh' => $request->user()->getKey(),
+                'disetujui_pada' => now(),
             ]);
 
             foreach (($data['aset_id'] ?? []) as $asetId) {
@@ -110,16 +131,20 @@ class PeminjamanController extends Controller
                 ]);
             }
 
+            if ($asetIds !== []) {
+                Aset::whereIn('id', $asetIds)->update(['status' => 'dipinjam']);
+            }
+
             return $peminjaman;
         });
 
-        SarprasActivityLogger::log('peminjaman.diajukan', $peminjaman, [
+        SarprasActivityLogger::log('peminjaman.auto_disetujui', $peminjaman, [
             'ruangan_id' => $peminjaman->ruangan_id,
             'jumlah_aset' => $peminjaman->items()->count(),
         ]);
 
         return redirect()->route('sarpras.peminjaman.show', $peminjaman)
-            ->with('sukses', 'Pengajuan peminjaman terkirim.');
+            ->with('sukses', 'Peminjaman tersedia dan langsung tercatat. Tidak perlu menunggu persetujuan.');
     }
 
     /** Ajukan pemakaian ruangan saja (form cepat dari tab ruangan). */
@@ -138,8 +163,12 @@ class PeminjamanController extends Controller
         $mulai = Carbon::parse($data['tanggal'] . ' ' . $data['jam_mulai']);
         $selesai = Carbon::parse($data['tanggal'] . ' ' . $data['jam_selesai']);
 
+        if (DenahRuangan::whereKey($data['ruangan_id'])->where('status', '!=', 'tersedia')->exists()) {
+            return back()->withInput()->with('gagal', 'Ruangan sudah digunakan atau tidak tersedia.');
+        }
+
         if ($this->jadwalRuangan->bentrok($data['ruangan_id'], $mulai, $selesai)) {
-            return back()->withInput()->with('gagal', 'Jadwal bentrok dengan peminjaman ruangan lain.');
+            return back()->withInput()->with('gagal', 'Ruangan sudah digunakan atau dipinjam pada rentang waktu tersebut.');
         }
 
         $peminjaman = Peminjaman::create([
@@ -151,13 +180,15 @@ class PeminjamanController extends Controller
             'selesai' => $selesai,
             'tgl_pinjam' => $mulai->toDateString(),
             'tgl_kembali_rencana' => $selesai->toDateString(),
-            'status' => 'diajukan',
+            'status' => 'dipinjam',
+            'disetujui_oleh' => $request->user()->getKey(),
+            'disetujui_pada' => now(),
         ]);
 
-        SarprasActivityLogger::log('peminjaman.ruangan.diajukan', $peminjaman);
+        SarprasActivityLogger::log('peminjaman.ruangan.auto_disetujui', $peminjaman);
 
         return redirect()->route('sarpras.peminjaman.index', ['tab' => 'ruangan'])
-            ->with('sukses', 'Pengajuan pemakaian ruangan terkirim.');
+            ->with('sukses', 'Ruangan tersedia dan langsung tercatat dipinjam. Tidak perlu menunggu persetujuan.');
     }
 
     public function show(Peminjaman $peminjaman): View
@@ -278,5 +309,27 @@ class PeminjamanController extends Controller
         $label = $item->aset?->kode ?? $item->aset_id;
 
         return "Aset {$label} sudah diajukan atau dipinjam pada rentang waktu tersebut.";
+    }
+
+    /**
+     * @param  list<string>  $asetIds
+     */
+    private function pesanAsetTidakAktif(array $asetIds): ?string
+    {
+        if ($asetIds === []) {
+            return null;
+        }
+
+        $aset = Aset::whereIn('id', $asetIds)
+            ->where('status', '!=', 'aktif')
+            ->first(['id', 'kode', 'status']);
+
+        if (! $aset) {
+            return null;
+        }
+
+        $label = $aset->kode ?? $aset->id;
+
+        return "Aset {$label} sudah digunakan atau tidak tersedia.";
     }
 }

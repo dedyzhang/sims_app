@@ -100,6 +100,9 @@ Route::middleware('guest')->group(function () {
 });
 // Throttle: PIN cuma 6 digit, tanpa throttle gampang di-brute force.
 Route::post('/login/pin', [LoginController::class, 'loginPin'])->middleware('throttle:login')->name('login.pin');
+// Fallback untuk stale/direct link dari browser lama. Route resmi bernama `logout`
+// tetap POST agar tombol UI memakai CSRF dan tidak menghasilkan GET 405.
+Route::get('/logout', [LoginController::class, 'logoutFallback']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/password/request', [LoginController::class, 'requestResetPassword'])->middleware('throttle:6,1')->name('password.request');
 

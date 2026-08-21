@@ -131,6 +131,21 @@ class AuthTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_get_logout_ditangani_sebagai_fallback_tanpa_method_not_allowed(): void
+    {
+        $user = User::create([
+            'username' => 'keluar',
+            'password' => 'rahasia123',
+            'access'   => 'admin',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/logout')
+            ->assertRedirect(route('login'));
+
+        $this->assertGuest();
+    }
+
     public function test_user_dengan_must_change_password_diarahkan_ganti_password(): void
     {
         User::create([

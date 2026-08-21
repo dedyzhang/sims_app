@@ -120,7 +120,7 @@
             ! auth()->user()->can('sarpras.peminjaman.setujui')
             && ! (auth()->user()->can('sarpras.peminjaman.kelola') && in_array($peminjaman->status, ['dipinjam','terlambat']))
         )
-            <p class="text-sm text-slate-500 dark:text-slate-400">Pantau status pengajuan Anda di sini. Persetujuan dilakukan oleh Waka Sarpras.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Pantau status peminjaman Anda di sini. Peminjaman baru diproses otomatis berdasarkan jadwal dan ketersediaan.</p>
         @endif
     </div>
 </div>
