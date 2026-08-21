@@ -170,5 +170,11 @@ class SarprasTableWrappingTest extends TestCase
         ] as $url) {
             $this->actingAs($admin)->get($url)->assertOk();
         }
+
+        $this->actingAs($admin)->get('/sarpras/aset')
+            ->assertSee('sarpras-keep-nowrap', false)
+            ->assertSee('max-width:none', false)
+            ->assertSee('Daftar inventaris aset', false)
+            ->assertSee('Lihat detail aset', false);
     }
 }

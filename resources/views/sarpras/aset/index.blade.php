@@ -26,6 +26,12 @@
 @php
     $condColors = ['baik' => '#10b981', 'rusak_ringan' => '#f59e0b', 'rusak_berat' => '#ef4444', 'hilang' => '#94a3b8'];
     $condLabels = ['baik' => 'Baik', 'rusak_ringan' => 'Rusak Ringan', 'rusak_berat' => 'Rusak Berat', 'hilang' => 'Hilang'];
+    $condBadgeClasses = [
+        'baik' => 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800',
+        'rusak_ringan' => 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800',
+        'rusak_berat' => 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800',
+        'hilang' => 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+    ];
     $totalKondisi = (int) $kondisiCount->sum();
 
     // Segmen donut (conic-gradient) + legenda.
@@ -159,44 +165,104 @@
 </div>
 
 {{-- Filter + tabel katalog --}}
-<form method="GET" class="flex flex-wrap gap-2 text-sm">
-    <input name="q" value="{{ request('q') }}" placeholder="Cari kode / nama" class="border rounded px-3 py-2">
-    <select name="kategori_id" class="border rounded px-3 py-2">
+<form method="GET" class="flex flex-col sm:flex-row gap-2 text-sm">
+    <input name="q" value="{{ request('q') }}" placeholder="Cari kode / nama" class="w-full sm:flex-1 min-w-0 border rounded px-3 py-2">
+    <select name="kategori_id" class="w-full sm:w-auto sm:min-w-[180px] border rounded px-3 py-2">
         <option value="">Semua kategori</option>
         @foreach ($kategori as $k)
             <option value="{{ $k->id }}" @selected(request('kategori_id')===$k->id)>{{ $k->nama }}</option>
         @endforeach
     </select>
-    <select name="kondisi" class="border rounded px-3 py-2">
+    <select name="kondisi" class="w-full sm:w-auto sm:min-w-[160px] border rounded px-3 py-2">
         <option value="">Semua kondisi</option>
         @foreach (['baik','rusak_ringan','rusak_berat','hilang'] as $kd)
             <option value="{{ $kd }}" @selected(request('kondisi')===$kd)>{{ ucfirst(str_replace('_',' ',$kd)) }}</option>
         @endforeach
     </select>
-    <button class="bg-gray-200 rounded px-4 py-2">Filter</button>
+    <button class="w-full sm:w-auto bg-gray-200 rounded px-4 py-2">Filter</button>
 </form>
 
-<div class="bg-white rounded-lg shadow overflow-x-auto">
-    <table class="w-full text-sm">
-        <thead><tr class="text-left text-gray-500 border-b">
-            <th class="py-2 px-4">Kode</th><th>Nama</th><th>Kategori</th><th>Ruangan</th><th>Kondisi</th><th>Nilai Perolehan</th><th>Nilai Buku</th><th></th>
-        </tr></thead>
-        <tbody>
+@if($aset->isEmpty())
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 dark:bg-slate-900 dark:border-slate-700 px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+        Belum ada aset yang sesuai dengan filter.
+    </div>
+@else
+    {{-- Desktop/tablet: kolom diberi lebar minimum agar nominal dan aksi tidak pecah per karakter. --}}
+    <div class="hidden md:block bg-white rounded-lg shadow overflow-x-auto max-w-full" tabindex="0" aria-label="Tabel inventaris aset, geser ke samping untuk melihat kolom lain">
+        <table class="w-full min-w-[980px] text-sm" style="width:max-content; min-width:980px; max-width:none;">
+            <thead>
+                <tr class="text-left text-gray-500 border-b">
+                    <th scope="col" class="py-3 px-4 whitespace-nowrap">Kode</th>
+                    <th scope="col" class="py-3 px-4 min-w-[200px]">Nama</th>
+                    <th scope="col" class="py-3 px-4 min-w-[180px]">Kategori</th>
+                    <th scope="col" class="py-3 px-4 min-w-[140px]">Ruangan</th>
+                    <th scope="col" class="py-3 px-4 min-w-[120px]">Kondisi</th>
+                    <th scope="col" class="py-3 px-4 whitespace-nowrap">Nilai Perolehan</th>
+                    <th scope="col" class="py-3 px-4 whitespace-nowrap">Nilai Buku</th>
+                    <th scope="col" class="py-3 px-4 whitespace-nowrap">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach($aset as $a)
+                <tr class="border-b align-top last:border-b-0">
+                    <td class="py-3 px-4 font-medium whitespace-nowrap">{{ $a->kode }}</td>
+                    <td class="py-3 px-4 break-words whitespace-normal">{{ $a->nama }}</td>
+                    <td class="py-3 px-4 break-words whitespace-normal">{{ $a->kategori?->nama ?? 'Tanpa kategori' }}</td>
+                    <td class="py-3 px-4 break-words whitespace-normal">{{ $a->ruangan?->kode ?? 'Tanpa ruangan' }}</td>
+                    <td class="py-3 px-4 whitespace-normal">
+                        <span class="inline-flex max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold leading-tight {{ $condBadgeClasses[$a->kondisi] ?? $condBadgeClasses['hilang'] }}">
+                            {{ $condLabels[$a->kondisi] ?? ucfirst(str_replace('_', ' ', (string) $a->kondisi)) }}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 whitespace-nowrap sarpras-keep-nowrap">{{ $a->nilai_perolehan_rp }}</td>
+                    <td class="py-3 px-4 whitespace-nowrap sarpras-keep-nowrap">{{ $a->nilai_buku_rp }}</td>
+                    <td class="py-3 px-4 whitespace-nowrap sarpras-keep-nowrap">
+                        <a href="{{ route('sarpras.aset.show', $a) }}" class="inline-flex min-h-9 items-center rounded-lg px-2 text-blue-600 hover:bg-blue-50 hover:underline dark:hover:bg-blue-900/30 sarpras-keep-nowrap" style="max-width:none; flex-wrap:nowrap; white-space:nowrap;">Detail</a>
+                    </td>
+                </tr>
+            @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    {{-- Mobile: kartu menjaga seluruh detail terbaca tanpa mengecilkan kolom tabel. --}}
+    <div class="md:hidden space-y-3" aria-label="Daftar inventaris aset">
         @foreach($aset as $a)
-            <tr class="border-b">
-                <td class="py-2 px-4 font-medium">{{ $a->kode }}</td>
-                <td>{{ $a->nama }}</td>
-                <td>{{ $a->kategori?->nama }}</td>
-                <td>{{ $a->ruangan?->kode }}</td>
-                <td class="capitalize">{{ str_replace('_',' ',$a->kondisi) }}</td>
-                <td>{{ $a->nilai_perolehan_rp }}</td>
-                <td>{{ $a->nilai_buku_rp }}</td>
-                <td class="px-4"><a href="{{ route('sarpras.aset.show', $a) }}" class="text-blue-600 hover:underline">Detail</a></td>
-            </tr>
+            <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400 break-words">{{ $a->kode }}</p>
+                        <h3 class="mt-1 text-base font-bold leading-snug text-slate-800 dark:text-slate-100 break-words">{{ $a->nama }}</h3>
+                    </div>
+                    <span class="shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold leading-tight {{ $condBadgeClasses[$a->kondisi] ?? $condBadgeClasses['hilang'] }}">
+                        {{ $condLabels[$a->kondisi] ?? ucfirst(str_replace('_', ' ', (string) $a->kondisi)) }}
+                    </span>
+                </div>
+
+                <dl class="mt-4 grid grid-cols-1 min-[420px]:grid-cols-2 gap-2.5 text-sm">
+                    <div class="min-w-0 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/70">
+                        <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Kategori</dt>
+                        <dd class="mt-1 break-words text-slate-700 dark:text-slate-200">{{ $a->kategori?->nama ?? 'Tanpa kategori' }}</dd>
+                    </div>
+                    <div class="min-w-0 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/70">
+                        <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Ruangan</dt>
+                        <dd class="mt-1 break-words text-slate-700 dark:text-slate-200">{{ $a->ruangan?->kode ?? 'Tanpa ruangan' }}</dd>
+                    </div>
+                    <div class="min-w-0 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/70">
+                        <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Nilai Perolehan</dt>
+                        <dd class="mt-1 whitespace-nowrap sarpras-keep-nowrap text-slate-700 dark:text-slate-200">{{ $a->nilai_perolehan_rp }}</dd>
+                    </div>
+                    <div class="min-w-0 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800/70">
+                        <dt class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Nilai Buku</dt>
+                        <dd class="mt-1 whitespace-nowrap sarpras-keep-nowrap text-slate-700 dark:text-slate-200">{{ $a->nilai_buku_rp }}</dd>
+                    </div>
+                </dl>
+
+                <a href="{{ route('sarpras.aset.show', $a) }}" class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50">Lihat detail aset</a>
+            </article>
         @endforeach
-        </tbody>
-    </table>
-</div>
+    </div>
+@endif
 
 
 @push('scripts')
