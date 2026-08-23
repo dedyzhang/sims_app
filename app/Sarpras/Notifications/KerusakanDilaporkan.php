@@ -41,7 +41,7 @@ class KerusakanDilaporkan extends Notification
 
         return [
             'title'   => $data['judul'],
-            'message' => $data['pesan'],
+            'message' => 'Urgensi ' . $this->laporan->urgensi . ' — buka detail di SIMS Sarpras.',
             'url'     => $data['url'],
             'type'    => 'sarpras_kerusakan',
         ];

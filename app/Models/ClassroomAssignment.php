@@ -63,6 +63,10 @@ class ClassroomAssignment extends Model
         return $this->hasMany(ClassroomSubmission::class, 'assignment_id', 'uuid');
     }
 
+    public function audioLinks()
+    {
+        return $this->hasMany(AiTeacherAudioLink::class, 'target_uuid', 'uuid')->where('target_type', 'classroom_assignment')->with('audio');
+    }
     public function comments()
     {
         return $this->morphMany(ClassroomComment::class, 'commentable');

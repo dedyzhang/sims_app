@@ -22,7 +22,7 @@
             </span>
             <div>
                 <h2 class="text-base font-extrabold text-slate-800 dark:text-slate-100">Detail Laporan</h2>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Isi objek, urgensi, deskripsi, lalu lampirkan foto.</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pilih aset/ruangan bila tahu. Jika tidak, cukup isi deskripsi kerusakan.</p>
             </div>
         </div>
 
@@ -44,7 +44,7 @@
                         <option value="{{ $r->id }}" @selected(old('ruangan_id', $ruanganTerpilih)===$r->id)>{{ $r->kode }} — {{ $r->nama }}</option>
                     @endforeach
                 </select>
-                <p class="text-[11px] text-slate-400 mt-1.5">Pilih minimal salah satu: aset atau ruangan.</p>
+                <p class="text-[11px] text-slate-400 mt-1.5">Opsional. Boleh kosong jika lokasi/objek belum pasti.</p>
             </div>
         </div>
 

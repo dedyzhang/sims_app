@@ -8,6 +8,7 @@ use App\Sarpras\Http\Requests\LaporKerusakanRequest;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\DenahRuangan;
 use App\Sarpras\Models\LaporanKerusakan;
+use App\Sarpras\Models\LaporanKerusakanFoto;
 use App\Sarpras\Models\Perbaikan;
 use App\Sarpras\Notifications\KerusakanDilaporkan;
 use App\Sarpras\Services\FotoCompressor;
@@ -15,11 +16,15 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class KerusakanController extends Controller
 {
+    private const WAKA_SARPRAS_ACCESS = ['sarpras', 'sapras'];
+
     public function index(Request $request): View
     {
         $user = auth()->user();
@@ -80,12 +85,20 @@ class KerusakanController extends Controller
                 ->with('gagal', 'Gagal menyimpan laporan / memproses foto: ' . $e->getMessage());
         }
 
-        // Notifikasi in-app (database) ke pengelola Sarpras (SIMS: kolom access).
-        $wakas = User::whereIn('access', ['superadmin', 'admin', 'sarpras', 'sapras'])->get();
+        // Notifikasi in-app + FCM hanya ke Waka Sarpras.
+        // Detail lengkap tetap dibuka lewat route terotorisasi, bukan dibocorkan ke payload push.
+        $wakas = $this->wakaSarprasRecipients();
         Notification::send($wakas, new KerusakanDilaporkan($laporan));
 
-        return redirect()->route('sarpras.kerusakan.show', $laporan)
+        return redirect()->route('sarpras.kerusakan.show', $laporan->id)
             ->with('sukses', 'Laporan kerusakan terkirim ke Waka Sarpras.');
+    }
+
+    private function wakaSarprasRecipients()
+    {
+        return User::query()
+            ->whereIn('access', self::WAKA_SARPRAS_ACCESS)
+            ->get(['uuid', 'username', 'access']);
     }
 
     public function show(LaporanKerusakan $kerusakan): View
@@ -98,6 +111,26 @@ class KerusakanController extends Controller
         $kerusakan->load(['pelapor:uuid,username', 'penangan:uuid,username', 'aset', 'ruangan', 'foto', 'perbaikan']);
 
         return view('sarpras.kerusakan.show', compact('kerusakan'));
+    }
+
+    public function foto(LaporanKerusakanFoto $foto): BinaryFileResponse
+    {
+        $foto->loadMissing('laporan');
+        $laporan = $foto->laporan;
+        $user = auth()->user();
+
+        if (! $laporan || (! $user->can('sarpras.kerusakan.kelola') && $laporan->pelapor_id !== $user->getKey())) {
+            abort(404);
+        }
+
+        if (! $foto->foto_path || ! Storage::disk('public')->exists($foto->foto_path)) {
+            abort(404);
+        }
+
+        return response()->file(Storage::disk('public')->path($foto->foto_path), [
+            'Content-Type' => Storage::disk('public')->mimeType($foto->foto_path) ?: 'image/webp',
+            'Cache-Control' => 'private, max-age=3600',
+        ]);
     }
 
     /** Waka menerima laporan -> buat order perbaikan otomatis. */

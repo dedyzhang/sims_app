@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\AiTeacherAudioAsset;
 use App\Models\Mission;
 use App\Models\Setting;
 use App\Models\UjianAttempt;
 use App\Models\UjianKelas;
 use App\Models\User;
+use App\Policies\AiTeacherAudioAssetPolicy;
 use App\Policies\MissionPolicy;
 use App\Policies\MissionProgressPolicy;
 use App\Policies\UjianPolicy;
@@ -34,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Gate::policy(AiTeacherAudioAsset::class, AiTeacherAudioAssetPolicy::class);
         Gate::policy(User::class, MissionProgressPolicy::class);
         Gate::policy(Mission::class, MissionPolicy::class);
         // UjianPolicy sudah auto-terpasang ke model Ujian lewat konvensi nama

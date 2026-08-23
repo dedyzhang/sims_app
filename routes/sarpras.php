@@ -33,7 +33,11 @@ Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sa
     /* 1. PELAPORAN KERUSAKAN */
     Route::middleware('can:sarpras.kerusakan.lihat')->group(function () {
         Route::get('kerusakan', [KerusakanController::class, 'index'])->name('kerusakan.index');
-        Route::get('kerusakan/{kerusakan}', [KerusakanController::class, 'show'])->name('kerusakan.show');
+        Route::get('kerusakan-foto/{foto}', [KerusakanController::class, 'foto'])->name('kerusakan.foto');
+        Route::get('kerusakan/{kerusakan}', [KerusakanController::class, 'show'])
+            ->missing(fn () => redirect()->route('sarpras.kerusakan.index')
+                ->with('gagal', 'Laporan kerusakan tidak ditemukan atau sudah tidak tersedia.'))
+            ->name('kerusakan.show');
     });
     Route::get('kerusakan-lapor', [KerusakanController::class, 'create'])
         ->middleware('can:sarpras.kerusakan.lapor')->name('kerusakan.create');

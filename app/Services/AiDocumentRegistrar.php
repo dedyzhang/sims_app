@@ -6,6 +6,7 @@ use App\Jobs\IngestAiDocumentJob;
 use App\Models\AiDocument;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /*
 | Titik masuk kanonik: simpan file + buat baris ai_documents + antre/jalankan ingest.
@@ -37,6 +38,28 @@ class AiDocumentRegistrar
         ]);
 
         $this->dispatchIngest($doc, $resolvedMime);
+
+        return $doc->refresh();
+    }
+
+    public function registerExtractedText(
+        string $ownerUuid,
+        string $text,
+        string $source,
+        string $title,
+    ): AiDocument {
+        $path = 'ai_documents/'.(string) Str::uuid().'.txt';
+        Storage::disk('local')->put($path, $text);
+
+        $doc = AiDocument::create([
+            'user_uuid' => $ownerUuid,
+            'title' => $title,
+            'file_path' => $path,
+            'source' => $source,
+            'status' => AiDocument::STATUS_PENDING,
+        ]);
+
+        $this->dispatchIngest($doc, 'text/plain');
 
         return $doc->refresh();
     }

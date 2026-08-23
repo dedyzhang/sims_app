@@ -43,6 +43,16 @@
         // "Undefined variable" yg sama persis dgn $modulOn akan muncul lagi. Definisi di sini
         // menutup celah itu tanpa bergantung pada fallback yg gampang lupa.
         $activeGroups = [];
+        $navRegistry = [
+            'dashboard' => [
+                'route'    => 'dashboard',
+                'label'    => 'Dashboard',
+                'icon'     => 'layout-dashboard',
+                'url'      => route('dashboard'),
+                'patterns' => ['dashboard'],
+            ],
+        ];
+        $navExpandedDefaults = [];
         // Badge kosmetik — JANGAN sampai menjatuhkan seluruh halaman kalau tabelnya belum
         // dimigrasikan (mis. baru deploy, migration belum jalan → tampil blank di production).
         $feedbackUnreadCount = 0;
@@ -298,15 +308,33 @@
         .nav-link { position:relative; color: color-mix(in srgb, var(--stx) 72%, transparent); border-radius:14px; transition:all .16s; }
         .nav-link:hover { background: color-mix(in srgb, var(--cp) 12%, transparent); color: {{ $isSidebarDark ? '#ffffff' : 'color-mix(in srgb, var(--stx) 95%, black)' }}; }
         .nav-link.active {
-            background: {{ $isSidebarDark ? 'rgba(255, 255, 255, 0.18)' : 'color-mix(in srgb, var(--cp) 26%, transparent)' }};
-            color: {{ $isSidebarDark ? '#ffffff' : 'color-mix(in srgb, var(--cp) 88%, black)' }};
+            background: {{ $isSidebarDark ? 'rgba(124, 108, 240, 0.28)' : 'color-mix(in srgb, #7C6CF0 14%, white)' }};
+            color: {{ $isSidebarDark ? '#E8E4FF' : '#5B4FD4' }};
             font-weight:700;
-            box-shadow: inset 0 0 0 1px {{ $isSidebarDark ? 'rgba(255,255,255,0.12)' : 'color-mix(in srgb, var(--cp) 30%, transparent)' }};
+            box-shadow: none;
+            border-radius: 12px;
         }
-        .nav-link.active .nav-icon { color: var(--sia); stroke-width:2.5; }
-        .dark .nav-link.active { color:#e2e8f0; }
+        .nav-link.active .nav-icon { color: {{ $isSidebarDark ? '#C4B5FD' : '#7C6CF0' }}; stroke-width:2.5; }
+        .dark .nav-link.active { background: rgba(124, 108, 240, 0.22); color: #E8E4FF; }
+        .dark .nav-link.active .nav-icon { color: #C4B5FD; }
         .nav-section { color: color-mix(in srgb, var(--stx) 45%, transparent); }
         .dark .nav-section { color:#64748b; }
+        .nav-personal { border-color: color-mix(in srgb, var(--stx) 12%, transparent); }
+        .nav-search-input {
+            border: 1px solid color-mix(in srgb, var(--stx) 18%, transparent);
+            background: color-mix(in srgb, var(--sbg) 88%, white);
+            color: var(--stx);
+            outline: none;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .nav-search-input::placeholder { color: color-mix(in srgb, var(--stx) 45%, transparent); }
+        .nav-search-input:focus {
+            border-color: color-mix(in srgb, var(--cp) 45%, transparent);
+            box-shadow: 0 0 0 3px color-mix(in srgb, var(--cp) 14%, transparent);
+        }
+        .dark .nav-search-input { background: rgba(15,23,42,.55); border-color: rgba(148,163,184,.22); color:#e2e8f0; }
+        .nav-search-results { border: 1px solid color-mix(in srgb, var(--stx) 12%, transparent); background: color-mix(in srgb, var(--sbg) 94%, white); }
+        .dark .nav-search-results { background: rgba(15,23,42,.72); border-color: rgba(148,163,184,.18); }
         /* Tooltip melayang utk sidebar mode ikon (mini) — fixed agar tak terpotong scroll */
         .sb-tip { position:fixed; transform:translateY(-50%); background:#1e293b; color:#fff; font-size:12px;
             font-weight:600; line-height:1; padding:7px 11px; border-radius:9px; box-shadow:0 8px 22px rgba(15,23,42,.28);
@@ -324,6 +352,22 @@
         .dark .nav-group.has-active { color:#e2e8f0; }
         .nav-submenu { border-left:1.5px solid color-mix(in srgb, var(--stx) 16%, transparent); }
         .dark .nav-submenu { border-left-color: rgba(255,255,255,.1); }
+        .nav-sublink-wrap { position: relative; }
+        .nav-sublink-wrap .nav-sublink { flex: 1; min-width: 0; }
+        .nav-fav-btn {
+            flex-shrink: 0; width: 22px; height: 22px; border-radius: 8px;
+            display: grid; place-items: center; color: color-mix(in srgb, var(--stx) 45%, transparent);
+            opacity: 0; transition: opacity .15s, color .15s, background .15s;
+        }
+        .nav-sublink-wrap:hover .nav-fav-btn, .nav-fav-btn.is-fav { opacity: 1; }
+        .nav-fav-btn:hover { background: color-mix(in srgb, var(--cp) 12%, transparent); color: var(--cp); }
+        .nav-fav-btn.is-fav { color: #f59e0b; opacity: 1; }
+        .nav-sublink-more {
+            width: 100%; text-align: left; font-size: 12px; font-weight: 700;
+            color: color-mix(in srgb, var(--stx) 62%, transparent);
+            padding: 6px 12px; border-radius: 10px; transition: background .15s;
+        }
+        .nav-sublink-more:hover { background: color-mix(in srgb, var(--cp) 8%, transparent); color: var(--cp); }
         .nav-sublink { font-weight:500; }
 
         /* ===== Buttons ===== */
@@ -833,11 +877,12 @@
                 }
 
                 // ── Keuangan ──
-                if ($modulOn('keuangan') && ($isAdmin || auth()->user()?->canAccess('manage_keuangan'))) {
+                if ($modulOn('keuangan') && ($isAdmin || auth()->user()?->canAccess('manage_keuangan') || in_array($access, ['kepala', 'kepala_sekolah'], true))) {
                     $groups['keuangan'] = ['Keuangan / SPP', 'wallet', [
                         ['keuangan.index',      ['keuangan.index','keuangan.kelas','keuangan.bendahara-ai.wawasan','keuangan.bendahara-ai.export-paket'], 'layout-dashboard', 'Pembayaran SPP'],
                         ['keuangan.verifikasi', ['keuangan.verifikasi','keuangan.bendahara-ai.*'],             'badge-check',      'Verifikasi'],
                         ['keuangan.bank',       ['keuangan.bank'],                   'landmark',         'Bank & Metode'],
+                        ['keuangan.rkas.index', ['keuangan.rkas.*'],                'file-spreadsheet', 'RKAS / BOSP'],
                     ]];
                 }
 
@@ -920,14 +965,199 @@
                 if (request()->routeIs('panduan.*', 'feedback.*')) {
                     $activeGroups[] = 'bantuan';
                 }
+
+                // Progressive disclosure: grup panjang → item inti (by route) + sub-expand "Semua …"
+                $sidebarProgressive = [
+                    'cetak' => [
+                        'label' => 'Semua Cetak',
+                        'core'  => ['cetak.siswa.index', 'cetak.guru.index', 'cetak.kelas.index'],
+                    ],
+                    'sarpras' => [
+                        'label' => 'Semua Sarpras',
+                        'core'  => ['sarpras.dashboard', 'sarpras.denah.index', 'sarpras.aset.index', 'sarpras.kerusakan.index'],
+                    ],
+                    'presensi' => [
+                        'label' => 'Semua Absensi',
+                        'core'  => ['absensi.index', 'presensi-guru.index', 'kalender.index'],
+                    ],
+                ];
+                $navRegistry = [
+                    'dashboard' => [
+                        'route'    => 'dashboard',
+                        'label'    => 'Dashboard',
+                        'icon'     => 'layout-dashboard',
+                        'url'      => route('dashboard'),
+                        'patterns' => ['dashboard'],
+                    ],
+                ];
+                $registerNav = function (string $route, array $patterns, string $icon, string $label, array $routeParams = []) use (&$navRegistry) {
+                    if (! \Illuminate\Support\Facades\Route::has($route)) {
+                        return;
+                    }
+                    $navRegistry[$route] = [
+                        'route'    => $route,
+                        'label'    => $label,
+                        'icon'     => $icon,
+                        'url'      => route($route, $routeParams),
+                        'patterns' => $patterns,
+                    ];
+                };
+                $registerNav('dashboard', ['dashboard'], 'layout-dashboard', 'Dashboard');
+                $navExpandedDefaults = [];
+                foreach ($groups as $gk => $g) {
+                    $items = $g[2];
+                    $prog = $sidebarProgressive[$gk] ?? null;
+                    $primary = $items;
+                    $more = [];
+                    $moreLabel = 'Semua';
+                    if ($prog) {
+                        $coreOrder = array_flip($prog['core']);
+                        $primary = [];
+                        $more = [];
+                        foreach ($items as $it) {
+                            if (isset($coreOrder[$it[0]])) {
+                                $primary[$coreOrder[$it[0]]] = $it;
+                            } else {
+                                $more[] = $it;
+                            }
+                        }
+                        ksort($primary);
+                        $primary = array_values($primary);
+                        $moreLabel = $prog['label'];
+                        if (empty($more)) {
+                            $primary = $items;
+                        } else {
+                            foreach ($more as $it) {
+                                if (request()->routeIs(...$it[1])) {
+                                    $navExpandedDefaults[$gk] = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    $groups[$gk][2] = ['primary' => $primary, 'more' => $more, 'moreLabel' => $moreLabel];
+                    foreach ($items as $it) {
+                        $registerNav($it[0], $it[1], $it[2], $it[3], $it[4] ?? []);
+                    }
+                }
+                if ($modulOn('kartu_pelajar') && auth()->user()?->siswa) {
+                    $registerNav('kartu-pelajar.self', ['kartu-pelajar.self'], 'id-card', 'Kartu Pelajar');
+                }
+                if (auth()->user()?->guru) {
+                    $registerNav('kartu-guru.self', ['kartu-guru.self'], 'contact-round', 'Kartu ID');
+                }
+                if ($modulOn('forum') && auth()->user()?->can('viewAny', App\Models\ForumTopic::class)) {
+                    $registerNav('forum.index', ['forum.*'], 'messages-square', 'Forum Diskusi');
+                }
+                if ($modulOn('pengumuman')) {
+                    $registerNav('pengumuman.index', ['pengumuman.*'], 'megaphone', 'Pengumuman');
+                }
+                if ($modulOn('grup_chat') && \App\Support\GrupChatMenu::tampil(auth()->user())) {
+                    $registerNav('grup.index', ['grup.*'], 'users-round', 'Grup Chat');
+                }
+                $appDownloadOn = \App\Models\Setting::get('app_download_aktif') === '1'
+                    && (\App\Models\Setting::get('app_apk_path') || \App\Models\Setting::get('app_windows_path'));
+                if ($appDownloadOn) {
+                    $registerNav('app.download', ['app.download'], 'download', 'Unduh Aplikasi');
+                }
+                if ($modulOn('chatbot') && $isAdmin) {
+                    $registerNav('chatbot.admin.inbox', ['chatbot.admin.*'], 'message-circle', 'Chat / Inbox');
+                }
+                if ($modulOn('keuangan') && (auth()->user()?->siswa || auth()->user()?->access === 'orangtua')) {
+                    $registerNav('keuangan.tagihan.index', ['keuangan.tagihan.*'], 'wallet', 'Tagihan SPP');
+                }
+                if ($modulOn('absensi') && $access === 'orangtua' && \App\Support\PantauLokasi::aktif() && \App\Support\PantauLokasi::canAccess(auth()->user())) {
+                    $registerNav('pantau-lokasi.index', ['pantau-lokasi.*'], 'map-pinned', 'Pantau Lokasi');
+                }
+                $registerNav('pembaruan.riwayat', ['pembaruan.riwayat'], 'sparkles', 'Info Pembaruan');
+                $registerNav('panduan.visual', ['panduan.*'], 'book-open-check', 'Panduan Visual');
+                $registerNav('feedback.index', ['feedback.*'], 'message-square-heart', 'Saran & Masukan');
+
+                $navSearchItems = [];
+                foreach ($groups as $g) {
+                    $glabel = $g[0];
+                    $bucket = $g[2];
+                    $flat = array_merge($bucket['primary'] ?? [], $bucket['more'] ?? []);
+                    foreach ($flat as $it) {
+                        if (! \Illuminate\Support\Facades\Route::has($it[0])) {
+                            continue;
+                        }
+                        $navSearchItems[] = [
+                            'route' => $it[0],
+                            'label' => $it[3],
+                            'group' => $glabel,
+                            'icon'  => $it[2],
+                            'url'   => route($it[0], $it[4] ?? []),
+                        ];
+                    }
+                }
+                $navSearchItems = collect($navSearchItems)->unique('route')->values()->all();
             @endphp
+
+            {{-- Cari menu (command-palette-lite) --}}
+            <div x-show="!mini" class="px-1 pb-2" x-cloak>
+                <label for="nav-menu-search" class="sr-only">Cari menu</label>
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50 pointer-events-none"></i>
+                    <input id="nav-menu-search" type="search" x-model="navSearchQuery" placeholder="Cari menu…"
+                           autocomplete="off"
+                           class="nav-search-input w-full pl-9 pr-3 py-2 text-sm rounded-xl" />
+                </div>
+                <div x-show="navSearchQuery.trim().length > 0" x-cloak
+                     class="nav-search-results mt-1.5 rounded-xl overflow-hidden shadow-sm">
+                    <template x-for="item in navSearchResults()" :key="item.route">
+                        <a :href="item.url" :data-nav-route="item.route"
+                           class="nav-link flex items-center gap-2.5 px-3 py-2 border-b border-black/[.04] dark:border-white/[.06] last:border-0">
+                            <i :data-lucide="item.icon" class="nav-icon w-4 h-4 flex-shrink-0"></i>
+                            <span class="min-w-0 flex-1">
+                                <span class="block text-[13px] font-semibold truncate" x-text="item.label"></span>
+                                <span class="block text-[10px] opacity-60 truncate" x-text="item.group"></span>
+                            </span>
+                        </a>
+                    </template>
+                    <p x-show="navSearchResults().length === 0" class="px-3 py-2.5 text-xs opacity-60">Menu tidak ditemukan.</p>
+                </div>
+            </div>
+
+            <div x-show="!navSearchQuery.trim().length">
 
             {{-- Menu utama (selalu tampil) --}}
             <p x-show="!mini" class="nav-section px-3 pt-2 pb-2 text-[11px] font-bold uppercase tracking-[.1em]">Navigasi</p>
-            <a href="{{ route('dashboard') }}" data-tip="Dashboard" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('dashboard') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
+            <a href="{{ route('dashboard') }}" data-nav-route="dashboard" data-tip="Dashboard" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('dashboard') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="layout-dashboard" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Dashboard</span>
             </a>
+
+            {{-- Favorit & Baru dibuka (personal, localStorage) --}}
+            <div x-show="!mini && (navFavorites.length || navRecent.length)" x-cloak
+                 class="nav-personal mt-2 pt-2 border-t">
+                <div x-show="navFavorites.length">
+                    <p class="nav-section px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-[.1em]">Favorit</p>
+                    <template x-for="item in navFavorites" :key="item.route">
+                        <a :href="item.url" :data-nav-route="item.route" :data-tip="item.label"
+                           class="nav-link flex items-center gap-2.5 px-3 py-2"
+                           :class="isNavActive(item) ? 'active' : ''">
+                            <i :data-lucide="item.icon" class="nav-icon w-4 h-4 flex-shrink-0"></i>
+                            <span class="text-[13px] truncate flex-1" x-text="item.label"></span>
+                            <button type="button" @click.prevent.stop="toggleNavFavorite(item.route)"
+                                    class="nav-fav-btn is-fav" title="Hapus dari favorit">
+                                <i data-lucide="star" class="w-3.5 h-3.5 fill-current"></i>
+                            </button>
+                        </a>
+                    </template>
+                </div>
+                <div x-show="navRecent.length" :class="navFavorites.length ? 'mt-1 pt-1 border-t border-black/[.04] dark:border-white/[.06]' : ''">
+                    <p class="nav-section px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-[.1em]">Baru dibuka</p>
+                    <template x-for="item in navRecent" :key="item.route">
+                        <a :href="item.url" :data-nav-route="item.route" :data-tip="item.label"
+                           class="nav-link flex items-center gap-2.5 px-3 py-2"
+                           :class="isNavActive(item) ? 'active' : ''">
+                            <i :data-lucide="item.icon" class="nav-icon w-4 h-4 flex-shrink-0"></i>
+                            <span class="text-[13px] truncate" x-text="item.label"></span>
+                        </a>
+                    </template>
+                </div>
+            </div>
             @if($modulOn('kartu_pelajar') && auth()->user()?->siswa)
             <a href="{{ route('kartu-pelajar.self') }}" data-tip="Kartu Pelajar" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('kartu-pelajar.self') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="id-card" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
@@ -981,10 +1211,6 @@
             @endif
 
             {{-- Unduh Aplikasi: tampil untuk semua pengguna bila diaktifkan admin & ada file --}}
-            @php
-                $appDownloadOn = \App\Models\Setting::get('app_download_aktif') === '1'
-                    && (\App\Models\Setting::get('app_apk_path') || \App\Models\Setting::get('app_windows_path'));
-            @endphp
             @if($appDownloadOn)
             <a href="{{ route('app.download') }}" data-tip="Unduh Aplikasi" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('app.download') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="download" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
@@ -1024,7 +1250,11 @@
 
             {{-- Grup kategori: accordion saat lebar, ikon datar saat ringkas --}}
             @foreach($groups as $gk => $g)
-            @php [$glabel, $gicon, $gitems] = $g; @endphp
+            @php
+                [$glabel, $gicon, $gitems] = $g;
+                $primaryItems = $gitems['primary'] ?? [];
+                $moreItems = $gitems['more'] ?? [];
+            @endphp
 
             {{-- Mode lebar: tombol grup + submenu collapsible --}}
             <div x-show="!mini" class="pt-1">
@@ -1037,21 +1267,56 @@
                     </span>
                 </button>
                 <div x-show="openGroup==='{{ $gk }}'" x-collapse class="nav-submenu ml-[22px] pl-2.5 mt-0.5 space-y-0.5">
-                    @foreach($gitems as $it)
+                    @foreach($primaryItems as $it)
                     @php [$iroute, $ipatterns, $iicon, $ilabel] = $it; @endphp
-                    <a href="{{ route($iroute, $it[4] ?? []) }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs(...$ipatterns) ? 'active' : '' }}">
-                        <i data-lucide="{{ $iicon }}" class="nav-icon w-4 h-4 flex-shrink-0 mt-0.5"></i>
-                        <span class="text-[13px] leading-snug">{{ $ilabel }}</span>
-                    </a>
+                    <div class="nav-sublink-wrap flex items-center gap-0.5 pr-1">
+                        <a href="{{ route($iroute, $it[4] ?? []) }}" data-nav-route="{{ $iroute }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs(...$ipatterns) ? 'active' : '' }}">
+                            <i data-lucide="{{ $iicon }}" class="nav-icon w-4 h-4 flex-shrink-0 mt-0.5"></i>
+                            <span class="text-[13px] leading-snug">{{ $ilabel }}</span>
+                        </a>
+                        <button type="button"
+                                @click.stop="toggleNavFavorite('{{ $iroute }}')"
+                                class="nav-fav-btn"
+                                :class="isNavFavorite('{{ $iroute }}') ? 'is-fav' : ''"
+                                :title="isNavFavorite('{{ $iroute }}') ? 'Hapus dari favorit' : 'Tambah ke favorit'"
+                                :aria-label="isNavFavorite('{{ $iroute }}') ? 'Hapus dari favorit' : 'Tambah ke favorit'">
+                            <i data-lucide="star" class="w-3 h-3" :class="isNavFavorite('{{ $iroute }}') ? 'fill-current' : ''"></i>
+                        </button>
+                    </div>
                     @endforeach
+                    @if(count($moreItems) > 0)
+                    <button type="button" @click="toggleNavExpand('{{ $gk }}')" class="nav-sublink-more flex items-center gap-1.5">
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform duration-200" :class="isNavExpanded('{{ $gk }}') ? 'rotate-180' : ''"></i>
+                        <span x-text="isNavExpanded('{{ $gk }}') ? 'Sembunyikan' : '{{ $gitems['moreLabel'] ?? 'Semua' }}'"></span>
+                    </button>
+                    <div x-show="isNavExpanded('{{ $gk }}')" x-collapse class="space-y-0.5">
+                            @foreach($moreItems as $it)
+                            @php [$iroute, $ipatterns, $iicon, $ilabel] = $it; @endphp
+                            <div class="nav-sublink-wrap flex items-center gap-0.5 pr-1">
+                                <a href="{{ route($iroute, $it[4] ?? []) }}" data-nav-route="{{ $iroute }}" class="nav-link nav-sublink flex items-center gap-2.5 px-3 py-2 {{ request()->routeIs(...$ipatterns) ? 'active' : '' }}">
+                                    <i data-lucide="{{ $iicon }}" class="nav-icon w-4 h-4 flex-shrink-0 mt-0.5"></i>
+                                    <span class="text-[13px] leading-snug">{{ $ilabel }}</span>
+                                </a>
+                                <button type="button"
+                                        @click.stop="toggleNavFavorite('{{ $iroute }}')"
+                                        class="nav-fav-btn"
+                                        :class="isNavFavorite('{{ $iroute }}') ? 'is-fav' : ''"
+                                        :title="isNavFavorite('{{ $iroute }}') ? 'Hapus dari favorit' : 'Tambah ke favorit'"
+                                        :aria-label="isNavFavorite('{{ $iroute }}') ? 'Hapus dari favorit' : 'Tambah ke favorit'">
+                                    <i data-lucide="star" class="w-3 h-3" :class="isNavFavorite('{{ $iroute }}') ? 'fill-current' : ''"></i>
+                                </button>
+                            </div>
+                            @endforeach
+                    </div>
+                    @endif
                 </div>
             </div>
 
             {{-- Mode ringkas (icon-only): anak grup jadi ikon datar langsung --}}
             <div x-show="mini" x-cloak class="space-y-0.5 pt-1">
-                @foreach($gitems as $it)
+                @foreach(array_merge($primaryItems, $moreItems) as $it)
                 @php [$iroute, $ipatterns, $iicon, $ilabel] = $it; @endphp
-                <a href="{{ route($iroute, $it[4] ?? []) }}" data-tip="{{ $ilabel }}" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs(...$ipatterns) ? 'active' : '' }}">
+                <a href="{{ route($iroute, $it[4] ?? []) }}" data-nav-route="{{ $iroute }}" data-tip="{{ $ilabel }}" class="nav-link flex items-center justify-center px-3 py-2.5 {{ request()->routeIs(...$ipatterns) ? 'active' : '' }}">
                     <i data-lucide="{{ $iicon }}" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 </a>
                 @endforeach
@@ -1106,6 +1371,7 @@
                           class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
                     @endif
                 </a>
+            </div>
             </div>
         </nav>
 
@@ -1611,6 +1877,13 @@
                 if (stored && matches.includes(stored)) return stored;
                 return matches[0] || '';
             })(),
+            navRegistry: @json($navRegistry),
+            navSearchQuery: '',
+            navSearchCatalog: @json($navSearchItems ?? []),
+            navFavorites: [],
+            navRecent: [],
+            currentRoute: @json(Route::currentRouteName()),
+            navExpanded: Object.assign(@json($navExpandedDefaults), (() => { try { return JSON.parse(localStorage.getItem('sims_nav_expanded') || '{}'); } catch (_) { return {}; } })()),
             toggleGroup(g){ this.openGroup = (this.openGroup === g ? '' : g); localStorage.setItem('sb_group', this.openGroup); this.$nextTick(()=>lucide.createIcons()); },
             darkMode: (localStorage.getItem('theme_mode') ?? '{{ $pref->theme_mode ?? 'light' }}') === 'dark',
             uiStyle: '{{ $pref->ui_style ?? 'soft' }}',
@@ -1656,6 +1929,7 @@
                 const sync = () => { this.isMobile = mq.matches; if (this.isMobile) this.mobileOpen = false; };
                 mq.addEventListener ? mq.addEventListener('change', sync) : mq.addListener(sync);
                 this.initNavTips();
+                this.initNavPersonalization();
                 this.initAdminChatBadge();
                 this.initFeedbackBadge();
                 this.initGrupBadge();
@@ -1728,6 +2002,92 @@
                 document.addEventListener('mouseover', (e) => { const el = e.target.closest(sel); if (el) show(el); });
                 document.addEventListener('mouseout',  (e) => { if (e.target.closest(sel)) hide(); });
                 document.addEventListener('click',     (e) => { if (e.target.closest(sel)) hide(); });
+            },
+            loadNavFavorites(){
+                const reg = this.navRegistry;
+                try {
+                    const routes = JSON.parse(localStorage.getItem('sims_nav_favorites') || localStorage.getItem('sb_favorites') || '[]');
+                    this.navFavorites = routes.filter(r => reg[r]).map(r => reg[r]);
+                } catch (_) {
+                    this.navFavorites = [];
+                }
+            },
+            loadNavRecent(){
+                const reg = this.navRegistry;
+                try {
+                    const routes = JSON.parse(localStorage.getItem('sims_nav_recent') || localStorage.getItem('sb_recent') || '[]');
+                    this.navRecent = routes.filter(r => reg[r]).map(r => reg[r]).slice(0, 5);
+                } catch (_) {
+                    this.navRecent = [];
+                }
+            },
+            isNavActive(item){
+                if (!item || !this.currentRoute) return false;
+                const patterns = item.patterns || [item.route];
+                return patterns.some(p => {
+                    if (p.endsWith('.*')) {
+                        const base = p.slice(0, -2);
+                        return this.currentRoute === base || this.currentRoute.startsWith(base + '.');
+                    }
+                    return this.currentRoute === p;
+                });
+            },
+            isNavFavorite(route){
+                try {
+                    const routes = JSON.parse(localStorage.getItem('sims_nav_favorites') || localStorage.getItem('sb_favorites') || '[]');
+                    return routes.includes(route);
+                } catch (_) {
+                    return false;
+                }
+            },
+            toggleNavFavorite(route){
+                let routes = [];
+                try { routes = JSON.parse(localStorage.getItem('sims_nav_favorites') || localStorage.getItem('sb_favorites') || '[]'); } catch (_) {}
+                if (routes.includes(route)) {
+                    routes = routes.filter(r => r !== route);
+                } else {
+                    routes = [...routes, route];
+                }
+                localStorage.setItem('sims_nav_favorites', JSON.stringify(routes));
+                this.loadNavFavorites();
+                this.$nextTick(() => lucide.createIcons());
+            },
+            toggleNavExpand(key){
+                this.navExpanded[key] = !this.navExpanded[key];
+                localStorage.setItem('sims_nav_expanded', JSON.stringify(this.navExpanded));
+                this.$nextTick(() => lucide.createIcons());
+            },
+            isNavExpanded(key){ return !!this.navExpanded[key]; },
+            navSearchResults(){
+                const q = (this.navSearchQuery || '').trim().toLowerCase();
+                if (!q) return [];
+                return this.navSearchCatalog.filter(item => {
+                    const label = (item.label || '').toLowerCase();
+                    const group = (item.group || '').toLowerCase();
+                    return label.includes(q) || group.includes(q);
+                }).slice(0, 12);
+            },
+            pushNavRecent(route){
+                if (!route || !this.navRegistry[route]) return;
+                let recent = [];
+                try { recent = JSON.parse(localStorage.getItem('sims_nav_recent') || localStorage.getItem('sb_recent') || '[]'); } catch (_) {}
+                recent = [route, ...recent.filter(r => r !== route)].slice(0, 5);
+                localStorage.setItem('sims_nav_recent', JSON.stringify(recent));
+                this.loadNavRecent();
+            },
+            initNavPersonalization(){
+                this.loadNavFavorites();
+                this.loadNavRecent();
+                if (this.currentRoute) this.pushNavRecent(this.currentRoute);
+                const nav = document.querySelector('.sidebar nav');
+                if (!nav) return;
+                nav.addEventListener('click', (e) => {
+                    const link = e.target.closest('a[data-nav-route]');
+                    if (!link) return;
+                    const route = link.getAttribute('data-nav-route');
+                    this.pushNavRecent(route);
+                    this.$nextTick(() => lucide.createIcons());
+                });
             }
         }
     }

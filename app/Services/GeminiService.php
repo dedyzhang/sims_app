@@ -165,6 +165,159 @@ class GeminiService
     }
 
     /**
+     * Ekstrak teks dari dokumen PDF memakai Gemini multimodal.
+     * Dipakai sebagai fallback saat parser lokal tidak bisa membaca PDF scan/gambar.
+     *
+     * @param  list<array{binary:string,mime:string,name?:string}>  $documents
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int}
+     */
+    public function documentText(array $documents, array $options = []): array
+    {
+        if (trim((string) ($options['api_key'] ?? '')) !== '' && empty($options['_resolved_key'])) {
+            return $this->withGeminiKeyFallback(
+                $options,
+                fn (array $keyOptions) => $this->documentText($documents, $keyOptions + ['_resolved_key' => true]),
+                'documentText',
+            );
+        }
+
+        $instruction = trim((string) ($options['prompt'] ?? ''));
+        if ($instruction === '') {
+            $instruction = 'Ekstrak SEMUA teks terbaca dari dokumen PDF materi ajar berikut. '
+                .'Keluarkan teks polos Bahasa Indonesia atau bahasa asli dokumen, urut dari awal sampai akhir. '
+                .'Pertahankan nomor, judul, tabel sederhana, dan struktur paragraf. '
+                .'Jangan menambahkan penjelasan, markdown, atau komentar di luar isi dokumen. '
+                .'Jika teks benar-benar tidak terbaca, tulis tepat: TIDAK_TERBACA';
+        }
+
+        return $this->wrapWithAutoContinuation(
+            $instruction,
+            $options + ['_document_source' => true],
+            function (string $chunkPrompt, array $chunkOptions) use ($documents): array {
+                return $this->documentTextOnce($documents, $chunkOptions + ['prompt' => $chunkPrompt]);
+            },
+        );
+    }
+
+    /**
+     * @param  list<array{binary:string,mime:string,name?:string}>  $documents
+     * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string,sources?:array}
+     */
+    private function documentTextOnce(array $documents, array $options = []): array
+    {
+        $apiKey = $this->resolveApiKey($options);
+        if ($apiKey === '') {
+            throw new RuntimeException('Fitur AI belum dikonfigurasi (GEMINI_API_KEY kosong).');
+        }
+
+        $parts = [];
+        foreach ($documents as $index => $document) {
+            $binary = $document['binary'] ?? '';
+            $mime = strtolower(trim((string) ($document['mime'] ?? 'application/pdf')));
+            if ($binary === '') {
+                continue;
+            }
+            if ($mime !== 'application/pdf') {
+                throw new RuntimeException('AI Studio hanya dipakai untuk membaca PDF pada alur ini.');
+            }
+
+            if (count($documents) > 1) {
+                $name = trim((string) ($document['name'] ?? 'Dokumen '.($index + 1)));
+                $parts[] = ['text' => '['.$name.']'];
+            }
+            $parts[] = [
+                'inlineData' => [
+                    'mimeType' => 'application/pdf',
+                    'data' => base64_encode($binary),
+                ],
+            ];
+        }
+
+        if ($parts === []) {
+            throw new RuntimeException('Tidak ada PDF valid untuk dibaca.');
+        }
+
+        $instruction = trim((string) ($options['prompt'] ?? ''));
+        if ($instruction === '') {
+            $instruction = 'Ekstrak SEMUA teks terbaca dari dokumen PDF materi ajar berikut. '
+                .'Keluarkan teks polos Bahasa Indonesia atau bahasa asli dokumen, urut dari awal sampai akhir. '
+                .'Pertahankan nomor, judul, tabel sederhana, dan struktur paragraf. '
+                .'Jangan menambahkan penjelasan, markdown, atau komentar di luar isi dokumen. '
+                .'Jika teks benar-benar tidak terbaca, tulis tepat: TIDAK_TERBACA';
+        }
+        $parts[] = ['text' => $instruction];
+
+        $modelChain = $this->modelChain($options);
+        $this->ensureFreeTierQuotaIsOpen($modelChain, $apiKey);
+
+        if (trim((string) ($options['system'] ?? '')) === '') {
+            $options['system'] = 'Anda adalah mesin ekstraksi teks akurat untuk PDF materi ajar sekolah Indonesia.';
+        }
+        $system = $this->composeSystemPrompt($options, '');
+
+        $timeout = (int) ($options['timeout'] ?? config('ai.long_timeout', 120));
+        $lastQuotaError = null;
+        $allModelsHitDailyQuota = true;
+
+        foreach ($modelChain as $model) {
+            $body = [
+                'systemInstruction' => ['parts' => [['text' => $system]]],
+                'contents' => [[
+                    'role' => 'user',
+                    'parts' => $parts,
+                ]],
+                'generationConfig' => [
+                    'temperature' => $options['temperature'] ?? 0.1,
+                    'maxOutputTokens' => $options['max_output_tokens'] ?? max(4096, (int) config('ai.max_output_tokens', 1024)),
+                ],
+            ];
+
+            $this->extendExecutionTime($options + ['timeout' => $timeout]);
+
+            try {
+                $response = Http::timeout($timeout)
+                    ->retry(
+                        $options['retries'] ?? 1,
+                        config('ai.retry_delay'),
+                        fn (\Throwable $e) => $this->isTransient($e),
+                        throw: false,
+                    )
+                    ->withQueryParameters(['key' => $apiKey])
+                    ->acceptJson()
+                    ->post(rtrim((string) config('ai.base_url'), '/')."/models/{$model}:generateContent", $body);
+            } catch (\Throwable) {
+                throw new AiProviderUnavailableException('Gagal menghubungi AI Studio untuk membaca PDF. Coba lagi.');
+            }
+
+            if ($response->successful()) {
+                return $this->parse($response->json(), $model);
+            }
+
+            if ($response->status() === 429) {
+                $json = $response->json();
+                $lastQuotaError = $this->normalizeError(429, $json);
+                $allModelsHitDailyQuota = $allModelsHitDailyQuota && $this->isDailyQuotaError($json);
+
+                continue;
+            }
+
+            if ($response->status() >= 500) {
+                throw new AiProviderUnavailableException($this->normalizeError($response->status(), $response->json()));
+            }
+
+            throw new RuntimeException($this->normalizeError($response->status(), $response->json()));
+        }
+
+        if ($this->freeTierOnly() && $lastQuotaError !== null && $allModelsHitDailyQuota) {
+            $this->rememberFreeTierQuotaExhausted($modelChain, $apiKey);
+
+            throw new AiProviderUnavailableException($this->freeTierQuotaMessage());
+        }
+
+        throw new AiProviderUnavailableException($lastQuotaError ?? 'Gagal membaca teks dari PDF.');
+    }
+
+    /**
      * @return array{text:string,model:string,prompt_tokens:int,completion_tokens:int,finish_reason?:string,sources?:array}
      */
     private function visionTextOnce(array $images, array $options = []): array

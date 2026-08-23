@@ -38,6 +38,8 @@
 
 @if($material->description)<p class="text-slate-600 dark:text-slate-300 mt-3">{{ $material->description }}</p>@endif
 @if($material->body)<div class="mt-3">@include('classroom.partials.richbody', ['html' => $material->body])</div>@endif
+@include('components.teacher-audio-player', ['audioLinks' => $material->audioLinks])
+
 @if($material->link_url)<a href="{{ $material->link_url }}" target="_blank" class="text-sm inline-flex items-center gap-1 mt-3" style="color:var(--cp)"><i data-lucide="link" class="w-4 h-4"></i> {{ \Illuminate\Support\Str::limit($material->link_url, 60) }}</a>@endif
 
 @if($material->files->isNotEmpty())

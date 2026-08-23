@@ -35,6 +35,12 @@
                 :class="penuh && 'opacity-50 pointer-events-none'">
             <i data-lucide="video" class="w-4 h-4"></i> Kamera Langsung
         </button>
+        <button type="button" @click="openKameraPerangkat()"
+                class="inline-flex items-center gap-2 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-extrabold text-[#0f766e] bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 shadow-sm transition"
+                :class="penuh && 'opacity-50 pointer-events-none'">
+            <i data-lucide="camera" class="w-4 h-4"></i> Kamera Perangkat
+        </button>
+        <input x-ref="cameraInput" type="file" accept="image/*" capture="environment" class="hidden" @change="tambah($event)" :disabled="penuh">
         @endif
         <label class="inline-flex items-center gap-2 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-extrabold text-[#1a73e8] bg-white dark:bg-slate-800 border border-[#dadce0] dark:border-slate-600 hover:bg-[#f8fbff] dark:hover:bg-slate-700 shadow-sm transition"
                :class="penuh && 'opacity-50 pointer-events-none'">
@@ -46,8 +52,8 @@
     @if ($live)
     {{-- Kamera LIVE: preview realtime + jepret. --}}
     <div x-show="streaming" x-cloak class="space-y-3">
-        <div class="relative bg-slate-900 rounded-2xl overflow-hidden ring-1 ring-slate-800 shadow-lg">
-            <video x-ref="video" autoplay playsinline muted class="w-full max-h-80 object-contain"></video>
+        <div class="relative bg-black rounded-2xl overflow-hidden ring-1 ring-slate-800 shadow-lg">
+            <video x-ref="video" autoplay playsinline muted class="block w-full h-72 sm:h-80 bg-black object-cover"></video>
             <div class="absolute top-3 left-3 inline-flex items-center gap-1.5 bg-black/55 text-white text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm">
                 <span class="w-1.5 h-1.5 rounded-full bg-[#ea4335] animate-pulse"></span> LIVE
             </div>
@@ -77,8 +83,19 @@
 
     <div class="grid grid-cols-3 sm:grid-cols-4 gap-2.5" x-show="items.length" x-cloak>
         <template x-for="(it, i) in items" :key="it.key">
-            <div class="relative group">
-                <img :src="it.url" class="w-full h-24 object-cover rounded-xl border border-[#dadce0] dark:border-slate-600 shadow-sm">
+            <div class="relative group rounded-xl overflow-hidden border border-[#dadce0] dark:border-slate-600 shadow-sm bg-slate-50 dark:bg-slate-800">
+                <img x-show="it.url && !it.broken"
+                     :src="it.url"
+                     x-on:error="it.broken = true"
+                     alt="Preview foto kerusakan"
+                     class="w-full h-24 object-cover">
+                <div x-show="!it.url || it.broken" x-cloak class="w-full h-24 grid place-items-center bg-emerald-50 dark:bg-emerald-950/30 text-center px-2">
+                    <div>
+                        <i data-lucide="image-check" class="w-5 h-5 mx-auto text-emerald-600"></i>
+                        <p class="mt-1 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300">Foto siap dikirim</p>
+                        <p class="text-[10px] text-emerald-600/80 dark:text-emerald-300/70 truncate max-w-[9rem]" x-text="it.name || 'Preview tidak tersedia'"></p>
+                    </div>
+                </div>
                 <button type="button" @click="hapus(i)"
                         class="absolute -top-2 -right-2 w-7 h-7 grid place-items-center rounded-full bg-white dark:bg-slate-800 text-[#ea4335] border border-[#dadce0] dark:border-slate-600 shadow-md text-sm font-bold hover:bg-rose-50 transition"
                         title="Hapus foto">&times;</button>
@@ -109,17 +126,38 @@ function sarprasFotoPicker(max = 4, live = false) {
         tambahFile(f) {
             if (this.items.length >= this.max) return;
             if (!f.type.startsWith('image/')) return;
-            this.items.push({
+            const item = {
                 key: `${f.name}-${f.size}-${f.lastModified}-${this.items.length}`,
                 file: f,
-                url: URL.createObjectURL(f),
-            });
+                name: f.name || 'Foto kerusakan',
+                url: '',
+                broken: false,
+            };
+            this.items.push(item);
+            this.bacaPreview(item, f);
             this.sync();
         },
         hapus(i) {
-            URL.revokeObjectURL(this.items[i].url);
             this.items.splice(i, 1);
             this.sync();
+        },
+        bacaPreview(item, f) {
+            if (!window.FileReader) {
+                item.broken = true;
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = () => {
+                item.url = typeof reader.result === 'string' ? reader.result : '';
+                item.broken = !item.url;
+                this.$nextTick(() => window.lucide && window.lucide.createIcons());
+            };
+            reader.onerror = () => {
+                item.broken = true;
+                this.$nextTick(() => window.lucide && window.lucide.createIcons());
+            };
+            reader.readAsDataURL(f);
         },
         sync() {
             const dt = new DataTransfer();
@@ -127,11 +165,21 @@ function sarprasFotoPicker(max = 4, live = false) {
             this.$refs.finalInput.files = dt.files;
             this.$nextTick(() => window.lucide && window.lucide.createIcons());
         },
+        openKameraPerangkat() {
+            this.kameraError = '';
+            if (this.penuh) return;
+            this.$refs.cameraInput && this.$refs.cameraInput.click();
+        },
 
         async bukaKamera() {
             this.kameraError = '';
+            const secure = window.isSecureContext || ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+            if (!secure) {
+                this.kameraError = 'Kamera live butuh HTTPS. Pakai tombol Kamera Perangkat atau Galeri untuk tetap melampirkan foto.';
+                return;
+            }
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                this.kameraError = 'Kamera live tidak didukung browser ini. Gunakan tombol Galeri.';
+                this.kameraError = 'Kamera live tidak didukung browser ini. Pakai tombol Kamera Perangkat atau Galeri.';
                 return;
             }
             try {
@@ -148,7 +196,9 @@ function sarprasFotoPicker(max = 4, live = false) {
                 });
             } catch (e) {
                 const nama = (e && e.name) ? e.name : 'error';
-                this.kameraError = 'Tidak bisa mengakses kamera (' + nama + '). Pastikan situs diakses via HTTPS dan izin kamera diberikan.';
+                this.kameraError = nama === 'NotAllowedError'
+                    ? 'Izin kamera live ditolak atau diblokir browser. Klik ikon kamera di address bar untuk mengizinkan, atau pakai tombol Kamera Perangkat/Galeri.'
+                    : 'Tidak bisa mengakses kamera live (' + nama + '). Pakai tombol Kamera Perangkat atau Galeri.';
             }
         },
         async gantiKamera() {

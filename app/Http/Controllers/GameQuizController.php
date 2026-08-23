@@ -156,6 +156,7 @@ class GameQuizController extends Controller implements HasMiddleware
                 'created_by'        => $request->user()->uuid,
                 'title'             => $request->title,
                 'instructions'      => RichText::clean($request->instructions),
+                'learning_objective' => trim((string) $request->input('learning_objective', '')) ?: null,
                 'mode'              => 'async',
                 'play_mode'         => $request->input('play_mode', 'bebas'),
                 'template'          => $request->input('template', 'quiz'),
@@ -322,6 +323,7 @@ class GameQuizController extends Controller implements HasMiddleware
             $attrs = [
                 'title'            => $request->title,
                 'instructions'     => RichText::clean($request->instructions),
+                'learning_objective' => trim((string) $request->input('learning_objective', '')) ?: null,
                 'scoring_mode'     => $request->scoring_mode,
                 'play_mode'        => $request->input('play_mode', $quiz->play_mode ?? 'bebas'),
                 'template'         => $request->input('template', $quiz->template ?? 'quiz'),

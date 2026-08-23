@@ -113,6 +113,7 @@ class GameQuizTest extends TestCase
     {
         $payload = [
             'title'            => 'Kuis Pecahan',
+            'learning_objective' => 'Siswa mampu menjumlahkan pecahan sederhana.',
             'scoring_mode'     => 'accuracy',
             'max_score'        => 100,
             'instant_feedback' => 1,
@@ -149,6 +150,7 @@ class GameQuizTest extends TestCase
         $this->assertNotNull($quiz);
         $response->assertRedirect(route('classroom.arena.show', [$this->classroom, $quiz]));
         $this->assertSame('published', $quiz->status);
+        $this->assertSame('Siswa mampu menjumlahkan pecahan sederhana.', $quiz->learning_objective);
         $this->assertCount(2, $quiz->questions);
         $this->assertTrue($quiz->is_locked);
         $this->assertNotEmpty($quiz->access_token);
@@ -177,6 +179,12 @@ class GameQuizTest extends TestCase
             'sort_order' => 0,
         ]);
         GameQuestionOption::create(['question_id' => $q->uuid, 'option_text' => '2', 'is_correct' => true, 'sort_order' => 0]);
+
+        $this->actingAs($this->guruUser)
+            ->get(route('classroom.arena.show', [$this->classroom, $quiz]))
+            ->assertOk()
+            ->assertSee('Cek kualitas dulu sebelum terbit')
+            ->assertSee('Pastikan kualitas semua soal sudah dicek', false);
 
         $this->actingAs($this->guruUser)
             ->post(route('classroom.arena.publish', [$this->classroom, $quiz]))
@@ -221,6 +229,31 @@ class GameQuizTest extends TestCase
         $quiz->refresh();
         $this->assertNotEmpty($quiz->access_token);
         $this->assertTrue($quiz->is_locked);
+    }
+
+    public function test_guru_can_open_quality_checker_from_question_preview_and_editor(): void
+    {
+        $quiz = $this->makePublishedQuiz();
+
+        $this->actingAs($this->guruUser)
+            ->get(route('classroom.arena.show', [$this->classroom, $quiz]))
+            ->assertOk()
+            ->assertSee('Cek kualitas semua soal (2)')
+            ->assertSee(route('classroom.arena.quality-page', [$this->classroom, $quiz]), false);
+
+        $this->actingAs($this->guruUser)
+            ->get(route('classroom.arena.index', $this->classroom))
+            ->assertOk()
+            ->assertSee('?preview=1#preview-soal', false);
+
+        $this->actingAs($this->guruUser)
+            ->get(route('classroom.arena.quality-page', [$this->classroom, $quiz]))
+            ->assertOk()
+            ->assertSee('Pemeriksa kualitas soal', false)
+            ->assertSee('Jalankan cek kolektif', false)
+            ->assertSee('Terapkan semua versi perbaikan', false)
+            ->assertSee('Simpan ke Arena', false)
+            ->assertSee('qualityBatchPage', false);
     }
 
     public function test_siswa_can_attempt_and_get_score(): void

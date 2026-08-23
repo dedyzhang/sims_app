@@ -334,6 +334,7 @@
          'importText' => $aiImportText ?? '',
          'asistenGuruAktif' => $asistenGuruAktif,
          'aiQuizUrl' => $asistenGuruAktif ? route('ai.teacher.quiz') : null,
+         'learningObjective' => old('learning_objective', $quiz->learning_objective ?? ''),
      ]))"
      x-cloak>
 
@@ -393,6 +394,11 @@
                 <label class="edu-label">Petunjuk untuk siswa (opsional)</label>
                 <textarea name="instructions" rows="2" class="edu-input" placeholder="Tuliskan aturan atau materi yang diujikan…">{{ old('instructions', $quiz->instructions ?? '') }}</textarea>
             </div>
+            <div>
+                <label class="edu-label">Materi / tujuan pembelajaran (untuk generate &amp; cek kualitas)</label>
+                <textarea name="learning_objective" x-model="learningObjective" rows="3" maxlength="1500" class="edu-input" placeholder="Contoh: Siswa mampu menjelaskan perubahan wujud benda dan memberi contoh dalam kehidupan sehari-hari."></textarea>
+                <p class="mt-1 text-[11px] font-semibold text-slate-400">Diisi sebelum generate soal agar konteks yang sama dipakai saat pemeriksaan kualitas.</p>
+            </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -428,13 +434,18 @@
                 <label class="edu-check"><input type="checkbox" name="instant_feedback" value="1" @checked(old('instant_feedback', $quiz->instant_feedback ?? true))> Umpan balik langsung</label>
                 <label class="edu-check"><input type="checkbox" name="hide_scores" value="1" @checked(old('hide_scores', $quiz->hide_scores ?? false))> Sembunyikan skor</label>
                 <label class="edu-check"><input type="checkbox" name="show_leaderboard" value="1" @checked(old('show_leaderboard', $quiz->show_leaderboard ?? false))> Tampilkan peringkat</label>
-                <label class="edu-check"><input type="checkbox" name="publish_now" value="1" @checked(old('publish_now'))> Terbitkan sekarang</label>
+                <div class="rounded-2xl border border-teal-200 bg-teal-50/70 p-3 dark:border-teal-900/60 dark:bg-teal-950/20">
+                    <label class="edu-check"><input type="checkbox" name="publish_now" value="1" @checked(old('publish_now'))> Terbitkan sekarang</label>
+                    <p class="m-0 mt-1 text-[11px] font-semibold leading-5 text-teal-700 dark:text-teal-200">
+                        Disarankan simpan sebagai draf dulu, lalu jalankan <span class="font-black">Cek kualitas semua soal</span> sebelum siswa mulai bermain.
+                    </p>
+                </div>
                 <input type="hidden" name="assign_self" value="1">
             </div>
         </div>
 
         {{-- Generate & Impor dari Asisten Guru --}}
-        <details class="edu-section p-4 sm:p-5 group" @if($aiImportText) open @endif>
+        <details id="generate-soal" class="edu-section p-4 sm:p-5 group" @if($aiImportText || request()->boolean('generate')) open @endif>
             <summary class="cursor-pointer list-none edu-section-title">
                 <span class="edu-step" style="background:linear-gradient(145deg,#ffb020,#e85d75)">AI</span>
                 Generate / impor soal (Asisten Guru)
@@ -551,9 +562,23 @@
 
         {{-- Soal --}}
         <div class="space-y-4 relative z-[1]">
-            <div class="edu-section-title px-1">
-                <span class="edu-step">2</span>
-                Quest list
+            <div class="flex flex-wrap items-center justify-between gap-3 px-1">
+                <div class="edu-section-title">
+                    <span class="edu-step">2</span>
+                    Quest list
+                </div>
+                @if($quiz)
+                    <a href="{{ route('classroom.arena.quality-page', [$classroom, $quiz]) }}"
+                       class="inline-flex min-h-[42px] items-center gap-2 rounded-xl border-2 border-teal-200 bg-teal-50 px-3 py-2 text-xs font-black text-teal-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-300 dark:hover:bg-teal-950/60">
+                        <i data-lucide="scan-search" class="h-4 w-4"></i>
+                        Cek semua kualitas ({{ $quiz->questions->count() }})
+                    </a>
+                @else
+                    <span class="inline-flex min-h-[42px] items-center gap-2 rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-400 dark:border-slate-700 dark:bg-slate-900/40">
+                        <i data-lucide="scan-search" class="h-4 w-4"></i>
+                        Simpan kuis dulu untuk cek kolektif
+                    </span>
+                @endif
             </div>
 
             <template x-for="(q, qi) in questions" :key="qi">
@@ -563,7 +588,9 @@
                             <span class="edu-q-num shrink-0" x-text="qi+1"></span>
                             <span class="font-bold text-slate-800 dark:text-slate-100 truncate" x-text="'Quest ' + (qi+1)"></span>
                         </div>
-                        <button type="button" @click="removeQuestion(qi)" class="text-sm font-bold text-rose-600 min-h-[40px] px-2" x-show="questions.length > 1">Hapus</button>
+                        <div class="flex items-center gap-1">
+                            <button type="button" @click="removeQuestion(qi)" class="text-sm font-bold text-rose-600 min-h-[40px] px-2" x-show="questions.length > 1">Hapus</button>
+                        </div>
                     </div>
 
                     <div class="p-4 space-y-4">
@@ -659,6 +686,7 @@
             </button>
         </div>
     </form>
+
 </div>
 @endsection
 
@@ -681,6 +709,7 @@ function arenaBuilder(initial, opts = {}) {
             { value: 'mencocokkan', label: 'Mencocokkan' },
             { value: 'isian', label: 'Isian' },
         ],
+        learningObjective: opts.learningObjective || '',
         gen: { topik: '', jumlah: 5, jenis_soal: ['pg'], tingkat: 'sedang', jenjang: '', source: 'ai', file: null, fileName: '', soal_bergambar: false },
         init() {
             if (this.importText.trim()) {
@@ -827,6 +856,7 @@ function arenaBuilder(initial, opts = {}) {
                 (this.gen.jenis_soal || ['pg']).forEach((jenis) => form.append('jenis_soal[]', jenis));
                 form.append('tingkat', this.gen.tingkat || 'sedang');
                 form.append('jenjang', this.gen.jenjang || '');
+                form.append('learning_objective', this.learningObjective || '');
                 form.append('soal_bergambar', this.gen.soal_bergambar ? '1' : '0');
                 if (this.gen.source === 'file' && this.gen.file) {
                     form.append('file', this.gen.file);

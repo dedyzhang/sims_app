@@ -76,6 +76,11 @@ class LoginController extends Controller
         return redirect()->route('login');
     }
 
+    public function logoutFallback(Request $request)
+    {
+        return $this->logout($request);
+    }
+
     public function home()
     {
         return $this->redirectAfterLogin(auth()->user());

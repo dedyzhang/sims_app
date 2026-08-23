@@ -34,7 +34,7 @@ return [
 
     // Model default (free tier). Bisa dioverride per-request oleh controller.
     // Catatan: gemini-2.0-flash sudah SHUT DOWN oleh Google (per 2026) — jangan dipakai.
-    'model' => env('AI_MODEL', 'gemini-3.5-flash'),
+    'model' => env('AI_MODEL', 'gemini-3.7-flash'),
 
     /*
     | Model cadangan bila kuota model utama habis (429).
@@ -50,7 +50,7 @@ return [
     */
     'fallback_models' => array_values(array_filter(array_map(
         'trim',
-        explode(',', (string) env('AI_FALLBACK_MODELS', 'gemini-3.1-flash-lite,gemini-2.5-flash,gemini-2.5-flash-lite')),
+        explode(',', (string) env('AI_FALLBACK_MODELS', 'gemini-3.6-flash,gemini-3.5-flash,gemini-2.5-flash')),
     ))),
 
     // Mode aman biaya: bila semua model free-tier kena limit harian, hentikan panggilan
@@ -88,6 +88,84 @@ return [
 
     // Endpoint REST Gemini (v1beta). Jarang diubah.
     'base_url' => env('AI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+    'tts' => [
+        // Model teks umum (mis. gemini-3.7-flash) tidak mendukung output AUDIO.
+        'model' => env('AI_TTS_MODEL', 'gemini-3.1-flash-tts-preview'),
+        // Sekitar 45-60 detik narasi Indonesia dan maksimal 8 request per proses 10 menit.
+        'chunk_chars' => (int) env('AI_TTS_CHUNK_CHARS', 1000),
+        'timeout' => (int) env('AI_TTS_TIMEOUT', 120),
+        'retries' => (int) env('AI_TTS_RETRIES', 2),
+        'max_retry_delay_ms' => (int) env('AI_TTS_MAX_RETRY_DELAY_MS', 65000),
+        'min_request_interval_ms' => (int) env('AI_TTS_MIN_REQUEST_INTERVAL_MS', 21000),
+        'rate_limit_retry_ms' => (int) env('AI_TTS_RATE_LIMIT_RETRY_MS', 60000),
+        'stream_retry_delay_ms' => (int) env('AI_TTS_STREAM_RETRY_DELAY_MS', 60000),
+        'max_chars' => (int) env('AI_TTS_MAX_CHARS', 8000),
+        'max_words' => (int) env('AI_TTS_MAX_WORDS', 1200),
+        'translation_model' => env('AI_TTS_TRANSLATION_MODEL', env('AI_MODEL', 'gemini-3.7-flash')),
+        'translation_timeout' => (int) env('AI_TTS_TRANSLATION_TIMEOUT', 120),
+        'translation_max_output_tokens' => (int) env('AI_TTS_TRANSLATION_MAX_OUTPUT_TOKENS', 8192),
+        'queued_stale_minutes' => (int) env('AI_TTS_QUEUED_STALE_MINUTES', 5),
+        'stale_minutes' => (int) env('AI_TTS_STALE_MINUTES', 35),
+        'rate_limit' => (int) env('AI_TTS_RATE_LIMIT', 5),
+        'output_format' => env('AI_TTS_OUTPUT_FORMAT', 'mp3'),
+        'mp3_bitrate' => env('AI_TTS_MP3_BITRATE', '128k'),
+        'ffmpeg_binary' => env('FFMPEG_BINARY', 'ffmpeg'),
+        // queue=worker database, deferred=sesudah response (cocok untuk local tanpa worker), sync=testing.
+        'dispatch' => env('AI_TTS_DISPATCH', 'queue'),
+        'queue_connection' => env('AI_TTS_QUEUE_CONNECTION', 'tts'),
+        'languages' => [
+            'id-ID' => 'Bahasa Indonesia - logat Indonesia natural',
+            'zh-CN' => '中文（简体）- Mandarin Simplified',
+            'ja-JP' => '日本語 - Japanese natural',
+            'ar-SA' => 'العربية - Arabic natural',
+            'en-US' => 'English - American natural',
+            'ko-KR' => '한국어 - Korean natural',
+            'ms-MY' => 'Bahasa Melayu - logat Malaysia',
+            'es-ES' => 'Español - Spanish natural',
+            'fr-FR' => 'Français - French natural',
+            'de-DE' => 'Deutsch - German natural',
+            'hi-IN' => 'हिन्दी - Hindi natural',
+            'th-TH' => 'ภาษาไทย - Thai natural',
+            'vi-VN' => 'Tiếng Việt - Vietnamese natural',
+            'pt-BR' => 'Português - Brazilian natural',
+            'ru-RU' => 'Русский - Russian natural',
+        ],
+        'voice_profiles' => [
+            'wanita' => [
+                'Kore' => 'Kore - tegas dan jelas',
+                'Aoede' => 'Aoede - ringan dan mengalir',
+                'Leda' => 'Leda - muda dan hangat',
+                'Achernar' => 'Achernar - lembut',
+                'Vindemiatrix' => 'Vindemiatrix - lembut dan bersahabat',
+            ],
+            'pria' => [
+                'Puck' => 'Puck - ceria dan hidup',
+                'Charon' => 'Charon - informatif',
+                'Fenrir' => 'Fenrir - berenergi',
+                'Gacrux' => 'Gacrux - dewasa dan berwibawa',
+                'Orus' => 'Orus - tegas',
+                'Iapetus' => 'Iapetus - artikulasi jelas',
+            ],
+        ],
+        'vibes' => [
+            'ceria' => 'Ceria, hangat, penuh energi positif, dan membuat siswa antusias belajar.',
+            'sedih' => 'Sedih secara lembut dan empatik, tidak berlebihan, dengan jeda yang menyentuh.',
+            'puitis' => 'Puitis, indah, mengalir, ekspresif, dan memiliki penekanan emosional yang halus.',
+            'misterius' => 'Misterius, sedikit berbisik, tenang, dramatis, tetapi tetap jelas dan aman untuk siswa.',
+        ],
+        // Alias lama agar request/test lama tetap kompatibel.
+        'voices' => [
+            'Kore' => 'Kore - tegas dan jelas', 'Puck' => 'Puck - ceria dan hidup',
+            'Aoede' => 'Aoede - ringan dan mengalir', 'Charon' => 'Charon - informatif',
+            'Leda' => 'Leda - muda dan hangat', 'Gacrux' => 'Gacrux - dewasa dan berwibawa',
+        ],
+        'styles' => [
+            'tenang' => 'Tenang, jelas, dan beri jeda alami.',
+            'semangat' => 'Semangat positif seperti guru yang memotivasi siswa.',
+            'formal' => 'Formal, terstruktur, dan artikulasi jelas.',
+            'bercerita' => 'Seperti bercerita kepada siswa dengan intonasi hidup.',
+        ],
+    ],
 
     /*
     | OpenRouter (opsional)

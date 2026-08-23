@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Exceptions\AiRateLimitedException;
 use App\Models\AiDocument;
+use App\Models\AiUsageLog;
 use App\Models\User;
 use App\Support\DocumentText;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /*
@@ -17,6 +20,7 @@ class TeacherMaterialService
     public function __construct(
         private RagService $rag,
         private AiDocumentRegistrar $registrar,
+        private GeminiService $gemini,
     ) {}
 
     /**
@@ -68,6 +72,12 @@ class TeacherMaterialService
     {
         $extension = (string) $file->getClientOriginalExtension();
         $text = DocumentText::extract($file->getRealPath(), $extension);
+        $extractedByAi = false;
+
+        if ($text === '' && strtolower($extension) === 'pdf') {
+            $text = $this->extractPdfWithAiStudio($owner, $file);
+            $extractedByAi = $text !== '';
+        }
 
         if ($text === '') {
             throw TeacherMaterialException::extractFailed();
@@ -78,15 +88,72 @@ class TeacherMaterialService
             return [$text, null];
         }
 
-        $document = $this->registrar->register(
-            $owner->uuid,
-            $file,
-            AiDocument::SOURCE_TEACHER_MATERIAL,
-            $file->getClientOriginalName(),
-            (string) $file->getClientMimeType(),
-        );
+        $document = $extractedByAi
+            ? $this->registrar->registerExtractedText(
+                $owner->uuid,
+                $text,
+                AiDocument::SOURCE_TEACHER_MATERIAL,
+                $file->getClientOriginalName(),
+            )
+            : $this->registrar->register(
+                $owner->uuid,
+                $file,
+                AiDocument::SOURCE_TEACHER_MATERIAL,
+                $file->getClientOriginalName(),
+                (string) $file->getClientMimeType(),
+            );
 
         return ['', $document];
+    }
+
+    private function extractPdfWithAiStudio(User $owner, UploadedFile $file): string
+    {
+        $userUuid = $owner->uuid;
+
+        try {
+            $result = $this->gemini->documentText([[
+                'binary' => (string) file_get_contents($file->getRealPath()),
+                'mime' => 'application/pdf',
+                'name' => $file->getClientOriginalName(),
+            ]], [
+                'api_key' => $owner->plainGeminiApiKey(),
+                'timeout' => (int) config('ai.long_timeout', 120),
+                'max_output_tokens' => 8192,
+                'temperature' => 0.1,
+            ]);
+        } catch (RuntimeException $e) {
+            $this->logPdfExtractionUsage($userUuid, config('ai.model'), 0, 0, 'error');
+
+            throw TeacherMaterialException::provider($e->getMessage());
+        }
+
+        $this->logPdfExtractionUsage(
+            $userUuid,
+            $result['model'] ?? config('ai.model'),
+            (int) ($result['prompt_tokens'] ?? 0),
+            (int) ($result['completion_tokens'] ?? 0),
+            'success',
+        );
+
+        $text = trim((string) ($result['text'] ?? ''));
+
+        return mb_strtoupper($text) === 'TIDAK_TERBACA' ? '' : $text;
+    }
+
+    private function logPdfExtractionUsage(?string $userUuid, ?string $model, int $promptTokens, int $completionTokens, string $status): void
+    {
+        try {
+            AiUsageLog::create([
+                'user_uuid' => $userUuid,
+                'feature' => 'teacher_pdf_extract',
+                'model' => $model,
+                'prompt_tokens' => $promptTokens,
+                'completion_tokens' => $completionTokens,
+                'status' => $status,
+            ]);
+        } catch (\Throwable) {
+            // Audit pemakaian AI tidak boleh menggagalkan generate soal.
+        }
     }
 
     /**
@@ -116,8 +183,19 @@ class TeacherMaterialService
      *
      * @throws TeacherMaterialException
      */
-    public function retrieveForTopic(AiDocument $document, string $topik, string $ownerUuid): string
+    public function retrieveForTopic(
+        AiDocument $document,
+        string $topik,
+        string $ownerUuid,
+        bool $processPending = true,
+    ): string
     {
+        if ($processPending) {
+            $document = $this->processPendingDocumentIfPossible($document);
+        } else {
+            $document->refresh();
+        }
+
         if (! in_array($document->status, AiDocument::searchableStatuses(), true)) {
             $message = match ($document->status) {
                 AiDocument::STATUS_FAILED => 'Materi gagal diproses: '.($document->error ?: 'penyebab tidak diketahui.'),
@@ -153,6 +231,32 @@ class TeacherMaterialService
         return mb_substr($material, 0, (int) config('ai.rag.quiz_material_chars', 24_000));
     }
 
+    private function processPendingDocumentIfPossible(AiDocument $document): AiDocument
+    {
+        $document->refresh();
+
+        if ($document->status !== AiDocument::STATUS_PENDING || ! $document->file_path) {
+            return $document;
+        }
+
+        if (! Storage::disk('local')->exists($document->file_path)) {
+            return $document;
+        }
+
+        try {
+            $this->rag->ingest(
+                $document,
+                Storage::disk('local')->path($document->file_path),
+                null,
+                $this->rag->embedOptionsForDocument($document),
+            );
+        } catch (AiRateLimitedException) {
+            // Biarkan UI tetap pada status processing dan mencoba lagi otomatis.
+        }
+
+        return $document->refresh();
+    }
+
     /**
      * Batalkan pemrosesan materi dan bersihkan dari database.
      *
@@ -163,6 +267,9 @@ class TeacherMaterialService
         $document = $this->findOwned($owner, $documentUuid);
         if ($document) {
             $this->rag->cancel($document);
+            if ($document->file_path) {
+                Storage::disk('local')->delete($document->file_path);
+            }
             $document->delete();
         }
 

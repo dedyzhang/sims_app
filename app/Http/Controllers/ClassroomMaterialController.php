@@ -92,7 +92,7 @@ class ClassroomMaterialController extends Controller implements \Illuminate\Rout
         $material->is_locked = $lockStatus['is_locked'];
         $material->access_token = $lockStatus['access_token'];
 
-        $material->load(['files', 'uploader', 'classroom.pelajaran', 'classroom.rombel', 'classrooms.rombel']);
+        $material->load(['files', 'audioLinks.audio', 'uploader', 'classroom.pelajaran', 'classroom.rombel', 'classrooms.rombel']);
         $comments = $material->comments()->whereNull('parent_id')->where('classroom_id', $classroom->uuid)->with(['user', 'replies'])->latest()->get();
 
         $canManage = $user->can('manage', $classroom);

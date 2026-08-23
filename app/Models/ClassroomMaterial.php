@@ -55,6 +55,10 @@ class ClassroomMaterial extends Model
         return $this->hasMany(ClassroomMaterialFile::class, 'material_id', 'uuid')->orderBy('sort_order');
     }
 
+    public function audioLinks()
+    {
+        return $this->hasMany(AiTeacherAudioLink::class, 'target_uuid', 'uuid')->where('target_type', 'classroom_material')->with('audio');
+    }
     public function comments()
     {
         return $this->morphMany(ClassroomComment::class, 'commentable');

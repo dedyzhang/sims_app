@@ -11,6 +11,11 @@
     .ai-teacher-tools-grid {
         align-items: stretch;
     }
+    @keyframes quality-progress {
+        0% { transform: translateX(-120%); }
+        50% { transform: translateX(180%); }
+        100% { transform: translateX(360%); }
+    }
     .ai-teacher-form-card {
         display: block;
         height: auto;
@@ -32,6 +37,54 @@
         overflow: hidden;
     }
     .ai-teacher-hasil__toolbar { flex: 0 0 auto; z-index: 2; }
+    .ai-toolbar-btn {
+        display: inline-flex;
+        min-height: 38px;
+        align-items: center;
+        justify-content: center;
+        gap: .4rem;
+        border: 1px solid rgb(226 232 240);
+        border-radius: .75rem;
+        padding: .5rem .7rem;
+        color: rgb(71 85 105);
+        background: rgb(255 255 255 / .92);
+        font-size: .75rem;
+        font-weight: 700;
+        line-height: 1.15;
+        white-space: nowrap;
+        box-shadow: 0 1px 2px rgb(15 23 42 / .06);
+        transition: transform .16s ease, border-color .16s ease, background-color .16s ease, color .16s ease, box-shadow .16s ease;
+    }
+    .ai-toolbar-btn:hover { transform: translateY(-1px); border-color: rgb(148 163 184); background: rgb(248 250 252); color: rgb(30 41 59); box-shadow: 0 4px 10px rgb(15 23 42 / .08); }
+    .ai-toolbar-btn:active { transform: translateY(0); }
+    .ai-toolbar-btn:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgb(148 163 184 / .28), 0 1px 2px rgb(15 23 42 / .06); }
+    .ai-toolbar-btn:disabled { cursor: not-allowed; opacity: .55; transform: none; }
+    .ai-toolbar-btn--quality { min-height: 42px; border-color: rgb(153 246 228); color: rgb(15 118 110); background: rgb(240 253 250); box-shadow: none; }
+    .ai-toolbar-btn--quality:hover { border-color: rgb(94 234 212); color: rgb(17 94 89); background: rgb(204 251 241); box-shadow: 0 3px 8px rgb(13 148 136 / .1); }
+    .ai-toolbar-btn--quality:focus-visible { box-shadow: 0 0 0 3px rgb(153 246 228 / .55); }
+    .ai-toolbar-btn--accent { border-color: rgb(191 219 254); color: rgb(29 78 216); background: rgb(239 246 255); }
+    .ai-toolbar-btn--accent:hover { border-color: rgb(96 165 250); color: rgb(30 64 175); background: rgb(219 234 254); }
+    .ai-toolbar-btn--arena { border-color: rgb(221 214 254); color: rgb(109 40 217); background: rgb(245 243 255); }
+    .ai-toolbar-btn--arena:hover { border-color: rgb(167 139 250); color: rgb(91 33 182); background: rgb(237 233 254); }
+    .ai-toolbar-btn--danger { border-color: rgb(254 205 211); color: rgb(190 24 93); background: rgb(255 241 242); }
+    .ai-toolbar-btn--danger:hover { border-color: rgb(251 113 133); color: rgb(159 18 57); background: rgb(255 228 230); }
+    .dark .ai-toolbar-btn { border-color: rgb(51 65 85); color: rgb(203 213 225); background: rgb(15 23 42 / .72); }
+    .dark .ai-toolbar-btn:hover { border-color: rgb(100 116 139); color: rgb(248 250 252); background: rgb(30 41 59); }
+    .dark .ai-toolbar-btn--quality { border-color: rgb(20 184 166 / .65); color: rgb(153 246 228); background: rgb(19 78 74 / .28); }
+    .dark .ai-toolbar-btn--quality:hover { border-color: rgb(45 212 191); color: rgb(204 251 241); background: rgb(19 78 74 / .5); }
+    .dark .ai-toolbar-btn--accent { border-color: rgb(30 64 175); color: rgb(147 197 253); background: rgb(30 58 138 / .3); }
+    .dark .ai-toolbar-btn--arena { border-color: rgb(91 33 182); color: rgb(196 181 253); background: rgb(76 29 149 / .28); }
+    .dark .ai-toolbar-btn--danger { border-color: rgb(159 18 57); color: rgb(253 164 175); background: rgb(136 19 55 / .25); }
+    .ai-toolbar-actions { display: flex; width: 100%; min-width: 0; flex-direction: column; gap: .5rem; }
+    .ai-toolbar-row { display: flex; min-width: 0; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+    @media (max-width: 640px) {
+        .ai-toolbar-actions { width: 100%; }
+        .ai-toolbar-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; }
+        .ai-toolbar-row .ai-toolbar-btn { width: 100%; min-width: 0; }
+    }
+    @media (min-width: 641px) {
+        .ai-toolbar-actions { width: auto; max-width: 100%; }
+    }
     .ai-teacher-hasil__body {
         flex: 1 1 0%;
         min-height: 0;
@@ -1659,7 +1712,7 @@
                             </button>
                             <button type="button" @click="useGeminiAsQuizResult(m)"
                                     class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10">
-                                <i data-lucide="file-question" class="w-3.5 h-3.5"></i> Generator Soal
+                                <i data-lucide="clipboard-pen-line" class="w-3.5 h-3.5"></i> Generator Soal
                             </button>
                             <button type="button" @click="result = m.text; exportQuiz('word')"
                                     class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -1802,8 +1855,8 @@
                                                   x-text="m.status_label + (m.chunk_count ? ' · ' + m.chunk_count + ' bagian' : '')"></span>
                                         </span>
                                     </button>
-                                    <button type="button" @click.stop="cancelMaterial(m.uuid)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition shrink-0" title="Batalkan / Hapus materi ini">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    <button type="button" @click.stop="cancelMaterial(m.uuid)" :disabled="materialDeleting === m.uuid" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition shrink-0 disabled:cursor-wait disabled:opacity-50" title="Batalkan / Hapus materi ini">
+                                        <i :data-lucide="materialDeleting === m.uuid ? 'loader-circle' : 'trash-2'" class="w-4 h-4" :class="materialDeleting === m.uuid ? 'animate-spin' : ''"></i>
                                     </button>
                                 </div>
                             </template>
@@ -1969,9 +2022,9 @@
                         <span class="mt-0.5 block text-[11px] text-slate-500 dark:text-slate-400">AI menambahkan diagram/ilustrasi pada soal. Memakai kuota Gemini Image terpisah (maks. {{ (int) config('ai.image.max_per_quiz', 5) }} gambar/batch).</span>
                     </span>
                 </label>
-                <button type="button" @click="submit('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || !canSubmitQuiz()" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="wand-2" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
-                    <span x-text="loading && ocr.loading ? 'Membaca foto…' : (loading ? 'Menyusun soal…' : 'Buat Soal')"></span>
+                <button type="button" @click="submit('quiz')" :disabled="loading || materialProcessing || quiz.jenis_soal.length === 0 || !canSubmitQuiz()" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
+                    <i data-lucide="clipboard-pen-line" class="w-4 h-4" :class="(loading || materialProcessing) && 'animate-spin'"></i>
+                    <span x-text="loading && ocr.loading ? 'Membaca foto…' : (materialProcessing && materialProcessingTool === 'quiz' ? 'AI sedang memproses materi…' : (loading ? 'AI sedang menyusun soal…' : 'Buat Soal'))"></span>
                 </button>
                 <button type="button" @click="submitExternal('quiz')" :disabled="loading || quiz.jenis_soal.length === 0 || !canSubmitQuiz() || quiz.source === 'camera'"
                         class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-primary hover:text-primary disabled:opacity-40">
@@ -2042,7 +2095,7 @@
                     </div>
                 </div>
                 <button type="button" @click="submit('blueprint')" :disabled="loading || !canSubmitBlueprint()" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="table-2" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
+                    <i data-lucide="table-properties" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
                     <span x-text="loading ? 'Menyusun kisi-kisi…' : 'Buat Kisi-kisi'"></span>
                 </button>
                 <button type="button" @click="submitExternal('blueprint')" :disabled="loading || !canSubmitBlueprint()"
@@ -2119,8 +2172,8 @@
                                                   x-text="m.status_label + (m.chunk_count ? ' · ' + m.chunk_count + ' bagian' : '')"></span>
                                         </span>
                                     </button>
-                                    <button type="button" @click.stop="cancelMaterial(m.uuid)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition shrink-0" title="Batalkan / Hapus materi ini">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    <button type="button" @click.stop="cancelMaterial(m.uuid)" :disabled="materialDeleting === m.uuid" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition shrink-0 disabled:cursor-wait disabled:opacity-50" title="Batalkan / Hapus materi ini">
+                                        <i :data-lucide="materialDeleting === m.uuid ? 'loader-circle' : 'trash-2'" class="w-4 h-4" :class="materialDeleting === m.uuid ? 'animate-spin' : ''"></i>
                                     </button>
                                 </div>
                             </template>
@@ -2257,8 +2310,9 @@
                     <label class="form-label">Alokasi Waktu</label>
                     <input type="text" x-model="learning.durasi" placeholder="mis. 2 x 40 menit" class="form-input">
                 </div>
-                <button type="button" @click="submit('learning')" :disabled="loading || !learningSourceReady()" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="clipboard-list" class="w-4 h-4"></i> Buat RPM Learning
+                <button type="button" @click="submit('learning')" :disabled="loading || materialProcessing || !learningSourceReady()" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
+                    <i data-lucide="book-open-check" class="w-4 h-4" :class="(loading || materialProcessing) && 'animate-spin'"></i>
+                    <span x-text="materialProcessing && materialProcessingTool === 'learning' ? 'AI sedang memproses materi…' : (loading ? 'AI sedang menyusun RPM…' : 'Buat RPM Learning')"></span>
                 </button>
                 <button type="button" @click="submitExternal('learning')" :disabled="loading || !learningSourceReady()"
                         class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-primary hover:text-primary disabled:opacity-40">
@@ -2274,7 +2328,7 @@
                     <p class="text-[11px] text-slate-400 mt-1">Maks. {{ number_format(config('ai.max_input_chars')) }} karakter.</p>
                 </div>
                 <button type="button" @click="submit('summary')" :disabled="loading || summary.materi.trim() === ''" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="list-collapse" class="w-4 h-4"></i> Rangkum
+                    <i data-lucide="file-stack" class="w-4 h-4"></i> Rangkum
                 </button>
             </div>
 
@@ -2293,8 +2347,69 @@
                     <textarea x-model="feedback.konteks" rows="9" placeholder="mis. Jawaban ujian, sikap belajar, tugas, atau hal yang ingin dikomentari..." class="form-input resize-y"></textarea>
                 </div>
                 <button type="button" @click="submit('feedback')" :disabled="loading || feedback.konteks.trim() === ''" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
-                    <i data-lucide="message-square-heart" class="w-4 h-4"></i> Susun Catatan Siswa
+                    <i data-lucide="user-pen" class="w-4 h-4"></i> Susun Catatan Siswa
                 </button>
+            </div>
+            {{-- Media Suara --}}
+            <div x-show="tab === 'audio'" class="space-y-4" x-cloak>
+                <div class="rounded-xl border border-violet-200 bg-violet-50/70 dark:border-violet-800 dark:bg-violet-950/20 p-4 space-y-4">
+                    <div>
+                        <h3 class="m-0 text-sm font-bold text-violet-800 dark:text-violet-200">Generator Narasi Audio Multibahasa</h3>
+                        <p class="m-0 mt-1 text-xs text-slate-500">Gemini membaca konteks narasi, bahasa/logat, karakter suara, vibe, dan tempo untuk menghasilkan MP3 yang bisa diputar atau diunduh.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div><label class="form-label">Sumber narasi</label><select x-model="audio.source_type" class="form-input"><option value="free_text">Input narasi bebas</option><option value="history">Hasil Asisten Guru</option></select></div>
+                        <div x-show="audio.source_type === 'history'" x-cloak><label class="form-label">Pilih hasil AI</label><select x-model="audio.source_uuid" class="form-input"><option value="">Pilih hasil history</option><template x-for="h in histories" :key="h.uuid"><option :value="h.uuid" x-text="h.title"></option></template></select></div>
+                    </div>
+                    <div x-show="audio.source_type === 'free_text'" x-cloak><div class="flex items-center justify-between gap-3"><label class="form-label">Kolom narasi</label><span class="text-[11px] font-semibold" :class="audioWithinLimit() ? 'text-slate-500' : 'text-rose-600'" x-text="audioCharacterCount() + '/' + audio.max_chars + ' karakter · ' + audioWordCount() + '/' + audio.max_words + ' kata'"></span></div><textarea x-model="audio.text" rows="12" class="form-input resize-y" :class="audioWithinLimit() ? '' : 'border-rose-400 focus:border-rose-500'" placeholder="Tulis atau tempel narasi pembelajaran di sini..."></textarea><p class="m-0 mt-1 text-[11px]" :class="audioWithinLimit() ? 'text-slate-500' : 'text-rose-600'">Maksimal sekitar 10 menit. Narasi diproses per bagian melalui streaming Gemini lalu digabung menjadi satu MP3.</p></div>
+                    <input x-model="audio.title" class="form-input" placeholder="Judul audio, mis. Cerita Siklus Air">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div><label class="form-label">Bahasa & logat</label><select x-model="audio.language" class="form-input"><template x-for="(label, code) in audio.languages" :key="code"><option :value="code" x-text="label"></option></template></select></div>
+                        <div><label class="form-label">Karakter suara</label><select x-model="audio.voice_gender" @change="syncAudioVoice()" class="form-input"><option value="wanita">Wanita</option><option value="pria">Pria</option></select></div>
+                        <div><label class="form-label">Preset suara</label><select x-model="audio.voice" class="form-input"><template x-for="(label, code) in (audio.voice_profiles[audio.voice_gender] || {})" :key="code"><option :value="code" x-text="label"></option></template></select></div>
+                        <div><label class="form-label">Vibe narasi</label><select x-model="audio.vibe" class="form-input"><template x-for="(label, code) in audio.vibes" :key="code"><option :value="code" x-text="label"></option></template></select></div>
+                    </div>
+                    <div><div class="flex items-center justify-between"><label class="form-label m-0">Kecepatan / tempo suara</label><span class="text-xs font-semibold text-violet-700" x-text="audio.tempo_percent + '%' "></span></div><input type="range" min="70" max="130" step="5" x-model.number="audio.tempo_percent" class="w-full accent-violet-600"><div class="flex justify-between text-[10px] text-slate-400"><span>Lambat</span><span>Natural</span><span>Cepat</span></div></div>
+                    <button type="button" @click="createAudio()" :disabled="audio.busy || (audio.source_type === 'free_text' && (!audio.text.trim() || !audioWithinLimit())) || (audio.source_type === 'history' && !audio.source_uuid)" class="btn-primary w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"><i data-lucide="audio-lines" class="w-4 h-4"></i><span x-text="audio.busy ? 'Gemini sedang membuat MP3...' : 'Buat Audio MP3'"></span></button>
+                    <p x-show="audio.error" x-text="audio.error" class="m-0 text-xs text-rose-600" x-cloak></p>
+                    <template x-if="audio.asset"><div class="rounded-xl bg-white dark:bg-slate-900 p-3 space-y-3"><div class="flex items-center justify-between gap-2"><strong class="text-sm" x-text="audio.asset.title"></strong><span class="text-xs font-semibold text-slate-500" x-text="audioStatusLabel(audio.asset.status)"></span></div><p x-show="audio.asset.characters" class="m-0 text-[11px] text-slate-500" x-text="audio.asset.characters + ' karakter narasi'" x-cloak></p><template x-if="audio.asset.stream_url"><audio controls preload="metadata" class="w-full" :src="audio.asset.stream_url"></audio></template><div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2" x-show="audio.asset.download_url"><select x-model="audio.target_uuid" class="form-input text-xs"><option value="">Pilih tujuan berbagi...</option><template x-for="target in audio.targets" :key="target.target_type + target.target_uuid"><option :value="target.target_type + '|' + target.target_uuid" x-text="target.label"></option></template></select><button type="button" @click="attachAudio()" :disabled="!audio.target_uuid" class="btn-secondary rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-40">Bagikan</button></div><a x-show="audio.asset.download_url" :href="audio.asset.download_url" class="btn-secondary rounded-lg px-3 py-2 text-xs font-semibold inline-flex">Unduh MP3</a></div></template>
+                    <div class="border-t border-violet-200 pt-3 dark:border-violet-800">
+                        <div class="mb-2 flex items-center justify-between gap-3">
+                            <div>
+                                <h4 class="m-0 text-sm font-bold text-slate-700 dark:text-slate-200">Riwayat Audio</h4>
+                                <p class="m-0 text-[11px] text-slate-500">20 audio terbaru tersimpan di akun Anda.</p>
+                            </div>
+                            <button type="button" @click="loadAudioHistory()" :disabled="audio.history_loading" class="inline-flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white hover:text-violet-700 disabled:opacity-40 dark:hover:bg-slate-900" title="Muat ulang riwayat audio" aria-label="Muat ulang riwayat audio">
+                                <i data-lucide="refresh-cw" class="h-4 w-4" :class="audio.history_loading ? 'animate-spin' : ''"></i>
+                            </button>
+                        </div>
+                        <p x-show="audio.history_loading && audio.history.length === 0" class="m-0 py-3 text-center text-xs text-slate-500" x-cloak>Memuat riwayat audio...</p>
+                        <p x-show="!audio.history_loading && audio.history.length === 0" class="m-0 py-3 text-center text-xs text-slate-500" x-cloak>Belum ada audio yang dibuat.</p>
+                        <div x-show="audio.history.length > 0" class="divide-y divide-violet-200 dark:divide-violet-800" x-cloak>
+                            <template x-for="item in audio.history" :key="item.uuid">
+                                <div class="flex min-w-0 items-center gap-2 py-2.5">
+                                    <button type="button" @click="selectAudioHistory(item)" class="min-w-0 flex-1 text-left" :title="item.status === 'ready' ? 'Buka dan putar audio' : 'Buka detail audio'">
+                                        <span class="block truncate text-xs font-semibold text-slate-700 dark:text-slate-200" x-text="item.title"></span>
+                                        <span class="mt-0.5 block truncate text-[11px] text-slate-500">
+                                            <span x-text="item.language_label"></span>
+                                            <span aria-hidden="true"> · </span>
+                                            <span x-text="audioStatusLabel(item.status)"></span>
+                                            <template x-if="item.duration_label"><span><span aria-hidden="true"> · </span><span x-text="item.duration_label"></span></span></template>
+                                            <span aria-hidden="true"> · </span>
+                                            <span x-text="item.created_at_label"></span>
+                                        </span>
+                                    </button>
+                                    <a x-show="item.download_url" :href="item.download_url" class="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white hover:text-violet-700 dark:hover:bg-slate-900" title="Unduh audio" aria-label="Unduh audio">
+                                        <i data-lucide="download" class="h-4 w-4"></i>
+                                    </a>
+                                    <button type="button" @click="deleteAudioHistory(item)" :disabled="audio.deleting_uuid === item.uuid" class="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-white hover:text-rose-600 disabled:opacity-40 dark:hover:bg-slate-900" title="Hapus audio" aria-label="Hapus audio">
+                                        <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
             </div>
             </div>{{-- /ai-teacher-form-scroll --}}
         </div>
@@ -2316,52 +2431,75 @@
                             Stempel sumber di header menandai materi dari foto buku (bukan karya AI orisinal). Jaga saat mengutip.
                         </p>
                     </div>
-                    <div x-show="result" x-cloak class="flex flex-wrap items-center gap-1.5 sm:justify-end min-w-0">
-                        <button type="button" @click="toggleEdit()" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">
+                    <div x-show="result" x-cloak class="ai-toolbar-actions">
+                        <div class="ai-toolbar-row" aria-label="Aksi utama hasil">
+                        <button type="button"
+                                x-show="(tab === 'quiz' || tab === 'blueprint') && resultSource !== 'ocr'"
+                                @click="runQuizQualityBatch()"
+                                :disabled="qualityBatch.loading"
+                                :aria-busy="qualityBatch.loading ? 'true' : 'false'"
+                                class="ai-toolbar-btn ai-toolbar-btn--quality"
+                                title="Periksa seluruh soal sebelum diedit atau diekspor"
+                                aria-label="Cek kualitas semua soal">
+                            <i :data-lucide="qualityBatch.loading ? 'loader-circle' : (qualityBatchCurrent() ? 'refresh-cw' : 'scan-search')" class="h-4 w-4" :class="qualityBatch.loading ? 'animate-spin' : ''"></i>
+                            <span x-text="qualityBatch.loading ? 'Memeriksa…' : ((qualityBatchCurrent() ? 'Cek ulang kualitas soal' : 'Cek kualitas semua soal') + (qualityBatchQuestionCount() ? ' (' + qualityBatchQuestionCount() + ')' : ''))"></span>
+                        </button>
+                        <button type="button" @click="toggleEdit()" class="ai-toolbar-btn">
                             <i :data-lucide="editing ? 'check' : 'pencil'" class="w-4 h-4"></i><span x-text="editing ? 'Selesai' : 'Edit'"></span>
                         </button>
-                        <button type="button" x-show="tab === 'quiz' || tab === 'blueprint' || resultSource === 'ocr'" @click="exportQuiz('word')" :disabled="exportingWord" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                        <button type="button" x-show="tab === 'quiz' || tab === 'blueprint' || resultSource === 'ocr'" @click="exportQuiz('word')" :disabled="exportingWord" class="ai-toolbar-btn">
                             <i :data-lucide="exportingWord ? 'loader-circle' : 'file-down'" class="w-4 h-4" :class="exportingWord ? 'animate-spin' : ''"></i><span x-text="exportingWord ? 'Export...' : 'Word'"></span>
                         </button>
-                        <button type="button" x-show="tab === 'quiz' || tab === 'blueprint' || resultSource === 'ocr'" @click="exportQuiz('pdf')" :disabled="exportingPdf" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                        <button type="button" x-show="tab === 'quiz' || tab === 'blueprint' || resultSource === 'ocr'" @click="exportQuiz('pdf')" :disabled="exportingPdf" class="ai-toolbar-btn">
                             <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF'"></span>
                         </button>
+                        <button type="button" x-show="tab === 'learning' && resultSource !== 'ocr'" @click="exportLearning('word')" :disabled="exportingWord" class="ai-toolbar-btn">
+                            <i :data-lucide="exportingWord ? 'loader-circle' : 'file-down'" class="w-4 h-4" :class="exportingWord ? 'animate-spin' : ''"></i><span x-text="exportingWord ? 'Export...' : 'Word'"></span>
+                        </button>
+                        <button type="button" x-show="tab === 'learning' && resultSource !== 'ocr'" @click="exportLearning('pdf')" :disabled="exportingPdf" class="ai-toolbar-btn">
+                            <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF'"></span>
+                        </button>
+                        </div>
+                        <div class="ai-toolbar-row" aria-label="Aksi lanjutan hasil">
                         <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr' && arenaBelajarAktif && arenaClassrooms.length"
                                 @click="openSendToArena()" :disabled="sendingArena"
-                                class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-primary transition hover:bg-primary/10 disabled:opacity-50">
+                                class="ai-toolbar-btn ai-toolbar-btn--arena">
                             <i :data-lucide="sendingArena ? 'loader-circle' : 'gamepad-2'" class="w-4 h-4" :class="sendingArena ? 'animate-spin' : ''"></i>
                             <span x-text="sendingArena ? 'Mengirim…' : 'Kirim ke Arena'"></span>
                         </button>
                         <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr'"
                                 @click="useResultForBlueprint()"
-                                class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-primary transition hover:bg-primary/10">
+                                class="ai-toolbar-btn ai-toolbar-btn--accent">
                             <i data-lucide="table-2" class="w-4 h-4"></i>
                             <span>Kirim ke Kisi-kisi</span>
                         </button>
-                        <button type="button" x-show="tab === 'learning' && resultSource !== 'ocr'" @click="exportLearning('word')" :disabled="exportingWord" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
-                            <i :data-lucide="exportingWord ? 'loader-circle' : 'file-down'" class="w-4 h-4" :class="exportingWord ? 'animate-spin' : ''"></i><span x-text="exportingWord ? 'Export...' : 'Word'"></span>
-                        </button>
-                        <button type="button" x-show="tab === 'learning' && resultSource !== 'ocr'" @click="exportLearning('pdf')" :disabled="exportingPdf" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
-                            <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF'"></span>
-                        </button>
-                        <button type="button" @click="copy()" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-primary dark:text-slate-300 dark:hover:bg-slate-800">
+                        <button type="button" @click="copy()" class="ai-toolbar-btn">
                             <i :data-lucide="copied ? 'check' : 'copy'" class="w-4 h-4"></i><span x-text="copied ? 'Tersalin' : 'Salin'"></span>
                         </button>
-                        <button type="button" @click="clearResult()" class="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-900/30">
+                        <button type="button" @click="clearResult()" class="ai-toolbar-btn ai-toolbar-btn--danger">
                             <i data-lucide="trash-2" class="w-4 h-4"></i><span>Hapus</span>
                         </button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="ai-teacher-hasil__body" x-ref="hasilScrollBody">
-                    <div x-show="loading || ocr.loading" x-cloak class="grid place-items-center py-16 text-slate-400">
-                        <div class="text-center">
-                            <i data-lucide="loader-circle" class="w-8 h-8 mx-auto animate-spin"></i>
-                            <p class="text-sm mt-2" x-text="ocr.loading ? 'Membaca teks dari foto buku…' : 'Asisten Guru sedang menyusun...'"></p>
+                    <div x-show="loading || materialProcessing || ocr.loading" x-cloak class="grid place-items-center min-h-[320px] px-4">
+                        <div role="status" aria-live="polite" class="w-full max-w-sm rounded-2xl border border-primary/15 bg-primary/[0.04] px-6 py-8 text-center shadow-sm dark:border-primary/25 dark:bg-primary/[0.08]">
+                            <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary shadow-inner dark:bg-primary/20">
+                                <i :data-lucide="ocr.loading ? 'scan-text' : 'sparkles'" class="h-7 w-7 animate-pulse"></i>
+                            </div>
+                            <p class="mt-4 text-base font-extrabold tracking-tight text-slate-800 dark:text-slate-100"
+                               x-text="ocr.loading ? 'Membaca teks dari foto buku…' : (materialProcessing ? 'AI sedang generate soal…' : 'AI sedang menyusun hasil…')"></p>
+                            <p class="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400"
+                               x-text="materialProcessing ? 'Materi sedang disiapkan. Soal akan dibuat otomatis setelah materi siap.' : 'Mohon tunggu, hasil akan tampil di panel ini.'"></p>
+                            <div class="mx-auto mt-5 h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-primary/10 dark:bg-primary/20">
+                                <span class="block h-full w-1/3 rounded-full bg-primary animate-[quality-progress_1.8s_ease-in-out_infinite]"></span>
+                            </div>
                         </div>
                     </div>
 
-                    <div x-show="externalFlow && !loading" x-cloak class="rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-3 text-sm space-y-2">
+                    <div x-show="externalFlow && !loading && !materialProcessing" x-cloak class="rounded-xl border border-primary/20 bg-primary/[0.04] px-4 py-3 text-sm space-y-2">
                         <p class="font-bold text-slate-800 dark:text-slate-100">Langkah generate di Gemini web</p>
                         <ol class="list-decimal pl-5 space-y-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                             <li>Pastikan Anda sudah login di Gemini web dengan akun Google yang dipakai membuat API key</li>
@@ -2383,7 +2521,7 @@
                         </div>
                     </div>
 
-                    <div x-show="error && !loading" x-cloak class="rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-800 px-4 py-3 text-sm space-y-2">
+                    <div x-show="error && !loading && !materialProcessing" x-cloak class="rounded-xl bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-800 px-4 py-3 text-sm space-y-2">
                         <p x-text="error"></p>
                         <p class="text-[12px] opacity-90" x-show="materialError && materialError.hint" x-text="materialError.hint"></p>
                         <button type="button" class="ai-btn ai-btn--solid min-h-[36px] text-xs"
@@ -2393,7 +2531,7 @@
                         </button>
                     </div>
 
-                    <div x-show="!loading && !ocr.loading && !result && !error && !externalFlow" x-cloak
+                    <div x-show="!loading && !materialProcessing && !ocr.loading && !result && !error && !externalFlow" x-cloak
                          class="ai-teacher-hasil__empty text-slate-300 dark:text-slate-600">
                         <div class="text-center">
                             <i data-lucide="sparkles" class="w-10 h-10 mx-auto opacity-40"></i>
@@ -2406,8 +2544,122 @@
                               rows="20" class="form-input w-full min-h-[min(60vh,520px)] resize-y text-sm leading-relaxed"></textarea>
 
                     <div x-show="result && !loading && !ocr.loading && !editing && previewHtml && resultSource !== 'ocr'" x-cloak
+                         x-ref="quizPreview"
                          class="quiz-preview-scroll min-w-0 max-w-full"
                          x-html="previewHtml"></div>
+
+                    <section x-show="(tab === 'quiz' || tab === 'blueprint') && result && !loading && !ocr.loading && !editing && resultSource !== 'ocr' && qualityBatchQuestionCount() > 0" x-cloak
+                             class="mt-4 min-w-0 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/20 sm:p-4"
+                             aria-labelledby="quiz-quality-batch-heading">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div class="min-w-0">
+                                <h3 id="quiz-quality-batch-heading" class="m-0 flex items-center gap-2 text-sm font-extrabold text-slate-800 dark:text-slate-100">
+                                    <i data-lucide="shield-check" class="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300"></i>
+                                    Pemeriksaan kualitas sebelum dikirim
+                                </h3>
+                                <p class="m-0 mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                                    <span x-show="tab === 'quiz'">Cek <span class="font-bold" x-text="qualityBatchQuestionCount()"></span> soal sekaligus dari pratinjau Generator Soal.</span>
+                                    <span x-show="tab === 'blueprint'">Cek <span class="font-bold" x-text="qualityBatchQuestionCount()"></span> soal sumber yang dipakai untuk menyusun kisi-kisi.</span>
+                                    Pengiriman ke Arena dikunci sampai hasil terbaru diperiksa.
+                                </p>
+                            </div>
+                            <button type="button" @click="runQuizQualityBatch()" :disabled="qualityBatch.loading"
+                                    :aria-busy="qualityBatch.loading ? 'true' : 'false'"
+                                    aria-label="Cek kualitas semua soal"
+                                    class="group inline-flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-teal-300 bg-teal-50 px-4 py-3 text-sm font-extrabold text-teal-700 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-400 hover:bg-teal-100 active:translate-y-0 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-200 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[260px] dark:border-teal-800 dark:bg-teal-950/30 dark:text-teal-200 dark:hover:bg-teal-950/50">
+                                <i :data-lucide="qualityBatch.loading ? 'loader-circle' : (qualityBatchCurrent() ? 'refresh-cw' : 'scan-search')" class="h-5 w-5 transition-transform group-hover:scale-110" :class="qualityBatch.loading ? 'animate-spin' : ''"></i>
+                                <span x-text="qualityBatch.loading ? 'Sedang memeriksa…' : ((qualityBatchCurrent() ? 'Cek ulang kualitas semua soal' : 'Cek kualitas semua soal') + (qualityBatchQuestionCount() ? ' (' + qualityBatchQuestionCount() + ')' : ''))"></span>
+                            </button>
+                        </div>
+
+                        <div x-show="qualityBatch.loading" x-cloak class="mt-4 rounded-xl border border-emerald-300 bg-white px-3 py-3 shadow-sm dark:border-emerald-800 dark:bg-slate-900/80" role="status" aria-live="polite">
+                            <div class="flex items-center gap-3">
+                                <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200">
+                                    <i data-lucide="loader-circle" class="h-5 w-5 animate-spin" aria-hidden="true"></i>
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="m-0 text-sm font-extrabold text-emerald-800 dark:text-emerald-200">Sedang memeriksa kualitas soal…</p>
+                                    <p class="m-0 mt-0.5 text-xs leading-5 text-slate-600 dark:text-slate-300">Menilai <span class="font-bold" x-text="qualityBatchQuestionCount()"></span> soal sekaligus. Hasil akan tampil setelah seluruh pemeriksaan selesai.</p>
+                                </div>
+                            </div>
+                            <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-emerald-100 dark:bg-emerald-900/50">
+                                <div class="h-full w-1/3 rounded-full bg-emerald-500 animate-[quality-progress_1.2s_ease-in-out_infinite]" aria-hidden="true"></div>
+                            </div>
+                        </div>
+
+                        <div x-show="qualityBatch.error" x-cloak class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200" role="alert" x-text="qualityBatch.error"></div>
+                        <div x-show="qualityBatch.message" x-cloak class="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-700 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200" x-text="qualityBatch.message"></div>
+
+                        <div x-show="qualityBatch.results.length" x-cloak class="mt-4 space-y-3">
+                            <div x-show="qualityBatch.appliedCount > 0" x-cloak
+                                 class="rounded-2xl border border-emerald-300 bg-emerald-50 px-3 py-3 text-xs leading-5 text-emerald-800 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                                 role="status" aria-live="polite">
+                                <div class="flex items-start gap-3">
+                                    <span class="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm dark:bg-emerald-500">
+                                        <i data-lucide="check-check" class="h-4 w-4" aria-hidden="true"></i>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="m-0 text-sm font-extrabold text-emerald-900 dark:text-emerald-100">Perbaikan sudah diterapkan</p>
+                                        <p class="m-0 mt-1" x-text="qualityBatch.appliedMessage"></p>
+                                        <p class="m-0 mt-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">Ringkasan nilai di bawah adalah hasil cek sebelum perbaikan. Klik “Cek ulang kualitas semua soal” untuk menghitung status terbaru.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                <div class="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200 dark:bg-slate-900/70 dark:ring-slate-700">
+                                    <p class="m-0 text-[10px] font-black uppercase tracking-wide text-slate-400">Rata-rata</p>
+                                    <p class="m-0 mt-1 text-xl font-black text-slate-800 dark:text-slate-100"><span x-text="qualityBatch.summary.average_score"></span><span class="text-xs text-slate-400">/100</span></p>
+                                </div>
+                                <div class="rounded-xl bg-emerald-100/70 px-3 py-2 dark:bg-emerald-900/30"><p class="m-0 text-[10px] font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Layak</p><p class="m-0 mt-1 text-xl font-black text-emerald-800 dark:text-emerald-200" x-text="qualityBatch.summary.layak"></p></div>
+                                <div class="rounded-xl bg-amber-100/70 px-3 py-2 dark:bg-amber-900/30"><p class="m-0 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">Revisi</p><p class="m-0 mt-1 text-xl font-black text-amber-800 dark:text-amber-200" x-text="qualityBatch.summary.perlu_revisi"></p></div>
+                                <div class="rounded-xl bg-rose-100/70 px-3 py-2 dark:bg-rose-900/30"><p class="m-0 text-[10px] font-black uppercase tracking-wide text-rose-700 dark:text-rose-300">Tidak layak</p><p class="m-0 mt-1 text-xl font-black text-rose-800 dark:text-rose-200" x-text="qualityBatch.summary.tidak_layak"></p></div>
+                            </div>
+
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="space-y-1">
+                                    <p class="m-0 text-xs text-slate-500 dark:text-slate-400" x-show="!qualityBatchCurrent()">Hasil ini bukan lagi versi terbaru. Jalankan pemeriksaan ulang setelah mengubah atau menerapkan perbaikan.</p>
+                                    <p class="m-0 text-xs font-semibold text-emerald-700 dark:text-emerald-300" x-show="qualityBatchCurrent() && qualityBatch.results.some(item => item.data?.improved_question || (item.data?.improved_options || []).length)" x-cloak>
+                                        Versi perbaikan siap diterapkan ke teks hasil dan pratinjau soal.
+                                    </p>
+                                </div>
+                                <button type="button" x-show="tab === 'quiz' && qualityBatchCurrent() && qualityBatch.results.some(item => item.data?.improved_question || (item.data?.improved_options || []).length)" x-cloak
+                                        @click="applyAllQuizQuality()" class="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-white transition hover:bg-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white">
+                                    <i data-lucide="check-check" class="h-4 w-4"></i> Terapkan semua versi perbaikan
+                                </button>
+                            </div>
+
+                            <div class="space-y-2">
+                                <template x-for="item in qualityBatch.results" :key="'generator-quality-' + item.index">
+                                    <article class="rounded-xl bg-white p-3 ring-1 ring-slate-200 dark:bg-slate-900/70 dark:ring-slate-700">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="m-0 text-[10px] font-black uppercase tracking-wide text-slate-400">Soal <span x-text="Number(item.index) + 1"></span></p>
+                                                <p class="m-0 mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-700 dark:text-slate-200" x-text="item.question_text"></p>
+                                            </div>
+                                            <div class="shrink-0 text-right">
+                                                <p class="m-0 text-lg font-black text-slate-800 dark:text-slate-100"><span x-text="item.data?.score"></span><span class="text-xs text-slate-400">/100</span></p>
+                                                <span class="inline-flex rounded-lg px-2 py-1 text-[10px] font-bold" :class="qualityStatusClass(item.data?.status)" x-text="qualityStatusLabel(item.data?.status)"></span>
+                                                <span class="mt-1 block text-[10px] font-bold text-slate-400" x-text="item.data?.source === 'ai' ? 'Analisis AI' : 'Analisis Dasar'"></span>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 grid gap-3 text-xs sm:grid-cols-2">
+                                            <div><strong class="text-slate-700 dark:text-slate-200">Temuan</strong><ul class="mt-1 list-disc space-y-1 pl-4 text-slate-600 dark:text-slate-300"><template x-for="(issue, issueIndex) in (item.data?.issues || [])" :key="'generator-issue-' + item.index + '-' + issueIndex"><li x-text="issue.message || issue"></li></template></ul></div>
+                                            <div><strong class="text-slate-700 dark:text-slate-200">Saran</strong><ul class="mt-1 list-disc space-y-1 pl-4 text-slate-600 dark:text-slate-300"><template x-for="(suggestion, suggestionIndex) in (item.data?.suggestions || [])" :key="'generator-suggestion-' + item.index + '-' + suggestionIndex"><li x-text="suggestion"></li></template></ul></div>
+                                        </div>
+                                        <p x-show="item.data?.fallback_reason" x-cloak class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold leading-5 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" x-text="item.data?.fallback_reason"></p>
+                                        <div x-show="Object.keys(item.data?.criteria || {}).length" x-cloak class="mt-2 rounded-lg border border-slate-200 p-2 dark:border-slate-700"><strong class="text-[11px] text-slate-700 dark:text-slate-200">Kriteria</strong><div class="mt-1 grid gap-1 sm:grid-cols-2"><template x-for="(criterion, criterionKey) in (item.data?.criteria || {})" :key="'generator-criterion-' + item.index + '-' + criterionKey"><div class="rounded bg-slate-50 px-2 py-1 dark:bg-slate-800"><div class="flex items-center justify-between gap-2"><span class="text-[10px] font-bold text-slate-600 dark:text-slate-300" x-text="criterionKey"></span><span class="text-[10px] text-slate-400" x-text="(criterion.score || 0) + '/100'"></span></div></div></template></div></div>
+                                        <p x-show="item.data?.recommended_answer" x-cloak class="mt-2 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300"><strong>Rekomendasi jawaban:</strong> <span x-text="item.data?.recommended_answer"></span></p>
+                                        <div x-show="item.data?.improved_question" x-cloak class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/20">
+                                            <p class="m-0 text-xs font-black text-emerald-800 dark:text-emerald-200">Versi perbaikan</p>
+                                            <p class="m-0 mt-1 whitespace-pre-wrap text-xs leading-5 text-slate-700 dark:text-slate-200" x-text="item.data?.improved_question"></p>
+                                            <ol x-show="(item.data?.improved_options || []).length" x-cloak class="mb-0 mt-2 list-[upper-alpha] space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-300"><template x-for="(option, optionIndex) in (item.data?.improved_options || [])" :key="'generator-option-' + item.index + '-' + optionIndex"><li x-text="option"></li></template></ol>
+                                        </div>
+                                    </article>
+                                </template>
+                            </div>
+                        </div>
+                    </section>
 
                     {{-- Teks scan buku: polos, besar, mudah dibaca --}}
                     <div x-show="result && !loading && !ocr.loading && !editing && resultSource === 'ocr'" x-cloak
@@ -2532,7 +2784,7 @@
     </div>
     </template>
 
-    {{-- Modal Arena di luar card Hasil agar fixed tidak ter-clip overflow --}}
+            {{-- Modal Arena di luar card Hasil agar fixed tidak ter-clip overflow --}}
     <div x-show="showArenaModal" x-cloak class="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4" @keydown.escape.window="showArenaModal = false">
         <div class="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-slate-200 dark:ring-slate-700 p-5 space-y-4" @click.outside="showArenaModal = false">
             <div>
@@ -2560,6 +2812,99 @@
             </div>
         </div>
     </div>
+
+    {{-- Modal pemeriksaan kualitas soal dari pratinjau --}}
+    <div x-show="qualityCheck.open" x-cloak class="fixed inset-0 z-[60] grid place-items-center bg-slate-900/50 p-3 sm:p-4" @keydown.escape.window="qualityCheck.open = false">
+        <div class="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700" @click.outside="qualityCheck.open = false">
+            <div class="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700 sm:px-5">
+                <div class="min-w-0">
+                    <h3 class="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-100">
+                        <i data-lucide="scan-search" class="h-5 w-5 text-primary"></i>
+                        Cek kualitas soal
+                    </h3>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Periksa satu soal dari pratinjau menggunakan analisis AI atau mode rule-based.</p>
+                </div>
+                <button type="button" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" @click="qualityCheck.open = false" aria-label="Tutup pemeriksaan kualitas">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <label class="form-label" for="quality-preview-grade">Kelas / jenjang</label>
+                        <input id="quality-preview-grade" type="text" x-model="qualityCheck.form.grade_level" class="form-input" placeholder="Contoh: Kelas 7 SMP">
+                    </div>
+                    <div>
+                        <label class="form-label" for="quality-preview-subject">Mata pelajaran</label>
+                        <input id="quality-preview-subject" type="text" x-model="qualityCheck.form.subject" class="form-input" placeholder="Contoh: IPA">
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label" for="quality-preview-objective">Materi / tujuan pembelajaran</label>
+                    <input id="quality-preview-objective" type="text" x-model="qualityCheck.form.learning_objective" class="form-input" placeholder="Contoh: Siswa menjelaskan siklus air.">
+                </div>
+                <div>
+                    <label class="form-label" for="quality-preview-type">Tipe soal</label>
+                    <select id="quality-preview-type" x-model="qualityCheck.form.question_type" class="form-input">
+                        <option value="mcq">Pilihan Ganda</option>
+                        <option value="mcq_complex">Pilihan Ganda Kompleks</option>
+                        <option value="true_false">Benar / Salah</option>
+                        <option value="short_answer">Isian Singkat</option>
+                        <option value="essay">Esai</option>
+                        <option value="match">Menjodohkan</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="quality-preview-question">Teks soal</label>
+                    <textarea id="quality-preview-question" x-model="qualityCheck.form.question_text" rows="4" class="form-input resize-y"></textarea>
+                </div>
+                <div x-show="['mcq', 'mcq_complex', 'match'].includes(qualityCheck.form.question_type)" x-cloak>
+                    <label class="form-label" for="quality-preview-options">Opsi jawaban</label>
+                    <textarea id="quality-preview-options" x-model="qualityCheck.form.options_text" rows="4" class="form-input resize-y" placeholder="Satu opsi per baris"></textarea>
+                </div>
+                <div>
+                    <label class="form-label" for="quality-preview-key">Kunci jawaban <span class="font-normal text-slate-400">(opsional)</span></label>
+                    <input id="quality-preview-key" type="text" x-model="qualityCheck.form.answer_key" class="form-input" placeholder="Contoh: A atau Benar">
+                </div>
+
+                <div x-show="qualityCheck.error" x-cloak class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300" role="alert" x-text="qualityCheck.error"></div>
+
+                <div x-show="qualityCheck.result" x-cloak class="space-y-4 border-t border-slate-200 pt-4 dark:border-slate-700">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="m-0 text-xs font-semibold uppercase text-slate-400">Skor kualitas</p>
+                            <p class="m-0 mt-1 text-3xl font-bold text-slate-800 dark:text-slate-100"><span x-text="qualityCheck.result?.score"></span><span class="text-base text-slate-400">/100</span></p>
+                        </div>
+                        <div class="flex flex-col items-end gap-1"><span class="rounded-lg px-2.5 py-1 text-xs font-bold" :class="qualityStatusClass(qualityCheck.result?.status)" x-text="qualityStatusLabel(qualityCheck.result?.status)"></span><span class="text-[11px] font-semibold text-slate-400" x-text="qualityCheck.result?.source === 'ai' ? 'Analisis AI' : 'Analisis Dasar'"></span></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 border-y border-slate-200 py-3 text-sm dark:border-slate-700">
+                        <div><span class="text-[11px] text-slate-400">Level kognitif</span><p class="m-0 mt-1 font-bold text-slate-700 dark:text-slate-200"><span x-text="qualityCheck.result?.bloom_level?.level"></span><span class="font-normal text-slate-400"> · </span><span x-text="qualityCheck.result?.bloom_level?.label"></span></p><p class="m-0 mt-1 text-[11px] leading-4 text-slate-400" x-text="qualityCheck.result?.bloom_level?.reason"></p></div>
+                        <div><span class="text-[11px] text-slate-400">Kesulitan</span><p class="m-0 mt-1 font-bold capitalize text-slate-700 dark:text-slate-200" x-text="qualityCheck.result?.difficulty?.level"></p><p class="m-0 mt-1 text-[11px] leading-4 text-slate-400" x-text="qualityCheck.result?.difficulty?.reason"></p></div>
+                    </div>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div><h4 class="m-0 text-sm font-bold text-slate-700 dark:text-slate-200">Masalah</h4><ul class="mt-2 space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300"><template x-for="(item, index) in (qualityCheck.result?.issues || [])" :key="'preview-quality-issue-' + index"><li x-text="item.message || item"></li></template></ul></div>
+                        <div><h4 class="m-0 text-sm font-bold text-slate-700 dark:text-slate-200">Saran</h4><ul class="mt-2 space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300"><template x-for="(item, index) in (qualityCheck.result?.suggestions || [])" :key="'preview-quality-suggestion-' + index"><li x-text="item"></li></template></ul></div>
+                    </div>
+                    <div x-show="Object.keys(qualityCheck.result?.criteria || {}).length" x-cloak><h4 class="m-0 text-sm font-bold text-slate-700 dark:text-slate-200">Kriteria</h4><div class="mt-2 grid gap-2 sm:grid-cols-2"><template x-for="(criterion, criterionKey) in (qualityCheck.result?.criteria || {})" :key="'preview-quality-criterion-' + criterionKey"><div class="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700"><div class="flex items-center justify-between gap-2"><span class="text-xs font-bold text-slate-600 dark:text-slate-300" x-text="criterionKey"></span><span class="text-[10px] text-slate-400" x-text="(criterion.score || 0) + '/100'"></span></div><p x-show="criterion.note" x-cloak class="m-0 mt-1 text-[11px] leading-4 text-slate-400" x-text="criterion.note"></p></div></template></div></div>
+                    <div class="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-800 dark:bg-emerald-950/20">
+                        <h4 class="m-0 text-sm font-bold text-emerald-800 dark:text-emerald-200">Versi soal yang diperbaiki</h4>
+                        <p class="m-0 mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700 dark:text-slate-200" x-text="qualityCheck.result?.improved_question"></p>
+                    </div>
+                    <p x-show="qualityCheck.result?.recommended_answer" x-cloak class="m-0 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-800 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-200"><strong>Rekomendasi jawaban:</strong> <span x-text="qualityCheck.result?.recommended_answer"></span></p>
+                    <p class="m-0 text-[11px] leading-5 text-slate-400" x-text="qualityCheck.result?.fallback_reason || qualityCheck.result?.notice"></p>
+                </div>
+            </div>
+
+            <div class="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-700 sm:flex-row sm:justify-end sm:px-5">
+                <button type="button" class="btn-secondary min-h-[44px] rounded-xl px-4 py-2 text-sm" @click="qualityCheck.open = false">Tutup</button>
+                <button type="button" class="btn-primary inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50" @click="checkPreviewQuestion()" :disabled="qualityCheck.loading">
+                    <i :data-lucide="qualityCheck.loading ? 'loader-circle' : 'scan-search'" class="h-4 w-4" :class="qualityCheck.loading ? 'animate-spin' : ''"></i>
+                    <span x-text="qualityCheck.loading ? 'Memeriksa...' : 'Cek kualitas soal'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 @include('partials.ai-markdown')
@@ -2567,7 +2912,7 @@
 <script>
     function teacherAi() {
         return {
-            tab: @js(in_array(request('tab'), ['gemini', 'quiz', 'blueprint', 'learning', 'summary', 'feedback'], true) ? request('tab') : 'gemini'),
+            tab: @js(in_array(request('tab'), ['gemini', 'quiz', 'blueprint', 'learning', 'summary', 'feedback', 'audio'], true) ? request('tab') : 'gemini'),
             loading: false,
             exportingWord: false,
             exportingPdf: false,
@@ -2580,6 +2925,33 @@
             editing: false,
             previewHtml: '',      // dokumen berformat: soal (tab quiz) atau RPM (tab learning)
             previewLoading: false,
+            qualityCheck: {
+                open: false,
+                loading: false,
+                error: '',
+                result: null,
+                form: {
+                    grade_level: '',
+                    subject: '',
+                    learning_objective: '',
+                    question_type: 'mcq',
+                    question_text: '',
+                    options_text: '',
+                    answer_key: '',
+                },
+            },
+            qualityBatch: {
+                loading: false,
+                error: '',
+                message: '',
+                checkedResult: '',
+                checkedSource: '',
+                questions: [],
+                results: [],
+                appliedCount: 0,
+                appliedMessage: '',
+                summary: { total: 0, average_score: 0, layak: 0, perlu_revisi: 0, tidak_layak: 0 },
+            },
             deletingHistory: '',  // uuid item history yang sedang dihapus
             histories: @js($histories ?? []),
             quota: @js($quotaUsage ?? null),
@@ -2628,11 +3000,12 @@
             applyingExternal: false,
             tabs: [
                 { key: 'gemini',   label: 'Nalar Guru',      icon: 'brain' },
-                { key: 'quiz',     label: 'Generator Soal',  icon: 'file-question' },
-                { key: 'blueprint', label: 'Kisi-kisi',       icon: 'table-2' },
-                { key: 'learning', label: 'RPM Learning',    icon: 'clipboard-list' },
-                { key: 'summary',  label: 'Perangkum Materi', icon: 'list-collapse' },
-                { key: 'feedback', label: 'Catatan Siswa',  icon: 'message-square-heart' },
+                { key: 'quiz',     label: 'Generator Soal',  icon: 'clipboard-pen-line' },
+                { key: 'blueprint', label: 'Kisi-kisi',       icon: 'table-properties' },
+                { key: 'learning', label: 'RPM Learning',    icon: 'book-open-check' },
+                { key: 'summary',  label: 'Perangkum Materi', icon: 'file-stack' },
+                { key: 'feedback', label: 'Catatan Siswa',  icon: 'user-pen' },
+                { key: 'audio', label: 'Media Suara', icon: 'audio-lines' },
             ],
             geminiMessages: [],
             geminiInput: '',
@@ -2666,10 +3039,14 @@
             blueprint: { topik: '', mapel: '', jenjang: '', jumlah: 20, bentuk_penilaian: 'Ulangan Harian', kompetensi: '', catatan: '', file: null, fileName: '', source_text: '' },
             materials: @json($teacherMaterials ?? []),
             materialsTimer: null,
+            materialDeleting: '',
+            materialProcessing: false,
+            materialProcessingTool: '',
             learning: { tool: 'rpp', topik: '', mapel: '', jenjang: '', durasi: '', source: 'ai', file: null, fileName: '', document_uuid: '', output_language: 'id', include_pinyin: false },
             materialError: null,
             summary:  { materi: '' },
             feedback: { nama: '', konteks: '' },
+            audio: { source_type: 'free_text', source_uuid: '', text: '', title: '', language: 'id-ID', languages: @js(config('ai.tts.languages', [])), voice_profiles: @js(config('ai.tts.voice_profiles', [])), vibes: @js(config('ai.tts.vibes', [])), voice_gender: 'wanita', voice: 'Kore', vibe: 'ceria', tempo_percent: 100, max_chars: {{ (int) config('ai.tts.max_chars', 8000) }}, max_words: {{ (int) config('ai.tts.max_words', 1200) }}, asset: null, busy: false, error: '', pollTimer: null, targets: [], target_uuid: '', target_type: '', history: [], history_loading: false, deleting_uuid: '' },
             ocr: {
                 loading: false,
                 quiz: { images: [], text: '', error: '', notice: '' },
@@ -2699,6 +3076,8 @@
                 ocr: '{{ route('ai.teacher.ocr') }}',
                 historyBase: '{{ url('ai/teacher/history') }}',
                 quizPreview: '{{ route('ai.teacher.quiz.preview') }}',
+                qualityChecker: '{{ route('classroom.arena.quality-checker.check', ['classroom' => '__CLASSROOM__']) }}',
+                qualityBatch: '{{ route('ai.teacher.quiz.quality-batch') }}',
                 quizWord: '{{ route('ai.teacher.quiz.export-word') }}',
                 quizPdf: '{{ route('ai.teacher.quiz.export-pdf') }}',
                 quizSendArena: '{{ route('ai.teacher.quiz.send-arena') }}',
@@ -2712,10 +3091,96 @@
                 externalPrompt: '{{ route('ai.teacher.external-prompt') }}',
                 externalResult: '{{ route('ai.teacher.external-result') }}',
                 chat: '{{ route('ai.teacher.chat') }}',
+                audio: '{{ route('ai.teacher.audio.create') }}',
+                audioTargets: '{{ route('ai.teacher.audio.targets') }}',
+                audioHistory: '{{ route('ai.teacher.audio.history') }}',
             },
 
+            syncAudioVoice() {
+                const options = this.audio.voice_profiles[this.audio.voice_gender] || {};
+                if (!Object.prototype.hasOwnProperty.call(options, this.audio.voice)) this.audio.voice = Object.keys(options)[0] || 'Kore';
+            },
+            audioCharacterCount() {
+                return Array.from(this.audio.text || '').length;
+            },
+            audioWordCount() {
+                return ((this.audio.text || '').match(/[\p{L}\p{N}]+/gu) || []).length;
+            },
+            audioWithinLimit() {
+                return this.audioCharacterCount() <= this.audio.max_chars && this.audioWordCount() <= this.audio.max_words;
+            },
+            audioStatusLabel(status) {
+                return ({ queued: 'Menunggu antrean', processing: 'Gemini sedang membuat audio', ready: 'Audio siap diputar', failed: 'Gagal membuat audio', cancelled: 'Dibatalkan' })[status] || status;
+            },
+            async loadAudioTargets() {
+                try { const r = await fetch(this.urls.audioTargets, { headers: { 'Accept': 'application/json' } }); const d = await r.json(); this.audio.targets = d.targets || []; } catch (_) {}
+            },
+            upsertAudioHistory(item) {
+                if (!item?.uuid) return;
+                this.audio.history = [item, ...this.audio.history.filter(audio => audio.uuid !== item.uuid)].slice(0, 20);
+            },
+            async loadAudioHistory() {
+                this.audio.history_loading = true;
+                try {
+                    const r = await fetch(this.urls.audioHistory, { headers: { 'Accept': 'application/json' } });
+                    const d = await r.json().catch(() => ({}));
+                    if (r.ok && d.ok) this.audio.history = d.audios || [];
+                } catch (_) {}
+                finally {
+                    this.audio.history_loading = false;
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                }
+            },
+            selectAudioHistory(item) {
+                if (this.audio.pollTimer) clearTimeout(this.audio.pollTimer);
+                this.audio.asset = item;
+                this.audio.error = item.status === 'failed' ? (item.error_message || 'Pembuatan audio gagal.') : '';
+                this.audio.target_uuid = '';
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+                if (!['ready', 'failed', 'cancelled'].includes(item.status)) this.pollAudio();
+            },
+            async deleteAudioHistory(item) {
+                if (!item?.delete_url || !window.confirm('Hapus audio "' + item.title + '" dari riwayat?')) return;
+                this.audio.deleting_uuid = item.uuid;
+                try {
+                    const r = await fetch(item.delete_url, { method: 'DELETE', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') } });
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok || !d.ok) { this.audio.error = d.message || 'Audio gagal dihapus.'; return; }
+                    this.audio.history = this.audio.history.filter(audio => audio.uuid !== item.uuid);
+                    if (this.audio.asset?.uuid === item.uuid) this.audio.asset = null;
+                    this.audio.error = '';
+                } catch (_) { this.audio.error = 'Gagal terhubung ke server.'; }
+                finally { this.audio.deleting_uuid = ''; }
+            },
+            async attachAudio() {
+                if (!this.audio.asset?.uuid || !this.audio.target_uuid) return;
+                const [target_type, target_uuid] = this.audio.target_uuid.split('|');
+                const r = await fetch('/ai/teacher/audio/' + this.audio.asset.uuid + '/attach', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }, body: JSON.stringify({ target_type, target_uuid }) });
+                const d = await r.json().catch(() => ({})); this.audio.error = d.ok ? 'Audio berhasil dibagikan.' : (d.message || 'Audio gagal dibagikan.');
+            },            async createAudio() {
+                this.audio.busy = true; this.audio.error = ''; this.audio.asset = null;
+                this.syncAudioVoice();
+                const body = { source_type: this.audio.source_type, source_uuid: this.audio.source_uuid || null, text: this.audio.text, title: this.audio.title || 'Media Suara Asisten Guru', language: this.audio.language, voice_gender: this.audio.voice_gender, voice: this.audio.voice, vibe: this.audio.vibe, tempo_percent: this.audio.tempo_percent };
+                try {
+                    const r = await fetch(this.urls.audio, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }, body: JSON.stringify(body) });
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok || !d.ok) { this.audio.error = d.message || 'Gagal membuat audio.'; return; }
+                    this.audio.asset = d.audio; this.upsertAudioHistory(d.audio); this.pollAudio();
+                } catch (_) { this.audio.error = 'Gagal terhubung ke server.'; }
+                finally { this.audio.busy = false; this.$nextTick(() => window.lucide && lucide.createIcons()); }
+            },
+            async pollAudio() {
+                if (!this.audio.asset || !this.audio.asset.status_url) return;
+                if (!['ready', 'failed', 'cancelled'].includes(this.audio.asset.status)) {
+                    try { const r = await fetch(this.audio.asset.status_url, { headers: { 'Accept': 'application/json' } }); const d = await r.json(); if (d.audio) { this.audio.asset = d.audio; this.upsertAudioHistory(d.audio); } } catch (_) {}
+                }
+                if (this.audio.asset.status === 'failed') this.audio.error = this.audio.asset.error_message || 'Pembuatan audio gagal.';
+                if (!['ready', 'failed', 'cancelled'].includes(this.audio.asset.status)) this.audio.pollTimer = setTimeout(() => this.pollAudio(), 3000);
+            },
             init() {
                 this.startQuotaPolling();
+                this.loadAudioTargets();
+                this.loadAudioHistory();
                 this.scheduleMaterialPolling();
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden) {
@@ -2834,6 +3299,48 @@
                     }
                 } catch (_) { /* diam: daftar buku opsional */ }
                 this.scheduleMaterialPolling();
+            },
+
+            async cancelMaterial(uuid) {
+                if (!uuid || this.materialDeleting) return;
+
+                const material = this.materials.find((item) => item.uuid === uuid);
+                const title = material?.title || 'materi ini';
+                if (!window.confirm(`Hapus ${title}? Materi akan dihapus dari daftar dan pemrosesannya dibatalkan.`)) return;
+
+                this.materialDeleting = uuid;
+                this.error = '';
+                try {
+                    const response = await fetch(`${this.urls.materialsCancel}/${encodeURIComponent(uuid)}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        },
+                        credentials: 'same-origin',
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.ok) {
+                        this.error = payload.message || 'Materi tidak bisa dihapus. Muat ulang halaman lalu coba lagi.';
+                        return;
+                    }
+
+                    this.materials = this.materials.filter((item) => item.uuid !== uuid);
+                    if (this.quiz.document_uuid === uuid) {
+                        this.quiz.document_uuid = '';
+                        this.clearQuizFile(false);
+                    }
+                    if (this.learning.document_uuid === uuid) {
+                        this.learning.document_uuid = '';
+                        this.clearLearningFile(false);
+                    }
+                    this.scheduleMaterialPolling();
+                } catch (_) {
+                    this.error = 'Gagal terhubung saat menghapus materi. Periksa koneksi lalu coba lagi.';
+                } finally {
+                    this.materialDeleting = '';
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                }
             },
 
             scheduleMaterialPolling() {
@@ -3776,6 +4283,8 @@
                 }
                 const seq = ++this.generateSeq;
                 this.loading = true;
+                this.materialProcessing = false;
+                this.materialProcessingTool = '';
                 this.result = '';
                 this.error = '';
                 this.materialError = null;
@@ -3837,10 +4346,12 @@
                         if (seq !== this.generateSeq) return;
                         this.applyMaterialErrorPayload(d, tool);
                         if (d.processing) {
-                            this.error = 'Materi sedang diproses (embedding). Menunggu 4 detik lalu mencoba membuat soal lagi secara otomatis… (tidak perlu unggah ulang)';
+                            this.materialProcessing = true;
+                            this.materialProcessingTool = tool;
+                            this.error = '';
                             setTimeout(() => {
                                 if (seq === this.generateSeq) {
-                                    this.doGenerate(tool);
+                                    this.submit(tool);
                                 }
                             }, 4000);
                             return;
@@ -3980,6 +4491,11 @@
                     this.error = 'Teks hasil belum berbentuk soal yang bisa diimpor ke Arena.';
                     return;
                 }
+                if (this.tab === 'quiz' && this.resultSource !== 'ocr' && !this.qualityBatchCurrent()) {
+                    this.qualityBatch.error = 'Cek kualitas semua soal terlebih dahulu. Pengiriman ke Arena baru dibuka setelah pemeriksaan selesai untuk hasil terbaru.';
+                    this.qualityBatch.message = '';
+                    return;
+                }
                 this._arenaFromNalar = !!opts.fromNalar || this.tab === 'gemini';
                 if (this.arenaClassrooms.length === 1) {
                     this.arenaClassroomId = this.arenaClassrooms[0].uuid;
@@ -3993,6 +4509,11 @@
 
             sendToArena() {
                 if (!this.result || !this.arenaClassroomId || this.sendingArena) return;
+                if (this.tab === 'quiz' && this.resultSource !== 'ocr' && !this.qualityBatchCurrent()) {
+                    this.qualityBatch.error = 'Cek kualitas semua soal terlebih dahulu sebelum mengirim ke Arena.';
+                    this.showArenaModal = false;
+                    return;
+                }
                 this.sendingArena = true;
                 const form = document.createElement('form');
                 form.method = 'POST';
@@ -4257,7 +4778,7 @@
                 try {
                     const body = tab === 'learning'
                         ? { tool: this.learning.tool, content }
-                        : { content };
+                        : { content, interactive_quality: true };
                     const r = await fetch(url, {
                         method: 'POST',
                         headers: {
@@ -4273,6 +4794,7 @@
                     if (this.tab !== tab || this.result !== content) return;
                     // Gagal pratinjau bukan kegagalan fatal: teks hasil tetap tampil apa adanya.
                     this.previewHtml = (r.ok && d.ok) ? (d.html || '') : '';
+                    this.$nextTick(() => this.bindQualityPreviewButtons());
                 } catch (_) {
                     if (seq !== this.previewSeq) return;
                     this.previewHtml = '';
@@ -4285,6 +4807,385 @@
                         });
                     }
                 }
+            },
+            bindQualityPreviewButtons() {
+                const preview = this.$refs.quizPreview;
+                if (!preview) return;
+                window.lucide && lucide.createIcons();
+            },
+            quizPreviewQuestionCount() {
+                const preview = this.$refs.quizPreview;
+                return preview ? preview.querySelectorAll('[data-quality-question]').length : 0;
+            },
+            collectQuizPreviewQuestions(previewRoot = null) {
+                const preview = previewRoot || this.$refs.quizPreview;
+                if (!preview) return [];
+                return Array.from(preview.querySelectorAll('[data-quality-question]')).map((button) => {
+                    try {
+                        return this.decodeQualityQuestion(button.dataset.qualityQuestion || '');
+                    } catch (_) {
+                        return null;
+                    }
+                }).filter((question) => question && question.question_text);
+            },
+            qualityBatchQuestionCount() {
+                if (this.qualityBatch.questions.length) {
+                    return this.qualityBatch.questions.length;
+                }
+                return this.tab === 'blueprint'
+                    ? this.qualityBatch.questions.length
+                    : this.quizPreviewQuestionCount();
+            },
+            qualityBatchSource() {
+                return this.tab === 'blueprint'
+                    ? String(this.blueprint.source_text || '').trim()
+                    : String(this.result || '').trim();
+            },
+            async collectBlueprintQualityQuestions() {
+                const source = String(this.blueprint.source_text || '').trim();
+                if (!source || !this.urls.quizPreview) return [];
+
+                const response = await fetch(this.urls.quizPreview, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    },
+                    body: JSON.stringify({ content: source, interactive_quality: true }),
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.ok) {
+                    throw new Error(payload.message || 'Pratinjau soal sumber kisi-kisi gagal dibaca.');
+                }
+                if (Array.isArray(payload.quality_questions) && payload.quality_questions.length) {
+                    return payload.quality_questions;
+                }
+
+                const container = document.createElement('div');
+                container.innerHTML = payload.html || '';
+                return this.collectQuizPreviewQuestions(container);
+            },
+            async collectResultQualityQuestions() {
+                const source = String(this.result || '').trim();
+                if (!source || !this.urls.quizPreview) return [];
+
+                const response = await fetch(this.urls.quizPreview, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    },
+                    body: JSON.stringify({ content: source, interactive_quality: true }),
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.ok) {
+                    throw new Error(payload.message || 'Pratinjau soal gagal dibaca.');
+                }
+                if (Array.isArray(payload.quality_questions) && payload.quality_questions.length) {
+                    return payload.quality_questions;
+                }
+
+                const container = document.createElement('div');
+                container.innerHTML = payload.html || '';
+                return this.collectQuizPreviewQuestions(container);
+            },
+            decodeQualityQuestion(encoded) {
+                const binary = atob(String(encoded || ''));
+                const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+                const json = typeof TextDecoder !== 'undefined'
+                    ? new TextDecoder('utf-8').decode(bytes)
+                    : decodeURIComponent(escape(binary));
+                return JSON.parse(json);
+            },
+            previewIdentityValue(labels) {
+                const text = String(this.result || '');
+                const pattern = labels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+                const match = text.match(new RegExp('^\\s*(?:' + pattern + ')\\s*:\\s*(.+)$', 'im'));
+                return match ? match[1].trim() : '';
+            },
+            openPreviewQuality(question) {
+                this.qualityCheck.error = '';
+                this.qualityCheck.result = null;
+                this.qualityCheck.form = {
+                    grade_level: this.quiz.jenjang || this.previewIdentityValue(['Kelas / Semester', 'Kelas/Semester', 'Kelas']),
+                    subject: this.previewIdentityValue(['Mata Pelajaran']),
+                    learning_objective: this.quiz.topik || '',
+                    question_type: question.question_type || 'mcq',
+                    question_text: question.question_text || '',
+                    options_text: Array.isArray(question.options) ? question.options.join('\n') : '',
+                    answer_key: question.answer_key || '',
+                };
+                this.qualityCheck.open = true;
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+            qualityBatchContext() {
+                const form = this.tab === 'blueprint' ? this.blueprint : this.quiz;
+                return {
+                    grade_level: form.jenjang || this.previewIdentityValue(['Kelas / Semester', 'Kelas/Semester', 'Kelas']) || 'Jenjang umum',
+                    subject: form.mapel || this.previewIdentityValue(['Mata Pelajaran']) || 'Mata pelajaran umum',
+                    learning_objective: form.topik || this.previewIdentityValue(['Materi', 'Tujuan Pembelajaran']) || 'Tujuan pembelajaran umum sesuai materi soal',
+                };
+            },
+            qualityCheckerUrl() {
+                const classroomId = this.arenaClassroomId || this.arenaClassrooms[0]?.uuid;
+                if (!classroomId || !this.urls.qualityChecker) return '';
+                return this.urls.qualityChecker.replace('__CLASSROOM__', encodeURIComponent(classroomId));
+            },
+            qualityBatchUrl() {
+                return this.urls.qualityBatch || '';
+            },
+            qualityBatchCurrent() {
+                const questionCount = this.qualityBatchQuestionCount();
+                return Boolean(this.qualityBatch.checkedResult)
+                    && this.qualityBatch.checkedResult === this.result
+                    && this.qualityBatch.checkedSource === this.qualityBatchSource()
+                    && questionCount > 0
+                    && this.qualityBatch.results.length === questionCount;
+            },
+            qualityStatusLabel(status) {
+                return ({ layak: 'Layak', perlu_revisi: 'Perlu revisi', tidak_layak: 'Tidak layak' })[status] || '-';
+            },
+            qualityStatusClass(status) {
+                return ({
+                    layak: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200',
+                    perlu_revisi: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200',
+                    tidak_layak: 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200',
+                })[status] || 'bg-slate-100 text-slate-600';
+            },
+            async checkPreviewQuestion() {
+                if (this.qualityCheck.loading) return;
+                const url = this.qualityCheckerUrl();
+                if (!url) {
+                    this.qualityCheck.error = 'Belum ada Ruang Kelas Arena yang dapat dipakai untuk pemeriksaan.';
+                    return;
+                }
+                this.qualityCheck.loading = true;
+                this.qualityCheck.error = '';
+                this.qualityCheck.result = null;
+                const form = this.qualityCheck.form;
+                const options = String(form.options_text || '').split(/\r?\n/).map((item) => item.trim()).filter((item) => item !== '');
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        },
+                        body: JSON.stringify({
+                            grade_level: form.grade_level,
+                            subject: form.subject,
+                            learning_objective: form.learning_objective,
+                            question_type: form.question_type,
+                            question_text: form.question_text,
+                            options: ['mcq', 'mcq_complex', 'match'].includes(form.question_type) ? options : [],
+                            answer_key: form.answer_key,
+                        }),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.ok) {
+                        this.qualityCheck.error = Object.values(payload.errors || {}).flat()[0] || payload.message || 'Pemeriksaan kualitas soal gagal.';
+                        return;
+                    }
+                    this.qualityCheck.result = payload.data || null;
+                } catch (_) {
+                    this.qualityCheck.error = 'Gagal terhubung ke pemeriksa kualitas soal.';
+                } finally {
+                    this.qualityCheck.loading = false;
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                }
+            },
+            async runQuizQualityBatch() {
+                if (this.qualityBatch.loading) return;
+                const url = this.qualityBatchUrl();
+                if (!url) {
+                    this.qualityBatch.error = 'Belum ada Ruang Kelas Arena yang dapat dipakai untuk pemeriksaan.';
+                    return;
+                }
+
+                this.qualityBatch.loading = true;
+                this.qualityBatch.error = '';
+                this.qualityBatch.message = '';
+                this.qualityBatch.checkedResult = '';
+                this.qualityBatch.checkedSource = '';
+                this.qualityBatch.questions = [];
+                this.qualityBatch.results = [];
+                this.qualityBatch.appliedCount = 0;
+                this.qualityBatch.appliedMessage = '';
+                const context = this.qualityBatchContext();
+                try {
+                    let questions = [];
+                    if (!questions.length && this.tab === 'quiz') {
+                        questions = await this.collectResultQualityQuestions();
+                    }
+                    if (!questions.length && this.tab === 'quiz') {
+                        questions = this.collectQuizPreviewQuestions();
+                    }
+                    // Tab Kisi-kisi tidak menampilkan ulang dokumen soal di layar.
+                    // Ambil sumber soal yang dipakai saat menyusun kisi-kisi, lalu
+                    // gunakan parser preview yang sama agar pemeriksa tetap kolektif.
+                    if (!questions.length && this.tab === 'blueprint') {
+                        questions = await this.collectBlueprintQualityQuestions();
+                    }
+                    if (!questions.length) {
+                        this.qualityBatch.error = 'Soal berformat belum ditemukan di pratinjau. Generate atau perbaiki hasil soal terlebih dahulu.';
+                        return;
+                    }
+                    this.qualityBatch.questions = questions;
+
+                    // Beri browser satu kesempatan untuk mengecat status loading
+                    // sebelum request batch dimulai, termasuk saat respons lokal cepat.
+                    await new Promise((resolve) => setTimeout(resolve, 80));
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        },
+                        body: JSON.stringify({
+                            questions: questions.map((question) => ({
+                                ...context,
+                                question_type: question.question_type || 'mcq',
+                                question_text: question.question_text || '',
+                                options: Array.isArray(question.options) ? question.options : [],
+                                answer_key: question.answer_key || '',
+                            })),
+                        }),
+                    });
+                    const payload = await response.json().catch(() => ({}));
+                    if (!response.ok || !payload.ok) {
+                        this.qualityBatch.error = Object.values(payload.errors || {}).flat()[0] || payload.message || 'Pemeriksaan kolektif gagal.';
+                        return;
+                    }
+                    const data = payload.data || {};
+                    this.qualityBatch.summary = {
+                        total: Number(data.summary?.total || questions.length),
+                        average_score: Number(data.summary?.average_score || 0),
+                        layak: Number(data.summary?.layak || 0),
+                        perlu_revisi: Number(data.summary?.perlu_revisi || 0),
+                        tidak_layak: Number(data.summary?.tidak_layak || 0),
+                    };
+                    this.qualityBatch.results = Array.isArray(data.results) ? data.results : [];
+                    this.qualityBatch.checkedResult = this.result;
+                    this.qualityBatch.checkedSource = this.qualityBatchSource();
+                    this.qualityBatch.message = 'Pemeriksaan seluruh soal selesai. Tinjau temuan dan terapkan perbaikan bila diperlukan sebelum mengirim ke Arena.';
+                } catch (error) {
+                    this.qualityBatch.error = error?.message || 'Gagal terhubung ke pemeriksa kualitas soal.';
+                } finally {
+                    this.qualityBatch.loading = false;
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                }
+            },
+            replaceFirst(source, search, replacement) {
+                const text = String(source || '');
+                const needle = String(search || '');
+                if (!needle) return text;
+                const index = text.indexOf(needle);
+                return index < 0 ? text : text.slice(0, index) + String(replacement || '') + text.slice(index + needle.length);
+            },
+            stripQuestionNumber(text) {
+                return String(text || '').trim().replace(/^\d+[\.)]\s+/, '').trim();
+            },
+            stripOptionLabel(text) {
+                return String(text || '').trim().replace(/^[A-Ja-j][\.)]\s+/, '').trim();
+            },
+            improvedQuestionBlock(questionNumber, original, improved) {
+                const questionText = this.stripQuestionNumber(improved?.improved_question || original?.question_text || '');
+                if (!questionText) return '';
+
+                const lines = [`${questionNumber}. ${questionText}`];
+                const improvedOptions = Array.isArray(improved?.improved_options) ? improved.improved_options : [];
+                const originalOptions = Array.isArray(original?.options) ? original.options : [];
+                const options = improvedOptions.length ? improvedOptions : originalOptions;
+                options.forEach((option, optionIndex) => {
+                    const optionText = this.stripOptionLabel(option);
+                    if (!optionText) return;
+                    lines.push(`${String.fromCharCode(65 + optionIndex)}. ${optionText}`);
+                });
+
+                return lines.join('\n');
+            },
+            applyQualityPatchToQuestionBlock(source, questionIndex, original, improved) {
+                const text = String(source || '');
+                const questionNumber = Number(questionIndex) + 1;
+                if (!Number.isFinite(questionNumber) || questionNumber < 1) {
+                    return { text, changed: false };
+                }
+
+                const answerKeyMatch = text.match(/(?:^|\n)\s*(?:KUNCI\s+JAWABAN|Kunci\s+Jawaban|Jawaban)\b/i);
+                const searchableEnd = answerKeyMatch ? answerKeyMatch.index : text.length;
+                const searchable = text.slice(0, searchableEnd);
+                const matches = Array.from(searchable.matchAll(/(^|\n)(\s*)(\d+)[\.)]\s+/g));
+                const currentIndex = matches.findIndex((match) => Number(match[3]) === questionNumber);
+                if (currentIndex < 0) {
+                    return { text, changed: false };
+                }
+
+                const current = matches[currentIndex];
+                const next = matches[currentIndex + 1];
+                const start = (current.index || 0) + current[1].length;
+                const end = next ? ((next.index || 0) + next[1].length) : searchableEnd;
+                const replacement = this.improvedQuestionBlock(questionNumber, original, improved);
+                if (!replacement) {
+                    return { text, changed: false };
+                }
+
+                const before = text.slice(0, start);
+                const after = text.slice(end).replace(/^\s*\n/, '\n');
+                const updated = before + replacement.trimEnd() + '\n' + after;
+
+                return { text: updated, changed: updated !== text };
+            },
+            applyQualityPatchByText(source, original, improved) {
+                let updated = String(source || '');
+                const before = updated;
+                if (improved.improved_question) {
+                    updated = this.replaceFirst(updated, original.question_text, improved.improved_question);
+                }
+                if (Array.isArray(improved.improved_options) && Array.isArray(original.options)) {
+                    improved.improved_options.forEach((option, optionIndex) => {
+                        if (original.options[optionIndex] && option) {
+                            updated = this.replaceFirst(updated, original.options[optionIndex], option);
+                        }
+                    });
+                }
+
+                return { text: updated, changed: updated !== before };
+            },
+            applyAllQuizQuality() {
+                if (!this.qualityBatchCurrent()) {
+                    this.qualityBatch.message = 'Jalankan pemeriksaan ulang sebelum menerapkan versi perbaikan.';
+                    return;
+                }
+                let updated = String(this.result || '');
+                let applied = 0;
+                this.qualityBatch.results.forEach((item) => {
+                    const original = this.qualityBatch.questions[Number(item.index)];
+                    const improved = item?.data || {};
+                    if (!original || !improved) return;
+                    const before = updated;
+                    let patch = this.applyQualityPatchToQuestionBlock(updated, Number(item.index), original, improved);
+                    if (!patch.changed) {
+                        patch = this.applyQualityPatchByText(updated, original, improved);
+                    }
+                    updated = patch.text;
+                    if (updated !== before) applied++;
+                });
+                if (!applied) {
+                    this.qualityBatch.message = 'Tidak ada versi perbaikan yang dapat diterapkan otomatis ke teks hasil.';
+                    return;
+                }
+                this.result = updated;
+                this.qualityBatch.checkedResult = '';
+                this.qualityBatch.checkedSource = '';
+                this.qualityBatch.appliedCount = applied;
+                this.qualityBatch.appliedMessage = `${applied} versi perbaikan sudah diterapkan ke teks hasil dan pratinjau soal.`;
+                this.qualityBatch.message = `${applied} versi perbaikan diterapkan. Soal sudah diperbaiki di hasil dan pratinjau. Jalankan pemeriksaan ulang sebelum mengirim ke Arena.`;
+                this.previewHtml = '';
+                this.refreshPreview();
             },
             updateQuota(quota) {
                 if (quota) this.quota = quota;

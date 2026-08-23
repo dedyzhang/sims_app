@@ -3,14 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\InteractsWithAi;
+use App\Models\AiTeacherAudioAsset;
+use App\Models\AiTeacherAudioLink;
 use App\Models\AiTeacherHistory;
 use App\Models\Classroom;
+use App\Models\ClassroomMaterial;
 use App\Models\Setting;
 use App\Models\TeacherPresentation;
 use App\Services\GameQuizImporter;
+use App\Jobs\GenerateTeacherAudioJob;
 use App\Services\GeminiService;
 use App\Services\TeacherMaterialException;
 use App\Services\TeacherMaterialService;
+use App\Support\Audit;
 use App\Support\BlueprintDocument;
 use App\Support\BlueprintDocxBuilder;
 use App\Support\DocumentText;
@@ -25,9 +30,11 @@ use App\Support\SchoolLetterhead;
 use App\Support\TeacherOutputLanguage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Support\Str;
 use RuntimeException;
 use ZipArchive;
@@ -599,6 +606,277 @@ class AiTeacherController extends Controller
             ->with('success', 'Soal dari Asisten Guru siap diimpor. Periksa kunci jawaban lalu simpan.');
     }
 
+    public function audioCreate(Request $request): JsonResponse
+    {
+        if ($blocked = $this->requireTeacherReady($request)) return $blocked;
+        $voiceProfiles = (array) config('ai.tts.voice_profiles', []);
+        $voices = array_keys(array_merge(...array_values($voiceProfiles)));
+        $voiceGenders = array_keys($voiceProfiles);
+        $languages = array_keys((array) config('ai.tts.languages', []));
+        $vibes = array_keys((array) config('ai.tts.vibes', []));
+        $styles = array_keys((array) config('ai.tts.styles', []));
+        $data = $request->validate([
+            'source_type' => ['required', 'in:history,free_text'], 'source_uuid' => ['nullable', 'uuid'],
+            'text' => ['nullable', 'string'],
+            'title' => ['required', 'string', 'max:180'],
+            'language' => ['required', 'in:'.implode(',', $languages)],
+            'voice_gender' => ['nullable', 'in:'.implode(',', $voiceGenders)],
+            'voice' => ['required', 'in:'.implode(',', $voices)],
+            'vibe' => ['nullable', 'in:'.implode(',', $vibes)],
+            'style' => ['nullable', 'in:'.implode(',', $styles)],
+            'tempo_percent' => ['nullable', 'integer', 'min:70', 'max:130'],
+        ]);
+        $data['voice_gender'] = $data['voice_gender'] ?? 'wanita';
+        $data['vibe'] = $data['vibe'] ?? $data['style'] ?? 'ceria';
+        $data['tempo_percent'] = (int) ($data['tempo_percent'] ?? 100);
+        $user = $request->user();
+        if ($data['source_type'] === 'history') {
+            $history = AiTeacherHistory::query()->where('uuid', $data['source_uuid'] ?? '')
+                ->where('user_uuid', $user->uuid)->firstOrFail();
+            $text = trim(strip_tags((string) $history->answer)); $sourceUuid = $history->uuid;
+        } else {
+            $text = trim(strip_tags((string) ($data['text'] ?? ''))); $sourceUuid = null;
+        }
+        if ($text === '') return response()->json(['ok' => false, 'message' => 'Teks untuk audio wajib diisi.'], 422);
+        $characters = mb_strlen($text);
+        preg_match_all('/[\p{L}\p{N}]+/u', $text, $wordMatches);
+        $words = count($wordMatches[0] ?? []);
+        $maxCharacters = (int) config('ai.tts.max_chars', 8000);
+        $maxWords = (int) config('ai.tts.max_words', 1200);
+        if ($characters > $maxCharacters || $words > $maxWords) {
+            return response()->json([
+                'ok' => false,
+                'message' => "Narasi maksimal {$maxWords} kata atau {$maxCharacters} karakter (sekitar 10 menit audio).",
+                'limits' => ['characters' => $maxCharacters, 'words' => $maxWords],
+            ], 422);
+        }
+        if ($limited = $this->aiRateLimited('teacher_tts', $user->uuid)) return $limited;
+        $this->markStaleTeacherAudioAsFailed($user->uuid);
+        $model = (string) config('ai.tts.model');
+        $hashSource = $data['language'] === 'id-ID' ? $text : "translated-v1\0{$data['language']}\0{$text}";
+        $hash = hash('sha256', $hashSource);
+        $stylePrompt = (string) config('ai.tts.vibes.'.$data['vibe'], config('ai.tts.styles.'.$data['vibe'], 'Natural dan jelas.'));
+        $existing = AiTeacherAudioAsset::query()->where('user_uuid', $user->uuid)->where('text_hash', $hash)
+            ->where('language', $data['language'])->where('voice', $data['voice'])
+            ->where('voice_gender', $data['voice_gender'])->where('vibe', $data['vibe'])->where('tempo_percent', $data['tempo_percent'])
+            ->where('style_prompt', $stylePrompt)->where('model', $model)
+            ->whereIn('status', ['queued', 'processing', 'ready'])->latest()->first();
+        if ($existing) return response()->json(['ok' => true, 'reused' => true, 'audio' => $this->audioPayload($existing)]);
+        $asset = AiTeacherAudioAsset::create([
+            'user_uuid' => $user->uuid, 'source_type' => $data['source_type'], 'source_uuid' => $sourceUuid,
+            'title' => trim($data['title']), 'text_snapshot' => $text, 'text_hash' => $hash,
+            'language' => $data['language'], 'voice' => $data['voice'], 'voice_gender' => $data['voice_gender'],
+            'vibe' => $data['vibe'], 'tempo_percent' => $data['tempo_percent'], 'style_prompt' => $stylePrompt,
+            'model' => $model, 'status' => 'queued', 'disk' => 'local', 'mime' => (config('ai.tts.output_format', 'mp3') === 'wav' ? 'audio/wav' : 'audio/mpeg'),
+        ]);
+        Audit::log('ai_teacher_audio_create', $asset, ['title' => $asset->title, 'characters' => mb_strlen($text), 'model' => $model]);
+        $dispatchMode = (string) config('ai.tts.dispatch', 'queue');
+        if ($dispatchMode === 'sync') {
+            $this->extendTtsExecutionTime();
+            GenerateTeacherAudioJob::dispatchSync($asset->uuid);
+        } elseif (in_array($dispatchMode, ['deferred', 'background'], true)) {
+            $this->extendTtsExecutionTime();
+            $asset->update(['status' => 'processing']);
+            GenerateTeacherAudioJob::dispatch($asset->uuid)->onConnection($dispatchMode);
+        } else {
+            GenerateTeacherAudioJob::dispatch($asset->uuid)
+                ->onConnection((string) config('ai.tts.queue_connection', 'tts'));
+        }
+        $asset->refresh();
+        return response()->json(['ok' => true, 'audio' => $this->audioPayload($asset)], $asset->isReady() ? 200 : 202);
+    }
+
+    public function audioTargets(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $map = function ($items, string $type) use ($user): array {
+            return $items->filter(fn ($item) => $item->classroom && $user->can('manage', $item->classroom))
+                ->unique(fn ($item) => $type.'|'.$item->classroom_id.'|'.mb_strtolower(trim((string) $item->title)))
+                ->map(fn ($item) => [
+                    'target_type' => $type,
+                    'target_uuid' => $item->uuid,
+                    'label' => $this->audioTargetLabel((string) $item->title, (string) $item->classroom->title),
+                ])
+                ->values()->all();
+        };
+        $targets = array_merge(
+            $map(ClassroomMaterial::with('classroom')->latest()->limit(80)->get(), 'classroom_material'),
+            $map(\App\Models\ClassroomAssignment::with('classroom')->latest()->limit(80)->get(), 'classroom_assignment'),
+            $map(\App\Models\GameQuiz::with('classroom')->latest()->limit(80)->get(), 'game_quiz'),
+        );
+        return response()->json(['ok' => true, 'targets' => $targets]);
+    }
+
+    public function audioHistory(Request $request): JsonResponse
+    {
+        $userUuid = $request->user()->uuid;
+        $this->markStaleTeacherAudioAsFailed($userUuid);
+
+        $audios = AiTeacherAudioAsset::query()
+            ->where('user_uuid', $userUuid)
+            ->latest()
+            ->limit(20)
+            ->get()
+            ->map(fn (AiTeacherAudioAsset $audio) => $this->audioPayload($audio))
+            ->values();
+
+        return response()->json(['ok' => true, 'audios' => $audios]);
+    }
+
+    public function audioShow(Request $request, AiTeacherAudioAsset $audio): JsonResponse
+    {
+        $this->authorize('view', $audio); return response()->json(['ok' => true, 'audio' => $this->audioPayload($audio->fresh())]);
+    }
+
+    public function audioStatus(Request $request, AiTeacherAudioAsset $audio): JsonResponse
+    {
+        $this->authorize('view', $audio);
+        $this->markStaleTeacherAudioAsFailed($audio->user_uuid);
+
+        return response()->json(['ok' => true, 'audio' => $this->audioPayload($audio->fresh())]);
+    }
+
+    public function audioStream(Request $request, AiTeacherAudioAsset $audio)
+    {
+        abort_unless($this->canAccessAudio($request->user(), $audio), 403);
+        abort_unless($audio->isReady() && \Storage::disk($audio->disk)->exists($audio->path), 404);
+        return response()->file(\Storage::disk($audio->disk)->path($audio->path), [
+            'Content-Type' => $audio->mime, 'Content-Disposition' => 'inline; filename="'.addslashes($audio->title).'.'.$this->audioExtension($audio).'"',
+            'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    public function audioDownload(Request $request, AiTeacherAudioAsset $audio)
+    {
+        abort_unless($this->canAccessAudio($request->user(), $audio), 403);
+        abort_unless($audio->isReady() && \Storage::disk($audio->disk)->exists($audio->path), 404);
+        return \Storage::disk($audio->disk)->download($audio->path, Str::slug($audio->title).'.'.$this->audioExtension($audio), ['Content-Type' => $audio->mime]);
+    }
+
+    public function audioDelete(Request $request, AiTeacherAudioAsset $audio): JsonResponse
+    {
+        $this->authorize('delete', $audio); if ($audio->path) \Storage::disk($audio->disk)->delete($audio->path); $audio->delete(); Audit::log('ai_teacher_audio_delete', $audio);
+        return response()->json(['ok' => true, 'message' => 'Audio dihapus.']);
+    }
+
+    public function audioAttach(Request $request, AiTeacherAudioAsset $audio): JsonResponse
+    {
+        $this->authorize('manage', $audio); abort_unless($audio->isReady(), 422, 'Audio belum selesai dibuat.');
+        $data = $request->validate(['target_type' => ['required', 'in:classroom_material,classroom_assignment,game_quiz'], 'target_uuid' => ['required', 'uuid']]);
+        $target = $this->audioTarget($data['target_type'], $data['target_uuid']);
+        $classroom = $target->classroom; $this->authorize('manage', $classroom);
+        $link = AiTeacherAudioLink::firstOrCreate(['audio_uuid' => $audio->uuid, 'target_type' => $data['target_type'], 'target_uuid' => $target->uuid], ['created_by' => $request->user()->uuid]);
+        Audit::log('ai_teacher_audio_attach', $audio, ['target_type' => $link->target_type, 'target_uuid' => $link->target_uuid]);
+        return response()->json(['ok' => true, 'link' => ['uuid' => $link->uuid, 'target_type' => $link->target_type, 'target_uuid' => $link->target_uuid]]);
+    }
+
+    public function audioDetach(Request $request, AiTeacherAudioAsset $audio, AiTeacherAudioLink $link): JsonResponse
+    {
+        $this->authorize('manage', $audio); abort_unless($link->audio_uuid === $audio->uuid, 404); $link->delete();
+        return response()->json(['ok' => true]);
+    }
+
+    private function audioTarget(string $type, string $uuid): Model
+    {
+        return match ($type) {
+            'classroom_material' => ClassroomMaterial::where('uuid', $uuid)->firstOrFail(),
+            'classroom_assignment' => \App\Models\ClassroomAssignment::where('uuid', $uuid)->firstOrFail(),
+            'game_quiz' => \App\Models\GameQuiz::where('uuid', $uuid)->firstOrFail(),
+            default => abort(422),
+        };
+    }
+
+    private function canAccessAudio(User $user, AiTeacherAudioAsset $audio): bool
+    {
+        if ($audio->user_uuid === $user->uuid) return true;
+        foreach ($audio->links as $link) {
+            try {
+                $target = $this->audioTarget($link->target_type, $link->target_uuid);
+                if ($target instanceof \App\Models\GameQuiz) { if ($user->can('view', $target)) return true; continue; }
+                foreach ($target->classrooms as $classroom) if ($user->can('view', $classroom)) return true;
+            } catch (\Throwable) { continue; }
+        }
+        return false;
+    }
+
+    private function markStaleTeacherAudioAsFailed(string $userUuid): void
+    {
+        AiTeacherAudioAsset::query()
+            ->where('user_uuid', $userUuid)
+            ->where('status', 'queued')
+            ->where('updated_at', '<', now()->subMinutes((int) config('ai.tts.queued_stale_minutes', 5)))
+            ->update([
+                'status' => 'failed',
+                'error_message' => 'Antrean audio tidak diproses. Worker queue tidak aktif. Jalankan ulang pembuatan audio setelah worker tersedia.',
+            ]);
+
+        AiTeacherAudioAsset::query()
+            ->where('user_uuid', $userUuid)
+            ->where('status', 'processing')
+            ->where('updated_at', '<', now()->subMinutes((int) config('ai.tts.stale_minutes', 35)))
+            ->update([
+                'status' => 'failed',
+                'error_message' => 'Proses audio sebelumnya terhenti. Silakan buat ulang audio.',
+            ]);
+    }
+
+    private function extendTtsExecutionTime(): void
+    {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(1900);
+        }
+    }
+
+    private function audioTargetLabel(string $targetTitle, string $classroomTitle): string
+    {
+        $targetParts = preg_split('/\s+[\x{2013}\x{2014}-]\s+/u', trim($targetTitle)) ?: [];
+        $classroomParts = preg_split('/\s+[\x{2013}\x{2014}-]\s+/u', trim($classroomTitle)) ?: [];
+
+        while ($targetParts !== [] && $classroomParts !== []
+            && mb_strtolower(trim((string) end($targetParts))) === mb_strtolower(trim((string) $classroomParts[0]))) {
+            array_shift($classroomParts);
+        }
+
+        return implode(' — ', array_values(array_filter([...$targetParts, ...$classroomParts])));
+    }
+
+    private function audioExtension(AiTeacherAudioAsset $audio): string
+    {
+        $pathExtension = mb_strtolower(pathinfo((string) $audio->path, PATHINFO_EXTENSION));
+        if (in_array($pathExtension, ['mp3', 'wav'], true)) {
+            return $pathExtension;
+        }
+
+        return in_array($audio->mime, ['audio/wav', 'audio/x-wav'], true) ? 'wav' : 'mp3';
+    }
+
+    private function audioPayload(AiTeacherAudioAsset $audio): array
+    {
+        $durationSeconds = max(0, (int) round(((int) $audio->duration_ms) / 1000));
+
+        return [
+            'uuid' => $audio->uuid,
+            'title' => $audio->title,
+            'status' => $audio->status,
+            'language' => $audio->language,
+            'language_label' => config('ai.tts.languages.'.$audio->language, $audio->language),
+            'voice' => $audio->voice,
+            'voice_gender' => $audio->voice_gender,
+            'vibe' => $audio->vibe,
+            'tempo_percent' => $audio->tempo_percent,
+            'duration_ms' => $audio->duration_ms,
+            'duration_label' => $audio->duration_ms ? sprintf('%d:%02d', intdiv($durationSeconds, 60), $durationSeconds % 60) : null,
+            'characters' => mb_strlen((string) $audio->text_snapshot),
+            'error_message' => $audio->error_message,
+            'created_at' => $audio->created_at?->toIso8601String(),
+            'created_at_label' => $audio->created_at?->format('d/m/Y H:i'),
+            'status_url' => route('ai.teacher.audio.status', $audio),
+            'stream_url' => $audio->isReady() ? route('ai.teacher.audio.stream', $audio) : null,
+            'download_url' => $audio->isReady() ? route('ai.teacher.audio.download', $audio) : null,
+            'delete_url' => route('ai.teacher.audio.destroy', $audio),
+        ];
+    }
+
     /** GET /ai/teacher/quota — snapshot kuota live (dipoll UI). */
     public function quota(Request $request): JsonResponse
     {
@@ -959,12 +1237,14 @@ class AiTeacherController extends Controller
     {
         $data = $this->validatedQuizExport($request);
         $content = SchoolLetterhead::ensurePrefix($data['content']);
+        $interactiveQuality = (bool) ($data['interactive_quality'] ?? false);
         if (BlueprintDocument::looksLike($content)) {
             $doc = BlueprintDocument::parse($content);
 
             return response()->json([
                 'ok' => true,
                 'parsed' => $doc['parsed'],
+                'quality_questions' => $interactiveQuality ? $this->qualityQuestionsFromImportableQuiz($content) : [],
                 'html' => view('ai.teacher-blueprint-preview', [
                     'doc' => $doc,
                     'content' => $doc['text'],
@@ -977,11 +1257,61 @@ class AiTeacherController extends Controller
         return response()->json([
             'ok' => true,
             'parsed' => $doc['parsed'],
+            'quality_questions' => $interactiveQuality ? $this->qualityQuestionsFromImportableQuiz($content) : [],
             'html' => view('ai.teacher-quiz-preview', [
                 'doc' => $doc,
                 'content' => $doc['text'],
+                'interactiveQuality' => $interactiveQuality,
             ])->render(),
         ]);
+    }
+
+    /** @return list<array{question_text:string,question_type:string,options:list<string>,answer_key:string}> */
+    private function qualityQuestionsFromImportableQuiz(string $content): array
+    {
+        $questions = app(GameQuizImporter::class)->parse($content);
+
+        return array_values(array_map(function (array $question): array {
+            $options = array_values((array) ($question['options'] ?? []));
+            $letters = range('A', 'J');
+            $correctLetters = [];
+            $optionTexts = [];
+
+            foreach ($options as $index => $option) {
+                $optionTexts[] = (string) ($option['option_text'] ?? '');
+                if ((bool) ($option['is_correct'] ?? false)) {
+                    $correctLetters[] = $letters[$index] ?? (string) ($index + 1);
+                }
+            }
+
+            $answerKey = implode(', ', $correctLetters);
+            $type = (string) ($question['type'] ?? 'mcq');
+            if ($type === 'true_false') {
+                foreach ($options as $option) {
+                    if ((bool) ($option['is_correct'] ?? false)) {
+                        $answerKey = (string) ($option['option_text'] ?? $answerKey);
+                        break;
+                    }
+                }
+            } elseif ($type === 'short_answer') {
+                $answerKey = implode(', ', array_filter((array) ($question['meta']['answers'] ?? [])));
+            } elseif ($type === 'match') {
+                $pairs = array_values((array) ($question['meta']['pairs'] ?? []));
+                $pairLines = array_values(array_filter(array_map(
+                    fn ($pair) => trim((string) ($pair['left'] ?? '')).' -> '.trim((string) ($pair['right'] ?? '')),
+                    $pairs,
+                ), fn (string $line) => $line !== ' -> '));
+                $optionTexts = $pairLines;
+                $answerKey = implode('; ', $pairLines);
+            }
+
+            return [
+                'question_text' => (string) ($question['question_text'] ?? ''),
+                'question_type' => $type,
+                'options' => array_values(array_filter($optionTexts, fn (string $option) => $option !== '')),
+                'answer_key' => $answerKey,
+            ];
+        }, $questions));
     }
 
     /** POST /ai/teacher/quiz/export-word - export hasil soal yang sudah bisa diedit guru. */
@@ -1298,6 +1628,7 @@ class AiTeacherController extends Controller
             'jenis_soal.*' => ['required', 'string', 'distinct', 'in:'.$allowedQuizTypes],
             'tingkat' => ['required', 'in:mudah,sedang,sulit'],
             'jenjang' => ['nullable', 'string', 'max:100'],
+            'learning_objective' => ['nullable', 'string', 'max:1500'],
             'file' => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:10240'],
             'document_uuid' => ['nullable', 'string', 'max:64'],
             'material_text' => ['nullable', 'string', 'max:'.$maxMaterial],
@@ -1315,6 +1646,7 @@ class AiTeacherController extends Controller
         }
 
         $topik = trim((string) $data['topik']);
+        $learningObjective = trim((string) ($data['learning_objective'] ?? ''));
         $user = $request->user();
 
         // Materi: file kecil (inline) | file besar (RAG) | buku lama (document_uuid) | teks
@@ -1337,7 +1669,12 @@ class AiTeacherController extends Controller
 
             $material = $inlineMaterial;
             if ($material === '' && $document) {
-                $material = $this->materials->retrieveForTopic($document, $topik, $user->uuid);
+                $material = $this->materials->retrieveForTopic(
+                    $document,
+                    $topik,
+                    $user->uuid,
+                    ! $request->hasFile('file'),
+                );
             }
         } catch (TeacherMaterialException $e) {
             return response()->json($e->toArray(), $e->httpStatus);
@@ -1360,6 +1697,7 @@ class AiTeacherController extends Controller
             $prompt = "Buat {$data['jumlah']} soal ({$jenis}) dengan tingkat kesulitan "
                 ."{$data['tingkat']} {$jenjang} berdasarkan materi dari {$sumber} berikut.\n"
                 ."Fokus topik: \"{$topik}\".\n"
+                .($learningObjective !== '' ? "Materi/tujuan pembelajaran: {$learningObjective}\n" : '')
                 ."JANGAN keluar dari cakupan {$label}. Bila sebuah fakta tidak ada di "
                 ."dalamnya, jangan mengarang — susun soal dari bagian yang tersedia saja.\n"
                 .$langLine."\n\n"
@@ -1368,6 +1706,7 @@ class AiTeacherController extends Controller
         } else {
             $prompt = "Buat {$data['jumlah']} soal ({$jenis}) dengan tingkat kesulitan "
                 ."{$data['tingkat']} tentang topik: \"{$topik}\" {$jenjang}.\n"
+                .($learningObjective !== '' ? "Materi/tujuan pembelajaran: {$learningObjective}\n" : '')
                 .$langLine."\n\n"
                 .$formatInstruction;
         }
@@ -1604,7 +1943,12 @@ TXT;
                         'document_uuid' => $document->uuid,
                     ], 422);
                 }
-                $material = $this->materials->retrieveForTopic($document, $topikForRag, $user->uuid);
+                $material = $this->materials->retrieveForTopic(
+                    $document,
+                    $topikForRag,
+                    $user->uuid,
+                    ! $request->hasFile('file'),
+                );
             }
         } catch (TeacherMaterialException $e) {
             return response()->json($e->toArray(), $e->httpStatus);
@@ -1913,6 +2257,7 @@ TXT;
         return $request->validate([
             'content' => ['required', 'string', 'max:50000'],
             'title' => ['nullable', 'string', 'max:120'],
+            'interactive_quality' => ['nullable', 'boolean'],
         ]);
     }
 

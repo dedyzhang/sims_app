@@ -17,6 +17,7 @@ class StoreGameQuizRequest extends FormRequest
         return [
             'title'            => ['required', 'string', 'max:200'],
             'instructions'     => ['nullable', 'string'],
+            'learning_objective' => ['nullable', 'string', 'max:1500'],
             'scoring_mode'     => ['required', Rule::in(['accuracy', 'competitive'])],
             'play_mode'        => ['nullable', Rule::in(['solo', 'live', 'bebas'])],
             'template'         => ['nullable', Rule::in(['quiz', 'match', 'flashcard', 'crossword', 'unjumble', 'ular_tangga'])],

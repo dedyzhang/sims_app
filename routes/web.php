@@ -61,6 +61,7 @@ use App\Http\Controllers\GameAttemptController;
 use App\Http\Controllers\GameLiveController;
 use App\Http\Controllers\GameQuizController;
 use App\Http\Controllers\GameTemplateController;
+use App\Http\Controllers\QuestionQualityCheckerController;
 use App\Http\Controllers\GrupChatController;
 use App\Http\Controllers\PrivateChatController;
 use App\Http\Controllers\MissionAnalyticsController;
@@ -73,6 +74,7 @@ use App\Http\Controllers\MissionProgressController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\Keuangan\BendaharaAiController;
 use App\Http\Controllers\Keuangan\KeuanganController;
+use App\Http\Controllers\Keuangan\RkasController;
 use App\Http\Controllers\Keuangan\TagihanController;
 use App\Http\Controllers\LanggananController;
 use App\Http\Controllers\BankSoalController;
@@ -104,6 +106,9 @@ Route::middleware('guest')->group(function () {
 });
 // Throttle: PIN cuma 6 digit, tanpa throttle gampang di-brute force.
 Route::post('/login/pin', [LoginController::class, 'loginPin'])->middleware('throttle:login')->name('login.pin');
+// Fallback untuk stale/direct link dari browser lama. Route resmi bernama `logout`
+// tetap POST agar tombol UI memakai CSRF dan tidak menghasilkan GET 405.
+Route::get('/logout', [LoginController::class, 'logoutFallback']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/password/request', [LoginController::class, 'requestResetPassword'])->middleware('throttle:6,1')->name('password.request');
 
@@ -207,6 +212,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/ocr', 'ocr')->middleware('throttle:20,1')->name('ocr');
             Route::post('/quiz', 'quiz')->name('quiz');
             Route::post('/quiz/preview', 'previewQuiz')->name('quiz.preview');
+            Route::post('/quiz/quality-batch', [QuestionQualityCheckerController::class, 'checkBatchForTeacher'])->middleware('throttle:10,1')->name('quiz.quality-batch');
             Route::post('/quiz/export-word', 'exportQuizWord')->name('quiz.export-word');
             Route::post('/quiz/export-pdf', 'exportQuizPdf')->name('quiz.export-pdf');
             Route::post('/quiz/send-arena', 'sendToArena')->middleware('throttle:20,1')->name('quiz.send-arena');
@@ -218,6 +224,16 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/summary', 'summary')->name('summary');
             Route::post('/feedback', 'feedback')->name('feedback');
             Route::delete('/history/{history}', 'destroyHistory')->name('history.destroy');
+            Route::post('/audio', 'audioCreate')->middleware('throttle:10,1')->name('audio.create');
+            Route::get('/audio-targets', 'audioTargets')->name('audio.targets');
+            Route::get('/audio-history', 'audioHistory')->name('audio.history');
+            Route::get('/audio/{audio}', 'audioShow')->name('audio.show');
+            Route::get('/audio/{audio}/status', 'audioStatus')->name('audio.status');
+            Route::get('/audio/{audio}/stream', 'audioStream')->name('audio.stream');
+            Route::get('/audio/{audio}/download', 'audioDownload')->name('audio.download');
+            Route::delete('/audio/{audio}', 'audioDelete')->middleware('throttle:20,1')->name('audio.destroy');
+            Route::post('/audio/{audio}/attach', 'audioAttach')->middleware('throttle:20,1')->name('audio.attach');
+            Route::delete('/audio/{audio}/attach/{link}', 'audioDetach')->middleware('throttle:20,1')->name('audio.detach');
         });
 
         Route::controller(PresentationStudioController::class)->prefix('presentasi')->name('presentasi.')->group(function () {
@@ -472,9 +488,13 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::middleware('modul:arena_belajar')->group(function () {
             Route::get('/{classroom}/arena-belajar', [GameQuizController::class, 'index'])->name('arena.index');
             Route::get('/{classroom}/arena-belajar/buat', [GameQuizController::class, 'create'])->name('arena.create');
+            Route::get('/{classroom}/arena-belajar/pemeriksa-soal', [QuestionQualityCheckerController::class, 'index'])->name('arena.quality-checker');
+            Route::post('/{classroom}/arena-belajar/pemeriksa-soal', [QuestionQualityCheckerController::class, 'check'])->middleware('throttle:20,1')->name('arena.quality-checker.check');
+            Route::post('/{classroom}/arena-belajar/pemeriksa-soal/kolektif', [QuestionQualityCheckerController::class, 'checkBatch'])->middleware('throttle:10,1')->name('arena.quality-checker.batch');
             Route::post('/{classroom}/arena-belajar', [GameQuizController::class, 'store'])->middleware('throttle:30,1')->name('arena.store');
             Route::post('/{classroom}/arena-belajar/impor-preview', [GameQuizController::class, 'importPreview'])->middleware('throttle:20,1')->name('arena.import');
             Route::get('/{classroom}/arena-belajar/{quiz}', [GameQuizController::class, 'show'])->name('arena.show');
+            Route::get('/{classroom}/arena-belajar/{quiz}/pemeriksa-kualitas', [QuestionQualityCheckerController::class, 'page'])->name('arena.quality-page');
             Route::get('/{classroom}/arena-belajar/{quiz}/edit', [GameQuizController::class, 'edit'])->name('arena.edit');
             Route::post('/{classroom}/arena-belajar/{quiz}/update', [GameQuizController::class, 'update'])->middleware('throttle:30,1')->name('arena.update');
             Route::post('/{classroom}/arena-belajar/{quiz}/terbit', [GameQuizController::class, 'publish'])->name('arena.publish');
@@ -1197,6 +1217,25 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/log', 'log')->name('log');
             Route::post('/ocr/{pembayaran}', 'ocrSuggest')->name('ocr')->middleware('throttle:10,1');
         });
+    });
+
+    // ─── RKAS / BOSP Companion ─────────────────────────────────────────────
+    // Bendahara menyusun dan memvalidasi; kepala sekolah hanya review. Pengesahan
+    // serta sinkronisasi resmi tetap dicatat manual setelah dilakukan di ARKAS/MARKAS.
+    Route::middleware('modul:keuangan')->prefix('keuangan/rkas')->name('keuangan.rkas.')->controller(RkasController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/buat', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{plan}', 'show')->name('show');
+        Route::get('/{plan}/edit', 'edit')->name('edit');
+        Route::put('/{plan}', 'update')->name('update');
+        Route::post('/{plan}/validasi', 'validatePlan')->name('validate');
+        Route::get('/{plan}/export/excel', 'exportExcel')->name('export.excel');
+        Route::get('/{plan}/export/pdf', 'exportPdf')->name('export.pdf');
+        Route::post('/{plan}/status', 'syncStatus')->name('status');
+        Route::get('/bukti/{syncLog}', 'downloadEvidence')->name('evidence');
+        Route::post('/referensi', 'importReference')->name('reference.import');
+        Route::post('/referensi/{referenceSet}/nonaktifkan', 'deactivateReference')->name('reference.deactivate');
     });
 
     // ─── Keuangan: Tagihan SPP siswa & orang tua ───────────────────────────
