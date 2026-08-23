@@ -31,7 +31,17 @@ return new class extends Migration
         // insert >1 baris utk (id_ruangan,id_siswa,tanggal) yg sama (duplikasi per
         // sesi), yg akan ditolak constraint lama kalau belum di-drop.
         Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
+            $table->dropForeign(['id_ruangan']);
+            $table->dropForeign(['id_siswa']);
+        });
+
+        Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
             $table->dropUnique(['id_ruangan', 'id_siswa', 'tanggal']);
+        });
+
+        Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
+            $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();
+            $table->foreign('id_siswa')->references('uuid')->on('siswa')->cascadeOnDelete();
         });
 
         foreach (DB::table('ujian_daftar_hadir')->get() as $row) {
@@ -77,6 +87,11 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
+            $table->dropForeign(['id_ruangan']);
+            $table->dropForeign(['id_siswa']);
+        });
+
+        Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
             $table->dropUnique(['id_ruangan', 'id_siswa', 'id_sesi']);
             $table->dropForeign(['id_sesi']);
             $table->dropColumn('id_sesi');
@@ -85,6 +100,8 @@ return new class extends Migration
         // unique lama (id_ruangan,id_siswa,tanggal) akan GAGAL re-add kalau masih ada duplikat
         // sisa dari backfill. Perlu DELETE manual duplikat dulu kalau benar2 rollback.
         Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
+            $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();
+            $table->foreign('id_siswa')->references('uuid')->on('siswa')->cascadeOnDelete();
             $table->unique(['id_ruangan', 'id_siswa', 'tanggal']);
         });
     }

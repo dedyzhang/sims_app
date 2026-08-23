@@ -23,8 +23,13 @@ return new class extends Migration
     {
         Schema::table('ujian_berita_acara', function (Blueprint $table) {
             $table->dropForeign(['id_ruangan']);
-            $table->dropUnique(['id_ruangan', 'tanggal']);
+        });
 
+        Schema::table('ujian_berita_acara', function (Blueprint $table) {
+            $table->dropUnique(['id_ruangan', 'tanggal']);
+        });
+
+        Schema::table('ujian_berita_acara', function (Blueprint $table) {
             $table->uuid('id_ujian')->nullable()->after('id_ruangan');
             $table->uuid('id_guru_pengawas')->nullable()->after('diisi_oleh');
 
@@ -40,11 +45,16 @@ return new class extends Migration
     {
         Schema::table('ujian_berita_acara', function (Blueprint $table) {
             $table->dropForeign(['id_ruangan']);
+        });
+
+        Schema::table('ujian_berita_acara', function (Blueprint $table) {
             $table->dropUnique(['id_ruangan', 'id_ujian', 'tanggal']);
             $table->dropForeign(['id_ujian']);
             $table->dropForeign(['id_guru_pengawas']);
             $table->dropColumn(['id_ujian', 'id_guru_pengawas']);
+        });
 
+        Schema::table('ujian_berita_acara', function (Blueprint $table) {
             $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();
             $table->unique(['id_ruangan', 'tanggal']);
         });
