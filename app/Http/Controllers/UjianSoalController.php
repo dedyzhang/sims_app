@@ -13,13 +13,20 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Intervention\Image\Drivers\Gd\Driver;
+use Intervention\Image\ImageManager;
 
 class UjianSoalController extends Controller
 {
+    /** Lebar maks gambar soal — cukup utk dibuka jelas di HP (bukan resolusi kamera/asli), supaya ringan lewat data seluler. */
+    private const MAX_LEBAR_GAMBAR = 900;
+
     /**
      * Endpoint upload gambar utk TinyMCE (teks_soal & opsi jawaban) — dipanggil
      * langsung oleh editor lewat images_upload_handler, bukan terikat ke satu soal.
-     * Format respons JSON {location: url} sesuai kontrak TinyMCE.
+     * Format respons JSON {location: url} sesuai kontrak TinyMCE. Di-resize ke lebar
+     * resolusi HP (bukan disimpan mentah) — GIF dikecualikan krn decode ulang lewat
+     * GD menghilangkan animasinya.
      */
     public function uploadGambar(Request $request)
     {
@@ -30,7 +37,24 @@ class UjianSoalController extends Controller
         $file = $request->file('file');
         $ext = Uploads::safeExtension($file, ['jpg', 'jpeg', 'png', 'webp', 'gif'], 'png');
         $nama = now()->format('Ymd_His') . '_' . Str::random(8) . '.' . $ext;
-        $path = $file->storeAs('ujian-soal/' . now()->format('Y/m'), $nama, 'public');
+        $subdir = 'ujian-soal/' . now()->format('Y/m');
+
+        if ($ext === 'gif') {
+            $path = $file->storeAs($subdir, $nama, 'public');
+        } else {
+            $manager = new ImageManager(new Driver());
+            $image = $manager->read($file->getRealPath());
+            if ($image->width() > self::MAX_LEBAR_GAMBAR) {
+                $image->scaleDown(width: self::MAX_LEBAR_GAMBAR);
+            }
+            $encoded = match ($ext) {
+                'png'   => (string) $image->toPng(),
+                'webp'  => (string) $image->toWebp(80),
+                default => (string) $image->toJpeg(80),
+            };
+            $path = $subdir . '/' . $nama;
+            Storage::disk('public')->put($path, $encoded);
+        }
 
         return response()->json(['location' => Storage::disk('public')->url($path)]);
     }
@@ -53,6 +77,7 @@ class UjianSoalController extends Controller
                 'urutan'     => $urutan,
                 'meta'       => $data['meta'] ?? null,
                 'penjelasan' => $data['penjelasan'] ?? null,
+                'skor_mode'  => $data['skor_mode'],
             ]);
 
             $this->simpanOpsi($soal, $data);
@@ -76,6 +101,7 @@ class UjianSoalController extends Controller
                 'poin'       => $data['poin'],
                 'meta'       => $data['meta'] ?? null,
                 'penjelasan' => $data['penjelasan'] ?? null,
+                'skor_mode'  => $data['skor_mode'],
             ]);
 
             $soal->opsi()->delete();
@@ -171,6 +197,7 @@ class UjianSoalController extends Controller
                     'urutan'     => $urutan,
                     'meta'       => $sumber->meta,
                     'penjelasan' => $sumber->penjelasan,
+                    'skor_mode'  => $sumber->skor_mode,
                 ]);
 
                 foreach ($sumber->opsi as $o) {
@@ -208,6 +235,7 @@ class UjianSoalController extends Controller
                 'urutan'       => (int) BankSoal::where('id_pelajaran', $ujian->id_pelajaran)->max('urutan') + 1,
                 'meta'         => $soal->meta,
                 'penjelasan'   => $soal->penjelasan,
+                'skor_mode'    => $soal->skor_mode,
             ]);
 
             foreach ($soal->opsi as $o) {

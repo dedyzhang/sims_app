@@ -14,7 +14,17 @@
             <h1 class="page-title">Pemantauan Live</h1>
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Diperbarui otomatis"></span>
         </div>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Diperbarui otomatis tiap 5 detik.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Diperbarui otomatis tiap 5 detik. Menampilkan semua siswa kelas ter-assign, termasuk yang belum mulai.</p>
+    </div>
+
+    <div x-show="kelasOpsi.length > 1" class="flex items-center gap-2">
+        <label class="text-xs font-semibold text-slate-500">Kelas:</label>
+        <select class="form-select py-1.5 text-sm w-auto" x-model="kelasFilter" @change="muat()">
+            <option value="">Semua kelas</option>
+            <template x-for="k in kelasOpsi" :key="k.uuid">
+                <option :value="k.uuid" x-text="k.label"></option>
+            </template>
+        </select>
     </div>
 
     <div class="card overflow-hidden">
@@ -30,12 +40,13 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                <template x-for="a in attempts" :key="a.attempt_uuid">
+                <template x-for="a in attempts" :key="a.attempt_uuid || a.nama">
                     <tr>
                         <td class="px-4 py-2.5 font-medium" x-text="a.nama"></td>
                         <td class="px-4 py-2.5 text-slate-500" x-text="a.kelas"></td>
                         <td class="px-4 py-2.5">
-                            <span class="badge" :class="a.dikunci ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400' : (a.status==='in_progress' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300')"
+                            <span class="badge"
+                                  :class="a.status==='belum_mulai' ? 'bg-slate-100 dark:bg-slate-700 text-slate-500' : (a.dikunci ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400' : (a.status==='in_progress' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'))"
                                   x-text="a.dikunci ? 'Terkunci' : a.status_label"></span>
                         </td>
                         <td class="px-4 py-2.5 font-mono text-xs" x-text="a.status==='in_progress' ? formatSisa(a.batas_waktu_pada) : '—'"></td>
@@ -63,6 +74,8 @@
 function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
     return {
         attempts: [],
+        kelasOpsi: [],
+        kelasFilter: '',
         _csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
         _timer: null,
 
@@ -73,10 +86,12 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
 
         async muat() {
             try {
-                const res = await fetch(urlPoll, { headers: { 'Accept': 'application/json' } });
+                const url = this.kelasFilter ? urlPoll + '?kelas=' + encodeURIComponent(this.kelasFilter) : urlPoll;
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
                 if (!res.ok) return;
                 const data = await res.json();
                 this.attempts = data.attempts;
+                this.kelasOpsi = data.kelasOpsi;
             } catch (e) {}
         },
 
@@ -93,10 +108,23 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
             this.muat();
         },
 
-        async resetUlang(a) {
-            if (!window.confirm(`Reset ulang attempt ${a.nama}? Siswa akan bisa memulai ujian dari nol dengan token yang sama.`)) return;
-            await this._post(urlResetTemplate.replace('__ATTEMPT__', a.attempt_uuid));
-            this.muat();
+        resetUlang(a) {
+            const self = this;
+            $.confirm({
+                title: 'Reset Ulang Attempt?',
+                content: `Reset ulang attempt ${a.nama}? Siswa akan bisa memulai ujian dari nol dengan token yang sama.`,
+                type: 'orange',
+                buttons: {
+                    ya: {
+                        text: 'Ya, Reset', btnClass: 'btn-blue', keys: ['enter'],
+                        action: async function () {
+                            await self._post(urlResetTemplate.replace('__ATTEMPT__', a.attempt_uuid));
+                            self.muat();
+                        },
+                    },
+                    batal: { text: 'Batal' },
+                },
+            });
         },
 
         async _post(url) {

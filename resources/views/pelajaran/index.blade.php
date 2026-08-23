@@ -53,7 +53,7 @@
                         </td>
                         <td>
                             <div class="flex items-center gap-1 justify-end">
-                                <button @click="openEdit('{{ $p->uuid }}','{{ addslashes($p->nama) }}','{{ $p->kode ?? '' }}')"
+                                <button @click="openEdit('{{ $p->uuid }}','{{ addslashes($p->nama) }}','{{ $p->kode ?? '' }}','{{ $p->mode_skor_ujian ?? 'rata_rata' }}')"
                                         class="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900 text-blue-500 transition" title="Edit">
                                     <i data-lucide="pencil" class="w-4 h-4"></i>
                                 </button>
@@ -95,6 +95,14 @@
                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Kode</label>
                     <input type="text" x-model="form.kode" placeholder="Contoh: MAT (opsional)" maxlength="10" class="form-input">
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Mode Nilai Ujian</label>
+                    <select x-model="form.mode_skor_ujian" class="form-select">
+                        <option value="rata_rata">Rata-rata (skala 100 — skor ÷ total poin soal × 100)</option>
+                        <option value="jumlah">Jumlah (total poin apa adanya, bisa lebih dari 100)</option>
+                    </select>
+                    <p class="text-xs text-slate-400 mt-1">Menentukan nilai akhir ujian (PTS/PAS/Sumatif) mapel ini dihitung dari total poin soal.</p>
+                </div>
                 <p x-show="formError" class="text-sm text-rose-500" x-text="formError"></p>
             </div>
             <div class="p-5 border-t border-slate-100 dark:border-slate-700 flex gap-2 justify-end">
@@ -117,20 +125,20 @@ function pelajaranApp() {
         search: '',
         modalOpen: false,
         editId: null,
-        form: { nama: '', kode: '' },
+        form: { nama: '', kode: '', mode_skor_ujian: 'rata_rata' },
         formError: '',
         loading: false,
 
         openAdd() {
             this.editId = null;
-            this.form = { nama: '', kode: '' };
+            this.form = { nama: '', kode: '', mode_skor_ujian: 'rata_rata' };
             this.formError = '';
             this.modalOpen = true;
             this.$nextTick(() => lucide.createIcons());
         },
-        openEdit(id, nama, kode) {
+        openEdit(id, nama, kode, modeSkorUjian) {
             this.editId = id;
-            this.form = { nama, kode };
+            this.form = { nama, kode, mode_skor_ujian: modeSkorUjian || 'rata_rata' };
             this.formError = '';
             this.modalOpen = true;
             this.$nextTick(() => lucide.createIcons());

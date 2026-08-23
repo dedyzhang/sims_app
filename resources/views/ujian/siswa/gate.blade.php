@@ -15,6 +15,14 @@
     </div>
     @endif
 
+    @if($ujianKelas->belumDimulai())
+    <div class="card p-6 text-center space-y-2">
+        <i data-lucide="clock" class="w-8 h-8 mx-auto text-amber-500"></i>
+        <p class="font-bold text-slate-800 dark:text-slate-100">Ujian Belum Dimulai</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Ujian ini baru bisa dikerjakan mulai <b>{{ $ujianKelas->dibuka_mulai->translatedFormat('d M Y, H:i') }}</b>. Kembali lagi ke halaman ini saat waktunya tiba.</p>
+    </div>
+    @else
+
     @if($ujian->instruksi)
     <div class="card p-5">
         <h2 class="font-bold text-slate-800 dark:text-slate-100 mb-2 text-sm">Instruksi</h2>
@@ -38,13 +46,14 @@
         @csrf
         <div>
             <label class="form-label">Token Masuk</label>
-            <input type="text" name="token" required autocomplete="off" autocapitalize="characters"
-                   class="form-input uppercase tracking-widest text-center font-mono text-lg" placeholder="XXXXXX" maxlength="16">
+            <input type="text" name="token" required autocomplete="off" inputmode="numeric" pattern="[0-9]*"
+                   class="form-input tracking-widest text-center font-mono text-lg" placeholder="0000" maxlength="4">
             <p class="text-xs text-slate-400 mt-1">Minta token ini ke guru/panitia ujian.</p>
         </div>
         <button type="submit" id="btn-mulai-ujian" class="btn-primary w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
             <i data-lucide="log-in" class="w-4 h-4"></i> Mulai Ujian
         </button>
     </form>
+    @endif
 </div>
 @endsection

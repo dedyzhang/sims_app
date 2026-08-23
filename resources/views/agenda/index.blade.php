@@ -122,7 +122,12 @@
                             </p>
                         </div>
                         @if($ag)
-                        <span class="badge bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1 flex-shrink-0"><i data-lucide="check" class="w-3 h-3"></i> Sudah diisi</span>
+                        <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                            <span class="badge bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Sudah diisi</span>
+                            @if(!empty($d['is_orphaned']))
+                            <span class="badge bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-semibold text-[10px]">Jadwal Lama</span>
+                            @endif
+                        </div>
                         @elseif($d['wajib'])
                         <span class="badge bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-semibold flex-shrink-0">Belum</span>
                         @else

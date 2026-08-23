@@ -37,11 +37,16 @@
         <div class="grid sm:grid-cols-2 gap-4">
             <div>
                 <label class="form-label">Jenis Ujian</label>
+                @if($bolehAturKelas)
                 <select name="jenis" class="form-select">
                     @foreach(['harian'=>'Ulangan Harian','pts'=>'PTS','pas'=>'PAS','uas'=>'UAS'] as $val => $lbl)
                         <option value="{{ $val }}" @selected(old('jenis', $ujian->jenis)===$val)>{{ $lbl }}</option>
                     @endforeach
                 </select>
+                @else
+                <input type="hidden" name="jenis" value="harian">
+                <p class="form-input bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400">Ulangan Harian</p>
+                @endif
             </div>
             <div>
                 <label class="form-label">Durasi (menit) <span class="text-rose-500">*</span></label>
@@ -65,6 +70,27 @@
                     Ujian target Sumatif — mata pelajaran mengikuti Materi penugasan mengajar, tidak bisa diubah di sini.
                 @else
                     Mata pelajaran cuma bisa diubah selama ujian masih draf.
+                @endif
+            </p>
+            @endif
+        </div>
+
+        <div>
+            <label class="form-label">Target Nilai</label>
+            @if($ujian->status === 'draft' && !$ujian->butuhSatuKelas())
+            <select name="target_nilai" class="form-select">
+                @foreach(['pts'=>'PTS','pas'=>'PAS'] as $val => $lbl)
+                    <option value="{{ $val }}" @selected(old('target_nilai', $ujian->target_nilai)===$val)>{{ $lbl }}</option>
+                @endforeach
+            </select>
+            <p class="text-xs text-slate-400 mt-1">Ke buku nilai mana skor ujian ini ditransfer setelah dinilai. Ini <b>terpisah</b> dari "Jenis Ujian" di atas (yang cuma label tampilan) — samakan keduanya kalau memang dimaksudkan untuk PTS/PAS.</p>
+            @else
+            <p class="form-input bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400">{{ $ujian->butuhSatuKelas() ? 'Sumatif' : strtoupper($ujian->target_nilai) }}</p>
+            <p class="text-xs text-slate-400 mt-1">
+                @if($ujian->butuhSatuKelas())
+                    Ujian target Sumatif — ditentukan saat pembuatan, tidak bisa diubah di sini.
+                @else
+                    Target nilai cuma bisa diubah selama ujian masih draf.
                 @endif
             </p>
             @endif

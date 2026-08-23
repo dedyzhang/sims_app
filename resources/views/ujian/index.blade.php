@@ -17,8 +17,8 @@
 
     <div class="grid gap-3">
         @forelse($ujians as $ujian)
-        <div class="card p-5 flex items-center justify-between gap-4 hover:border-primary transition">
-            <a href="{{ route('ujian.show', $ujian) }}" class="min-w-0 flex-1">
+        <div class="card p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:border-primary transition group">
+            <a href="{{ route('ujian.show', $ujian) }}" class="min-w-0 flex-1 block">
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="badge bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{{ $ujian->jenisLabel() }}</span>
                     @php
@@ -30,27 +30,29 @@
                     @endphp
                     <span class="badge {{ $statusBadge }}">{{ $ujian->statusLabel() }}</span>
                 </div>
-                <h2 class="font-bold text-slate-800 dark:text-slate-100 mt-1 truncate">{{ $ujian->judul }}</h2>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {{ $ujian->pelajaran?->nama }} · {{ $ujian->soal_count }} soal · {{ $ujian->kelas->count() }} kelas · {{ $ujian->durasi_menit }} menit
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 mt-1.5 truncate">{{ $ujian->judul }}</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {{ $ujian->pelajaran?->nama }} &middot; {{ $ujian->soal_count }} soal &middot; {{ $ujian->kelas->count() }} kelas &middot; {{ $ujian->durasi_menit }} menit
                 </p>
             </a>
-            <div class="flex items-center gap-2 flex-shrink-0">
-                @can('manage', $ujian)
-                    @if($ujian->status === 'published')
-                        @if($ujian->kelas->count() > 0)
-                        <form method="POST" action="{{ route('ujian.token.reset', $ujian) }}" onsubmit="return confirmAction(this, 'Buat token baru untuk SEMUA kelas ujian ini? Token lama tidak berlaku lagi.', 'orange')">
-                            @csrf
-                            <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">Reset Token</button>
-                        </form>
+            <div class="flex flex-wrap items-center gap-2 sm:flex-shrink-0 mt-1 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-0 border-slate-100 dark:border-slate-800/50 justify-between sm:justify-end">
+                <div class="flex items-center gap-2">
+                    @can('manage', $ujian)
+                        @if($ujian->status === 'published')
+                            @if($ujian->kelas->count() > 0)
+                            <form method="POST" action="{{ route('ujian.token.reset', $ujian) }}" onsubmit="return confirmAction(this, 'Buat token baru untuk SEMUA kelas ujian ini? Token lama tidak berlaku lagi.', 'orange')">
+                                @csrf
+                                <button type="submit" class="px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">Reset Token</button>
+                            </form>
+                            @endif
+                            <form method="POST" action="{{ route('ujian.close', $ujian) }}" onsubmit="return confirmAction(this, 'Tutup ujian ini? Siswa tidak bisa lagi memulai/melanjutkan.', 'red')">
+                                @csrf
+                                <button type="submit" class="px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-rose-600 text-white hover:bg-rose-700">Tutup</button>
+                            </form>
                         @endif
-                        <form method="POST" action="{{ route('ujian.close', $ujian) }}" onsubmit="return confirmAction(this, 'Tutup ujian ini? Siswa tidak bisa lagi memulai/melanjutkan.', 'red')">
-                            @csrf
-                            <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-700">Tutup</button>
-                        </form>
-                    @endif
-                @endcan
-                <a href="{{ route('ujian.show', $ujian) }}"><i data-lucide="chevron-right" class="w-5 h-5 text-slate-400"></i></a>
+                    @endcan
+                </div>
+                <a href="{{ route('ujian.show', $ujian) }}" class="hidden sm:flex"><i data-lucide="chevron-right" class="w-5 h-5 text-slate-400 group-hover:text-primary transition"></i></a>
             </div>
         </div>
         @empty

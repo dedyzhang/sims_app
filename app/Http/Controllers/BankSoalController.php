@@ -60,6 +60,7 @@ class BankSoalController extends Controller
                 'urutan'       => $urutan,
                 'meta'         => $data['meta'] ?? null,
                 'penjelasan'   => $data['penjelasan'] ?? null,
+                'skor_mode'    => $data['skor_mode'],
             ]);
 
             $this->simpanOpsi($soal, $data);
@@ -82,6 +83,7 @@ class BankSoalController extends Controller
                 'poin'       => $data['poin'],
                 'meta'       => $data['meta'] ?? null,
                 'penjelasan' => $data['penjelasan'] ?? null,
+                'skor_mode'  => $data['skor_mode'],
             ]);
 
             $soal->opsi()->delete();

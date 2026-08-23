@@ -87,7 +87,12 @@
                                 <span class="inline-flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i> {{ $d['jam_mulai'] }}–{{ $d['jam_selesai'] }}</span>
                             </p>
                         </div>
-                        <span class="badge bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1 flex-shrink-0"><i data-lucide="check" class="w-3 h-3"></i> Sudah diisi</span>
+                        <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                            <span class="badge bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Sudah diisi</span>
+                            @if(!empty($d['is_orphaned']))
+                            <span class="badge bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-semibold text-[10px]">Jadwal Lama</span>
+                            @endif
+                        </div>
                     </div>
 
                     <div class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 border-t border-slate-100 dark:border-slate-700 pt-2">

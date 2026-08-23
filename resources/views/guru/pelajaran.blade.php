@@ -76,12 +76,47 @@
                             <span class="badge bg-primary-50 text-primary">{{ $ngajar->kelas ? 'Kelas '.$ngajar->kelas->tingkat.$ngajar->kelas->kelas : 'Semua Kelas' }}</span>
                         </td>
                         <td class="text-right">
-                            <form method="POST" action="{{ route('guru.hapusNgajar', $ngajar->uuid) }}" onsubmit="return confirmAction(this, 'Ruang Kelas (materi, tugas & jawaban siswa) untuk mapel ini di kelas tsb akan ikut terhapus permanen. Lanjutkan?', 'red')">
-                                @csrf @method('DELETE')
-                                <button type="submit" class="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900 text-rose-500 transition">
-                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            <div class="flex items-center justify-end gap-1" x-data="{ tfModal: false }">
+                                <button type="button" @click="tfModal = true" class="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900 text-amber-600 transition" title="Pindahtangankan ke guru lain">
+                                    <i data-lucide="arrow-right-left" class="w-4 h-4"></i>
                                 </button>
-                            </form>
+                                <form method="POST" action="{{ route('guru.hapusNgajar', $ngajar->uuid) }}" onsubmit="return confirmAction(this, 'Ruang Kelas (materi, tugas & jawaban siswa) untuk mapel ini di kelas tsb akan ikut terhapus permanen. Lanjutkan?', 'red')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900 text-rose-500 transition" title="Hapus Data Ngajar">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </form>
+
+                                {{-- Modal Transfer --}}
+                                <template x-teleport="body">
+                                    <div x-show="tfModal" x-cloak class="fixed inset-0 z-[9999] flex items-center justify-center p-4" @keydown.escape.window="tfModal=false">
+                                        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="tfModal=false" x-show="tfModal" x-transition.opacity></div>
+                                        <div class="relative card w-full max-w-md p-6 text-left" x-show="tfModal" x-transition.scale.origin.center @click.outside="tfModal=false">
+                                            <h3 class="font-bold text-lg text-slate-800 dark:text-slate-100 mb-2">Transfer Data Ngajar</h3>
+                                            <p class="text-sm text-slate-500 mb-5 whitespace-normal">Pindahkan jadwal dan ruang kelas <strong>{{ $ngajar->pelajaran?->nama }}</strong> ({{ $ngajar->kelas ? 'Kelas '.$ngajar->kelas->tingkat.$ngajar->kelas->kelas : 'Semua Kelas' }}) ke guru lain.</p>
+                                            
+                                            <form method="POST" action="{{ route('guru.transferNgajar', $ngajar->uuid) }}">
+                                                @csrf
+                                                <div class="mb-5 text-left">
+                                                    <label class="form-label">Pilih Guru Tujuan</label>
+                                                    <select name="id_guru_tujuan" class="form-select" required x-init="new TomSelect($el, {create: false})">
+                                                        <option value="">Pilih guru...</option>
+                                                        @foreach($guruList as $g)
+                                                        <option value="{{ $g->uuid }}">{{ $g->nama }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="flex items-center justify-end gap-3 mt-6">
+                                                    <button type="button" @click="tfModal=false" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Batal</button>
+                                                    <button type="submit" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                                                        <i data-lucide="check" class="w-4 h-4"></i> Transfer
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
                         </td>
                     </tr>
                     @empty

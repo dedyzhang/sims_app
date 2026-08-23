@@ -116,6 +116,52 @@ class UjianTokenGateTest extends TestCase
         $this->assertSame(0, UjianAttempt::where('id_siswa', $siswa->uuid)->count());
     }
 
+    /** Bug report FL: ujian yg sudah terbit tapi jam bukanya blm sampai HARUS tetap tampil di daftar (bukan hilang), dgn tanda jelas "Belum Dimulai" + jam bukanya, bukan cuma badge generik. */
+    public function test_index_siswa_menampilkan_badge_belum_dimulai_dan_jam_buka(): void
+    {
+        $this->ujianKelas->update(['dibuka_mulai' => now()->addDay()]);
+        $siswa = $this->buatSiswa('siswa_belum_mulai', $this->kelas);
+
+        $res = $this->actingAs($siswa)->get(route('ujian.siswa.index'));
+        $res->assertOk();
+        $res->assertSee('Belum Dimulai');
+        $res->assertSee($this->ujian->judul);
+        $res->assertDontSee('Mulai Ujian');
+    }
+
+    /** Tombol "Mulai"/"Lanjutkan" TIDAK boleh muncul sebelum jam buka — satu2nya jalan siswa mulai adalah nunggu, bukan tombol yg ujung2nya ditolak 403 stlh diklik. */
+    public function test_index_siswa_tak_menampilkan_tombol_mulai_sebelum_jam_buka(): void
+    {
+        $this->ujianKelas->update(['dibuka_mulai' => now()->addDay()]);
+        $siswa = $this->buatSiswa('siswa_tombol_belum', $this->kelas);
+
+        $this->actingAs($siswa)->get(route('ujian.siswa.index'))
+            ->assertOk()
+            ->assertDontSee(route('ujian.siswa.gate', $this->ujian));
+    }
+
+    public function test_halaman_gate_menampilkan_notice_belum_dimulai_alih_alih_form_token(): void
+    {
+        $this->ujianKelas->update(['dibuka_mulai' => now()->addHours(3)]);
+        $siswa = $this->buatSiswa('siswa_gate_belum_mulai', $this->kelas);
+
+        $res = $this->actingAs($siswa)->get(route('ujian.siswa.gate', $this->ujian));
+        $res->assertOk();
+        $res->assertSee('Ujian Belum Dimulai');
+        $res->assertDontSee('Token Masuk');
+    }
+
+    public function test_halaman_gate_tampilkan_form_token_normal_setelah_jam_buka_tiba(): void
+    {
+        $this->ujianKelas->update(['dibuka_mulai' => now()->subMinute()]);
+        $siswa = $this->buatSiswa('siswa_gate_sudah_mulai', $this->kelas);
+
+        $res = $this->actingAs($siswa)->get(route('ujian.siswa.gate', $this->ujian));
+        $res->assertOk();
+        $res->assertSee('Token Masuk');
+        $res->assertDontSee('Ujian Belum Dimulai');
+    }
+
     public function test_index_siswa_mengabaikan_attempt_yang_dibatalkan(): void
     {
         // Attempt lama yg sudah di-soft-cancel (mis. reset oleh guru, Fase 5) TIDAK

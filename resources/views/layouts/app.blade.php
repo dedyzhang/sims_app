@@ -119,6 +119,8 @@
             || str_contains($path, 'poin/')
             || (str_contains($path, 'guru') && str_contains($path, 'pelajaran'))
             || str_contains($path, 'ngajar');
+        // Scan QR kamera (guru masuk ruang ujian) — cuma halaman daftar "Ruang Ujian Hari Ini".
+        $needsQrScanner = $path === 'ujian/ruangan-saya';
         // Kiosk / scan: kurangi widget floating AI (R4.1).
         $isScanKioskSurface = (bool) ($isKiosk ?? false)
             || request()->routeIs([
@@ -151,6 +153,9 @@
     @if($needsDataTables)
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <script defer src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    @endif
+    @if($needsQrScanner)
+    <script defer src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
     @endif
 
     {{-- Pin versi CDN (hindari @latest floating). Perf: jangan unduh versi tak terduga tiap hari. --}}
@@ -842,10 +847,27 @@
                 // ikut lihat menu ini — kepala/kurikulum tetap dipertahankan terpisah krn
                 // mereka boleh MEMANTAU semua ujian (UjianPolicy::monitor()) walau tak mengajar.
                 if ($modulOn('ujian') && ($isAdmin || auth()->user()?->canAccess('manage_ujian') || auth()->user()?->guru || in_array($access, ['kepala', 'kurikulum'], true))) {
-                    $groups['ujian'] = ['Ujian', 'file-check-2', [
-                        ['ujian.index', ['ujian.*'], 'file-check-2', 'Kelola Ujian'],
-                        ['bank-soal.index', ['bank-soal.*'], 'library', 'Bank Soal'],
-                    ]];
+                    $ujianItems = [
+                        ['ujian.index', [
+                            'ujian.index', 'ujian.show', 'ujian.edit', 'ujian.pratinjau', 'ujian.update', 'ujian.publish', 'ujian.close', 'ujian.reopen', 'ujian.destroy',
+                            'ujian.pengaturan.*', 'ujian.kelas.*', 'ujian.token.*', 'ujian.soal.*', 'ujian.analisis.*', 'ujian.grading.*', 'ujian.hasil.*', 'ujian.pembahasan.*', 'ujian.monitor.*'
+                        ], 'file-check-2', 'Kelola Ujian'],
+                    ];
+                    // Paket Ujian (folder PTS/PAS/UAS formal + ruangan/jadwal/pengawas) khusus
+                    // admin/pengelola — guru biasa cuma bikin Ulangan Harian lepas (lihat
+                    // UjianController::store()), tak lagi perlu/boleh sentuh Paket sama sekali.
+                    if ($isAdmin || auth()->user()?->canAccess('manage_ujian')) {
+                        $ujianItems[] = ['ujian.paket.index', ['ujian.paket.*'], 'folder-check', 'Paket Ujian'];
+                        $ujianItems[] = ['ujian.rekap.index', ['ujian.rekap.*'], 'clipboard-list', 'Rekap Berita Acara'];
+                    }
+                    $ujianItems[] = ['bank-soal.index', ['bank-soal.*'], 'library', 'Bank Soal'];
+                    // Halaman "1 halaman" reset-kunci/hadir/berita-acara — jalur masuk UTAMA lewat scan
+                    // QR fisik di ruangan (guru mana pun boleh, asal ruangan py jadwal hari itu), menu
+                    // ini cuma jalur cadangan tanpa scan.
+                    if (auth()->user()?->guru) {
+                        $ujianItems[] = ['ujian.ruangan.saya', ['ujian.ruangan.*'], 'door-open', 'Ruang Ujian Hari Ini'];
+                    }
+                    $groups['ujian'] = ['Ujian', 'file-check-2', $ujianItems];
                 }
 
                 // ── Cetak Data (export Excel: siswa, guru, kelas, absensi guru, agenda, nilai) ──

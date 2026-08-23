@@ -7,8 +7,14 @@ use App\Models\Ngajar;
 use App\Models\Siswa;
 use App\Models\Ujian;
 use App\Models\UjianAttempt;
+use App\Models\UjianJawaban;
 use App\Models\UjianKelas;
+use App\Models\UjianPelanggaran;
+use App\Models\UjianSoal;
+use App\Models\User;
 use App\Services\UjianNilaiTransfer;
+use App\Services\UjianRoster;
+use App\Support\RichText;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -104,6 +110,16 @@ class UjianController extends Controller implements HasMiddleware
             'tampilkan_pembahasan'  => 'nullable|boolean',
         ]);
 
+        // Guru biasa (bukan admin/pengelola) cuma boleh bikin Ulangan Harian yang otomatis
+        // masuk Sumatif — ujian formal PTS/PAS/UAS sekarang lewat Paket Ujian (admin/pengelola),
+        // bukan lagi ujian lepas per-guru. Dipaksa di sini (bukan cuma disembunyikan di form)
+        // supaya submit hasil tempering tetap kena aturan yang sama.
+        if (!$this->bolehAturKelas($user)) {
+            $data['jenis'] = 'harian';
+            $data['target_nilai'] = 'sumatif';
+            abort_unless(!empty($data['id_materi'] ?? null), 422, 'Pilih materi untuk ujian ini.');
+        }
+
         // target_nilai=sumatif: id_pelajaran & kelas diturunkan dari Materi->Ngajar (bukan dari
         // input pengguna) — Materi selalu benar mencerminkan mapel+kelas Ngajar pemiliknya, dan
         // sudah pasti tunggal (satu Materi = satu penugasan mengajar = satu kelas).
@@ -166,11 +182,23 @@ class UjianController extends Controller implements HasMiddleware
     public function show(Request $request, Ujian $ujian)
     {
         $this->authorize('manage', $ujian);
-        $ujian->load(['soal.opsi', 'kelas.kelas', 'pelajaran', 'materi']);
+        $ujian->load(['soal.opsi', 'kelas.kelas', 'kelas.guruPengampu', 'pelajaran', 'materi']);
         $kelasPilihan = $ujian->id_pelajaran ? $this->kelasPilihan($ujian->id_pelajaran) : collect();
         $bolehAturKelas = $this->bolehAturKelas($request->user());
 
-        return view('ujian.show', compact('ujian', 'kelasPilihan', 'bolehAturKelas'));
+        // Daftar guru yg BENERAN cocok (via Ngajar) utk tiap kelas ter-assign — dipakai view
+        // utk isi opsi dropdown "Guru Pengampu" (selalu tampil, apa pun jumlah kandidatnya).
+        $guruPengampuOpsi = $ujian->id_pelajaran
+            ? $ujian->kelas->mapWithKeys(function ($uk) use ($ujian) {
+                $matches = Ngajar::with('guru')
+                    ->where('id_pelajaran', $ujian->id_pelajaran)
+                    ->where('id_kelas', $uk->id_kelas)
+                    ->get()->pluck('guru')->filter()->unique('uuid')->values();
+                return [$uk->uuid => $matches];
+            })
+            : collect();
+
+        return view('ujian.show', compact('ujian', 'kelasPilihan', 'bolehAturKelas', 'guruPengampuOpsi'));
     }
 
     public function edit(Request $request, Ujian $ujian)
@@ -181,6 +209,43 @@ class UjianController extends Controller implements HasMiddleware
         return view('ujian.edit', compact('ujian'));
     }
 
+    /**
+     * Pratinjau tampilan siswa (mobile) utk guru — cek visual soal SEBELUM ujian
+     * diterbitkan. Pakai kerangka Alpine yg SAMA dgn UjianSiswaController::kerjakan()
+     * (badge huruf, checkbox, layout match, rumus/gambar) supaya benar2 identik dgn yg
+     * dilihat siswa nanti. BEDA dari kerjakan sungguhan: TAK ADA UjianAttempt, soal/opsi
+     * tampil apa adanya sesuai urutan disusun (tak diacak spt attempt sungguhan), tak ada
+     * autosave/countdown/fullscreen-lock — jawaban HANYA di memori Alpine browser, tak
+     * pernah dikirim ke server, murni utk guru coba-coba lihat tampilan.
+     *
+     * BEDA LAIN dari kerjakan(): halaman ini KHUSUS GURU (tak pernah dilihat siswa), jadi
+     * kunci jawaban (opsi.benar, kunci_esai) SENGAJA ikut dikirim — dipakai utk fitur
+     * "Tampilkan Jawaban Benar" (form pratinjau bisa langsung terisi kunci) di sisi klien.
+     */
+    public function pratinjau(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+        $ujian->load(['soal' => fn ($q) => $q->orderBy('urutan'), 'soal.opsi']);
+
+        $soalTampil = $ujian->soal->map(function (UjianSoal $s) {
+            $item = ['uuid' => $s->uuid, 'tipe' => $s->tipe, 'teks_soal' => RichText::clean($s->teks_soal), 'poin' => $s->poinEfektif()];
+            if ($s->tipe === 'match') {
+                // kiri[i] & kanan_acak[i] SENGAJA berasal dari $pairs[i] yg sama (index sejajar,
+                // TAK diacak spt attempt sungguhan) — jadi pasangan kunci-nya persis kanan_acak[i].
+                $pairs = $s->meta['pairs'] ?? [];
+                $item['kiri'] = collect($pairs)->pluck('left')->map(fn ($t) => RichText::clean($t))->all();
+                $item['kanan_acak'] = collect($pairs)->pluck('right')->map(fn ($t) => RichText::clean($t))->all();
+            } elseif ($s->butuhOpsi()) {
+                $item['opsi'] = $s->opsi->map(fn ($o) => ['uuid' => $o->uuid, 'teks' => RichText::clean($o->teks_opsi), 'benar' => (bool) $o->is_benar])->values()->all();
+            } elseif ($s->tipe === 'essay' && !empty($s->meta['kunci_jawaban'] ?? null)) {
+                $item['kunci_esai'] = RichText::clean($s->meta['kunci_jawaban']);
+            }
+            return $item;
+        })->values();
+
+        return view('ujian.pratinjau', compact('ujian', 'soalTampil'));
+    }
+
     /** Halaman "Pengaturan Ujian" — metadata (judul/jenis/durasi/pelajaran/toggle), TERPISAH dari Susun Soal (ujian.edit). */
     public function editPengaturan(Request $request, Ujian $ujian)
     {
@@ -188,8 +253,9 @@ class UjianController extends Controller implements HasMiddleware
         $ujian->load('pelajaran');
         [$ngajars] = $this->ngajarPilihan($request->user());
         $pelajaranPilihan = $ngajars->pluck('pelajaran')->filter()->unique('uuid')->sortBy('nama')->values();
+        $bolehAturKelas = $this->bolehAturKelas($request->user());
 
-        return view('ujian.pengaturan', compact('ujian', 'pelajaranPilihan'));
+        return view('ujian.pengaturan', compact('ujian', 'pelajaranPilihan', 'bolehAturKelas'));
     }
 
     public function update(Request $request, Ujian $ujian)
@@ -202,6 +268,7 @@ class UjianController extends Controller implements HasMiddleware
             'instruksi'             => 'nullable|string|max:5000',
             'jenis'                 => 'required|in:harian,pts,pas,uas',
             'id_pelajaran'          => 'nullable|uuid|exists:pelajarans,uuid',
+            'target_nilai'          => 'nullable|in:pts,pas',
             'durasi_menit'          => 'required|integer|min:5|max:600',
             'acak_soal'             => 'nullable|boolean',
             'acak_opsi'             => 'nullable|boolean',
@@ -211,7 +278,9 @@ class UjianController extends Controller implements HasMiddleware
         $update = [
             'judul'                 => $data['judul'],
             'instruksi'             => $data['instruksi'] ?? null,
-            'jenis'                 => $data['jenis'],
+            // Guru biasa terkunci ke 'harian' (lihat catatan sama di store()) — cuma
+            // admin/pengelola yang boleh ganti Jenis ke pts/pas/uas.
+            'jenis'                 => $this->bolehAturKelas($request->user()) ? $data['jenis'] : 'harian',
             'durasi_menit'          => $data['durasi_menit'],
             'acak_soal'             => $request->boolean('acak_soal'),
             'acak_opsi'             => $request->boolean('acak_opsi'),
@@ -232,6 +301,15 @@ class UjianController extends Controller implements HasMiddleware
                 $ujian->kelas()->delete();
             }
             $update['id_pelajaran'] = $data['id_pelajaran'];
+        }
+
+        // Target nilai (ke mana skor ditransfer: NilaiPts vs NilaiPas) SEBELUMNYA tak bisa
+        // diubah sama sekali stlh dibuat — cuma "Jenis" (label PTS/PAS/dst, murni tampilan)
+        // yg py form field di sini, bikin guru kira ganti Jenis ikut mengubah target transfer
+        // padahal tidak. Dibolehkan diubah persis spt id_pelajaran di atas: cuma selama masih
+        // draf & bukan sumatif (sumatif diturunkan dari Materi->Ngajar, bukan pilihan bebas).
+        if (!empty($data['target_nilai']) && $ujian->status === 'draft' && !$ujian->butuhSatuKelas()) {
+            $update['target_nilai'] = $data['target_nilai'];
         }
 
         $ujian->update($update);
@@ -314,11 +392,23 @@ class UjianController extends Controller implements HasMiddleware
             $token = $tokenByTingkat->get($tingkat) ?? UjianKelas::generateToken();
             $tokenByTingkat[$tingkat] = $token;
 
-            UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $id, 'token_masuk' => $token]);
+            // Kalau cuma SATU guru yg beneran cocok (Ngajar) utk mapel+kelas ini, langsung
+            // jadikan pengampu — tak ada ambiguitas jadi tak perlu dipilih manual admin.
+            // Kalau ada 2+, dibiarkan null, dipilih lewat panel "Guru Pengampu" di bawah.
+            $guruMatch = Ngajar::where('id_pelajaran', $ujian->id_pelajaran)->where('id_kelas', $id)->pluck('id_guru');
+            $pengampu = $guruMatch->unique()->count() === 1 ? $guruMatch->first() : null;
+
+            UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $id, 'token_masuk' => $token, 'id_guru_pengampu' => $pengampu]);
         }
         // Kelas yg tidak lagi dipilih dilepas — aman selama belum ada attempt (FK cascade
         // akan ikut menghapus attempt jika ada; UI harus memperingatkan sebelum submit).
         $ujian->kelas()->whereNotIn('id_kelas', $idKelas)->delete();
+
+        // Kelas yg BARU ditambahkan blm py dibuka_mulai/sampai — kalau ujian ini sudah py
+        // jadwal (UjianJadwal), terapkan ulang supaya kelas baru ikut kebagian window yg
+        // sama, bukan cuma kelas yg sudah ada saat jadwal pertama kali disimpan. No-op
+        // aman kalau ujian ini belum/tak pernah punya jadwal.
+        app(\App\Services\UjianJadwalSync::class)->terapkan($ujian);
     }
 
     /**
@@ -342,6 +432,68 @@ class UjianController extends Controller implements HasMiddleware
         }
 
         return back()->with('success', 'Token masuk diperbarui untuk semua kelas tingkat ' . $tingkat . ' pada ujian ini.');
+    }
+
+    /**
+     * Tetapkan/ganti guru pengampu satu kelas ujian — dipakai baik saat kelas itu pertama kali
+     * ambigu (2+ Ngajar match) MAUPUN utk mengganti pengampu belakangan (mis. staf berubah).
+     * Satu aksi utk dua kegunaan, bukan dua endpoint terpisah.
+     */
+    public function setPengampu(Request $request, Ujian $ujian, UjianKelas $ujianKelas)
+    {
+        $this->authorize('manage', $ujian);
+        abort_unless($ujianKelas->id_ujian === $ujian->uuid, 404);
+
+        $data = $request->validate([
+            'id_guru_pengampu' => 'required|uuid',
+        ]);
+
+        $cocok = Ngajar::where('id_pelajaran', $ujian->id_pelajaran)
+            ->where('id_kelas', $ujianKelas->id_kelas)
+            ->where('id_guru', $data['id_guru_pengampu'])
+            ->exists();
+        abort_unless($cocok, 422, 'Guru yang dipilih tidak mengajar mata pelajaran ini di kelas tersebut.');
+
+        $ujianKelas->update(['id_guru_pengampu' => $data['id_guru_pengampu']]);
+
+        return back()->with('success', 'Guru pengampu kelas ' . ($ujianKelas->kelas?->tingkat . $ujianKelas->kelas?->kelas) . ' disimpan.');
+    }
+
+    /**
+     * Simpan pengampu utk SEMUA kelas ujian ini sekaligus lewat satu tombol — dipakai dari
+     * form gabungan di ujian.show (bukan satu form+tombol per kelas spt setPengampu() di
+     * atas, yg bikin banyak tombol berjejer kalau kelasnya banyak). Kelas yg select-nya
+     * dibiarkan kosong ("— pilih pengampu —") dilewati, bukan dianggap "hapus pengampu".
+     */
+    public function setPengampuBatch(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+
+        $data = $request->validate([
+            'pengampu'   => 'array',
+            'pengampu.*' => 'nullable|uuid',
+        ]);
+
+        $ujian->load('kelas.kelas');
+        $disimpan = 0;
+
+        foreach ($data['pengampu'] ?? [] as $idUjianKelas => $idGuru) {
+            if (!$idGuru) continue;
+
+            $ujianKelas = $ujian->kelas->firstWhere('uuid', $idUjianKelas);
+            abort_unless($ujianKelas, 404);
+
+            $cocok = Ngajar::where('id_pelajaran', $ujian->id_pelajaran)
+                ->where('id_kelas', $ujianKelas->id_kelas)
+                ->where('id_guru', $idGuru)
+                ->exists();
+            abort_unless($cocok, 422, 'Guru pengampu kelas ' . ($ujianKelas->kelas?->tingkat . $ujianKelas->kelas?->kelas) . ' tidak valid.');
+
+            $ujianKelas->update(['id_guru_pengampu' => $idGuru]);
+            $disimpan++;
+        }
+
+        return back()->with('success', $disimpan > 0 ? "{$disimpan} guru pengampu disimpan." : 'Tidak ada perubahan pengampu.');
     }
 
     /**
@@ -393,6 +545,23 @@ class UjianController extends Controller implements HasMiddleware
     }
 
     /**
+     * Buka kembali ujian yg sudah ditutup — balik ke 'draft', BUKAN langsung 'published'.
+     * Ini sengaja disamakan dgn syarat draft yg sudah ada di UjianSoalController (soal cuma
+     * bisa diedit saat draft), jadi satu transisi status ini otomatis membuka edit soal lagi
+     * tanpa perlu ubah guard di sana. Data attempt/jawaban/skor lama TIDAK disentuh — cuma
+     * mengunci siswa mulai baru sampai admin/guru terbitkan ulang lewat publish().
+     */
+    public function reopen(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+        abort_unless($ujian->isClosed(), 422, 'Hanya ujian yang sudah ditutup yang bisa dibuka kembali.');
+
+        $ujian->update(['status' => 'draft']);
+
+        return back()->with('success', 'Ujian dibuka kembali sebagai draf — soal bisa diedit lagi, siswa belum bisa mulai sampai diterbitkan ulang.');
+    }
+
+    /**
      * Rilis/sembunyikan pembahasan ke siswa — sengaja TERPISAH dari update() biasa
      * (yg terkunci setelah ujian ditutup) krn justru baru masuk akal dipakai
      * SETELAH ujian ditutup, ketika semua siswa selesai mengerjakan.
@@ -418,17 +587,46 @@ class UjianController extends Controller implements HasMiddleware
     }
 
     /** Rekap skor per siswa lintas kelas + status transfer ke buku nilai. */
-    public function hasil(Request $request, Ujian $ujian)
+    /**
+     * Roster-driven (bukan cuma attempt yg submitted/dinilai) — SEMUA siswa kelas ter-assign
+     * tampil (belum mulai/sedang mengerjakan/terkumpul/dinilai), sesuai konvensi laporan resmi
+     * sekolah sendiri (lihat Excel Analisis Fase 6, siswa yg absen tetap dapat baris "-").
+     * Dukung filter ?kelas=uuid utk ujian multi-kelas (PTS/PAS lintas tingkat).
+     */
+    public function hasil(Request $request, Ujian $ujian, UjianRoster $rosterService)
     {
         $this->authorize('manage', $ujian);
 
         $ujianKelasList = $ujian->kelas()->with('kelas')->get();
-        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasList->pluck('uuid'))
-            ->whereIn('status', [UjianAttempt::STATUS_SUBMITTED, UjianAttempt::STATUS_DINILAI])
-            ->get();
-        $siswaByLogin = Siswa::whereIn('id_login', $attempts->pluck('id_siswa'))->get()->keyBy('id_login');
+        $kelasFilter = $request->string('kelas')->toString();
+        $untukRoster = $kelasFilter ? $ujianKelasList->where('id_kelas', $kelasFilter)->values() : $ujianKelasList;
 
-        return view('ujian.hasil.index', compact('ujian', 'ujianKelasList', 'attempts', 'siswaByLogin'));
+        $roster = $rosterService->untukKelas($untukRoster);
+
+        return view('ujian.hasil.index', compact('ujian', 'ujianKelasList', 'roster', 'kelasFilter'));
+    }
+
+    /** Rincian jawaban per-soal satu siswa — dipakai dari baris roster Hasil & Transfer/Pemantauan. */
+    public function hasilDetail(Request $request, Ujian $ujian, User $siswa)
+    {
+        $this->authorize('manage', $ujian);
+
+        $idUjianKelas = $ujian->kelas()->pluck('uuid');
+        $attempt = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelas)
+            ->where('id_siswa', $siswa->uuid)
+            ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
+            ->latest('created_at')
+            ->first();
+
+        $siswaProfil = Siswa::where('id_login', $siswa->uuid)->first();
+        $jawabanBySoal = collect();
+
+        if ($attempt) {
+            $ujian->load(['soal' => fn ($q) => $q->orderBy('urutan'), 'soal.opsi']);
+            $jawabanBySoal = UjianJawaban::where('id_attempt', $attempt->uuid)->get()->keyBy('id_soal');
+        }
+
+        return view('ujian.hasil.detail', compact('ujian', 'attempt', 'siswaProfil', 'jawabanBySoal'));
     }
 
     /**
@@ -445,6 +643,47 @@ class UjianController extends Controller implements HasMiddleware
         $transfer->transfer($attempt);
 
         return back()->with('success', 'Transfer nilai dicoba ulang — status: ' . $attempt->fresh()->status_transfer_nilai);
+    }
+
+    /**
+     * "Buka Kembali Akses" utk attempt yg SUDAH SELESAI (submitted/dinilai) dari halaman
+     * Hasil & Transfer — BEDA dari "Reset Ulang" di Pemantauan Live
+     * (UjianMonitorController::resetAttempt(), utk attempt in_progress/terkunci yg soft-cancel
+     * & mulai dari NOL krn kegagalan teknis). Di sini attempt yg SAMA dibuka kembali ke
+     * in_progress — jawaban yg sudah tersimpan TETAP ADA (tidak disentuh sama sekali), siswa
+     * lanjut dari titik terakhir dgn waktu pengerjaan baru. wajib_token_ulang=true SENGAJA
+     * dipasang — demi keamanan, siswa TETAP harus masukkan token yg benar lagi lewat gate()
+     * sebelum bisa melanjutkan (bukan langsung diarahkan ke kerjakan()), supaya reopening
+     * tak bisa "diam-diam" dipakai tanpa sepengetahuan pengawas/guru yg memegang token.
+     * Nilai yg sudah tertransfer ke buku nilai dihapus dulu (UjianNilaiTransfer::revert())
+     * krn nilai itu sudah tak valid lagi setelah siswa bisa mengubah jawabannya.
+     */
+    public function bukaAksesSelesai(Request $request, Ujian $ujian, UjianAttempt $attempt, UjianNilaiTransfer $transfer)
+    {
+        $this->authorize('manage', $ujian);
+        abort_unless($attempt->ujianKelas->id_ujian === $ujian->uuid, 404);
+        abort_unless(in_array($attempt->status, [UjianAttempt::STATUS_SUBMITTED, UjianAttempt::STATUS_DINILAI], true), 422, 'Attempt ini belum selesai atau sudah dibuka kembali.');
+
+        $nilaiIkutTerhapus = $attempt->status_transfer_nilai === 'berhasil';
+
+        DB::transaction(function () use ($attempt, $ujian, $transfer, $nilaiIkutTerhapus) {
+            if ($nilaiIkutTerhapus) {
+                $transfer->revert($attempt);
+            }
+            $attempt->update([
+                'status'                 => UjianAttempt::STATUS_IN_PROGRESS,
+                'dikunci'                => false,
+                'wajib_token_ulang'      => true,
+                'batas_waktu_pada'       => now()->addMinutes($ujian->durasi_menit),
+                'selesai_pada'           => null,
+                'butuh_penilaian_manual' => false,
+            ]);
+            UjianPelanggaran::create(['id_attempt' => $attempt->uuid, 'id_siswa' => $attempt->id_siswa, 'tipe' => 'dibuka_kembali_admin']);
+        });
+
+        return back()->with('success', $nilaiIkutTerhapus
+            ? 'Akses dibuka kembali & nilai yang sudah tertransfer ikut dihapus — jawaban siswa sebelumnya tetap tersimpan, siswa perlu masukkan token lagi utk melanjutkan.'
+            : 'Akses dibuka kembali — jawaban siswa sebelumnya tetap tersimpan, siswa perlu masukkan token lagi utk melanjutkan.');
     }
 
     /**

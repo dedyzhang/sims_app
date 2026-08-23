@@ -14,7 +14,13 @@
             $attempt = $attempts->get($uk->uuid);
             $sudahSelesai = $attempt && in_array($attempt->status, ['submitted','dinilai']);
         @endphp
-        <div class="card p-5 flex items-center justify-between gap-4">
+        {{-- min-w-0 WAJIB di kartu ini (bukan cuma di div dalamnya) — kartu ini grid ITEM
+             langsung dari `.grid` di bawah, dan grid item defaultnya `min-width: auto`
+             (beda dari flex item), jadi TIDAK ikut menyusut mengikuti kontennya walau anak
+             flex di dalamnya sudah punya min-w-0 sendiri — tombol "Lihat Hasil"/"Lanjutkan"
+             (whitespace-nowrap) jadi memaksa seluruh kartu (& viewport HP) melebar ke
+             samping tanpa ini. --}}
+        <div class="card p-5 flex items-center justify-between gap-4 min-w-0">
             <div class="min-w-0">
                 <p class="text-xs text-slate-400">{{ $uk->ujian->pelajaran?->nama }} · {{ $uk->ujian->jenisLabel() }} · {{ $uk->ujian->durasi_menit }} menit</p>
                 <h2 class="font-bold text-slate-800 dark:text-slate-100 truncate">{{ $uk->ujian->judul }}</h2>
@@ -25,10 +31,17 @@
                         <span class="badge bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400">Terkunci</span>
                     @elseif($attempt)
                         <span class="badge bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">Sedang Dikerjakan</span>
+                    @elseif($uk->belumDimulai())
+                        <span class="badge bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
+                            <i data-lucide="clock" class="w-3 h-3 inline"></i> Belum Dimulai
+                        </span>
                     @elseif(!$uk->isOpenNow())
-                        <span class="badge bg-slate-100 dark:bg-slate-700 text-slate-500">Belum/Tidak Terbuka</span>
+                        <span class="badge bg-slate-100 dark:bg-slate-700 text-slate-500">Ujian Ditutup</span>
                     @else
                         <span class="badge bg-primary/10 text-primary">Siap Dikerjakan</span>
+                    @endif
+                    @if($uk->belumDimulai())
+                        <span class="block text-slate-400 mt-1">Dibuka {{ $uk->dibuka_mulai->translatedFormat('d M Y, H:i') }}</span>
                     @endif
                 </p>
             </div>

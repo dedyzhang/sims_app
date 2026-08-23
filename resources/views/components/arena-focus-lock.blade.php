@@ -41,7 +41,7 @@
     </div>
 </div>
 
-<div id="arena-focus-return" class="fixed inset-0 z-[9999] bg-slate-900/97 items-center justify-center p-6 text-center" style="display:none">
+<div id="arena-focus-return" class="fixed inset-0 z-[9999] bg-slate-900/95 items-center justify-center p-6 text-center" style="display:none">
     <div class="max-w-md space-y-4">
         <i data-lucide="eye-off" class="w-14 h-14 text-rose-400 mx-auto"></i>
         <h2 class="text-white text-xl font-black m-0">Anda meninggalkan sesi</h2>

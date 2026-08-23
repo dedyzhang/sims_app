@@ -4,22 +4,12 @@
 @section('content')
 <div class="max-w-lg mx-auto space-y-5">
     <div class="card p-8 text-center space-y-3">
-        @if($attempt->status === 'dinilai')
-            <i data-lucide="check-circle-2" class="w-14 h-14 text-emerald-500 mx-auto"></i>
-            <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">Ujian Selesai Dinilai</h1>
-            <p class="text-4xl font-black text-primary">{{ number_format($attempt->total_skor, 1) }}</p>
-            <p class="text-xs text-slate-400">dari skala 0–100</p>
-        @else
-            <i data-lucide="clock" class="w-14 h-14 text-amber-500 mx-auto"></i>
-            <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">Ujian Terkumpul</h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400">
-                @if($attempt->butuh_penilaian_manual)
-                    Jawaban esai Anda menunggu penilaian dari guru. Nilai akan tampil di sini setelah selesai dinilai.
-                @else
-                    Jawaban Anda sedang diproses.
-                @endif
-            </p>
-        @endif
+        {{-- Nilai SENGAJA tidak ditampilkan di sini — begitu ujian dikumpulkan, jawaban siswa
+             lain yg masih mengerjakan bisa saja masih terlihat di layar sekitarnya; nilai baru
+             muncul lewat halaman Nilai Saya setelah diumumkan guru/sekolah. --}}
+        <i data-lucide="check-circle-2" class="w-14 h-14 text-emerald-500 mx-auto"></i>
+        <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100">Ujian Selesai</h1>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Terima kasih sudah mengerjakan. Nilai akan diumumkan oleh guru/sekolah.</p>
         <p class="text-xs text-slate-400 pt-2">{{ $ujian->judul }}</p>
     </div>
 
@@ -35,7 +25,7 @@
                     @include('ujian.partials.rich-body', ['html' => $soal->teks_soal])
                 </div>
                 <p class="text-xs mt-1 {{ $jawaban?->is_benar ? 'text-emerald-600' : 'text-rose-500' }}">
-                    {{ $jawaban?->skor_diperoleh ?? 0 }} / {{ $soal->poin }} poin
+                    {{ $jawaban?->skor_diperoleh ?? 0 }} / {{ $soal->poinEfektif() }} poin
                 </p>
                 @if($soal->penjelasan)
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ $soal->penjelasan }}</p>

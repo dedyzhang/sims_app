@@ -30,8 +30,12 @@
      x-init="init()"
      @copy.prevent @cut.prevent @paste.prevent @contextmenu.prevent
 >
-    {{-- Overlay: wajib layar penuh sebelum mulai (gesture langsung dari klik) --}}
-    <div x-show="!fsActive" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/97 flex items-center justify-center p-6 text-center">
+    {{-- Overlay: wajib layar penuh sebelum mulai (gesture langsung dari klik). Disembunyikan
+         juga saat sudah terkunci ATAU sedang mengumpulkan — kalau tidak, overlay ini & overlay
+         "Ujian Terkunci"/"Mengumpulkan" di bawah bisa tampil bersamaan bertumpuk (semuanya
+         fixed inset-0, teks jadi bertabrakan) — exitFullscreen() saat submit bikin fsActive
+         balik false persis di titik ini. --}}
+    <div x-show="!fsActive && !terkunci && !mengumpulkan" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
         <div class="max-w-sm space-y-4">
             <i data-lucide="maximize" class="w-14 h-14 text-primary mx-auto"></i>
             <h2 class="text-white text-lg font-bold m-0">Mode Ujian — Layar Penuh</h2>
@@ -95,24 +99,30 @@
                     <label class="flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer"
                            :class="(jawaban[s.uuid]||[]).includes(o.uuid) ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-600'">
                         <input type="checkbox" :checked="(jawaban[s.uuid]||[]).includes(o.uuid)"
-                               @change="toggleMulti(s.uuid, o.uuid); simpan(s.uuid)" class="rounded text-primary focus:ring-primary flex-shrink-0">
-                        <span class="text-sm ujian-rich-body" x-html="o.teks"></span>
+                               @change="toggleMulti(s.uuid, o.uuid); simpan(s.uuid)"
+                               class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 text-primary focus:ring-2 focus:ring-primary/30 transition cursor-pointer flex-shrink-0">
+                        <span class="text-sm ujian-rich-body break-words min-w-0" x-html="o.teks"></span>
                     </label>
                 </template>
             </div>
 
             {{-- match: kiri/kanan bisa berisi rumus (rich HTML dari TinyMCE), jadi TIDAK bisa
                  dirender pakai <select><option> biasa (formula/gambar tak muncul di dalam
-                 option). Kanan ditampilkan sbg kartu pilihan yg diklik per baris kiri. --}}
+                 option). Kanan ditampilkan sbg kartu pilihan yg diklik per baris kiri. Chip
+                 kanan full-width bertumpuk di mobile (tap target lebih besar), wrap spt semula
+                 di layar lebar (sm+). --}}
             <div x-show="s.tipe==='match'" x-cloak class="space-y-3">
                 <template x-for="(kiri, ki) in (s.kiri||[])" :key="'m-'+s.uuid+'-'+ki">
                     <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-600 space-y-2">
-                        <div class="text-sm ujian-rich-body bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2.5" x-html="kiri"></div>
-                        <div class="flex flex-wrap gap-2">
-                            <template x-for="kanan in (s.kanan_acak||[])" :key="'m-'+s.uuid+'-'+ki+'-opt-'+kanan">
+                        <div class="text-sm ujian-rich-body break-words bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2.5" x-html="kiri"></div>
+                        <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                            <template x-for="(kanan, kj) in (s.kanan_acak||[])" :key="'m-'+s.uuid+'-'+ki+'-opt-'+kanan">
                                 <button type="button" @click="setPasangan(s.uuid, kiri, (jawaban[s.uuid]||{})[kiri]===kanan ? '' : kanan)"
                                         :class="(jawaban[s.uuid]||{})[kiri]===kanan ? 'border-primary bg-primary/10' : 'border-slate-200 dark:border-slate-600'"
-                                        class="text-xs px-3 py-1.5 rounded-lg border ujian-rich-body text-left" x-html="kanan"></button>
+                                        class="flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ujian-rich-body text-left">
+                                    <span class="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center text-[10px] font-bold flex-shrink-0" x-text="String.fromCharCode(65 + kj)"></span>
+                                    <span class="break-words min-w-0" x-html="kanan"></span>
+                                </button>
                             </template>
                         </div>
                     </div>
@@ -133,8 +143,21 @@
         </div>
     </template>
 
+    {{-- Overlay mengumpulkan (submit normal/otomatis) — SENGAJA state TERPISAH dari
+         "terkunci" (pelanggaran). Sebelumnya kumpulkan() reuse kunci() yg sama dgn
+         pelanggaran fullscreen/tab, jadi siswa yg menekan "Kumpulkan Ujian" secara SAH
+         sempat melihat overlay "Ujian Terkunci — Anda keluar dari layar penuh..." yg
+         menakutkan & salah konteks (makin kentara kalau fetch submit-nya agak lambat). --}}
+    <div x-show="mengumpulkan" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
+        <div class="max-w-sm space-y-4">
+            <i data-lucide="loader-circle" class="w-14 h-14 text-primary mx-auto animate-spin"></i>
+            <h2 class="text-white text-lg font-bold m-0">Mengumpulkan Ujian…</h2>
+            <p class="text-slate-300 text-sm m-0 leading-relaxed" x-text="mengumpulkanOtomatis ? 'Waktu ujian sudah habis — jawaban Anda sedang dikumpulkan otomatis.' : 'Mohon tunggu sebentar, jangan tutup halaman ini.'"></p>
+        </div>
+    </div>
+
     {{-- Overlay terkunci (client-side, cadangan sebelum reload) --}}
-    <div x-show="terkunci" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/97 flex items-center justify-center p-6 text-center">
+    <div x-show="terkunci" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
         <div class="max-w-sm space-y-4">
             <i data-lucide="lock" class="w-14 h-14 text-rose-400 mx-auto"></i>
             <h2 class="text-white text-lg font-bold m-0">Ujian Terkunci</h2>
@@ -168,6 +191,8 @@ function ujianKerjakan(cfg) {
         sisaDetik: 0,
         fsActive: false,
         terkunci: false,
+        mengumpulkan: false,
+        mengumpulkanOtomatis: false,
         intentional: false,
         simpanStatus: '',
         simpanError: false,
@@ -216,7 +241,7 @@ function ujianKerjakan(cfg) {
         tickCountdown() {
             if (!this.batasWaktu) return;
             this.sisaDetik = Math.max(0, Math.round((this.batasWaktu - Date.now()) / 1000));
-            if (this.sisaDetik <= 0 && !this.terkunci) {
+            if (this.sisaDetik <= 0 && !this.terkunci && !this.mengumpulkan) {
                 this.intentional = true;
                 this.kumpulkan(true);
             }
@@ -250,7 +275,7 @@ function ujianKerjakan(cfg) {
         },
 
         async simpan(soalUuid) {
-            if (this.terkunci) return;
+            if (this.terkunci || this.mengumpulkan) return;
             const s = this.soal.find(x => x.uuid === soalUuid);
             if (!s) return;
             const payload = { id_soal: soalUuid };
@@ -310,14 +335,30 @@ function ujianKerjakan(cfg) {
         },
 
         konfirmasiSubmit() {
-            if (window.confirm('Kumpulkan ujian sekarang? Anda tidak bisa mengubah jawaban setelah ini.')) {
-                this.intentional = true;
-                this.kumpulkan(false);
-            }
+            const self = this;
+            $.confirm({
+                title: 'Kumpulkan Ujian?',
+                content: 'Anda tidak bisa mengubah jawaban setelah ini.',
+                type: 'orange',
+                buttons: {
+                    ya: {
+                        text: 'Ya, Kumpulkan', btnClass: 'btn-blue', keys: ['enter'],
+                        action: function () { self.intentional = true; self.kumpulkan(false); },
+                    },
+                    batal: { text: 'Batal' },
+                },
+            });
         },
 
         async kumpulkan(otomatis) {
-            this.kunci();
+            // SENGAJA tak pakai kunci() di sini — kunci() menyalakan `terkunci` yg
+            // menampilkan overlay "Ujian Terkunci — Anda keluar dari layar penuh/berpindah
+            // tab", pesan yg salah konteks (& menakutkan) utk submit yg SAH. `mengumpulkan`
+            // adalah state terpisah dgn overlay netral sendiri (lihat kerjakan.blade.php).
+            this.mengumpulkan = true;
+            this.mengumpulkanOtomatis = !!otomatis;
+            clearInterval(this._timerHandle);
+            clearInterval(this._statusHandle);
             try {
                 const res = await fetch(cfg.urlSubmit, {
                     method: 'POST',

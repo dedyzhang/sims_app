@@ -6,6 +6,7 @@ use App\Models\Siswa;
 use App\Models\Ujian;
 use App\Models\UjianAttempt;
 use App\Models\UjianJawaban;
+use App\Policies\UjianPolicy;
 use App\Services\UjianGrader;
 use Illuminate\Http\Request;
 
@@ -16,7 +17,13 @@ class UjianGradingController extends Controller
     {
         $this->authorize('gradeEssay', $ujian);
 
-        $ujianKelasIds = $ujian->kelas()->pluck('uuid');
+        // Dibatasi ke kelas yg user ini jadi PENGAMPU-nya saja (bukan semua kelas ujian) —
+        // supaya guru lain yg cuma sama2 mengajar mapel ini tak ikut lihat/nilai esai kelas
+        // rekan mengajarnya. Admin/manage_ujian/pembuat ujian tetap lihat semua kelas.
+        $ujianKelasIds = $ujian->kelas
+            ->filter(fn ($uk) => app(UjianPolicy::class)->mengampuiKelas($request->user(), $uk))
+            ->pluck('uuid');
+
         $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasIds)
             ->where('status', UjianAttempt::STATUS_SUBMITTED)
             ->where('butuh_penilaian_manual', true)
@@ -31,6 +38,7 @@ class UjianGradingController extends Controller
     {
         $this->authorize('gradeEssay', $ujian);
         abort_unless($attempt->ujianKelas->id_ujian === $ujian->uuid, 404);
+        $this->authorize('mengampuiKelas', $attempt->ujianKelas);
 
         $soalEssai = $ujian->soal()->where('tipe', 'essay')->get();
         $jawaban = UjianJawaban::where('id_attempt', $attempt->uuid)
@@ -44,6 +52,7 @@ class UjianGradingController extends Controller
     {
         $this->authorize('gradeEssay', $ujian);
         abort_unless($attempt->ujianKelas->id_ujian === $ujian->uuid, 404);
+        $this->authorize('mengampuiKelas', $attempt->ujianKelas);
         abort_unless($attempt->status === UjianAttempt::STATUS_SUBMITTED, 422, 'Attempt ini belum bisa dinilai.');
 
         $data = $request->validate([

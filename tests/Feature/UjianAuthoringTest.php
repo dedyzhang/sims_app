@@ -45,24 +45,28 @@ class UjianAuthoringTest extends TestCase
         return Ngajar::create(['id_guru' => $guru->uuid, 'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => $this->kelas->uuid]);
     }
 
-    public function test_guru_pengampu_bisa_membuat_ujian_pts(): void
+    public function test_guru_submit_jenis_atau_target_nilai_selain_harian_sumatif_dipaksa_server(): void
     {
         [$user, $guru] = $this->buatGuru('guru_ujian1');
-        $this->ngajarMilik($guru);
+        $ngajar = $this->ngajarMilik($guru);
+        $materi = Materi::create(['id_ngajar' => $ngajar->uuid, 'nama' => 'Bab 1 Bilangan', 'urutan' => 1]);
 
-        // Guru tetap boleh KIRIM id_kelas (mis. form lama/klien nakal), tapi server harus
-        // MENGABAIKANNYA — penetapan kelas kini eksklusif admin/pengelola (lihat
-        // bolehAturKelas()), guru cuma menyusun soal.
+        // Guru biasa tak lagi boleh bikin ujian formal PTS/PAS/UAS lepas — itu sekarang
+        // eksklusif lewat Paket Ujian (admin/pengelola). Kalaupun klien (form lama/nakal)
+        // tetap kirim jenis=pts & target_nilai=pts, server HARUS memaksanya jadi
+        // harian/sumatif, bukan cuma mengandalkan form yg sudah dikunci di sisi UI.
         $res = $this->actingAs($user)->post(route('ujian.store'), [
             'judul' => 'PTS Ganjil Matematika', 'jenis' => 'pts', 'target_nilai' => 'pts',
-            'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$this->kelas->uuid], 'durasi_menit' => 90,
+            'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$this->kelas->uuid],
+            'id_materi' => $materi->uuid, 'durasi_menit' => 90,
         ]);
 
         $res->assertRedirect();
         $ujian = Ujian::where('judul', 'PTS Ganjil Matematika')->first();
         $this->assertNotNull($ujian);
         $this->assertSame($user->uuid, $ujian->created_by);
-        $this->assertSame(0, $ujian->kelas()->count(), 'Kelas TIDAK ikut ditetapkan krn dibuat oleh guru — menunggu admin/pengelola.');
+        $this->assertSame('harian', $ujian->jenis);
+        $this->assertSame('sumatif', $ujian->target_nilai);
     }
 
     public function test_admin_membuat_ujian_pts_langsung_menetapkan_kelas(): void
@@ -83,16 +87,31 @@ class UjianAuthoringTest extends TestCase
         $this->assertDatabaseHas('ujian_kelas', ['id_ujian' => $ujian->uuid, 'id_kelas' => $this->kelas->uuid]);
     }
 
-    public function test_guru_yg_tak_mengajar_mapel_ditolak_membuat_ujian(): void
+    public function test_guru_tanpa_id_materi_ditolak_membuat_ujian(): void
     {
-        [$user] = $this->buatGuru('guru_ujian2'); // sengaja TANPA Ngajar
+        [$user] = $this->buatGuru('guru_ujian2'); // sengaja TANPA Ngajar/Materi
 
         $this->actingAs($user)->post(route('ujian.store'), [
             'judul' => 'PTS Nekat', 'jenis' => 'pts', 'target_nilai' => 'pts',
             'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$this->kelas->uuid], 'durasi_menit' => 90,
-        ])->assertForbidden();
+        ])->assertStatus(422);
 
         $this->assertDatabaseMissing('ujians', ['judul' => 'PTS Nekat']);
+    }
+
+    public function test_guru_pakai_materi_milik_guru_lain_ditolak_membuat_ujian(): void
+    {
+        [$user] = $this->buatGuru('guru_ujian2b');
+        [, $guruLain] = $this->buatGuru('guru_ujian2b_lain');
+        $ngajarLain = $this->ngajarMilik($guruLain);
+        $materiLain = Materi::create(['id_ngajar' => $ngajarLain->uuid, 'nama' => 'Bab 1', 'urutan' => 1]);
+
+        $this->actingAs($user)->post(route('ujian.store'), [
+            'judul' => 'Ulangan Nekat', 'jenis' => 'harian', 'target_nilai' => 'sumatif',
+            'id_materi' => $materiLain->uuid, 'durasi_menit' => 90,
+        ])->assertForbidden();
+
+        $this->assertDatabaseMissing('ujians', ['judul' => 'Ulangan Nekat']);
     }
 
     public function test_ujian_sumatif_menurunkan_id_pelajaran_dari_materi_dan_hanya_boleh_satu_kelas(): void

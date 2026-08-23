@@ -80,6 +80,13 @@ class UjianSiswaController extends Controller implements HasMiddleware
         if ($attempt && $attempt->isLocked()) {
             return view('ujian.siswa.terkunci', compact('ujian', 'attempt'));
         }
+        // Attempt yg baru dibuka kembali (UjianController::bukaAksesSelesai()) SENGAJA
+        // TIDAK langsung diarahkan ke kerjakan() walau statusnya sudah in_progress — demi
+        // keamanan, siswa tetap harus masukkan token yg benar lagi (lewat form gate ini,
+        // diproses start() yg akan MELANJUTKAN attempt yg sama, bukan bikin baru).
+        if ($attempt && $attempt->wajib_token_ulang) {
+            return view('ujian.siswa.gate', compact('ujian', 'ujianKelas'));
+        }
         if ($attempt) {
             return redirect()->route('ujian.siswa.kerjakan', [$ujian, $attempt]);
         }
@@ -104,6 +111,12 @@ class UjianSiswaController extends Controller implements HasMiddleware
             ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
             ->latest()->first();
         if ($existing) {
+            // Token sudah tervalidasi (hash_equals di atas) — kalau attempt ini sedang
+            // menunggu token-ulang (baru dibuka kembali guru), lepas syaratnya sekarang,
+            // TANPA membuat attempt baru/mengacak ulang urutan/menyentuh jawaban.
+            if ($existing->wajib_token_ulang) {
+                $existing->update(['wajib_token_ulang' => false]);
+            }
             return redirect()->route('ujian.siswa.kerjakan', [$ujian, $existing]);
         }
 
@@ -167,7 +180,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
         // client-side lewat x-html (bukan Blade {!! !!}), jadi sanitasi WAJIB terjadi di sini,
         // bukan cuma saat render, krn tak ada langkah render Blade lagi setelah titik ini.
         $soalTampil = $urutan->map(function (UjianSoal $s) use ($attempt) {
-            $item = ['uuid' => $s->uuid, 'tipe' => $s->tipe, 'teks_soal' => RichText::clean($s->teks_soal), 'poin' => $s->poin];
+            $item = ['uuid' => $s->uuid, 'tipe' => $s->tipe, 'teks_soal' => RichText::clean($s->teks_soal), 'poin' => $s->poinEfektif()];
             if ($s->tipe === 'match') {
                 $pairs = $s->meta['pairs'] ?? [];
                 $urutanIdx = $attempt->urutan_opsi[$s->uuid] ?? array_keys($pairs);

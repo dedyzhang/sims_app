@@ -32,6 +32,8 @@ class UjianPelanggaran extends Model
             'ganti_tab'         => 'Berpindah Tab',
             'reset_oleh_guru'   => 'Dibuka Kunci Guru',
             'direset_admin'     => 'Direset Ulang Admin',
+            'dibuka_kembali_admin' => 'Dibuka Kembali Admin',
+            'reset_oleh_pengawas' => 'Dibuka Kunci Pengawas Ruangan',
             default             => $this->tipe,
         };
     }

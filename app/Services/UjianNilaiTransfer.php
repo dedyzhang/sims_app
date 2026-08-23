@@ -51,8 +51,7 @@ class UjianNilaiTransfer
 
     private function transferPtsPas(UjianAttempt $attempt, $ujian, $ujianKelas, Siswa $siswa, int $nilai): void
     {
-        $ngajar = Ngajar::where('id_kelas', $ujianKelas->id_kelas)
-            ->where('id_pelajaran', $ujian->id_pelajaran)->first();
+        $ngajar = $this->resolveNgajar($ujian, $ujianKelas);
         $semester = Semester::aktif();
 
         if (!$ngajar || !$semester) {
@@ -72,6 +71,61 @@ class UjianNilaiTransfer
         );
 
         $attempt->update(['status_transfer_nilai' => 'berhasil']);
+    }
+
+    /**
+     * Kalau kelas ini punya guru pengampu tersimpan, resolusi Ngajar diprioritaskan lewat
+     * itu — deterministik, tak ambigu walau kelas ini diajar 2+ guru. Baris ujian_kelas
+     * lama (dibuat sblm fitur pengampu ada) belum punya nilai ini, jatuh balik ke ->first()
+     * spt semula (satu2nya pilihan yg ada saat itu, tetap benar kalau cuma 1 guru cocok).
+     */
+    private function resolveNgajar($ujian, $ujianKelas): ?Ngajar
+    {
+        return $ujianKelas->id_guru_pengampu
+            ? Ngajar::where('id_guru', $ujianKelas->id_guru_pengampu)
+                ->where('id_kelas', $ujianKelas->id_kelas)
+                ->where('id_pelajaran', $ujian->id_pelajaran)->first()
+            : Ngajar::where('id_kelas', $ujianKelas->id_kelas)
+                ->where('id_pelajaran', $ujian->id_pelajaran)->first();
+    }
+
+    /**
+     * Kebalikan dari transfer() — dipanggil saat attempt yg SUDAH ditransfer
+     * (status_transfer_nilai==='berhasil') direset/dibuka-kembali aksesnya (lihat
+     * UjianMonitorController::resetAttempt()), supaya nilai lama tak "nyantol" diam2 di
+     * buku nilai padahal attempt sumbernya sudah dibatalkan. SENGAJA tak menghormati kunci
+     * RaporKonfirmasi di sini — menghapus nilai basi milik attempt yg baru dibatalkan adalah
+     * perbaikan integritas data, bukan penulisan nilai baru.
+     */
+    public function revert(UjianAttempt $attempt): void
+    {
+        if ($attempt->status_transfer_nilai !== 'berhasil') {
+            return;
+        }
+
+        $ujianKelas = $attempt->ujianKelas;
+        $ujian = $ujianKelas?->ujian;
+        $siswa = Siswa::where('id_login', $attempt->id_siswa)->first();
+        if (!$ujianKelas || !$ujian || !$siswa) {
+            $attempt->update(['status_transfer_nilai' => 'belum']);
+            return;
+        }
+
+        if ($ujian->target_nilai === 'sumatif') {
+            $materi = Materi::find($ujian->id_materi);
+            if ($materi) {
+                NilaiSumatif::where('id_materi', $materi->uuid)->where('id_siswa', $siswa->uuid)->delete();
+            }
+        } else {
+            $ngajar = $this->resolveNgajar($ujian, $ujianKelas);
+            $semester = Semester::aktif();
+            if ($ngajar && $semester) {
+                $model = $ujian->target_nilai === 'pts' ? NilaiPts::class : NilaiPas::class;
+                $model::where('id_ngajar', $ngajar->uuid)->where('id_siswa', $siswa->uuid)->where('id_semester', $semester->id)->delete();
+            }
+        }
+
+        $attempt->update(['status_transfer_nilai' => 'belum']);
     }
 
     private function transferSumatif(UjianAttempt $attempt, $ujian, Siswa $siswa, int $nilai): void

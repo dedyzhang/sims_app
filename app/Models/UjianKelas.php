@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 class UjianKelas extends Model
 {
@@ -14,7 +13,7 @@ class UjianKelas extends Model
     protected $table = 'ujian_kelas';
     protected $primaryKey = 'uuid';
 
-    protected $fillable = ['id_ujian', 'id_kelas', 'token_masuk', 'dibuka_mulai', 'dibuka_sampai', 'status'];
+    protected $fillable = ['id_ujian', 'id_kelas', 'id_guru_pengampu', 'token_masuk', 'dibuka_mulai', 'dibuka_sampai', 'status'];
 
     protected function casts(): array
     {
@@ -34,6 +33,11 @@ class UjianKelas extends Model
         return $this->belongsTo(Kelas::class, 'id_kelas', 'uuid');
     }
 
+    public function guruPengampu()
+    {
+        return $this->belongsTo(Guru::class, 'id_guru_pengampu', 'uuid');
+    }
+
     public function attempts()
     {
         return $this->hasMany(UjianAttempt::class, 'id_ujian_kelas', 'uuid');
@@ -41,7 +45,7 @@ class UjianKelas extends Model
 
     public static function generateToken(): string
     {
-        return Str::upper(Str::random(6));
+        return str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
     }
 
     public function isOpenNow(): bool
@@ -56,5 +60,14 @@ class UjianKelas extends Model
             return false;
         }
         return true;
+    }
+
+    /** Sudah terbit & py jadwal, tapi jam bukanya belum sampai — beda dari "ditutup"/belum terbit sama sekali, dipakai utk tampilkan badge "Belum Dimulai" + jam buka ke siswa. */
+    public function belumDimulai(): bool
+    {
+        return $this->status !== 'closed'
+            && $this->ujian?->isPublished()
+            && $this->dibuka_mulai
+            && now()->lt($this->dibuka_mulai);
     }
 }

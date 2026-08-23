@@ -84,7 +84,8 @@ class UjianGradingTest extends TestCase
 
         $grader = new UjianGrader();
 
-        // Semua benar dipilih, tak ada yg salah -> skor penuh.
+        // Semua benar dipilih, tak ada yg salah -> skor penuh = poin APA ADANYA (10), BUKAN
+        // dikali jumlah opsi benar — all_or_nothing tak punya konsep "per item".
         $lengkap = new UjianJawaban(['opsi_dipilih_multi' => [$o1->uuid, $o2->uuid]]);
         $this->assertSame(['is_benar' => true, 'skor' => 10], $grader->scoreObjective($soal, $lengkap));
 
@@ -102,14 +103,105 @@ class UjianGradingTest extends TestCase
         $soal = UjianSoal::create([
             'id_ujian' => $this->ujian->uuid, 'tipe' => 'match', 'teks_soal' => '?', 'poin' => 10, 'urutan' => 1,
             'meta' => ['pairs' => [['left' => 'A', 'right' => '1'], ['left' => 'B', 'right' => '2'], ['left' => 'C', 'right' => '3'], ['left' => 'D', 'right' => '4']]],
+            'skor_mode' => 'proporsional',
         ]);
         $grader = new UjianGrader();
 
-        // 2 dari 4 pasangan benar -> 5 poin (proporsional, bukan semua-atau-tidak).
+        // "Poin" = poin PER PASANGAN benar (bukan total soal) — 2 dari 4 pasangan benar,
+        // poin 10 per pasangan -> 20 (proporsional, bukan semua-atau-tidak).
         $jawaban = new UjianJawaban(['jawaban_pasangan' => ['A' => '1', 'B' => '2', 'C' => '4', 'D' => '3']]);
         $hasil = $grader->scoreObjective($soal, $jawaban);
         $this->assertFalse($hasil['is_benar']);
-        $this->assertSame(5.0, $hasil['skor']);
+        $this->assertSame(20.0, $hasil['skor']);
+    }
+
+    public function test_scoring_mcq_complex_proporsional(): void
+    {
+        $soal = UjianSoal::create([
+            'id_ujian' => $this->ujian->uuid, 'tipe' => 'mcq_complex', 'teks_soal' => '?', 'poin' => 10, 'urutan' => 1,
+            'skor_mode' => 'proporsional',
+        ]);
+        $o1 = UjianSoalOpsi::create(['id_soal' => $soal->uuid, 'teks_opsi' => 'A', 'is_benar' => true, 'urutan' => 1]);
+        $o2 = UjianSoalOpsi::create(['id_soal' => $soal->uuid, 'teks_opsi' => 'B', 'is_benar' => true, 'urutan' => 2]);
+        UjianSoalOpsi::create(['id_soal' => $soal->uuid, 'teks_opsi' => 'C', 'is_benar' => false, 'urutan' => 3]);
+        $soal->load('opsi');
+        $grader = new UjianGrader();
+
+        // "Poin" = poin PER OPSI benar (bukan total soal) — 1 dari 2 opsi benar dipilih,
+        // poin 10 per opsi -> 10 (proporsional, tanpa hukuman opsi salah).
+        $sebagian = new UjianJawaban(['opsi_dipilih_multi' => [$o1->uuid]]);
+        $hasil = $grader->scoreObjective($soal, $sebagian);
+        $this->assertFalse($hasil['is_benar']); // is_benar tetap "100% benar", tak berubah walau skor proporsional
+        $this->assertSame(10.0, $hasil['skor']);
+
+        // Semua benar dipilih (2 opsi × poin 10) -> skor penuh 20, is_benar true.
+        $lengkap = new UjianJawaban(['opsi_dipilih_multi' => [$o1->uuid, $o2->uuid]]);
+        $hasilLengkap = $grader->scoreObjective($soal, $lengkap);
+        $this->assertTrue($hasilLengkap['is_benar']);
+        $this->assertSame(20.0, $hasilLengkap['skor']);
+    }
+
+    /**
+     * poinEfektif() kini bergantung skor_mode: 'proporsional' → poin × jumlah item benar
+     * (konsep "poin per item"); 'all_or_nothing' (default) → poin APA ADANYA, TANPA dikali,
+     * krn semua-atau-tidak-sama-sekali tak punya konsep "per item" — poin yg diinput itulah
+     * yg didapat siswa saat semua benar.
+     */
+    public function test_poin_efektif_mcq_complex_dan_match_dikalikan_jumlah_item_benar(): void
+    {
+        $complex = UjianSoal::create(['id_ujian' => $this->ujian->uuid, 'tipe' => 'mcq_complex', 'teks_soal' => '?', 'poin' => 5, 'urutan' => 1, 'skor_mode' => 'proporsional']);
+        UjianSoalOpsi::create(['id_soal' => $complex->uuid, 'teks_opsi' => 'A', 'is_benar' => true, 'urutan' => 1]);
+        UjianSoalOpsi::create(['id_soal' => $complex->uuid, 'teks_opsi' => 'B', 'is_benar' => true, 'urutan' => 2]);
+        UjianSoalOpsi::create(['id_soal' => $complex->uuid, 'teks_opsi' => 'C', 'is_benar' => true, 'urutan' => 3]);
+        UjianSoalOpsi::create(['id_soal' => $complex->uuid, 'teks_opsi' => 'D', 'is_benar' => false, 'urutan' => 4]);
+        $complex->load('opsi');
+        $this->assertSame(15, $complex->poinEfektif(), 'proporsional: poin 5 × 3 opsi benar = 15.');
+
+        $match = UjianSoal::create([
+            'id_ujian' => $this->ujian->uuid, 'tipe' => 'match', 'teks_soal' => '?', 'poin' => 2, 'urutan' => 2,
+            'meta' => ['pairs' => [['left' => 'A', 'right' => '1'], ['left' => 'B', 'right' => '2'], ['left' => 'C', 'right' => '3']]],
+            'skor_mode' => 'proporsional',
+        ]);
+        $this->assertSame(6, $match->poinEfektif(), 'proporsional: poin 2 × 3 pasangan = 6.');
+
+        $mcqBiasa = UjianSoal::create(['id_ujian' => $this->ujian->uuid, 'tipe' => 'mcq', 'teks_soal' => '?', 'poin' => 7, 'urutan' => 3]);
+        $this->assertSame(7, $mcqBiasa->poinEfektif(), 'tipe biasa: poinEfektif = poin apa adanya.');
+
+        $complexAon = UjianSoal::create(['id_ujian' => $this->ujian->uuid, 'tipe' => 'mcq_complex', 'teks_soal' => '?', 'poin' => 5, 'urutan' => 4, 'skor_mode' => 'all_or_nothing']);
+        UjianSoalOpsi::create(['id_soal' => $complexAon->uuid, 'teks_opsi' => 'A', 'is_benar' => true, 'urutan' => 1]);
+        UjianSoalOpsi::create(['id_soal' => $complexAon->uuid, 'teks_opsi' => 'B', 'is_benar' => true, 'urutan' => 2]);
+        UjianSoalOpsi::create(['id_soal' => $complexAon->uuid, 'teks_opsi' => 'C', 'is_benar' => true, 'urutan' => 3]);
+        $complexAon->load('opsi');
+        $this->assertSame(5, $complexAon->poinEfektif(), 'all_or_nothing: poin APA ADANYA (5), tak dikali 3 opsi benar.');
+
+        $matchAon = UjianSoal::create([
+            'id_ujian' => $this->ujian->uuid, 'tipe' => 'match', 'teks_soal' => '?', 'poin' => 2, 'urutan' => 5,
+            'meta' => ['pairs' => [['left' => 'A', 'right' => '1'], ['left' => 'B', 'right' => '2'], ['left' => 'C', 'right' => '3']]],
+            'skor_mode' => 'all_or_nothing',
+        ]);
+        $this->assertSame(2, $matchAon->poinEfektif(), 'all_or_nothing: poin APA ADANYA (2), tak dikali 3 pasangan.');
+    }
+
+    public function test_scoring_match_all_or_nothing(): void
+    {
+        $soal = UjianSoal::create([
+            'id_ujian' => $this->ujian->uuid, 'tipe' => 'match', 'teks_soal' => '?', 'poin' => 10, 'urutan' => 1,
+            'meta' => ['pairs' => [['left' => 'A', 'right' => '1'], ['left' => 'B', 'right' => '2']]],
+            'skor_mode' => 'all_or_nothing',
+        ]);
+        $grader = new UjianGrader();
+
+        // 1 dari 2 pasangan benar -> 0 (bukan proporsional krn skor_mode=all_or_nothing).
+        $sebagian = new UjianJawaban(['jawaban_pasangan' => ['A' => '1', 'B' => 'salah']]);
+        $hasil = $grader->scoreObjective($soal, $sebagian);
+        $this->assertFalse($hasil['is_benar']);
+        $this->assertSame(0, $hasil['skor']);
+
+        // Semua pasangan benar -> skor penuh = poin APA ADANYA (10), BUKAN dikali jumlah pasangan.
+        $lengkap = new UjianJawaban(['jawaban_pasangan' => ['A' => '1', 'B' => '2']]);
+        $hasilLengkap = $grader->scoreObjective($soal, $lengkap);
+        $this->assertTrue($hasilLengkap['is_benar']);
+        $this->assertSame(10, $hasilLengkap['skor']);
     }
 
     // ── HTTP: alur submit + penilaian esai ──────────────────────────────────
@@ -128,6 +220,58 @@ class UjianGradingTest extends TestCase
         $this->actingAs($siswa)->postJson(route('ujian.siswa.jawab', [$this->ujian, $attempt]), [
             'id_soal' => $soal->uuid, 'id_opsi_dipilih' => $benar->uuid,
         ])->assertOk();
+        $this->actingAs($siswa)->post(route('ujian.siswa.submit', [$this->ujian, $attempt]))->assertRedirect();
+
+        $attempt->refresh();
+        $this->assertSame(UjianAttempt::STATUS_DINILAI, $attempt->status);
+        $this->assertSame('100.00', $attempt->total_skor);
+    }
+
+    /**
+     * Pelajaran::mode_skor_ujian='jumlah' — total_skor jadi total poin apa adanya
+     * (di sini 10+15=25), BUKAN dinormalisasi ke skala 100 spt default 'rata_rata'.
+     */
+    public function test_mode_skor_ujian_jumlah_pakai_total_poin_apa_adanya(): void
+    {
+        $this->pelajaran->update(['mode_skor_ujian' => 'jumlah']);
+        $soal1 = UjianSoal::create(['id_ujian' => $this->ujian->uuid, 'tipe' => 'mcq', 'teks_soal' => '2+2=?', 'poin' => 10, 'urutan' => 1]);
+        $benar1 = UjianSoalOpsi::create(['id_soal' => $soal1->uuid, 'teks_opsi' => '4', 'is_benar' => true, 'urutan' => 1]);
+        UjianSoalOpsi::create(['id_soal' => $soal1->uuid, 'teks_opsi' => '5', 'is_benar' => false, 'urutan' => 2]);
+        $soal2 = UjianSoal::create(['id_ujian' => $this->ujian->uuid, 'tipe' => 'mcq', 'teks_soal' => '3+3=?', 'poin' => 15, 'urutan' => 2]);
+        $benar2 = UjianSoalOpsi::create(['id_soal' => $soal2->uuid, 'teks_opsi' => '6', 'is_benar' => true, 'urutan' => 1]);
+        UjianSoalOpsi::create(['id_soal' => $soal2->uuid, 'teks_opsi' => '7', 'is_benar' => false, 'urutan' => 2]);
+        $ujianKelas = UjianKelas::create(['id_ujian' => $this->ujian->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => 'TOKENJUMLAH']);
+
+        $siswa = $this->buatSiswa('siswa_mode_jumlah');
+        $this->actingAs($siswa)->post(route('ujian.siswa.start', $this->ujian), ['token' => 'TOKENJUMLAH'])->assertRedirect();
+        $attempt = UjianAttempt::where('id_siswa', $siswa->uuid)->firstOrFail();
+
+        $this->actingAs($siswa)->postJson(route('ujian.siswa.jawab', [$this->ujian, $attempt]), ['id_soal' => $soal1->uuid, 'id_opsi_dipilih' => $benar1->uuid])->assertOk();
+        $this->actingAs($siswa)->postJson(route('ujian.siswa.jawab', [$this->ujian, $attempt]), ['id_soal' => $soal2->uuid, 'id_opsi_dipilih' => $benar2->uuid])->assertOk();
+        $this->actingAs($siswa)->post(route('ujian.siswa.submit', [$this->ujian, $attempt]))->assertRedirect();
+
+        $attempt->refresh();
+        $this->assertSame(UjianAttempt::STATUS_DINILAI, $attempt->status);
+        $this->assertSame('25.00', $attempt->total_skor);
+    }
+
+    /** Pelajaran::mode_skor_ujian default 'rata_rata' — total_skor tetap dinormalisasi ke skala 100, cara lama. */
+    public function test_mode_skor_ujian_rata_rata_tetap_normalisasi_skala_100_default(): void
+    {
+        $soal1 = UjianSoal::create(['id_ujian' => $this->ujian->uuid, 'tipe' => 'mcq', 'teks_soal' => '2+2=?', 'poin' => 10, 'urutan' => 1]);
+        $benar1 = UjianSoalOpsi::create(['id_soal' => $soal1->uuid, 'teks_opsi' => '4', 'is_benar' => true, 'urutan' => 1]);
+        UjianSoalOpsi::create(['id_soal' => $soal1->uuid, 'teks_opsi' => '5', 'is_benar' => false, 'urutan' => 2]);
+        $soal2 = UjianSoal::create(['id_ujian' => $this->ujian->uuid, 'tipe' => 'mcq', 'teks_soal' => '3+3=?', 'poin' => 15, 'urutan' => 2]);
+        $benar2 = UjianSoalOpsi::create(['id_soal' => $soal2->uuid, 'teks_opsi' => '6', 'is_benar' => true, 'urutan' => 1]);
+        UjianSoalOpsi::create(['id_soal' => $soal2->uuid, 'teks_opsi' => '7', 'is_benar' => false, 'urutan' => 2]);
+        $ujianKelas = UjianKelas::create(['id_ujian' => $this->ujian->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => 'TOKENRATA']);
+
+        $siswa = $this->buatSiswa('siswa_mode_rata');
+        $this->actingAs($siswa)->post(route('ujian.siswa.start', $this->ujian), ['token' => 'TOKENRATA'])->assertRedirect();
+        $attempt = UjianAttempt::where('id_siswa', $siswa->uuid)->firstOrFail();
+
+        $this->actingAs($siswa)->postJson(route('ujian.siswa.jawab', [$this->ujian, $attempt]), ['id_soal' => $soal1->uuid, 'id_opsi_dipilih' => $benar1->uuid])->assertOk();
+        $this->actingAs($siswa)->postJson(route('ujian.siswa.jawab', [$this->ujian, $attempt]), ['id_soal' => $soal2->uuid, 'id_opsi_dipilih' => $benar2->uuid])->assertOk();
         $this->actingAs($siswa)->post(route('ujian.siswa.submit', [$this->ujian, $attempt]))->assertRedirect();
 
         $attempt->refresh();

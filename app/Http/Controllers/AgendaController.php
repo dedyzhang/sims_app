@@ -83,19 +83,19 @@ class AgendaController extends Controller
         for ($d = $start->copy(); $d <= $end; $d->addDay()) {
             $tgl = $d->toDateString();
             $hariKe = $d->dayOfWeekIso; // 1=Senin..7=Minggu
-            if ($hariKe > 6) {
-                $result[$tgl] = [];
-                continue;
-            }
 
-            $sudah = ($agendaByTanggal->get($tgl) ?? collect())
-                ->keyBy(fn ($a) => $a->id_kelas . '|' . $a->id_pelajaran);
+            $jadwalHariIni = $hariKe > 6 ? collect() : $jadwalByHari->get($hariKe, collect());
+            $agendasHariIni = $agendaByTanggal->get($tgl) ?? collect();
 
-            $result[$tgl] = $this->reminder
-                ->kelompokkanSlot($jadwalByHari->get($hariKe, collect()))
-                ->map(function (object $slot) use ($sudah) {
+            $sudah = $agendasHariIni->keyBy(fn ($a) => $a->id_kelas . '|' . $a->id_pelajaran);
+
+            $scheduledKeys = [];
+            $mapped = $this->reminder
+                ->kelompokkanSlot($jadwalHariIni)
+                ->map(function (object $slot) use ($sudah, &$scheduledKeys) {
                     $j = $slot->jadwal;
                     $key = $slot->id_kelas . '|' . $slot->id_pelajaran;
+                    $scheduledKeys[] = $key;
 
                     return [
                         'id_jadwal'    => $slot->id_jadwal,
@@ -107,9 +107,32 @@ class AgendaController extends Controller
                         'jam_mulai'    => substr($slot->jam_mulai, 0, 5),
                         'jam_selesai'  => substr($slot->jam_selesai, 0, 5),
                         'agenda'       => $sudah->get($key),
+                        'is_orphaned'  => false,
                     ];
                 })
                 ->all();
+
+            $orphaned = $agendasHariIni->reject(function ($a) use ($scheduledKeys) {
+                    return in_array($a->id_kelas . '|' . $a->id_pelajaran, $scheduledKeys);
+                })
+                ->map(function ($a) {
+                    $j = $a->jadwal;
+                    return [
+                        'id_jadwal'    => $a->id_jadwal,
+                        'id_kelas'     => $a->id_kelas,
+                        'id_pelajaran' => $a->id_pelajaran,
+                        'kelas'        => $a->kelas ? $a->kelas->tingkat . $a->kelas->kelas : '-',
+                        'pelajaran'    => $a->pelajaran?->nama ?? '-',
+                        'kode'         => $a->pelajaran?->kode,
+                        'jam_mulai'    => $j && $j->jam ? substr($j->jam->jam_mulai, 0, 5) : '00:00',
+                        'jam_selesai'  => $j && $j->jam ? substr($j->jam->jam_selesai, 0, 5) : '00:00',
+                        'agenda'       => $a,
+                        'is_orphaned'  => true,
+                    ];
+                })
+                ->all();
+
+            $result[$tgl] = array_merge($mapped, $orphaned);
         }
 
         return $result;

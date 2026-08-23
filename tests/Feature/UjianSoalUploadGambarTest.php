@@ -47,6 +47,35 @@ class UjianSoalUploadGambarTest extends TestCase
         $this->assertNotEmpty(array_filter($files, fn ($f) => str_starts_with($f, 'ujian-soal/')));
     }
 
+    /** Poin #3 ronde perbaikan: gambar besar (resolusi kamera) di-resize ke lebar resolusi HP, bukan disimpan mentah. */
+    public function test_gambar_besar_diresize_ke_resolusi_hp(): void
+    {
+        $guru = $this->buatGuru();
+        $file = UploadedFile::fake()->image('soal-besar.jpg', 2400, 1800);
+
+        $res = $this->actingAs($guru)->postJson(route('ujian.soal.unggah-gambar'), ['file' => $file]);
+        $res->assertOk();
+
+        $files = Storage::disk('public')->allFiles();
+        $disimpan = array_values(array_filter($files, fn ($f) => str_starts_with($f, 'ujian-soal/')));
+        $this->assertNotEmpty($disimpan);
+
+        $fullPath = Storage::disk('public')->path($disimpan[0]);
+        [$width] = getimagesize($fullPath);
+        $this->assertLessThanOrEqual(900, $width, 'Gambar besar harus di-resize ke lebar maks resolusi HP.');
+    }
+
+    /** GIF dikecualikan dari resize (animasi hilang kalau di-decode ulang lewat GD) — disimpan apa adanya. */
+    public function test_gif_tidak_diresize_disimpan_apa_adanya(): void
+    {
+        $guru = $this->buatGuru();
+        $file = UploadedFile::fake()->image('soal.gif', 1200, 900);
+
+        $res = $this->actingAs($guru)->postJson(route('ujian.soal.unggah-gambar'), ['file' => $file]);
+        $res->assertOk();
+        $this->assertStringEndsWith('.gif', $res->json('location'));
+    }
+
     public function test_file_bukan_gambar_ditolak(): void
     {
         $guru = $this->buatGuru();

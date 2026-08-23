@@ -76,9 +76,15 @@ use App\Http\Controllers\Keuangan\KeuanganController;
 use App\Http\Controllers\Keuangan\TagihanController;
 use App\Http\Controllers\LanggananController;
 use App\Http\Controllers\BankSoalController;
+use App\Http\Controllers\UjianAnalisisController;
 use App\Http\Controllers\UjianController;
 use App\Http\Controllers\UjianGradingController;
+use App\Http\Controllers\UjianJadwalController;
 use App\Http\Controllers\UjianMonitorController;
+use App\Http\Controllers\UjianPaketController;
+use App\Http\Controllers\UjianRuanganController;
+use App\Http\Controllers\UjianRuanganMonitorController;
+use App\Http\Controllers\UjianRuanganScanController;
 use App\Http\Controllers\UjianSiswaController;
 use App\Http\Controllers\UjianSoalController;
 use App\Http\Middleware\EnsureFaceRegistered;
@@ -847,6 +853,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/guru/{uuid}/pelajaran', [GuruController::class, 'pelajaran'])->name('guru.pelajaran');
         Route::post('/guru/{uuid}/pelajaran', [GuruController::class, 'ngajar'])->name('guru.ngajar');
         Route::delete('/guru/pelajaran/{uuid}/hapus', [GuruController::class, 'hapusNgajar'])->name('guru.hapusNgajar');
+        Route::post('/guru/pelajaran/{uuid}/transfer', [GuruController::class, 'transferNgajar'])->name('guru.transferNgajar');
 
         // Kelas
         Route::resource('/kelas', KelasController::class)->except('show');
@@ -1055,14 +1062,69 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{ujian}/kerjakan/{attempt}/kumpul', [UjianSiswaController::class, 'submit'])->middleware('throttle:10,1')->name('siswa.submit');
         Route::get('/{ujian}/hasil-saya/{attempt}', [UjianSiswaController::class, 'hasil'])->name('siswa.hasil');
 
+        // Paket (folder periode ujian: Ruangan/Jadwal/Pengawas) — SEMUA static-prefixed
+        // segments di sini WAJIB didaftarkan sebelum '/{ujian}' wildcard di bawah, persis
+        // alasan '/saya' di atas: '/paket', '/ruangan-saya', '/ruangan/{ruangan}' berbentuk
+        // sama dgn {ujian} kalau didaftarkan belakangan, jadi salah tercocok & 404.
+        Route::get('/paket', [UjianPaketController::class, 'index'])->name('paket.index');
+        Route::get('/paket/buat', [UjianPaketController::class, 'create'])->name('paket.create');
+        Route::post('/paket', [UjianPaketController::class, 'store'])->name('paket.store');
+        Route::get('/paket/{paket}', [UjianPaketController::class, 'show'])->name('paket.show');
+        Route::post('/paket/{paket}/update', [UjianPaketController::class, 'update'])->name('paket.update');
+        Route::delete('/paket/{paket}', [UjianPaketController::class, 'destroy'])->name('paket.destroy');
+        
+        // Rekap Harian Berita Acara (seluruh ruangan)
+        Route::get('/rekap', [\App\Http\Controllers\UjianRekapController::class, 'index'])->name('rekap.index');
+        Route::get('/rekap/cetak', [\App\Http\Controllers\UjianRekapController::class, 'cetak'])->name('rekap.cetak');
+        Route::get('/rekap/cetak-bulk-ba', [\App\Http\Controllers\UjianRekapController::class, 'cetakBulkBa'])->name('rekap.cetakBulkBa');
+        Route::get('/rekap/cetak-bulk-dh', [\App\Http\Controllers\UjianRekapController::class, 'cetakBulkDh'])->name('rekap.cetakBulkDh');
+        Route::post('/paket/{paket}/tambah-ujian', [UjianPaketController::class, 'tambahUjian'])->name('paket.tambahUjian');
+        Route::post('/paket/{paket}/lepas-ujian/{ujian}', [UjianPaketController::class, 'lepasUjian'])->name('paket.lepasUjian');
+
+        Route::post('/paket/{paket}/ruangan', [UjianRuanganController::class, 'store'])->name('paket.ruangan.store');
+        Route::post('/paket/{paket}/ruangan/{ruangan}/update', [UjianRuanganController::class, 'update'])->name('paket.ruangan.update');
+        Route::delete('/paket/{paket}/ruangan/{ruangan}', [UjianRuanganController::class, 'destroy'])->name('paket.ruangan.destroy');
+        Route::get('/paket/{paket}/ruangan/{ruangan}', [UjianRuanganController::class, 'show'])->name('paket.ruangan.show');
+        Route::get('/paket/{paket}/ruangan/{ruangan}/cetak', [UjianRuanganController::class, 'cetak'])->name('paket.ruangan.cetak');
+        Route::post('/paket/{paket}/ruangan/{ruangan}/peserta', [UjianRuanganController::class, 'syncPeserta'])->name('paket.ruangan.peserta');
+        Route::delete('/paket/{paket}/ruangan/{ruangan}/peserta/{peserta}', [UjianRuanganController::class, 'lepasPeserta'])->name('paket.ruangan.peserta.destroy');
+
+        Route::post('/paket/{paket}/jadwal', [UjianJadwalController::class, 'store'])->name('paket.jadwal.store');
+        Route::post('/paket/{paket}/jadwal/{jadwal}/update', [UjianJadwalController::class, 'update'])->name('paket.jadwal.update');
+        Route::delete('/paket/{paket}/jadwal/{jadwal}', [UjianJadwalController::class, 'destroy'])->name('paket.jadwal.destroy');
+
+        // Titik masuk scan QR ruangan (satu QR per ruangan, ditempel fisik) — siswa scan utk
+        // catat hadir sendiri, guru scan utk masuk monitor (guru mana pun boleh, asal ruangan
+        // ini py jadwal ujian hari itu; lihat UjianRuanganPolicy::awasi()).
+        Route::get('/ruangan/{ruangan}/scan', [UjianRuanganScanController::class, 'scan'])->name('ruangan.scan');
+
+        // Halaman pengawas ("1 halaman" reset-kunci + daftar hadir + berita acara) — bukan
+        // nested di bawah /paket krn guru pengawas navigasi langsung ke sini, tak perlu tahu
+        // struktur paketnya.
+        Route::get('/ruangan-saya', [UjianRuanganMonitorController::class, 'daftarRuanganSaya'])->name('ruangan.saya');
+        Route::get('/ruangan/{ruangan}', [UjianRuanganMonitorController::class, 'show'])->name('ruangan.monitor');
+        Route::get('/ruangan/{ruangan}/data', [UjianRuanganMonitorController::class, 'poll'])->middleware('throttle:360,1')->name('ruangan.poll');
+        Route::post('/ruangan/{ruangan}/buka-kunci/{attempt}', [UjianRuanganMonitorController::class, 'bukaKunci'])->name('ruangan.bukaKunci');
+        // Berita Acara + Daftar Hadir digabung jadi satu modal per sesi (satu submit utk
+        // keduanya sekaligus) — ganti dari 2 route terpisah (ruangan.hadir/ruangan.beritaAcara).
+        Route::post('/ruangan/{ruangan}/sesi/{sesi}', [UjianRuanganMonitorController::class, 'simpanSesi'])->name('ruangan.sesi.simpan');
+        Route::get('/ruangan/{ruangan}/sesi/{sesi}/hadir/cetak', [UjianRuanganMonitorController::class, 'cetakHadir'])->name('ruangan.sesi.hadir.cetak');
+        Route::post('/ruangan/{ruangan}/berita-acara/adhoc/{beritaAcara?}', [UjianRuanganMonitorController::class, 'simpanAdhoc'])->name('ruangan.beritaAcara.adhoc');
+        Route::get('/ruangan/{ruangan}/berita-acara/{beritaAcara}/hadir/cetak', [UjianRuanganMonitorController::class, 'cetakHadirAdhoc'])->name('ruangan.beritaAcara.hadir.cetak');
+        Route::get('/ruangan/{ruangan}/berita-acara/{beritaAcara}/cetak', [UjianRuanganMonitorController::class, 'cetakBeritaAcara'])->name('ruangan.beritaAcara.cetak');
+
         Route::get('/{ujian}', [UjianController::class, 'show'])->name('show');
         Route::get('/{ujian}/edit', [UjianController::class, 'edit'])->name('edit');
+        Route::get('/{ujian}/pratinjau', [UjianController::class, 'pratinjau'])->name('pratinjau');
         Route::get('/{ujian}/pengaturan', [UjianController::class, 'editPengaturan'])->name('pengaturan.edit');
         Route::post('/{ujian}/update', [UjianController::class, 'update'])->name('update');
         Route::post('/{ujian}/kelas', [UjianController::class, 'syncKelas'])->name('kelas.sync');
         Route::post('/{ujian}/terbit', [UjianController::class, 'publish'])->name('publish');
         Route::post('/{ujian}/tutup', [UjianController::class, 'close'])->name('close');
+        Route::post('/{ujian}/buka-kembali', [UjianController::class, 'reopen'])->name('reopen');
         Route::post('/{ujian}/kelas/{ujianKelas}/token-baru', [UjianController::class, 'regenerateToken'])->name('kelas.token');
+        Route::post('/{ujian}/kelas/{ujianKelas}/pengampu', [UjianController::class, 'setPengampu'])->name('kelas.pengampu');
+        Route::post('/{ujian}/kelas/pengampu', [UjianController::class, 'setPengampuBatch'])->name('kelas.pengampu.batch');
         Route::post('/{ujian}/token-baru', [UjianController::class, 'regenerateSemuaToken'])->name('token.reset');
         Route::delete('/{ujian}', [UjianController::class, 'destroy'])->name('destroy');
 
@@ -1074,12 +1136,17 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{ujian}/soal/sisipkan-bank', [UjianSoalController::class, 'sisipkanDariBank'])->name('soal.sisipkanBank');
         Route::post('/{ujian}/soal/{soal}/simpan-bank', [UjianSoalController::class, 'simpanKeBank'])->name('soal.simpanBank');
 
+        Route::get('/{ujian}/analisis', [UjianAnalisisController::class, 'index'])->name('analisis.index');
+        Route::get('/{ujian}/analisis/{ujianKelas}/unduh', [UjianAnalisisController::class, 'unduh'])->name('analisis.unduh');
+
         Route::get('/{ujian}/penilaian', [UjianGradingController::class, 'index'])->name('grading.index');
         Route::get('/{ujian}/penilaian/{attempt}', [UjianGradingController::class, 'show'])->name('grading.show');
         Route::post('/{ujian}/penilaian/{attempt}', [UjianGradingController::class, 'store'])->name('grading.store');
 
         Route::get('/{ujian}/hasil', [UjianController::class, 'hasil'])->name('hasil.index');
+        Route::get('/{ujian}/hasil/siswa/{siswa}', [UjianController::class, 'hasilDetail'])->name('hasil.detail');
         Route::post('/{ujian}/hasil/{attempt}/transfer-ulang', [UjianController::class, 'transferUlang'])->name('hasil.transferUlang');
+        Route::post('/{ujian}/hasil/{attempt}/buka-akses', [UjianController::class, 'bukaAksesSelesai'])->name('hasil.bukaAkses');
         Route::post('/{ujian}/pembahasan/toggle', [UjianController::class, 'togglePembahasan'])->name('pembahasan.toggle');
 
         Route::get('/{ujian}/pemantauan', [UjianMonitorController::class, 'index'])->name('monitor.index');

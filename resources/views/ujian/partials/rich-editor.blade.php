@@ -89,7 +89,10 @@
             menubar: false,
             plugins: 'lists link table code autolink charmap image',
             toolbar: 'undo redo | blocks | bold italic underline | bullist numlist | link image table | rumus | removeformat code',
-            toolbar_mode: 'wrap',
+            // 'scrolling' (bukan 'wrap' default) — di layar sempit (mis. editor kiri/kanan
+            // match yg bertumpuk di HP), toolbar TETAP satu baris & bisa digeser horizontal,
+            // bukan patah jadi berbaris-baris yg bikin editor terasa rusak/susah dipakai.
+            toolbar_mode: 'scrolling',
             branding: false, promotion: false,
             skin: dark ? 'oxide-dark' : 'oxide',
             content_css: dark ? 'dark' : 'default',

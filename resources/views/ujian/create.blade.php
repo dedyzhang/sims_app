@@ -24,7 +24,7 @@
 
     <form method="POST" action="{{ route('ujian.store') }}" class="card p-6 space-y-4"
           x-data="{
-              target: '{{ old('target_nilai', 'pts') }}',
+              target: '{{ $bolehAturKelas ? old('target_nilai', 'pts') : 'sumatif' }}',
               pelajaran: '{{ old('id_pelajaran') }}',
               kelasMap: {{ Js::from($kelasByPelajaran) }},
               get kelasTersedia() { return this.kelasMap[this.pelajaran] || []; },
@@ -39,11 +39,16 @@
         <div class="grid sm:grid-cols-2 gap-4">
             <div>
                 <label class="form-label">Jenis Ujian</label>
+                @if($bolehAturKelas)
                 <select name="jenis" class="form-select">
                     @foreach(['harian'=>'Ulangan Harian','pts'=>'PTS','pas'=>'PAS','uas'=>'UAS'] as $val => $lbl)
                         <option value="{{ $val }}" @selected(old('jenis')===$val)>{{ $lbl }}</option>
                     @endforeach
                 </select>
+                @else
+                <input type="hidden" name="jenis" value="harian">
+                <p class="form-input bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400">Ulangan Harian</p>
+                @endif
             </div>
             <div>
                 <label class="form-label">Durasi (menit) <span class="text-rose-500">*</span></label>
@@ -51,6 +56,7 @@
             </div>
         </div>
 
+        @if($bolehAturKelas)
         <div>
             <label class="form-label mb-2">Nilai Otomatis Masuk Ke</label>
             <div class="grid grid-cols-3 gap-2">
@@ -75,6 +81,10 @@
             </div>
             <p class="text-xs text-slate-400 mt-1.5">PTS/PAS: ujian bisa lintas banyak kelas sekaligus (koordinasi satu tingkat). Sumatif (ulangan harian): otomatis dibatasi ke <b>satu kelas</b> karena terikat ke satu Materi penugasan mengajar.</p>
         </div>
+        @else
+        <input type="hidden" name="target_nilai" value="sumatif">
+        <p class="text-xs text-slate-400 -mt-1">Nilai ujian ini otomatis masuk sebagai nilai <b>Sumatif</b> dari Materi yang dipilih di bawah. Ujian formal PTS/PAS/UAS diatur lewat Paket Ujian oleh admin/pengelola.</p>
+        @endif
 
         <div x-show="target !== 'sumatif'" x-cloak>
             <label class="form-label">Mata Pelajaran <span class="text-rose-500">*</span></label>

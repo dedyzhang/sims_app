@@ -11,13 +11,19 @@
         <div class="flex items-center justify-between gap-3 flex-wrap">
             <div>
                 <h1 class="page-title">Susun Soal</h1>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Total poin: {{ $ujian->soal->sum('poin') }} · {{ $ujian->soal->count() }} soal</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Total poin: {{ $ujian->soal->sum(fn($s) => $s->poinEfektif()) }} · {{ $ujian->soal->count() }} soal</p>
             </div>
-            @if($ujian->status === 'draft')
-            <button type="button" @click="$dispatch('buka-bank-soal')" class="px-4 py-2 rounded-xl text-xs font-semibold border border-primary text-primary hover:bg-primary/5 flex items-center gap-1.5 flex-shrink-0">
-                <i data-lucide="library" class="w-4 h-4"></i> Sisipkan dari Bank Soal
-            </button>
-            @endif
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <a href="{{ route('ujian.pratinjau', $ujian) }}" target="_blank" rel="noopener"
+                   class="px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-1.5">
+                    <i data-lucide="smartphone" class="w-4 h-4"></i> Pratinjau Tampilan Siswa
+                </a>
+                @if($ujian->status === 'draft')
+                <button type="button" @click="$dispatch('buka-bank-soal')" class="px-4 py-2 rounded-xl text-xs font-semibold border border-primary text-primary hover:bg-primary/5 flex items-center gap-1.5">
+                    <i data-lucide="library" class="w-4 h-4"></i> Sisipkan dari Bank Soal
+                </button>
+                @endif
+            </div>
         </div>
     </div>
 
@@ -94,6 +100,7 @@
                 opsi: {{ Js::from($soal->opsi->map(fn($o) => ['teks' => $o->teks_opsi, 'benar' => $o->is_benar])->all()) }},
                 pasangan: {{ Js::from(($soal->meta['pairs'] ?? []) ? collect($soal->meta['pairs'])->map(fn($p) => ['kiri'=>$p['left'],'kanan'=>$p['right']])->all() : []) }},
                 kunci_esai: {{ Js::from($soal->meta['kunci_jawaban'] ?? '') }},
+                skor_mode: {{ Js::from($soal->skor_mode ?? 'all_or_nothing') }},
                 open: false,
               })"
              x-init="_rootEl = $el">
@@ -101,7 +108,7 @@
                 <div class="flex items-center gap-3 min-w-0">
                     <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 grid place-items-center text-xs font-bold flex-shrink-0">{{ $i + 1 }}</span>
                     <div class="min-w-0">
-                        <p class="text-xs text-slate-400">{{ $soal->typeLabel() }} · {{ $soal->poin }} poin</p>
+                        <p class="text-xs text-slate-400">{{ $soal->typeLabel() }} · {{ $soal->poinEfektif() }} poin</p>
                         <p class="text-sm font-medium truncate">{{ Str::limit(strip_tags($soal->teks_soal), 80) }}</p>
                     </div>
                 </div>
@@ -124,7 +131,7 @@
     </div>
 
     {{-- Tambah soal baru --}}
-    <div class="card p-5" x-data="soalForm({ tipe: 'mcq', teks_soal: '', poin: 1, penjelasan: '', opsi: [{teks:'',benar:true},{teks:'',benar:false}], pasangan: [{kiri:'',kanan:''},{kiri:'',kanan:''}], kunci_esai: '', open: true })"
+    <div class="card p-5" x-data="soalForm({ tipe: 'mcq', teks_soal: '', poin: 1, penjelasan: '', opsi: [{teks:'',benar:true},{teks:'',benar:false}], pasangan: [{kiri:'',kanan:''},{kiri:'',kanan:''}], kunci_esai: '', skor_mode: 'all_or_nothing', open: true })"
          x-init="_rootEl = $el; $nextTick(() => window.UjianEditor && window.UjianEditor.mountAll())">
         <h2 class="font-bold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-primary"></i> Tambah Soal</h2>
         <form method="POST" action="{{ route('ujian.soal.store', $ujian) }}" class="space-y-3">

@@ -21,7 +21,7 @@ class UjianAttempt extends Model
     protected $fillable = [
         'id_ujian_kelas', 'id_siswa', 'urutan_soal', 'urutan_opsi',
         'mulai_pada', 'batas_waktu_pada', 'selesai_pada',
-        'status', 'dikunci', 'auto_submit',
+        'status', 'dikunci', 'wajib_token_ulang', 'auto_submit',
         'skor_objektif', 'total_skor', 'butuh_penilaian_manual',
         'status_transfer_nilai', 'durasi_ms',
     ];
@@ -35,6 +35,7 @@ class UjianAttempt extends Model
             'batas_waktu_pada'        => 'datetime',
             'selesai_pada'            => 'datetime',
             'dikunci'                 => 'boolean',
+            'wajib_token_ulang'       => 'boolean',
             'auto_submit'             => 'boolean',
             'skor_objektif'           => 'decimal:2',
             'total_skor'              => 'decimal:2',

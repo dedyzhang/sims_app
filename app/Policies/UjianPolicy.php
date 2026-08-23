@@ -87,6 +87,40 @@ class UjianPolicy
         return $this->manage($user, $ujian);
     }
 
+    /**
+     * Beda dgn manage() — ini per-KELAS, bukan per-ujian: kalau satu ujian punya beberapa
+     * kelas yg diajar guru BERBEDA (mis. PTS lintas kelas satu tingkat), tiap guru cuma
+     * berwenang atas kelas yg dia jadi pengampu-nya, bukan seluruh kelas ujian ini. Dipakai
+     * utk membatasi Nilai Esai & unduh Analisis Excel supaya guru tak bisa lihat/nilai kelas
+     * rekan mengajarnya di ujian yg sama.
+     */
+    public function mengampuiKelas(User $user, UjianKelas $ujianKelas): bool
+    {
+        $ujian = $ujianKelas->ujian ?? $ujianKelas->ujian()->first();
+        if (!$ujian) {
+            return false;
+        }
+        if ($user->isAdmin() || $user->canAccess('manage_ujian') || $ujian->created_by === $user->uuid) {
+            return true;
+        }
+
+        $guru = $user->guru;
+        if (!$guru) {
+            return false;
+        }
+
+        if ($ujianKelas->id_guru_pengampu) {
+            return $ujianKelas->id_guru_pengampu === $guru->uuid;
+        }
+
+        // Baris lama (dibuat sebelum fitur pengampu ada) belum punya pengampu tersimpan —
+        // jatuh balik ke cek Ngajar lama supaya guru yg memang mengajar tetap bisa akses.
+        return Ngajar::where('id_guru', $guru->uuid)
+            ->where('id_pelajaran', $ujian->id_pelajaran)
+            ->where('id_kelas', $ujianKelas->id_kelas)
+            ->exists();
+    }
+
     public function resetLock(User $user, Ujian $ujian): bool
     {
         return $this->manage($user, $ujian);

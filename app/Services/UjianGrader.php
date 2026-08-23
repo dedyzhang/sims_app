@@ -33,17 +33,34 @@ class UjianGrader
         return ['is_benar' => $benar, 'skor' => $benar ? $soal->poin : 0];
     }
 
-    /** Semua-atau-tidak: himpunan opsi terpilih harus PERSIS sama dgn himpunan opsi benar. */
+    /**
+     * is_benar SELALU berarti "100% benar" (dipakai pembahasan & Excel Analisis), TAK
+     * berubah walau skor_mode='proporsional' — yang berubah cuma skor_diperoleh.
+     *
+     * skor_mode='proporsional': "Poin" berarti poin PER OPSI BENAR (bukan total soal) —
+     * perkalian langsung poin × jumlah opsi benar yg dipilih (tanpa hukuman opsi salah
+     * yg ikut dipilih). skor_mode='all_or_nothing' (default): "Poin" adalah TOTAL soal
+     * apa adanya (poinEfektif() mengembalikan poin mentah utk mode ini, TANPA dikali
+     * jumlah opsi) — semua-atau-tidak-sama-sekali tak punya konsep "per item".
+     */
     private function scoreMultiSelect(UjianSoal $soal, UjianJawaban $jawaban): array
     {
-        $benarUuids = $soal->opsi->where('is_benar', true)->pluck('uuid')->sort()->values()->all();
-        $dipilih = collect($jawaban->opsi_dipilih_multi ?? [])->sort()->values()->all();
-        $benar = $benarUuids === $dipilih;
+        $benarUuids = $soal->opsi->where('is_benar', true)->pluck('uuid')->sort()->values();
+        $dipilih = collect($jawaban->opsi_dipilih_multi ?? [])->sort()->values();
+        $benar = $benarUuids->all() === $dipilih->all();
 
-        return ['is_benar' => $benar, 'skor' => $benar ? $soal->poin : 0];
+        if ($soal->skor_mode === 'proporsional' && $benarUuids->isNotEmpty()) {
+            $benarDipilih = $benarUuids->intersect($dipilih)->count();
+            $skor = round($soal->poin * $benarDipilih, 2);
+
+            return ['is_benar' => $benar, 'skor' => $skor];
+        }
+
+        // all_or_nothing (default): himpunan opsi terpilih harus PERSIS sama dgn opsi benar.
+        return ['is_benar' => $benar, 'skor' => $benar ? $soal->poinEfektif() : 0];
     }
 
-    /** Proporsional: poin * (pasangan benar / total pasangan). */
+    /** Sama semantik poin dgn scoreMultiSelect() (lihat komentar di sana) — proporsional: poin PER PASANGAN; all_or_nothing: poin TOTAL apa adanya. */
     private function scoreMatch(UjianSoal $soal, UjianJawaban $jawaban): array
     {
         $pairs = $soal->meta['pairs'] ?? [];
@@ -59,10 +76,16 @@ class UjianGrader
                 $benarCount++;
             }
         }
+        $benar = $benarCount === $total;
 
-        $skor = round($soal->poin * ($benarCount / $total), 2);
+        if ($soal->skor_mode === 'all_or_nothing') {
+            return ['is_benar' => $benar, 'skor' => $benar ? $soal->poinEfektif() : 0];
+        }
 
-        return ['is_benar' => $benarCount === $total, 'skor' => $skor];
+        // proporsional (default): poin × jumlah pasangan benar.
+        $skor = round($soal->poin * $benarCount, 2);
+
+        return ['is_benar' => $benar, 'skor' => $skor];
     }
 
     /**
@@ -167,17 +190,27 @@ class UjianGrader
         return false;
     }
 
-    /** Hitung total_skor final (skala 0-100), tutup attempt, transfer nilai otomatis. */
+    /**
+     * Hitung total_skor final, tutup attempt, transfer nilai otomatis. Cara menghitung
+     * total_skor ikut setting per-mapel (Pelajaran::mode_skor_ujian): 'rata_rata' (default,
+     * cara lama) menormalisasi ke skala 0-100 (skorTotal ÷ totalPoin × 100); 'jumlah'
+     * memakai total poin apa adanya (bisa >100 kalau total poin soal ujian ini >100).
+     */
     private function finalisasi(UjianAttempt $attempt, $soalById = null, $jawabanList = null): void
     {
         $soalById ??= UjianSoal::where('id_ujian', $attempt->ujianKelas->ujian->uuid)->get()->keyBy('uuid');
         $jawabanList ??= UjianJawaban::where('id_attempt', $attempt->uuid)->get();
 
         $skorTotal = $jawabanList->sum(fn ($j) => (float) $j->skor_diperoleh);
-        $totalPoin = (int) $soalById->sum('poin');
+        $totalPoin = (int) $soalById->sum(fn (UjianSoal $s) => $s->poinEfektif());
+        $modeSkor = $attempt->ujianKelas->ujian->pelajaran?->mode_skor_ujian ?? 'rata_rata';
+
+        $totalSkorFinal = $modeSkor === 'jumlah'
+            ? round($skorTotal, 2)
+            : ($totalPoin > 0 ? round($skorTotal / $totalPoin * 100, 2) : 0);
 
         $attempt->update([
-            'total_skor'             => $totalPoin > 0 ? round($skorTotal / $totalPoin * 100, 2) : 0,
+            'total_skor'             => $totalSkorFinal,
             'status'                 => UjianAttempt::STATUS_DINILAI,
             'butuh_penilaian_manual' => false,
         ]);

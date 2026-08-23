@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Guru;
 use App\Models\Kelas;
 use App\Models\Ngajar;
+use App\Models\NilaiPts;
 use App\Models\Pelajaran;
+use App\Models\Semester;
 use App\Models\Siswa;
 use App\Models\Ujian;
 use App\Models\UjianAttempt;
@@ -31,6 +33,7 @@ class UjianResetAttemptTest extends TestCase
     private User $guruUser;
     private User $siswaUser;
     private UjianAttempt $attempt;
+    private Ngajar $ngajar;
 
     protected function setUp(): void
     {
@@ -40,7 +43,7 @@ class UjianResetAttemptTest extends TestCase
 
         $this->guruUser = User::create(['username' => 'guru_monitor', 'password' => Hash::make('rahasia123'), 'access' => 'guru']);
         $guru = Guru::create(['id_login' => $this->guruUser->uuid, 'nama' => 'Guru Monitor', 'nik' => '7777777777', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
-        Ngajar::create(['id_guru' => $guru->uuid, 'id_pelajaran' => $pelajaran->uuid, 'id_kelas' => $kelas->uuid]);
+        $this->ngajar = Ngajar::create(['id_guru' => $guru->uuid, 'id_pelajaran' => $pelajaran->uuid, 'id_kelas' => $kelas->uuid]);
 
         $this->ujian = Ujian::create([
             'id_pelajaran' => $pelajaran->uuid, 'created_by' => $this->guruUser->uuid,
@@ -81,6 +84,40 @@ class UjianResetAttemptTest extends TestCase
         // Baris lama harus tetap ada utk audit, bukan dihapus.
         $this->assertDatabaseHas('ujian_attempts', ['uuid' => $this->attempt->uuid]);
         $this->assertDatabaseHas('ujian_pelanggaran', ['id_attempt' => $this->attempt->uuid, 'tipe' => 'direset_admin']);
+    }
+
+    /**
+     * "Buka Kembali Akses" dari halaman Hasil — pakai endpoint resetAttempt yang SAMA,
+     * tapi utk attempt yg statusnya sudah dinilai DAN nilainya sudah tertransfer. Nilai
+     * yg sudah tertransfer harus ikut terhapus (UjianNilaiTransfer::revert()), supaya
+     * tak "nyantol" diam2 di buku nilai padahal attempt sumbernya sudah dibatalkan.
+     */
+    public function test_reset_attempt_dinilai_yang_tertransfer_ikut_menghapus_nilai_pts(): void
+    {
+        $semester = Semester::create(['semester' => 1, 'tahun' => '2025/2026', 'aktif' => true]);
+        $siswa = Siswa::where('id_login', $this->siswaUser->uuid)->firstOrFail();
+        $nilaiPts = NilaiPts::create(['id_ngajar' => $this->ngajar->uuid, 'id_siswa' => $siswa->uuid, 'id_semester' => $semester->id, 'nilai' => 88]);
+        $this->attempt->update(['status' => UjianAttempt::STATUS_DINILAI, 'total_skor' => 88, 'status_transfer_nilai' => 'berhasil']);
+
+        $this->actingAs($this->guruUser)->post(route('ujian.monitor.resetAttempt', [$this->ujian, $this->attempt]))->assertRedirect();
+
+        $this->attempt->refresh();
+        $this->assertSame(UjianAttempt::STATUS_DIBATALKAN, $this->attempt->status);
+        $this->assertSame('belum', $this->attempt->status_transfer_nilai, 'status_transfer_nilai harus direset ke "belum" krn nilainya sudah dihapus.');
+        $this->assertDatabaseMissing('nilai_pts', ['uuid' => $nilaiPts->uuid]);
+    }
+
+    /** Attempt yg BELUM PERNAH tertransfer (status_transfer_nilai bukan 'berhasil') — reset tak boleh error/menyentuh nilai apa pun, walau siswa itu punya nilai PTS dari sumber lain (mis. input manual). */
+    public function test_reset_attempt_yang_belum_pernah_tertransfer_tak_menyentuh_nilai(): void
+    {
+        $semester = Semester::create(['semester' => 1, 'tahun' => '2025/2026', 'aktif' => true]);
+        $siswa = Siswa::where('id_login', $this->siswaUser->uuid)->firstOrFail();
+        $nilaiPtsTakTerkait = NilaiPts::create(['id_ngajar' => $this->ngajar->uuid, 'id_siswa' => $siswa->uuid, 'id_semester' => $semester->id, 'nilai' => 70]);
+
+        $this->actingAs($this->guruUser)->post(route('ujian.monitor.resetAttempt', [$this->ujian, $this->attempt]))->assertRedirect();
+
+        // Nilai yg tak berasal dari transfer attempt yg direset (status_transfer_nilai bukan berhasil) tidak boleh ikut terhapus.
+        $this->assertDatabaseHas('nilai_pts', ['uuid' => $nilaiPtsTakTerkait->uuid]);
     }
 
     public function test_siswa_bisa_mulai_lagi_dengan_token_sama_setelah_direset(): void

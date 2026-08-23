@@ -26,6 +26,9 @@ class SoalValidator
             'teks_soal'             => 'required|string|max:60000',
             'poin'                  => 'required|integer|min:1|max:100',
             'penjelasan'            => 'nullable|string|max:2000',
+            // Cuma relevan utk mcq_complex & match — diabaikan tipe lain, default
+            // 'all_or_nothing' kalau tak dikirim (mis. form lama/tipe lain).
+            'skor_mode'             => 'nullable|in:all_or_nothing,proporsional',
             // mcq/mcq_complex/true_false. Field2 opsi/pasangan LAIN-tipe tetap ada di DOM
             // (cuma disembunyikan CSS lewat x-show, bukan dihapus) jadi tetap ikut ter-submit
             // form asli browser walau kosong — dan middleware bawaan Laravel
@@ -48,6 +51,7 @@ class SoalValidator
         // ulang saat render). Penulis = guru/admin tepercaya, sama seperti materi Ruang Kelas
         // (lihat App\Support\RichText).
         $data['teks_soal'] = RichText::clean($data['teks_soal']);
+        $data['skor_mode'] = $data['skor_mode'] ?? 'all_or_nothing';
         if (!empty($data['opsi'])) {
             foreach ($data['opsi'] as $i => $o) {
                 $data['opsi'][$i]['teks'] = RichText::clean($o['teks']);

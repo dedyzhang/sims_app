@@ -93,6 +93,65 @@ class UjianAdminCrudTest extends TestCase
         $this->assertSame(0, $ujian->kelas()->count());
     }
 
+    /**
+     * Bug report FL: mengganti "Jenis Ujian" (PTS→PAS) di Pengaturan tidak ikut mengubah
+     * "Target Nilai" (ke buku nilai mana skor ditransfer) — dua field ini SENGAJA independen
+     * (lihat store()), tapi sebelumnya target_nilai bahkan tak punya form field di Pengaturan
+     * sama sekali, jadi tak ada cara memperbaikinya lewat UI selain lewat sini.
+     */
+    public function test_target_nilai_bisa_diubah_selama_ujian_masih_draft(): void
+    {
+        $admin = User::create(['username' => 'admin_target_nilai', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
+        $ujian = $this->buatUjian($admin);
+        $this->assertSame('pts', $ujian->target_nilai);
+
+        $res = $this->actingAs($admin)->post(route('ujian.update', $ujian), [
+            'judul' => $ujian->judul, 'jenis' => 'pas', 'durasi_menit' => 90,
+            'target_nilai' => 'pas',
+        ]);
+        $res->assertRedirect();
+
+        $ujian->refresh();
+        $this->assertSame('pas', $ujian->target_nilai);
+        $this->assertSame('pas', $ujian->jenis);
+    }
+
+    public function test_ubah_target_nilai_ditolak_saat_ujian_sudah_terbit(): void
+    {
+        $admin = User::create(['username' => 'admin_target_nilai2', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
+        $ujian = $this->buatUjian($admin);
+        $ujian->update(['status' => 'published']);
+
+        $this->actingAs($admin)->post(route('ujian.update', $ujian), [
+            'judul' => $ujian->judul, 'jenis' => 'pas', 'durasi_menit' => 90,
+            'target_nilai' => 'pas',
+        ])->assertRedirect();
+
+        // Target nilai TIDAK ikut berubah walau ujian sudah terbit — walau "jenis" (label
+        // tampilan) tetap boleh diubah kapan saja (tak divalidasi status draft).
+        $this->assertSame('pts', $ujian->fresh()->target_nilai);
+    }
+
+    public function test_target_nilai_ujian_sumatif_tak_bisa_diubah(): void
+    {
+        $admin = User::create(['username' => 'admin_target_nilai3', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
+        $guruUser = User::create(['username' => 'guru_target_nilai3', 'password' => Hash::make('rahasia123'), 'access' => 'guru']);
+        $guru = Guru::create(['id_login' => $guruUser->uuid, 'nama' => 'Guru Target Nilai', 'nik' => '5551112222', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+        $ngajar = Ngajar::create(['id_guru' => $guru->uuid, 'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => $this->kelas->uuid]);
+        $materi = \App\Models\Materi::create(['id_ngajar' => $ngajar->uuid, 'nama' => 'Bab 1']);
+        $ujian = Ujian::create([
+            'id_pelajaran' => $this->pelajaran->uuid, 'id_materi' => $materi->uuid, 'created_by' => $admin->uuid,
+            'judul' => 'Ulangan Harian Bab 1', 'jenis' => 'harian', 'target_nilai' => 'sumatif', 'durasi_menit' => 45,
+        ]);
+
+        $this->actingAs($admin)->post(route('ujian.update', $ujian), [
+            'judul' => $ujian->judul, 'jenis' => 'harian', 'durasi_menit' => 45,
+            'target_nilai' => 'pas',
+        ])->assertRedirect();
+
+        $this->assertSame('sumatif', $ujian->fresh()->target_nilai);
+    }
+
     public function test_ubah_pelajaran_ditolak_saat_ujian_sudah_terbit(): void
     {
         $admin = User::create(['username' => 'admin_edit2', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
