@@ -22,11 +22,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('ujian_berita_acara', function (Blueprint $table) {
+            $table->dropForeign(['id_ruangan']);
             $table->dropUnique(['id_ruangan', 'tanggal']);
 
             $table->uuid('id_ujian')->nullable()->after('id_ruangan');
             $table->uuid('id_guru_pengawas')->nullable()->after('diisi_oleh');
 
+            $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();
             $table->foreign('id_ujian')->references('uuid')->on('ujians')->nullOnDelete();
             $table->foreign('id_guru_pengawas')->references('uuid')->on('gurus')->nullOnDelete();
 
@@ -37,11 +39,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ujian_berita_acara', function (Blueprint $table) {
+            $table->dropForeign(['id_ruangan']);
             $table->dropUnique(['id_ruangan', 'id_ujian', 'tanggal']);
             $table->dropForeign(['id_ujian']);
             $table->dropForeign(['id_guru_pengawas']);
             $table->dropColumn(['id_ujian', 'id_guru_pengawas']);
 
+            $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();
             $table->unique(['id_ruangan', 'tanggal']);
         });
     }

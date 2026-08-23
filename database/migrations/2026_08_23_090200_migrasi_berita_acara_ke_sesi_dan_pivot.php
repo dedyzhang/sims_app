@@ -66,9 +66,12 @@ return new class extends Migration
         }
 
         Schema::table('ujian_berita_acara', function (Blueprint $table) {
+            $table->dropForeign(['id_ruangan']);
             $table->dropUnique(['id_ruangan', 'id_ujian', 'tanggal']);
             $table->dropForeign(['id_ujian']);
             $table->dropColumn('id_ujian');
+
+            $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();
             $table->unique(['id_ruangan', 'id_sesi']);
         });
     }
@@ -76,9 +79,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('ujian_berita_acara', function (Blueprint $table) {
+            $table->dropForeign(['id_ruangan']);
             $table->dropUnique(['id_ruangan', 'id_sesi']);
             $table->uuid('id_ujian')->nullable()->after('id_ruangan');
+            
+            $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();
             $table->foreign('id_ujian')->references('uuid')->on('ujians')->nullOnDelete();
+            $table->unique(['id_ruangan', 'id_ujian', 'tanggal']);
         });
 
         // Best-effort, LOSSY kalau ada BA multi-mapel — ambil id_ujian pertama per grup.
