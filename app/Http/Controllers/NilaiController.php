@@ -77,20 +77,31 @@ class NilaiController extends Controller
     public function index()
     {
         $user = auth()->user();
+        $canViewAll = $user->canAccess('view_all_nilai');
         $q = Ngajar::with(['pelajaran', 'kelas', 'guru'])
             ->whereNotNull('id_guru')->whereNotNull('id_pelajaran')->whereNotNull('id_kelas');
 
-        if (!$user->canAccess('view_all_nilai')) {
+        if (!$canViewAll) {
             $guru = $user->guru;
             $q->where('id_guru', $guru?->uuid ?? '-');
         }
 
         $ngajars = $q->get()->sortBy(fn ($n) => [$n->pelajaran?->urutan, $n->pelajaran?->nama, $n->kelas?->tingkat, $n->kelas?->kelas])->values();
 
+        // Staf dual-role (kurikulum/kepala/dst) yg py profil Guru + penugasan mengajar SENDIRI
+        // (bukan cek literal access==='kurikulum' — pola sama spt UjianPolicy::create()/
+        // BankSoalPolicy::create(), $user->guru) — tampilkan penugasannya sendiri dulu di
+        // section terpisah, baru daftar lengkap semua pelajaran/tingkat di bawahnya.
+        $ngajarsSaya = ($canViewAll && $user->guru)
+            ? $ngajars->where('id_guru', $user->guru->uuid)->values()
+            : collect();
+
         return view('nilai.index', [
-            'ngajars'  => $ngajars,
-            'semester' => $this->semester(),
-            'isAdmin'  => $user->isAdmin(),
+            'ngajars'     => $ngajars,
+            'ngajarsSaya' => $ngajarsSaya,
+            'semester'    => $this->semester(),
+            'isAdmin'     => $user->isAdmin(),
+            'canViewAll'  => $canViewAll,
         ]);
     }
 

@@ -73,12 +73,32 @@ class PoinController extends Controller
         return ['penginput' => 'sekretaris', 'id_input' => $u->siswa->uuid];
     }
 
-    /** Daftar siswa yang boleh diajukan poinnya: guru biasa=semua, walikelas/sekretaris=kelasnya saja. */
+    /** Daftar siswa yg boleh dilihat di "Lihat ringkasan"/ledger: walikelas=kelasnya saja, admin/kesiswaan=semua. */
     private function siswaScope()
     {
         $u = auth()->user();
         if ($u->guru?->walikelas) {
             return Siswa::where('id_kelas', $u->guru->walikelas->id_kelas);
+        }
+        if ($kelasId = $u->siswa?->sekretarisKelasId()) {
+            return Siswa::where('id_kelas', $kelasId);
+        }
+        return Siswa::query();
+    }
+
+    /**
+     * Daftar siswa yg boleh DIAJUKAN poinnya — SENGAJA beda dari siswaScope() di atas (yg
+     * dipakai "Lihat ringkasan"/ledger, wali kelas TETAP dibatasi kelasnya di situ). Di sini
+     * SEMUA guru (termasuk yg kebetulan wali kelas) boleh ajukan poin utk siswa MANA PUN
+     * se-sekolah — permintaan FL: "semua guru bisa mengajukan poin/P3 utk seluruh siswa".
+     * Sekretaris kelas (siswa, bukan guru) TETAP dibatasi ke kelasnya sendiri — wewenangnya
+     * memang didelegasikan terbatas ke kelasnya, tak diminta diperluas.
+     */
+    private function siswaScopeAjuan()
+    {
+        $u = auth()->user();
+        if ($u->guru) {
+            return Siswa::query();
         }
         if ($kelasId = $u->siswa?->sekretarisKelasId()) {
             return Siswa::where('id_kelas', $kelasId);
@@ -536,7 +556,7 @@ class PoinController extends Controller
     {
         $this->guardAjukan();
         [$sort, $dir] = \App\Support\TableSort::resolve($request, ['nama', 'nis'], 'nama');
-        $siswas = $this->siswaScope()->with('kelas')
+        $siswas = $this->siswaScopeAjuan()->with('kelas')
             ->when($request->search, fn ($q) => $q->where('nama', 'like', '%' . $request->search . '%'))
             ->orderBy($sort, $dir)->paginate(24)->withQueryString();
         return view('poin.guru.index', compact('siswas'));

@@ -6,6 +6,7 @@ use App\Models\Guru;
 use App\Models\Kelas;
 use App\Models\Ngajar;
 use App\Models\Pelajaran;
+use App\Models\RolePermission;
 use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -110,6 +111,49 @@ class NilaiAccessTest extends TestCase
             'id_ngajar' => $ngajarA->uuid,
             'nama'      => 'Bab Admin',
         ]);
+    }
+
+    /**
+     * Bug report FL: staf kurikulum yg KEBETULAN juga py profil Guru + penugasan mengajar
+     * sendiri (dual-role, pola sama spt UjianPolicy::create()) harus lihat penugasannya
+     * sendiri dulu di section "Data Ngajar Saya", terpisah dari daftar lengkap semua
+     * pelajaran/tingkat ("Semua Data Ngajar") — bukan cuma salah satu.
+     */
+    public function test_kurikulum_dual_role_lihat_ngajar_sendiri_dan_semua_data(): void
+    {
+        RolePermission::create(['role' => 'kurikulum', 'permission' => 'view_all_nilai']);
+
+        [$userKurikulum, $guruKurikulum] = $this->buatGuru('kurikulumguru', '3333333333');
+        $userKurikulum->update(['access' => 'kurikulum']);
+        $ngajarSendiri = $this->ngajarMilik($guruKurikulum);
+
+        [, $guruLain] = $this->buatGuru('gurulain', '4444444444');
+        $kelasLain = Kelas::create(['tingkat' => 8, 'kelas' => 'B']);
+        $ngajarLain = Ngajar::create([
+            'id_guru' => $guruLain->uuid, 'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => $kelasLain->uuid,
+        ]);
+
+        $response = $this->actingAs($userKurikulum)->get('/nilai');
+
+        $response->assertOk();
+        $response->assertViewHas('ngajarsSaya', fn ($list) => $list->count() === 1 && $list->first()->uuid === $ngajarSendiri->uuid);
+        $response->assertViewHas('ngajars', fn ($list) => $list->count() === 2 && $list->pluck('uuid')->contains($ngajarLain->uuid));
+        $response->assertViewHas('canViewAll', true);
+        $response->assertSee('Data Ngajar Saya');
+        $response->assertSee('Semua Data Ngajar');
+    }
+
+    /** Guru biasa (view_all_nilai TIDAK dimiliki) tak boleh dapat section "Data Ngajar Saya" — cukup daftar biasa spt sebelumnya. */
+    public function test_guru_biasa_tidak_dapat_section_ngajar_saya_terpisah(): void
+    {
+        [$user, $guru] = $this->buatGuru('gurubiasa', '5555555555');
+        $this->ngajarMilik($guru);
+
+        $response = $this->actingAs($user)->get('/nilai');
+
+        $response->assertOk();
+        $response->assertViewHas('ngajarsSaya', fn ($list) => $list->isEmpty());
+        $response->assertDontSee('Data Ngajar Saya');
     }
 
     public function test_tamu_diarahkan_ke_login(): void

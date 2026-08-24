@@ -1,5 +1,4 @@
 @extends('layouts.app')
-@php $canViewAll = $isAdmin || auth()->user()?->access === 'kepala'; @endphp
 @section('title', $canViewAll ? 'Penilaian' : 'Buku Guru')
 
 @section('content')
@@ -85,7 +84,8 @@
             pasUrl: '{{ route('nilai.pas', $n->uuid) }}',
             raporUrl: '{{ route('nilai.rapor', $n->uuid) }}',
             colorClass: 'card-tingkat-{{ $n->kelas?->tingkat ?? '' }}',
-            textClass: 'text-tingkat-{{ $n->kelas?->tingkat ?? '' }}'
+            textClass: 'text-tingkat-{{ $n->kelas?->tingkat ?? '' }}',
+            mine: {{ auth()->user()?->guru && $n->id_guru === auth()->user()->guru->uuid ? 'true' : 'false' }}
         },
         @endforeach
     ],
@@ -126,6 +126,55 @@
         <p class="text-sm mt-1">{{ $isAdmin ? 'Atur "Pelajaran Diajar" tiap guru dulu.' : 'Hubungi admin untuk mengatur pelajaran yang Anda ajar.' }}</p>
     </div>
     @else
+
+    @if($ngajarsSaya->isNotEmpty())
+    {{-- Staf dual-role (mis. kurikulum yg juga mengajar) — penugasan mengajarnya SENDIRI
+         ditampilkan dulu di sini, terpisah dari daftar lengkap semua pelajaran/tingkat
+         di bawahnya. Tak ikut kena filter Cari/Kelas/Pelajaran/Guru — selalu tampil penuh. --}}
+    <div>
+        <h2 class="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-1.5">
+            <i data-lucide="user-check" class="w-4 h-4"></i> Data Ngajar Saya
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <template x-for="item in items.filter(i => i.mine)" :key="'mine-' + item.uuid">
+                <div :class="'card p-4 flex flex-col gap-3 transition-all duration-300 ' + item.colorClass">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                            <p class="font-bold text-slate-800 dark:text-slate-100 truncate text-base" x-text="item.pelajaranNama"></p>
+                            <p class="text-xs text-slate-400 font-medium mt-0.5"><span x-text="item.pelajaranKode"></span> &bull; KKM <span x-text="item.kkm"></span></p>
+                        </div>
+                        <span :class="'badge flex-shrink-0 font-bold px-3 py-1 rounded-full ' + item.textClass" x-text="item.kelasNama"></span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-2">
+                        <a :href="item.materiUrl" class="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-white/40 dark:hover:bg-slate-700/50 transition">
+                            <i data-lucide="book-open" class="w-3.5 h-3.5"></i> Materi
+                        </a>
+                        <a :href="item.formatifUrl" class="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-white/40 dark:hover:bg-slate-700/50 transition">
+                            <i data-lucide="pencil" class="w-3.5 h-3.5"></i> Formatif
+                        </a>
+                        <a :href="item.sumatifUrl" class="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-white/40 dark:hover:bg-slate-700/50 transition">
+                            <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i> Sumatif
+                        </a>
+                        <a :href="item.ptsUrl" class="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-white/40 dark:hover:bg-slate-700/50 transition">
+                            <i data-lucide="file-clock" class="w-3.5 h-3.5"></i> PTS
+                        </a>
+                        <a :href="item.pasUrl" class="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-white/40 dark:hover:bg-slate-700/50 transition">
+                            <i data-lucide="file-check-2" class="w-3.5 h-3.5"></i> PAS
+                        </a>
+                        <a :href="item.raporUrl" class="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 transition">
+                            <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Rapor
+                        </a>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <h2 class="text-sm font-bold text-slate-700 dark:text-slate-200 -mb-1 flex items-center gap-1.5">
+        <i data-lucide="layout-grid" class="w-4 h-4"></i> Semua Data Ngajar
+    </h2>
+    @endif
+
     {{-- Search & Filters --}}
     <div class="card p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-white/70 dark:bg-slate-800/70 backdrop-blur-md">
         <div>
