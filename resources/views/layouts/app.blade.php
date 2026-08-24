@@ -308,15 +308,15 @@
         .nav-link { position:relative; color: color-mix(in srgb, var(--stx) 72%, transparent); border-radius:14px; transition:all .16s; }
         .nav-link:hover { background: color-mix(in srgb, var(--cp) 12%, transparent); color: {{ $isSidebarDark ? '#ffffff' : 'color-mix(in srgb, var(--stx) 95%, black)' }}; }
         .nav-link.active {
-            background: {{ $isSidebarDark ? 'rgba(124, 108, 240, 0.28)' : 'color-mix(in srgb, #7C6CF0 14%, white)' }};
-            color: {{ $isSidebarDark ? '#E8E4FF' : '#5B4FD4' }};
+            background: {{ $isSidebarDark ? 'color-mix(in srgb, var(--cp) 30%, transparent)' : 'color-mix(in srgb, var(--cp) 16%, white)' }};
+            color: {{ $isSidebarDark ? '#ffffff' : 'color-mix(in srgb, var(--cp) 80%, black)' }};
             font-weight:700;
             box-shadow: none;
             border-radius: 12px;
         }
-        .nav-link.active .nav-icon { color: {{ $isSidebarDark ? '#C4B5FD' : '#7C6CF0' }}; stroke-width:2.5; }
-        .dark .nav-link.active { background: rgba(124, 108, 240, 0.22); color: #E8E4FF; }
-        .dark .nav-link.active .nav-icon { color: #C4B5FD; }
+        .nav-link.active .nav-icon { color: {{ $isSidebarDark ? 'color-mix(in srgb, var(--cp) 55%, white)' : 'var(--cp)' }}; stroke-width:2.5; }
+        .dark .nav-link.active { background: color-mix(in srgb, var(--cp) 26%, transparent); color: #ffffff; }
+        .dark .nav-link.active .nav-icon { color: color-mix(in srgb, var(--cp) 55%, white); }
         .nav-section { color: color-mix(in srgb, var(--stx) 45%, transparent); }
         .dark .nav-section { color:#64748b; }
         .nav-personal { border-color: color-mix(in srgb, var(--stx) 12%, transparent); }
@@ -1003,6 +1003,15 @@
                     ];
                 };
                 $registerNav('dashboard', ['dashboard'], 'layout-dashboard', 'Dashboard');
+                // Rute yg SELALU tampil permanen di sidebar (Dashboard + link statis lain di luar
+                // grup kategori) — dikecualikan dari "Baru Dibuka"/"Favorit" biar tak dobel tampil
+                // (nama-nama ini dicek terlepas dari kondisi modul/role yg sesungguhnya menentukan
+                // tampil-tidaknya link itu — aman kalau berlebih, cuma jadi tak pernah cocok bagi
+                // user yg memang tak pernah melihat link itu sama sekali).
+                $navPinnedRoutes = [
+                    'dashboard', 'kartu-pelajar.self', 'kartu-guru.self', 'forum.index', 'pengumuman.index',
+                    'grup.index', 'app.download', 'chatbot.admin.inbox', 'keuangan.tagihan.index', 'pantau-lokasi.index',
+                ];
                 $navExpandedDefaults = [];
                 foreach ($groups as $gk => $g) {
                     $items = $g[2];
@@ -1122,17 +1131,28 @@
             <div x-show="!navSearchQuery.trim().length">
 
             {{-- Menu utama (selalu tampil) --}}
-            <p x-show="!mini" class="nav-section px-3 pt-2 pb-2 text-[11px] font-bold uppercase tracking-[.1em]">Navigasi</p>
-            <a href="{{ route('dashboard') }}" data-nav-route="dashboard" data-tip="Dashboard" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('dashboard') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
-                <i data-lucide="layout-dashboard" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
-                <span x-show="!mini" class="text-sm truncate">Dashboard</span>
-            </a>
+            <button type="button" @click="toggleNavSection('nav')" x-show="!mini"
+                    class="nav-section w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-bold uppercase tracking-[.1em] hover:opacity-80 transition">
+                <span>Navigasi</span>
+                <i data-lucide="chevron-down" class="w-3 h-3 flex-shrink-0 transition-transform duration-200" :class="navSectionOpen.nav ? '' : '-rotate-90'"></i>
+            </button>
+            <div x-show="mini || navSectionOpen.nav" x-collapse>
+                <a href="{{ route('dashboard') }}" data-nav-route="dashboard" data-tip="Dashboard" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('dashboard') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
+                    <i data-lucide="layout-dashboard" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
+                    <span x-show="!mini" class="text-sm truncate">Dashboard</span>
+                </a>
+            </div>
 
             {{-- Favorit & Baru dibuka (personal, localStorage) --}}
             <div x-show="!mini && (navFavorites.length || navRecent.length)" x-cloak
-                 class="nav-personal mt-2 pt-2 border-t">
+                 class="nav-personal mt-2 pt-2 pb-2 border-t border-b">
                 <div x-show="navFavorites.length">
-                    <p class="nav-section px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-[.1em]">Favorit</p>
+                    <button type="button" @click="toggleNavSection('fav')"
+                            class="nav-section w-full flex items-center justify-between px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-[.1em] hover:opacity-80 transition">
+                        <span>Favorit</span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 flex-shrink-0 transition-transform duration-200" :class="navSectionOpen.fav ? '' : '-rotate-90'"></i>
+                    </button>
+                    <div x-show="mini || navSectionOpen.fav" x-collapse>
                     <template x-for="item in navFavorites" :key="item.route">
                         <a :href="item.url" :data-nav-route="item.route" :data-tip="item.label"
                            class="nav-link flex items-center gap-2.5 px-3 py-2"
@@ -1145,9 +1165,15 @@
                             </button>
                         </a>
                     </template>
+                    </div>
                 </div>
                 <div x-show="navRecent.length" :class="navFavorites.length ? 'mt-1 pt-1 border-t border-black/[.04] dark:border-white/[.06]' : ''">
-                    <p class="nav-section px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-[.1em]">Baru dibuka</p>
+                    <button type="button" @click="toggleNavSection('recent')"
+                            class="nav-section w-full flex items-center justify-between px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-[.1em] hover:opacity-80 transition">
+                        <span>Baru dibuka</span>
+                        <i data-lucide="chevron-down" class="w-3 h-3 flex-shrink-0 transition-transform duration-200" :class="navSectionOpen.recent ? '' : '-rotate-90'"></i>
+                    </button>
+                    <div x-show="mini || navSectionOpen.recent" x-collapse>
                     <template x-for="item in navRecent" :key="item.route">
                         <a :href="item.url" :data-nav-route="item.route" :data-tip="item.label"
                            class="nav-link flex items-center gap-2.5 px-3 py-2"
@@ -1156,6 +1182,7 @@
                             <span class="text-[13px] truncate" x-text="item.label"></span>
                         </a>
                     </template>
+                    </div>
                 </div>
             </div>
             @if($modulOn('kartu_pelajar') && auth()->user()?->siswa)
@@ -1878,6 +1905,16 @@
                 return matches[0] || '';
             })(),
             navRegistry: @json($navRegistry),
+            navPinnedRoutes: @json($navPinnedRoutes ?? []),
+            // Buka/tutup section "Navigasi"/"Favorit"/"Baru dibuka" — default semua terbuka
+            // (perilaku lama), diingat per-browser lewat localStorage spt openGroup di atas.
+            navSectionOpen: (() => {
+                const defaults = { nav: true, fav: true, recent: true };
+                try {
+                    const stored = JSON.parse(localStorage.getItem('sims_nav_section_open') || 'null');
+                    return stored ? { ...defaults, ...stored } : defaults;
+                } catch (_) { return defaults; }
+            })(),
             navSearchQuery: '',
             navSearchCatalog: @json($navSearchItems ?? []),
             navFavorites: [],
@@ -1885,6 +1922,7 @@
             currentRoute: @json(Route::currentRouteName()),
             navExpanded: Object.assign(@json($navExpandedDefaults), (() => { try { return JSON.parse(localStorage.getItem('sims_nav_expanded') || '{}'); } catch (_) { return {}; } })()),
             toggleGroup(g){ this.openGroup = (this.openGroup === g ? '' : g); localStorage.setItem('sb_group', this.openGroup); this.$nextTick(()=>lucide.createIcons()); },
+            toggleNavSection(key){ this.navSectionOpen[key] = !this.navSectionOpen[key]; localStorage.setItem('sims_nav_section_open', JSON.stringify(this.navSectionOpen)); this.$nextTick(()=>lucide.createIcons()); },
             darkMode: (localStorage.getItem('theme_mode') ?? '{{ $pref->theme_mode ?? 'light' }}') === 'dark',
             uiStyle: '{{ $pref->ui_style ?? 'soft' }}',
             adminChatUnread: 0,
@@ -2005,18 +2043,23 @@
             },
             loadNavFavorites(){
                 const reg = this.navRegistry;
+                const pinned = this.navPinnedRoutes || [];
                 try {
                     const routes = JSON.parse(localStorage.getItem('sims_nav_favorites') || localStorage.getItem('sb_favorites') || '[]');
-                    this.navFavorites = routes.filter(r => reg[r]).map(r => reg[r]);
+                    this.navFavorites = routes.filter(r => reg[r] && !pinned.includes(r)).map(r => reg[r]);
                 } catch (_) {
                     this.navFavorites = [];
                 }
             },
             loadNavRecent(){
                 const reg = this.navRegistry;
+                const pinned = this.navPinnedRoutes || [];
                 try {
                     const routes = JSON.parse(localStorage.getItem('sims_nav_recent') || localStorage.getItem('sb_recent') || '[]');
-                    this.navRecent = routes.filter(r => reg[r]).map(r => reg[r]).slice(0, 5);
+                    // Rute yg SUDAH permanen tampil di sidebar (Dashboard, Kartu ID, dst) dibuang dari
+                    // sini — kalau tidak, "Baru Dibuka" akan menampilkan link yg SAMA PERSIS dgn yg
+                    // sudah kelihatan di bagian statis di bawahnya, bikin dobel yg membingungkan.
+                    this.navRecent = routes.filter(r => reg[r] && !pinned.includes(r)).map(r => reg[r]).slice(0, 5);
                 } catch (_) {
                     this.navRecent = [];
                 }

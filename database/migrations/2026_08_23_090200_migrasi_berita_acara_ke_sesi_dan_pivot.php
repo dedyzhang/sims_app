@@ -65,15 +65,19 @@ return new class extends Migration
             ]);
         }
 
-        Schema::table('ujian_berita_acara', function (Blueprint $table) {
-            $table->dropForeign(['id_ruangan']);
-        });
+        try {
+            Schema::table('ujian_berita_acara', function (Blueprint $table) {
+                $table->dropForeign(['id_ruangan']);
+            });
+        } catch (\Exception $e) {}
 
-        Schema::table('ujian_berita_acara', function (Blueprint $table) {
-            $table->dropUnique(['id_ruangan', 'id_ujian', 'tanggal']);
-            $table->dropForeign(['id_ujian']);
-            $table->dropColumn('id_ujian');
-        });
+        try {
+            Schema::table('ujian_berita_acara', function (Blueprint $table) {
+                $table->dropUnique(['id_ruangan', 'id_ujian', 'tanggal']);
+                $table->dropForeign(['id_ujian']);
+                $table->dropColumn('id_ujian');
+            });
+        } catch (\Exception $e) {}
 
         Schema::table('ujian_berita_acara', function (Blueprint $table) {
             $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();
@@ -83,14 +87,18 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('ujian_berita_acara', function (Blueprint $table) {
-            $table->dropForeign(['id_ruangan']);
-        });
+        try {
+            Schema::table('ujian_berita_acara', function (Blueprint $table) {
+                $table->dropForeign(['id_ruangan']);
+            });
+        } catch (\Exception $e) {}
 
-        Schema::table('ujian_berita_acara', function (Blueprint $table) {
-            $table->dropUnique(['id_ruangan', 'id_sesi']);
-            $table->uuid('id_ujian')->nullable()->after('id_ruangan');
-        });
+        try {
+            Schema::table('ujian_berita_acara', function (Blueprint $table) {
+                $table->dropUnique(['id_ruangan', 'id_sesi']);
+                $table->uuid('id_ujian')->nullable()->after('id_ruangan');
+            });
+        } catch (\Exception $e) {}
         
         Schema::table('ujian_berita_acara', function (Blueprint $table) {
             $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();

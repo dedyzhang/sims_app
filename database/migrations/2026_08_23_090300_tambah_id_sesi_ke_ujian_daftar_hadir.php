@@ -30,14 +30,18 @@ return new class extends Migration
         // Drop unique lama DULU (bukan di akhir) — backfill di bawah sengaja bisa
         // insert >1 baris utk (id_ruangan,id_siswa,tanggal) yg sama (duplikasi per
         // sesi), yg akan ditolak constraint lama kalau belum di-drop.
-        Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
-            $table->dropForeign(['id_ruangan']);
-            $table->dropForeign(['id_siswa']);
-        });
+        try {
+            Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
+                $table->dropForeign(['id_ruangan']);
+                $table->dropForeign(['id_siswa']);
+            });
+        } catch (\Exception $e) {}
 
-        Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
-            $table->dropUnique(['id_ruangan', 'id_siswa', 'tanggal']);
-        });
+        try {
+            Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
+                $table->dropUnique(['id_ruangan', 'id_siswa', 'tanggal']);
+            });
+        } catch (\Exception $e) {}
 
         Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
             $table->foreign('id_ruangan')->references('uuid')->on('ujian_ruangan')->cascadeOnDelete();
@@ -86,16 +90,20 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
-            $table->dropForeign(['id_ruangan']);
-            $table->dropForeign(['id_siswa']);
-        });
+        try {
+            Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
+                $table->dropForeign(['id_ruangan']);
+                $table->dropForeign(['id_siswa']);
+            });
+        } catch (\Exception $e) {}
 
-        Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
-            $table->dropUnique(['id_ruangan', 'id_siswa', 'id_sesi']);
-            $table->dropForeign(['id_sesi']);
-            $table->dropColumn('id_sesi');
-        });
+        try {
+            Schema::table('ujian_daftar_hadir', function (Blueprint $table) {
+                $table->dropUnique(['id_ruangan', 'id_siswa', 'id_sesi']);
+                $table->dropForeign(['id_sesi']);
+                $table->dropColumn('id_sesi');
+            });
+        } catch (\Exception $e) {}
         // NOTE: baris duplikat hasil backfill (kalau ada) TIDAK di-dedupe otomatis di sini —
         // unique lama (id_ruangan,id_siswa,tanggal) akan GAGAL re-add kalau masih ada duplikat
         // sisa dari backfill. Perlu DELETE manual duplikat dulu kalau benar2 rollback.
