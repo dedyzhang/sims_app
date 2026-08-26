@@ -79,11 +79,9 @@ class CetakRaporController extends Controller
             ->sortBy(fn ($n) => [$n->pelajaran?->urutan ?? 99, $n->pelajaran?->nama])->values();
         $ngajarMapel = $ngajars->reject(fn ($n) => in_array($n->id_pelajaran, $pelajaranEkskul, true))->values();
 
-        // Olah rapor (nilai + predikat + deskripsi) per ngajar untuk seluruh siswa.
-        $olah = [];
-        foreach ($ngajars as $ng) {
-            $olah[$ng->uuid] = RaporHitung::olah($ng, $siswas, $sem?->id, $rumus, $ng->kktp);
-        }
+        // Olah rapor (nilai + predikat + deskripsi) SEMUA ngajar sekaligus (5 query flat,
+        // bukan 5×N di dalam loop) — hasil identik dgn olah() per ngajar (RaporHitungBulkTest).
+        $olah = RaporHitung::olahBanyak($ngajars, $siswas, $sem?->id, $rumus);
 
         // Ekskul per siswa (manual = ketik; dari mapel = olahan rapor).
         $manualIds = $ekskuls->filter(fn ($e) => !$e->dariMapel())->pluck('uuid')->all();

@@ -211,6 +211,11 @@ class SekretarisAbsensiTest extends TestCase
         // itu bukan bagian dari store() itu sendiri.
         $this->actingAs($sekretarisUser)->get(route('absensi.index'));
 
+        // Memo per-request (Semester::aktif) persist antar-request DALAM satu test walau di
+        // produksi tiap request kontainernya cold — reset sebelum tiap pengukuran supaya kedua
+        // POST diukur dari state cold yang sama (representatif produksi), bukan yg kedua "nebeng"
+        // memo yg dihangatkan yg pertama.
+        \App\Models\Semester::clearCache();
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->actingAs($sekretarisUser)->post('/absensi', [
@@ -226,6 +231,7 @@ class SekretarisAbsensiTest extends TestCase
             $duaPuluh[] = $this->buatSiswa($kelas, "siswa_scale_20_{$i}", "Siswa Scale20 {$i}", "SEK-S20-{$i}");
         }
 
+        \App\Models\Semester::clearCache();
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->actingAs($sekretarisUser)->post('/absensi', [

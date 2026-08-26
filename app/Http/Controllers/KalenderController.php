@@ -101,19 +101,35 @@ class KalenderController extends Controller
         $awal = Carbon::parse($data['bulan'].'-01')->startOfMonth();
         $akhir = $awal->copy()->endOfMonth();
         $sem = (int) (\App\Models\Semester::aktif()?->semester ?? 1);
-        $n = 0;
 
+        // Kumpulkan tanggal target (skip akhir pekan kecuali diminta), lalu SATU upsert batch —
+        // bukan lagi firstOrNew()+save() per hari (dulu ~2 query/hari = ~60 query sebulan).
+        $tanggalTarget = [];
         for ($d = $awal->copy(); $d <= $akhir; $d->addDay()) {
             if (empty($data['akhir_pekan']) && $d->dayOfWeekIso >= 6) {
                 continue;   // lewati Sabtu/Minggu kecuali diminta
             }
-            $row = HariEfektif::firstOrNew(['tanggal' => $d->toDateString()]);
-            $row->{$data['field']} = $data['value'];
-            if (! $row->semester) {
-                $row->semester = $sem;
-            }
-            $row->save();
-            $n++;
+            $tanggalTarget[] = $d->toDateString();
+        }
+        $n = count($tanggalTarget);
+
+        if ($n > 0) {
+            // Pertahankan semester baris LAMA yg sudah punya nilai (perilaku `if(!$row->semester)`
+            // versi loop): existing non-null tetap, existing-null & baris baru diisi $sem.
+            $semesterLama = HariEfektif::whereIn('tanggal', $tanggalTarget)->pluck('semester', 'tanggal');
+            $now = now();
+            $rows = array_map(fn ($tgl) => [
+                'uuid'          => (string) \Illuminate\Support\Str::orderedUuid(), // HasUuids tak jalan di upsert
+                'tanggal'       => $tgl,
+                $data['field']  => $data['value'],
+                'semester'      => $semesterLama[$tgl] ?? $sem,
+                'created_at'    => $now,
+                'updated_at'    => $now,
+            ], $tanggalTarget);
+
+            // upsert: kolom di arg ke-3 saja yg ditimpa saat baris sudah ada — field lain
+            // (absen_siswa/agenda_guru/kaih_wajib yg BUKAN target, keterangan) tak tersentuh.
+            HariEfektif::upsert($rows, ['tanggal'], [$data['field'], 'semester', 'updated_at']);
         }
 
         $f = match ($data['field']) {

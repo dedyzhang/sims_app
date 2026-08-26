@@ -73,7 +73,8 @@ class SettingController extends Controller
         $request->validate([
             'semester_id' => 'required|exists:semesters,id',
         ]);
-        Semester::query()->update(['aktif' => false]);
+        Semester::query()->update(['aktif' => false]); // mass-update: tak memicu event model
+        Semester::clearCache();                          // wajib manual, pola sama RolePermission::clearCache()
         Semester::findOrFail($request->semester_id)->update(['aktif' => true]);
 
         return back()->with('success', 'Semester aktif diperbarui.');

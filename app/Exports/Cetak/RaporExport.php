@@ -30,8 +30,10 @@ class RaporExport implements FromArray, WithTitle, WithEvents
         $this->ngajars = Ngajar::with(['pelajaran'])->where('id_kelas', $idKelas)->whereNotNull('id_pelajaran')->get()
             ->sortBy(fn ($n) => [$n->pelajaran?->urutan, $n->pelajaran?->nama])->values();
 
+        // olahBanyak() sekali utk SEMUA ngajar (5 query flat) — bukan olah() per ngajar dlm loop.
+        $olahSemua = RaporHitung::olahBanyak($this->ngajars, $this->siswas, $sem?->id, $rumus);
         foreach ($this->ngajars as $ng) {
-            foreach (RaporHitung::olah($ng, $this->siswas, $sem?->id, $rumus, $ng->kktp) as $sid => $o) {
+            foreach ($olahSemua[$ng->uuid] ?? [] as $sid => $o) {
                 $this->nilai[$sid][$ng->uuid] = $o['nilai'];
             }
         }

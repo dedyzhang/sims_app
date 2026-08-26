@@ -113,9 +113,21 @@ class DashboardController extends Controller
             ->whereDate('tanggal', now()->toDateString())
             ->first();
 
-        $absensiBulan = Absensi::where('id_siswa', $siswa->uuid)
-            ->whereBetween('tanggal', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+        // $absensiBulan (bulan berjalan) & $riwayat60 (60 hari terakhir, dipakai utk streak di
+        // bawah) rentangnya tumpang-tindih — dulu 2 query terpisah menarik data yg sama 2x. Kini
+        // 1 query rentang gabungan [min(awalBulan, 60hariLalu) .. akhirBulan], lalu di-filter jadi
+        // dua view di memori. Pakai $now->copy() konsisten utk hindari mutasi objek Carbon.
+        $now = now();
+        $awalBulan2 = $now->copy()->startOfMonth();
+        $akhirBulan2 = $now->copy()->endOfMonth();
+        $batas60 = $now->copy()->subDays(60)->startOfDay();
+        $awalGabungan = $batas60->lt($awalBulan2) ? $batas60 : $awalBulan2;
+
+        $absensiGabungan = Absensi::where('id_siswa', $siswa->uuid)
+            ->whereBetween('tanggal', [$awalGabungan->toDateString(), $akhirBulan2->toDateString()])
             ->get()->keyBy(fn ($a) => $a->tanggal->format('Y-m-d'));
+
+        $absensiBulan = $absensiGabungan->filter(fn ($a) => $a->tanggal->betweenIncluded($awalBulan2, $akhirBulan2));
         $rekapAbsensi = [
             'hadir' => $absensiBulan->where('status', 'hadir')->count(),
             'izin'  => $absensiBulan->where('status', 'izin')->count(),
@@ -141,10 +153,10 @@ class DashboardController extends Controller
         }
         $offsetAwal = $awalBulan->dayOfWeekIso - 1; // 0 = Senin, kosongkan sel sebelum tanggal 1
 
-        // Streak hadir berturut-turut (mundur dari hari ini, akhir pekan dilewati tanpa memutus rentetan).
-        $riwayat60 = Absensi::where('id_siswa', $siswa->uuid)
-            ->where('tanggal', '>=', now()->subDays(60)->toDateString())
-            ->get()->keyBy(fn ($a) => $a->tanggal->format('Y-m-d'));
+        // Streak hadir berturut-turut (mundur dari hari ini, akhir pekan dilewati tanpa memutus
+        // rentetan). $riwayat60 diturunkan dari $absensiGabungan yg sudah ditarik di atas — tak
+        // query ulang. Streak cuma jalan mundur dari hari ini, jadi batas atas akhirBulan aman.
+        $riwayat60 = $absensiGabungan->filter(fn ($a) => $a->tanggal->gte($batas60));
         $streakHadir = 0;
         $cursor = now()->startOfDay();
         while (true) {

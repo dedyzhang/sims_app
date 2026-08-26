@@ -48,13 +48,17 @@ class RekapController extends Controller
         // Matriks nilai [id_siswa][id_ngajar] => nilai (+ deskripsi rapor utk popup)
         $nilai = [];
         $desk = [];   // [id_siswa][id_ngajar] => ['pos','neg']  (hanya jenis rapor)
-        foreach ($ngajars as $ng) {
-            if ($jenis === 'rapor') {
-                foreach (RaporHitung::olah($ng, $siswas, $sem?->id, $rumus, $ng->kktp) as $sid => $o) {
+        if ($jenis === 'rapor') {
+            // olahBanyak() sekali utk SEMUA ngajar (5 query flat) — bukan olah() per ngajar dlm loop.
+            $olahSemua = RaporHitung::olahBanyak($ngajars, $siswas, $sem?->id, $rumus);
+            foreach ($ngajars as $ng) {
+                foreach ($olahSemua[$ng->uuid] ?? [] as $sid => $o) {
                     $nilai[$sid][$ng->uuid] = $o['nilai'];
                     $desk[$sid][$ng->uuid] = ['pos' => $o['pos'], 'neg' => $o['neg']];
                 }
-            } else {
+            }
+        } else {
+            foreach ($ngajars as $ng) {
                 $model = $jenis === 'pas' ? NilaiPas::class : NilaiPts::class;
                 $map = $model::where('id_ngajar', $ng->uuid)->where('id_semester', $sem?->id)->pluck('nilai', 'id_siswa')->toArray();
                 foreach ($siswas as $s) {

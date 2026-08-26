@@ -33,7 +33,7 @@
         <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 px-1">Tingkat {{ $tingkat }}</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach($kelasGroup as $k)
-            @php $jumlahSiswa = \App\Models\Siswa::where('id_kelas', $k->uuid)->count(); @endphp
+            @php $jumlahSiswa = $k->siswa->count(); @endphp {{-- relasi siswa sudah eager-load di KelasController::index() --}}
             <div class="card p-5 flex flex-col gap-4 hover:shadow-md transition">
                 <div class="flex items-start justify-between">
                     <div>

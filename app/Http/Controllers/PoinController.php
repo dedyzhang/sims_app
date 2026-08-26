@@ -186,7 +186,14 @@ class PoinController extends Controller
      */
     public static function top3Sekolah(): \Illuminate\Support\Collection
     {
-        return self::rankingAktif(Siswa::with('kelas')->get())->take(3)->values();
+        // Dipanggil di dashboard TIAP siswa/ortu — hasilnya sama utk semua, jadi di-cache
+        // (di-invalidasi otomatis tiap poin berubah lewat Poin::booted()). TTL 5 menit sbg
+        // jaring pengaman kalau ada jalur tulis yg entah bagaimana lewat dari event model.
+        return \Illuminate\Support\Facades\Cache::remember(
+            'poin:top3_sekolah',
+            now()->addMinutes(5),
+            fn () => self::rankingAktif(Siswa::with('kelas')->get())->take(3)->values()
+        );
     }
 
     /** Urutkan siswa yang punya rekam jejak poin: sisa poin desc, lalu total tambah desc, lalu nama. */
@@ -529,19 +536,32 @@ class PoinController extends Controller
         $selKelas = $scope === 'kelas' ? ($request->kelas ?: optional($kelasList->first())->uuid) : null;
         $selTingkat = $scope === 'tingkat' ? ($request->filled('tingkat') ? (int) $request->tingkat : $tingkatList->first()) : null;
 
-        $query = Siswa::with('kelas');
-        if ($scope === 'kelas' && $selKelas) {
-            $query->where('id_kelas', $selKelas);
-        } elseif ($scope === 'tingkat' && $selTingkat !== null) {
-            $kelasIds = $kelasList->where('tingkat', $selTingkat)->pluck('uuid');
-            $query->whereIn('id_kelas', $kelasIds);
+        // Scope 'sekolah' memuat SEMUA siswa + SEMUA poin (rankingAktif) hanya utk top 10 —
+        // di-cache (invalidasi otomatis via Poin::booted()) krn hasilnya sama utk semua admin
+        // & jarang berubah. Scope kelas/tingkat sudah dibatasi query, biarkan langsung.
+        if ($scope === 'sekolah') {
+            $ranked = \Illuminate\Support\Facades\Cache::remember(
+                'poin:dashboard_sekolah',
+                now()->addMinutes(5),
+                fn () => self::rankingAktif(Siswa::with('kelas')->get())
+            );
+            $totalSiswa = Siswa::count();
+        } else {
+            $query = Siswa::with('kelas');
+            if ($scope === 'kelas' && $selKelas) {
+                $query->where('id_kelas', $selKelas);
+            } elseif ($scope === 'tingkat' && $selTingkat !== null) {
+                $kelasIds = $kelasList->where('tingkat', $selTingkat)->pluck('uuid');
+                $query->whereIn('id_kelas', $kelasIds);
+            }
+            $siswas = $query->get();
+            $ranked = self::rankingAktif($siswas);
+            $totalSiswa = $siswas->count();
         }
-        $siswas = $query->get();
-        $ranked = self::rankingAktif($siswas);
 
         return view('poin.dashboard', [
             'top10'      => $ranked->take(10)->values(),
-            'totalSiswa' => $siswas->count(),
+            'totalSiswa' => $totalSiswa,
             'scope'      => $scope,
             'kelasList'  => $kelasList,
             'tingkatList' => $tingkatList,

@@ -64,7 +64,8 @@ class UjianRuanganMonitorController extends Controller
     public function show(Request $request, UjianRuangan $ruangan)
     {
         $this->authorize('awasi', $ruangan);
-        $ruangan->load(['paket', 'peserta.siswa.kelas']);
+        // 'paket.ujian' ikut di-eager-load supaya $allUjianList di bawah tak lazy-load query terpisah.
+        $ruangan->load(['paket.ujian', 'peserta.siswa.kelas']);
 
         $sesiHariIni = $this->sesiHariIni($ruangan);
         $adaJadwalHariIni = $sesiHariIni->isNotEmpty();

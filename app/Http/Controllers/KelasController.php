@@ -121,7 +121,8 @@ class KelasController extends Controller
     public function setKelasSiswa()
     {
         $semester  = Semester::aktif();
-        $kelas     = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
+        $kelas     = Kelas::with(['walikelas.guru', 'siswa'])
+            ->orderBy('tingkat')->orderBy('kelas')->get();
         $siswaBelumKelas = Siswa::whereNull('id_kelas')->orderBy('nama')->get();
 
         return view('kelas.set-kelas', compact('semester', 'kelas', 'siswaBelumKelas'));

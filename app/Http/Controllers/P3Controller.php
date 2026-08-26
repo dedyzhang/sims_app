@@ -180,9 +180,16 @@ class P3Controller extends Controller
                 ->where('nama', 'like', '%' . $request->search . '%')
                 ->orWhere('nis', 'like', '%' . $request->search . '%')))
             ->get();
+        // Agregat P3 dibatasi ke siswa yg BENAR-BENAR tampil (scope wali kelas/search), bukan
+        // scan SELURUH tabel p3_poin se-sekolah — utk wali kelas ini turun dari ribuan baris
+        // jadi cuma milik ~20-30 siswa kelasnya. Struktur $countMap tak berubah.
         $countMap = [];
-        foreach (P3Poin::selectRaw('id_siswa, jenis, count(*) as c')->groupBy('id_siswa', 'jenis')->get() as $r) {
-            $countMap[$r->id_siswa][$r->jenis] = $r->c;
+        $idSiswaTampil = $siswas->pluck('uuid');
+        if ($idSiswaTampil->isNotEmpty()) {
+            foreach (P3Poin::whereIn('id_siswa', $idSiswaTampil)
+                ->selectRaw('id_siswa, jenis, count(*) as c')->groupBy('id_siswa', 'jenis')->get() as $r) {
+                $countMap[$r->id_siswa][$r->jenis] = $r->c;
+            }
         }
 
         $sorted = $siswas->sortBy(function ($s) use ($sort, $countMap) {

@@ -80,7 +80,10 @@ class GrupChatSinkronTest extends TestCase
 
     public function test_command_sinkron_gagal_tanpa_semester_aktif_dan_tanpa_tahun(): void
     {
+        // Mass-update via query builder tak memicu event model — wajib clearCache() manual
+        // supaya Semester::aktif() tak baca memo lama (pola sama SettingController::updateSemester).
         \App\Models\Semester::query()->update(['aktif' => false]);
+        \App\Models\Semester::clearCache();
 
         $this->artisan('grupchat:sinkron')->assertFailed();
         $this->artisan('grupchat:sinkron', ['--tahun' => '2026/2027'])->assertSuccessful();

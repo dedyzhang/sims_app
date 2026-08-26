@@ -108,7 +108,7 @@
                 <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3">Ringkasan Kelas</h2>
                 <div class="space-y-2">
                     @foreach($kelas as $k)
-                    @php $jml = \App\Models\Siswa::where('id_kelas', $k->uuid)->count(); @endphp
+                    @php $jml = $k->siswa->count(); @endphp {{-- relasi siswa & walikelas.guru sudah eager-load di controller --}}
                     <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-700 last:border-0">
                         <div>
                             <p class="text-sm font-medium text-slate-700 dark:text-slate-200">Kelas {{ $k->tingkat }}{{ $k->kelas }}</p>
