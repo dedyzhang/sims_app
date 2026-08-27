@@ -103,6 +103,21 @@ class BankSoalController extends Controller
         return back()->with('success', 'Soal dihapus dari Bank Soal.');
     }
 
+    public function data(Request $request, Pelajaran $pelajaran, BankSoal $soal)
+    {
+        abort_unless($soal->id_pelajaran === $pelajaran->uuid, 404);
+
+        $soal->load('opsi');
+
+        return response()->json([
+            'teks_soal' => $soal->teks_soal,
+            'penjelasan' => $soal->penjelasan ?? '',
+            'kunci_esai' => $soal->meta['kunci_jawaban'] ?? '',
+            'opsi' => $soal->opsi->map(fn($o) => ['teks' => $o->teks_opsi, 'benar' => $o->is_benar]),
+            'pasangan' => ($soal->meta['pairs'] ?? []) ? collect($soal->meta['pairs'])->map(fn($p) => ['kiri'=>$p['left'],'kanan'=>$p['right']])->all() : []
+        ]);
+    }
+
     /**
      * Dipanggil dari modal "Sisipkan dari Bank Soal" di halaman Susun Soal ujian —
      * balikan JSON ringkas (bukan Blade) supaya modal bisa render daftar tanpa reload.

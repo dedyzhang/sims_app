@@ -24,20 +24,19 @@
         @foreach($soal as $i => $s)
         <div class="card p-5" x-data="soalForm({
                 tipe: '{{ $s->tipe }}',
-                teks_soal: {{ Js::from($s->teks_soal) }},
                 poin: {{ $s->poin }},
-                penjelasan: {{ Js::from($s->penjelasan ?? '') }},
-                opsi: {{ Js::from($s->opsi->map(fn($o) => ['teks' => $o->teks_opsi, 'benar' => $o->is_benar])->all()) }},
-                pasangan: {{ Js::from(($s->meta['pairs'] ?? []) ? collect($s->meta['pairs'])->map(fn($p) => ['kiri'=>$p['left'],'kanan'=>$p['right']])->all() : []) }},
-                kunci_esai: {{ Js::from($s->meta['kunci_jawaban'] ?? '') }},
                 skor_mode: {{ Js::from($s->skor_mode ?? 'all_or_nothing') }},
                 open: false,
                 rendered: false,
+                fetchUrl: '{{ route('bank-soal.soal.data', [$pelajaran, $s]) }}'
               })"
              x-init="_rootEl = $el">
-            <div class="flex items-center justify-between gap-3 cursor-pointer" @click="open = !open; if(open) { rendered = true; $nextTick(() => window.UjianEditor && window.UjianEditor.mountAll()) }">
+            <div class="flex items-center justify-between gap-3 cursor-pointer" @click="toggle()">
                 <div class="flex items-center gap-3 min-w-0">
-                    <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 grid place-items-center text-xs font-bold flex-shrink-0">{{ $i + 1 }}</span>
+                    <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 grid place-items-center text-xs font-bold flex-shrink-0">
+                        <template x-if="loadingData"><i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i></template>
+                        <template x-if="!loadingData"><span>{{ $i + 1 }}</span></template>
+                    </span>
                     <div class="min-w-0">
                         <p class="text-xs text-slate-400">{{ $s->typeLabel() }} · {{ $s->poinEfektif() }} poin</p>
                         <p class="text-sm font-medium truncate">{{ Str::limit(strip_tags($s->teks_soal), 80) }}</p>

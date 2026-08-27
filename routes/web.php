@@ -1152,6 +1152,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{ujian}/soal', [UjianSoalController::class, 'store'])->name('soal.store');
         Route::post('/{ujian}/soal/{soal}/update', [UjianSoalController::class, 'update'])->name('soal.update');
         Route::delete('/{ujian}/soal/{soal}', [UjianSoalController::class, 'destroy'])->name('soal.destroy');
+        Route::get('/{ujian}/soal/{soal}/data', [UjianSoalController::class, 'data'])->name('soal.data');
         Route::post('/{ujian}/soal/urutkan', [UjianSoalController::class, 'reorder'])->name('soal.reorder');
         Route::post('/{ujian}/soal/sisipkan-bank', [UjianSoalController::class, 'sisipkanDariBank'])->name('soal.sisipkanBank');
         Route::post('/{ujian}/soal/{soal}/simpan-bank', [UjianSoalController::class, 'simpanKeBank'])->name('soal.simpanBank');
@@ -1185,6 +1186,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{pelajaran}/soal', [BankSoalController::class, 'store'])->name('soal.store');
         Route::post('/{pelajaran}/soal/{soal}/update', [BankSoalController::class, 'update'])->name('soal.update');
         Route::delete('/{pelajaran}/soal/{soal}', [BankSoalController::class, 'destroy'])->name('soal.destroy');
+        Route::get('/{pelajaran}/soal/{soal}/data', [BankSoalController::class, 'data'])->name('soal.data');
     });
 
     // ─── Keuangan: Bendahara (juga admin/superadmin) ───────────────────────

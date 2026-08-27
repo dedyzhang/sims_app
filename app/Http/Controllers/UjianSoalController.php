@@ -122,6 +122,22 @@ class UjianSoalController extends Controller
         return back()->with('success', 'Soal dihapus.');
     }
 
+    public function data(Request $request, Ujian $ujian, UjianSoal $soal)
+    {
+        $this->authorize('manage', $ujian);
+        abort_unless($soal->id_ujian === $ujian->uuid, 404);
+
+        $soal->load('opsi');
+
+        return response()->json([
+            'teks_soal' => $soal->teks_soal,
+            'penjelasan' => $soal->penjelasan ?? '',
+            'kunci_esai' => $soal->meta['kunci_jawaban'] ?? '',
+            'opsi' => $soal->opsi->map(fn($o) => ['teks' => $o->teks_opsi, 'benar' => $o->is_benar]),
+            'pasangan' => ($soal->meta['pairs'] ?? []) ? collect($soal->meta['pairs'])->map(fn($p) => ['kiri'=>$p['left'],'kanan'=>$p['right']])->all() : []
+        ]);
+    }
+
     public function reorder(Request $request, Ujian $ujian)
     {
         $this->authorize('manage', $ujian);

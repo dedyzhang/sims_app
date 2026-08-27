@@ -1815,7 +1815,7 @@
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100 translate-y-0 scale-100"
          x-transition:leave-end="opacity-0 translate-y-3 scale-95"
-         class="fixed inset-0 z-[9990] w-screen h-screen h-[100dvh] origin-bottom-right overflow-hidden bg-white dark:bg-slate-900
+         class="fixed inset-0 z-[9990] w-full h-full h-[100dvh] origin-bottom-right overflow-hidden bg-white dark:bg-slate-900
                 sm:static sm:inset-auto sm:w-[380px] sm:h-[600px] sm:max-h-[80vh] sm:rounded-2xl sm:shadow-2xl sm:ring-1 sm:ring-slate-200 sm:dark:ring-slate-700">
         <iframe x-ref="frame" :src="loaded ? src : 'about:blank'"
                 class="w-full h-full border-0" title="Asisten Sekolah"></iframe>
@@ -2133,6 +2133,7 @@
                     if (!link) return;
                     const route = link.getAttribute('data-nav-route');
                     this.pushNavRecent(route);
+                    if (this.isMobile) this.mobileOpen = false;
                     this.$nextTick(() => lucide.createIcons());
                 });
             }

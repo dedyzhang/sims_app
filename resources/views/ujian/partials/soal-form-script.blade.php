@@ -10,8 +10,39 @@ function ujianUid() {
 
 function soalForm(init) {
     return {
+        teks_soal: '',
+        penjelasan: '',
+        kunci_esai: '',
         ...init,
         rendered: init.open || false,
+        loadingData: false,
+        async toggle() {
+            if (!this.open && !this.rendered && this.fetchUrl) {
+                this.loadingData = true;
+                this.open = true;
+                try {
+                    const res = await fetch(this.fetchUrl, { headers: { 'Accept': 'application/json' }});
+                    if (!res.ok) throw new Error('Network error');
+                    const data = await res.json();
+                    this.teks_soal = data.teks_soal;
+                    this.penjelasan = data.penjelasan;
+                    this.kunci_esai = data.kunci_esai;
+                    this.opsi = data.opsi.map(o => ({ ...o, _key: ujianUid() }));
+                    this.pasangan = data.pasangan.map(p => ({ ...p, _key: ujianUid() }));
+                    this.rendered = true;
+                } catch (e) {
+                    alert('Gagal memuat data soal.');
+                    this.open = false;
+                } finally {
+                    this.loadingData = false;
+                }
+            } else {
+                this.open = !this.open;
+            }
+            if (this.open && this.rendered) {
+                this.$nextTick(() => window.UjianEditor && window.UjianEditor.mountAll());
+            }
+        },
         // _uid: id unik per KARTU soal (dipakai buat namespacing id textarea TinyMCE
         // supaya tak bentrok antar kartu di halaman yg sama). _key per baris opsi/pasangan:
         // kunci STABIL yg tak berubah walau baris LAIN ditambah/dihapus — kalau pakai index
