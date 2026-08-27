@@ -35,7 +35,11 @@ class SiswaController extends Controller
             ->paginate(25)
             ->withQueryString();
 
-        $totalAktif    = Siswa::where('status', 'aktif')->count();
+        // Tanpa filter, total aktif = jumlah baris paginator (paginate sudah query COUNT yg sama
+        // persis) → reuse ->total(), hindari query count kedua yg identik. Saat difilter, paginator
+        // menghitung subset — jadi query total keseluruhan tetap terpisah spt semula.
+        $adaFilter     = $request->filled('search') || $request->filled('id_kelas');
+        $totalAktif    = $adaFilter ? Siswa::where('status', 'aktif')->count() : $siswas->total();
         $tingkatCounts = Siswa::where('status', 'aktif')
             ->join('kelas', 'siswa.id_kelas', '=', 'kelas.uuid')
             ->selectRaw('kelas.tingkat, count(*) as total')

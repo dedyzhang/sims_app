@@ -32,16 +32,20 @@ class DashboardController extends Controller
     {
         $user      = auth()->user();
         $semester  = Semester::aktif();
-        $pref      = $user->preference()->firstOrCreate(
-            ['user_uuid' => $user->uuid],
-            UserPreference::defaults()
-        );
+        $pref      = $user->prefTampilan(); // memo per-instance — reuse di dashboard.blade & layout
 
         $stats = [];
+        // Presensi guru hari ini: dihitung SEKALI di sini lalu di-share ke 4 blok dashboard
+        // (hadir/terlambat/tidak-hadir/belum) via view — dulu tiap blok query sendiri (4x identik).
+        // Blok tetap punya fallback `?? query` sbg jaring pengaman kalau var tak ter-share.
+        $rowsPresensiHariIni = null;
+        $totalGuru = null;
         if (in_array($user->access, ['superadmin', 'admin', 'kepala'])) {
+            $totalGuru = Guru::count();
+            $rowsPresensiHariIni = \App\Models\PresensiGuru::whereDate('tanggal', now()->toDateString())->get();
             $stats = [
                 'total_siswa' => Siswa::count(),
-                'total_guru'  => Guru::count(),
+                'total_guru'  => $totalGuru,
                 'total_kelas' => Kelas::count(),
             ];
         }
@@ -92,7 +96,7 @@ class DashboardController extends Controller
             ->get();
         }
 
-        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget', 'sarpras', 'aiQuotaUsage', 'piketGuruTidakHadir'));
+        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget', 'sarpras', 'aiQuotaUsage', 'piketGuruTidakHadir', 'rowsPresensiHariIni', 'totalGuru'));
     }
 
     /** Data widget dashboard khusus siswa: jadwal hari ini, poin/P3, absensi, podium sekolah. */

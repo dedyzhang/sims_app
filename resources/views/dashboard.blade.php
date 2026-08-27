@@ -389,12 +389,9 @@
     $totalGuru  = $stats['total_guru'] ?? \App\Models\Guru::count();
     $totalKelas = $stats['total_kelas'] ?? \App\Models\Kelas::count();
     $totalMapel = \App\Models\Pelajaran::count();
-    $siswaL = \App\Models\Siswa::where('jk','L')->count();
-    $siswaP = \App\Models\Siswa::where('jk','P')->count();
-    $pref = auth()->user()?->preference()->firstOrCreate(
-        ['user_uuid' => auth()->id()],
-        \App\Models\UserPreference::defaults()
-    );
+    // $siswaL/$siswaP TIDAK dihitung di sini — hanya dipakai blok recent_komposisi, yg sudah
+    // menghitungnya sendiri (dulu dobel: header + blok). Biar blok yg hitung sekali (admin saja).
+    $pref = auth()->user()?->prefTampilan(); // memo per-instance (sudah dihitung di controller/layout)
     $motif = $pref->motif ?? 'botanical';
     $dashboardTheme = in_array($pref->dashboard_theme ?? 'windows11', ['windows11', 'macos'], true)
         ? $pref->dashboard_theme

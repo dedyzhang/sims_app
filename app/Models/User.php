@@ -285,6 +285,17 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         return $this->hasOne(UserPreference::class, 'user_uuid', 'uuid');
     }
 
+    /** Memo per-instance: preferensi tampilan (tema/motif/sidebar) diakses 3x per render
+     *  (DashboardController, dashboard.blade, layouts/app.blade) — dulu 3 query firstOrCreate
+     *  identik tiap halaman. Panggil prefTampilan() di ketiganya → cuma 1 query, sisanya reuse. */
+    protected ?\App\Models\UserPreference $prefTampilanCache = null;
+
+    public function prefTampilan(): \App\Models\UserPreference
+    {
+        return $this->prefTampilanCache ??= $this->preference()
+            ->firstOrCreate(['user_uuid' => $this->uuid], \App\Models\UserPreference::defaults());
+    }
+
     /** Token FCM perangkat (multi-device) untuk push notification. */
     public function fcmTokens()
     {

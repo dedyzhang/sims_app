@@ -19,10 +19,8 @@
     @php
         // Halaman kiosk publik (lihat EnsureKioskOrPermission) bisa dirender TANPA user login sama
         // sekali → $pref harus tetap objek valid (bukan null) agar semua akses $pref->xxx di bawah aman.
-        $pref = auth()->user()?->preference()->firstOrCreate(
-            ['user_uuid' => auth()->id()],
-            \App\Models\UserPreference::defaults()
-        ) ?? new \App\Models\UserPreference(\App\Models\UserPreference::defaults());
+        $pref = auth()->user()?->prefTampilan()
+            ?? new \App\Models\UserPreference(\App\Models\UserPreference::defaults());
         // Mode kiosk: sidebar/header/ticker disembunyikan. Dihitung PER-REQUEST dari variabel
         // $isKiosk yg dikirim controller (lihat AbsensiController::scan/QrAbsensiController::show),
         // BUKAN dari session — supaya membuka link kiosk tak pernah memengaruhi tab lain di
@@ -43,6 +41,10 @@
         // "Undefined variable" yg sama persis dgn $modulOn akan muncul lagi. Definisi di sini
         // menutup celah itu tanpa bergantung pada fallback yg gampang lupa.
         $activeGroups = [];
+        // Dihitung di sini (blok yg SELALU jalan, termasuk mode kios tanpa sidebar) — dipakai di
+        // 3 tempat (menu, item, skrip badge). Kalau didefinisikan di dalam <aside> saja, skrip
+        // badge grup di bawah (di luar aside) kena "Undefined variable" saat kios (bug nyata).
+        $grupChatTampil = auth()->user() ? \App\Support\GrupChatMenu::tampil(auth()->user()) : false;
         $navRegistry = [
             'dashboard' => [
                 'route'    => 'dashboard',
@@ -560,6 +562,8 @@
                 // Grup menu: key => [label, ikon, items[]]; item = [route, [pattern...], ikon, label]
                 // ModulAktif: on/off per sekolah dari Pengaturan → Fitur (default aktif).
                 $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
+                // $grupChatTampil sudah dihitung sekali di blok @php paling atas (dipakai ulang di
+                // sini + skrip badge di bawah) — GrupChatMenu::tampil() query keanggotaan grup 1x.
                 $groups = [];
 
                 // ── Absensi (self-service: absen QR + absensi guru pribadi) ──
@@ -1061,7 +1065,7 @@
                 if ($modulOn('pengumuman')) {
                     $registerNav('pengumuman.index', ['pengumuman.*'], 'megaphone', 'Pengumuman');
                 }
-                if ($modulOn('grup_chat') && \App\Support\GrupChatMenu::tampil(auth()->user())) {
+                if ($modulOn('grup_chat') && $grupChatTampil) {
                     $registerNav('grup.index', ['grup.*'], 'users-round', 'Grup Chat');
                 }
                 $appDownloadOn = \App\Models\Setting::get('app_download_aktif') === '1'
@@ -1224,7 +1228,7 @@
                  JANGAN mendefinisikan variabel PHP di dalam blok @if($modulOn(...)) ini — variabel
                  yang lahir di dalam cabang modul lalu dipakai di luarnya pernah membuat dashboard
                  crash saat modulnya dimatikan (lihat ModulAktifTest). --}}
-            @if($modulOn('grup_chat') && \App\Support\GrupChatMenu::tampil(auth()->user()))
+            @if($modulOn('grup_chat') && $grupChatTampil)
             <a href="{{ route('grup.index') }}" data-tip="Grup Chat" class="nav-link relative flex items-center px-3 py-2.5 {{ request()->routeIs('grup.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="users-round" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate flex-1">Grup Chat</span>
@@ -2009,7 +2013,7 @@
             // Badge Grup Chat: murni aritmatika (last_seq - last_read_seq) di server,
             // jadi poll 30 detik tetap murah walau sekolah punya puluhan grup.
             initGrupBadge(){
-                @if($modulOn('grup_chat') && \App\Support\GrupChatMenu::tampil(auth()->user()))
+                @if($modulOn('grup_chat') && $grupChatTampil)
                 const fetchBadge = async () => {
                     try {
                         const response = await fetch('{{ route('grup.badge') }}', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });

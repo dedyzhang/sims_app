@@ -24,12 +24,28 @@ class JadwalPiket extends Model
         return $this->belongsTo(Guru::class, 'id_guru', 'uuid');
     }
 
-    /** True bila guru yang diberikan adalah piket aktif untuk tanggal ini. */
+    /** True bila guru yang diberikan adalah piket aktif untuk tanggal ini.
+     *  Di-memo per-request (per id_guru|tanggal) di container — isPiketAktif() dipanggil 3x saat
+     *  render dashboard guru (menu sidebar, DashboardController, dashboard.blade) dgn argumen sama
+     *  → dulu 3 query exists identik. Pakai app()->instance biar otomatis segar tiap request/test
+     *  (bukan static array yg bisa nyangkut antar-test/worker). Pola sama Setting/RolePermission. */
     public static function isPiketAktif(string $idGuru, ?string $tanggal = null): bool
     {
-        $dayOfWeek = \Carbon\Carbon::parse($tanggal ?: now()->toDateString())->dayOfWeekIso;
+        $tgl = $tanggal ?: now()->toDateString();
+        $key = $idGuru . '|' . $tgl;
 
-        return static::query()
+        if (! \Illuminate\Support\Facades\App::bound('jadwal_piket.aktif_memo')) {
+            \Illuminate\Support\Facades\App::instance('jadwal_piket.aktif_memo', new \ArrayObject());
+        }
+        $memo = \Illuminate\Support\Facades\App::make('jadwal_piket.aktif_memo');
+
+        if ($memo->offsetExists($key)) {
+            return $memo[$key];
+        }
+
+        $dayOfWeek = \Carbon\Carbon::parse($tgl)->dayOfWeekIso;
+
+        return $memo[$key] = static::query()
             ->where('id_guru', $idGuru)
             ->where('hari', $dayOfWeek)
             ->exists();
