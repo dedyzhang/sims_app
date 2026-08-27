@@ -102,6 +102,11 @@
             images_dataimg_filter: function(img) { return !img.hasAttribute('data-latex'); },
             images_upload_handler: function (blobInfo) {
                 return new Promise(function (resolve, reject) {
+                    // Jangan unggah gambar rumus matematika (SVG) ke server, biarkan inline base64
+                    if (blobInfo.blob().type === 'image/svg+xml' || blobInfo.filename().includes('math')) {
+                        resolve('data:' + blobInfo.blob().type + ';base64,' + blobInfo.base64());
+                        return;
+                    }
                     const fd = new FormData();
                     fd.append('file', blobInfo.blob(), blobInfo.filename());
                     fetch({{ Js::from(route('ujian.soal.unggah-gambar')) }}, {
@@ -149,4 +154,5 @@
 </script>
 @endpush
 @endonce
+
 
