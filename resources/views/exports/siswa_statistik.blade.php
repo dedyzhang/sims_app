@@ -32,12 +32,12 @@
         @foreach($ages as $index => $age)
             <tr>
                 @if($index === 0)
-                    <td rowspan="{{ count($ages) }}" class="bg-l">Laki-laki</td>
+                    <td rowspan="{{ count($ages) }}" style="background-color: #b4c6e7;">Laki-laki</td>
                 @endif
-                <td class="bg-l">{{ $age }}</td>
-                <td class="bg-l">{{ $statsUsia['L'][$age] ?? 0 }}</td>
+                <td style="background-color: #b4c6e7;">{{ $age }}</td>
+                <td style="background-color: #b4c6e7;">{{ $statsUsia['L'][$age] ?? 0 }}</td>
                 @if($index === 0)
-                    <td rowspan="{{ count($ages) }}" class="bg-l">{{ $totalGender['L'] }}</td>
+                    <td rowspan="{{ count($ages) }}" style="background-color: #b4c6e7;">{{ $totalGender['L'] }}</td>
                     <td rowspan="{{ count($ages) * 2 }}">{{ $totalGender['L'] + $totalGender['P'] }}</td>
                 @endif
             </tr>
@@ -47,12 +47,12 @@
         @foreach($ages as $index => $age)
             <tr>
                 @if($index === 0)
-                    <td rowspan="{{ count($ages) }}" class="bg-p">Perempuan</td>
+                    <td rowspan="{{ count($ages) }}" style="background-color: #e6b8b7;">Perempuan</td>
                 @endif
-                <td class="bg-p">{{ $age }}</td>
-                <td class="bg-p">{{ $statsUsia['P'][$age] ?? 0 }}</td>
+                <td style="background-color: #e6b8b7;">{{ $age }}</td>
+                <td style="background-color: #e6b8b7;">{{ $statsUsia['P'][$age] ?? 0 }}</td>
                 @if($index === 0)
-                    <td rowspan="{{ count($ages) }}" class="bg-p">{{ $totalGender['P'] }}</td>
+                    <td rowspan="{{ count($ages) }}" style="background-color: #e6b8b7;">{{ $totalGender['P'] }}</td>
                 @endif
             </tr>
         @endforeach
@@ -72,12 +72,12 @@
         @foreach($religions as $index => $agama)
             <tr>
                 @if($index === 0)
-                    <td rowspan="{{ count($religions) }}" class="bg-l">Laki-laki</td>
+                    <td rowspan="{{ count($religions) }}" style="background-color: #b4c6e7;">Laki-laki</td>
                 @endif
-                <td class="bg-l">{{ ucfirst($agama) }}</td>
-                <td class="bg-l">{{ $statsAgama['L'][$agama] ?? 0 }}</td>
+                <td style="background-color: #b4c6e7;">{{ ucfirst($agama) }}</td>
+                <td style="background-color: #b4c6e7;">{{ $statsAgama['L'][$agama] ?? 0 }}</td>
                 @if($index === 0)
-                    <td rowspan="{{ count($religions) }}" class="bg-l">{{ $totalGender['L'] }}</td>
+                    <td rowspan="{{ count($religions) }}" style="background-color: #b4c6e7;">{{ $totalGender['L'] }}</td>
                     <td rowspan="{{ count($religions) * 2 }}">{{ $totalGender['L'] + $totalGender['P'] }}</td>
                 @endif
             </tr>
@@ -87,12 +87,12 @@
         @foreach($religions as $index => $agama)
             <tr>
                 @if($index === 0)
-                    <td rowspan="{{ count($religions) }}" class="bg-p">Perempuan</td>
+                    <td rowspan="{{ count($religions) }}" style="background-color: #e6b8b7;">Perempuan</td>
                 @endif
-                <td class="bg-p">{{ ucfirst($agama) }}</td>
-                <td class="bg-p">{{ $statsAgama['P'][$agama] ?? 0 }}</td>
+                <td style="background-color: #e6b8b7;">{{ ucfirst($agama) }}</td>
+                <td style="background-color: #e6b8b7;">{{ $statsAgama['P'][$agama] ?? 0 }}</td>
                 @if($index === 0)
-                    <td rowspan="{{ count($religions) }}" class="bg-p">{{ $totalGender['P'] }}</td>
+                    <td rowspan="{{ count($religions) }}" style="background-color: #e6b8b7;">{{ $totalGender['P'] }}</td>
                 @endif
             </tr>
         @endforeach
@@ -110,12 +110,12 @@
     </thead>
     <tbody>
         <tr>
-            <td class="bg-l">Laki-laki</td>
+            <td style="background-color: #b4c6e7;">Laki-laki</td>
             <td>{{ $totalGender['L'] }}</td>
             <td colspan="3"></td>
         </tr>
         <tr>
-            <td class="bg-p">Perempuan</td>
+            <td style="background-color: #e6b8b7;">Perempuan</td>
             <td>{{ $totalGender['P'] }}</td>
             <td colspan="3"></td>
         </tr>
@@ -139,17 +139,18 @@
         @foreach($classes as $index => $kelas)
             <tr>
                 <td rowspan="2" style="vertical-align: middle;">{{ $kelas }}</td>
-                <td class="bg-l">Laki-laki</td>
-                <td class="bg-l">{{ $statsKelas['L'][$kelas] ?? 0 }}</td>
+                <td style="background-color: #b4c6e7;">Laki-laki</td>
+                <td style="background-color: #b4c6e7;">{{ $statsKelas['L'][$kelas] ?? 0 }}</td>
                 <td rowspan="2" style="vertical-align: middle;">{{ ($statsKelas['L'][$kelas] ?? 0) + ($statsKelas['P'][$kelas] ?? 0) }}</td>
                 @if($index === 0)
                     <td rowspan="{{ count($classes) * 2 }}" style="vertical-align: middle;">{{ $totalGender['L'] + $totalGender['P'] }}</td>
                 @endif
             </tr>
             <tr>
-                <td class="bg-p">Perempuan</td>
-                <td class="bg-p">{{ $statsKelas['P'][$kelas] ?? 0 }}</td>
+                <td style="background-color: #e6b8b7;">Perempuan</td>
+                <td style="background-color: #e6b8b7;">{{ $statsKelas['P'][$kelas] ?? 0 }}</td>
             </tr>
         @endforeach
     </tbody>
 </table>
+
