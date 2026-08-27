@@ -99,6 +99,7 @@
             convert_urls: false,
             extended_valid_elements: 'img[class|src|alt|data-latex|style|width|height]',
             content_style: '.math-svg{max-width:100%}',
+            images_dataimg_filter: function(img) { return !img.hasAttribute('data-latex'); },
             images_upload_handler: function (blobInfo) {
                 return new Promise(function (resolve, reject) {
                     const fd = new FormData();
@@ -148,3 +149,4 @@
 </script>
 @endpush
 @endonce
+
