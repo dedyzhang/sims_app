@@ -2,8 +2,8 @@
 
 namespace App\Exports\Cetak;
 
-use App\Models\Siswa;
 use App\Support\CetakExcelStyle;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
@@ -22,18 +22,18 @@ class SiswaDataSheet implements FromCollection, WithHeadings, WithMapping, WithC
         'Sekolah Asal',
     ];
 
-    /** @param string $idKelas uuid Kelas, atau 'semua' */
+    private ?Collection $siswas = null;
+
+    /** @param string $idKelas 'semua', 'tingkat-{N}', atau uuid Kelas — lihat SiswaExport::query() */
     public function __construct(private string $idKelas)
     {
     }
 
     public function collection()
     {
-        $q = Siswa::with('kelas')->orderBy('nama');
-        if ($this->idKelas !== 'semua') {
-            $q->where('id_kelas', $this->idKelas);
-        }
-        return $q->get();
+        // Memo instance: kop tabel (registerEvents) butuh count() dr koleksi yg SAMA — tanpa ini
+        // query siswa jalan 2x (sekali di sini, sekali lagi saat hitung baris utk kop).
+        return $this->siswas ??= SiswaExport::query($this->idKelas)->get();
     }
 
     public function headings(): array
@@ -91,7 +91,8 @@ class SiswaDataSheet implements FromCollection, WithHeadings, WithMapping, WithC
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                CetakExcelStyle::kopDanTabel($event->sheet->getDelegate(), 'DATA SISWA', count(self::HEADINGS), $this->collection()->count());
+                $judul = 'DATA SISWA — ' . mb_strtoupper(SiswaExport::labelFilter($this->idKelas));
+                CetakExcelStyle::kopDanTabel($event->sheet->getDelegate(), $judul, count(self::HEADINGS), $this->collection()->count());
             },
         ];
     }

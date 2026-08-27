@@ -70,7 +70,9 @@ class UjianRuanganController extends Controller
         $this->authorize('kelola', $ruangan);
 
         $ruangan->load('peserta.siswa.kelas');
-        $idSudahMasuk = $ruangan->peserta->pluck('id_siswa');
+        $idSudahMasuk = \App\Models\UjianRuanganPeserta::whereHas('ruangan', function ($query) use ($paket) {
+            $query->where('id_ujian_paket', $paket->uuid);
+        })->pluck('id_siswa');
         $siswaTersedia = Siswa::with('kelas')
             ->whereNotIn('uuid', $idSudahMasuk->isEmpty() ? ['-'] : $idSudahMasuk)
             ->orderBy('nama')->get();

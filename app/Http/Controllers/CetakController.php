@@ -34,12 +34,24 @@ class CetakController extends Controller
     // ====== Data Siswa ======
     public function siswa()
     {
-        return view('cetak.siswa.index', ['kelas' => $this->kelasList()]);
+        $kelas = $this->kelasList();
+
+        return view('cetak.siswa.index', [
+            'kelas' => $kelas,
+            'tingkatList' => $kelas->pluck('tingkat')->unique()->sort()->values(),
+        ]);
     }
 
     public function cetakSiswa(string $params)
     {
-        $nama = $params === 'semua' ? 'Data Siswa Semua Kelas.xlsx' : $this->namaFileKelas('Data Siswa Kelas', $params);
+        if ($params === 'semua') {
+            $nama = 'Data Siswa Semua Kelas.xlsx';
+        } elseif (str_starts_with($params, 'tingkat-')) {
+            $nama = 'Data Siswa Tingkat ' . substr($params, 8) . '.xlsx';
+        } else {
+            $nama = $this->namaFileKelas('Data Siswa Kelas', $params);
+        }
+
         return Excel::download(new SiswaExport($params), $nama);
     }
 
