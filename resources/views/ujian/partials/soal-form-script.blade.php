@@ -11,6 +11,7 @@ function ujianUid() {
 function soalForm(init) {
     return {
         ...init,
+        rendered: init.open || false,
         // _uid: id unik per KARTU soal (dipakai buat namespacing id textarea TinyMCE
         // supaya tak bentrok antar kartu di halaman yg sama). _key per baris opsi/pasangan:
         // kunci STABIL yg tak berubah walau baris LAIN ditambah/dihapus — kalau pakai index

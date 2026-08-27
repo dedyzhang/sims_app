@@ -32,9 +32,10 @@
                 kunci_esai: {{ Js::from($s->meta['kunci_jawaban'] ?? '') }},
                 skor_mode: {{ Js::from($s->skor_mode ?? 'all_or_nothing') }},
                 open: false,
+                rendered: false,
               })"
              x-init="_rootEl = $el">
-            <div class="flex items-center justify-between gap-3 cursor-pointer" @click="open = !open; if(open) $nextTick(() => window.UjianEditor && window.UjianEditor.mountAll())">
+            <div class="flex items-center justify-between gap-3 cursor-pointer" @click="open = !open; if(open) { rendered = true; $nextTick(() => window.UjianEditor && window.UjianEditor.mountAll()) }">
                 <div class="flex items-center gap-3 min-w-0">
                     <span class="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 grid place-items-center text-xs font-bold flex-shrink-0">{{ $i + 1 }}</span>
                     <div class="min-w-0">
@@ -46,12 +47,16 @@
             </div>
 
             <form x-show="open" x-cloak x-transition method="POST" action="{{ route('bank-soal.soal.update', [$pelajaran, $s]) }}" class="mt-4 space-y-3 border-t border-slate-100 dark:border-slate-700 pt-4">
-                @csrf
-                @include('ujian.partials.soal-fields')
-                <div class="flex gap-2 pt-1">
-                    <button type="submit" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold">Simpan Perubahan</button>
-                    <button type="button" @click="if(confirm('Hapus soal ini dari Bank Soal?')) document.getElementById('hapus-soal-{{ $s->uuid }}').submit()" class="px-4 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 ml-auto">Hapus</button>
-                </div>
+                <template x-if="rendered">
+                    <div>
+                        @csrf
+                        @include('ujian.partials.soal-fields')
+                        <div class="flex gap-2 pt-1">
+                            <button type="submit" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold">Simpan Perubahan</button>
+                            <button type="button" @click="if(confirm('Hapus permanen soal ini dari Bank?')) document.getElementById('hapus-soal-{{ $s->uuid }}').submit()" class="px-4 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 ml-auto">Hapus</button>
+                        </div>
+                    </div>
+                </template>
             </form>
         </div>
         <form id="hapus-soal-{{ $s->uuid }}" method="POST" action="{{ route('bank-soal.soal.destroy', [$pelajaran, $s]) }}" class="hidden">@csrf @method('DELETE')</form>
