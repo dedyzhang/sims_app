@@ -76,6 +76,11 @@ use App\Http\Controllers\Keuangan\BendaharaAiController;
 use App\Http\Controllers\Keuangan\KeuanganController;
 use App\Http\Controllers\Keuangan\RkasController;
 use App\Http\Controllers\Keuangan\TagihanController;
+use App\Http\Controllers\Osis\OsisDashboardController;
+use App\Http\Controllers\Osis\OsisPaslonController;
+use App\Http\Controllers\Osis\OsisPemilihanController;
+use App\Http\Controllers\Osis\OsisPemilihController;
+use App\Http\Controllers\Osis\OsisVoteController;
 use App\Http\Controllers\LanggananController;
 use App\Http\Controllers\BankSoalController;
 use App\Http\Controllers\UjianAnalisisController;
@@ -140,6 +145,19 @@ Route::middleware([EnsureKioskOrPermission::class, 'modul:absensi'])->group(func
     Route::post('/presensi-guru/mark', [PresensiGuruController::class, 'mark'])->name('presensi-guru.mark');
     Route::post('/presensi-guru/cancel', [PresensiGuruController::class, 'cancel'])->name('presensi-guru.cancel');
     Route::get('/qr-absensi', [QrAbsensiController::class, 'show'])->name('qr.absensi');
+});
+
+// ─── Pemilihan OSIS: link publik via QR — TANPA login sama sekali. Token per-ORANG
+//     (beda dgn kiosk_token yg satu token dipakai bersama semua orang), jadi tidak
+//     lewat EnsureKioskOrPermission — validasi murni lookup token di controller,
+//     dibungkus DB::transaction()+lockForUpdate() saat submit (cegah race condition
+//     double-tap/2-tab, lihat OsisVoteController::store()). ───
+Route::middleware(['modul:osis'])->prefix('pemilihan-osis')->name('osis.publik.')->group(function () {
+    // Throttle DIGENEROSIKAN (bukan diketatkan) — banyak siswa scan nyaris bersamaan
+    // dari WiFi sekolah yg sama (berbagi 1 IP publik lewat NAT); guard anti-vote-ganda
+    // yg SESUNGGUHNYA ada di DB transaction+lock, BUKAN di throttle ini.
+    Route::get('/pilih/{token}', [OsisVoteController::class, 'show'])->name('show')->middleware('throttle:120,1');
+    Route::post('/pilih/{token}', [OsisVoteController::class, 'store'])->name('store')->middleware('throttle:60,1');
 });
 
 // Halaman "Langganan berakhir" — PUBLIK (tanpa auth) supaya siapa pun yang terkunci
@@ -1187,6 +1205,39 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{pelajaran}/soal/{soal}/update', [BankSoalController::class, 'update'])->name('soal.update');
         Route::delete('/{pelajaran}/soal/{soal}', [BankSoalController::class, 'destroy'])->name('soal.destroy');
         Route::get('/{pelajaran}/soal/{soal}/data', [BankSoalController::class, 'data'])->name('soal.data');
+    });
+
+    // ─── Pemilihan OSIS: admin/role yg diberi akses (manage_osis) ──────────
+    Route::middleware(['modul:osis', 'permission:manage_osis'])->prefix('osis')->name('osis.')->group(function () {
+        Route::controller(OsisPemilihanController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::get('/{pemilihan}', 'show')->name('show');
+            Route::patch('/{pemilihan}/aktifkan', 'aktifkan')->name('aktifkan');
+            Route::patch('/{pemilihan}/status', 'updateStatus')->name('status');
+            Route::patch('/{pemilihan}/jadwal', 'updateJadwal')->name('jadwal');
+        });
+
+        Route::controller(OsisPaslonController::class)->prefix('{pemilihan}/paslon')->name('paslon.')->group(function () {
+            Route::post('/', 'store')->name('store');
+            Route::put('/{paslon}', 'update')->name('update');
+            Route::delete('/{paslon}', 'destroy')->name('destroy');
+        });
+
+        Route::controller(OsisPemilihController::class)->prefix('{pemilihan}/pemilih')->name('pemilih.')->group(function () {
+            Route::post('/generate-siswa', 'generateTokenKelas')->name('generateSiswa');
+            Route::post('/generate-guru', 'generateTokenGuru')->name('generateGuru');
+            Route::get('/cetak/kelas/{kelas}', 'cetakKelas')->name('cetakKelas');
+            Route::get('/cetak/guru', 'cetakGuru')->name('cetakGuru');
+            Route::get('/roster/kelas/{kelas}', 'rosterKelas')->name('rosterKelas');
+        });
+
+        Route::controller(OsisDashboardController::class)->prefix('{pemilihan}')->group(function () {
+            Route::get('/dashboard', 'dashboard')->name('dashboard');
+            Route::get('/dashboard/data', 'dashboardData')->middleware('throttle:60,1')->name('dashboard.data');
+            Route::get('/hasil', 'hasil')->name('hasil');
+            Route::get('/hasil/data', 'hasilData')->middleware('throttle:30,1')->name('hasil.data');
+        });
     });
 
     // ─── Keuangan: Bendahara (juga admin/superadmin) ───────────────────────

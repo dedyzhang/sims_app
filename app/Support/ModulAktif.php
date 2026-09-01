@@ -111,6 +111,11 @@ class ModulAktif
                 'deskripsi' => 'Ujian sekolah terjadwal (Harian/PTS/PAS/UAS): bank soal, anti-kecurangan, dan transfer nilai otomatis ke Sumatif/PTS/PAS.',
                 'ikon' => 'file-check-2',
             ],
+            'osis' => [
+                'label' => 'Pemilihan OSIS',
+                'deskripsi' => 'Pemilihan ketua OSIS via QR code tanpa login: paslon, token pemilih, dashboard live, dan hasil suara.',
+                'ikon' => 'flag',
+            ],
         ];
     }
 

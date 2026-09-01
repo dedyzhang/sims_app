@@ -133,6 +133,8 @@
             || str_contains($path, 'ngajar');
         // Scan QR kamera (guru masuk ruang ujian) — cuma halaman daftar "Ruang Ujian Hari Ini".
         $needsQrScanner = $path === 'ujian/ruangan-saya';
+        // Chart hasil pemilihan OSIS — app ini belum py library chart JS lain, muat CDN cuma di sini.
+        $needsChartJs = str_starts_with($path, 'osis/') && str_contains($path, '/hasil');
         // Kiosk / scan: kurangi widget floating AI (R4.1).
         $isScanKioskSurface = (bool) ($isKiosk ?? false)
             || request()->routeIs([
@@ -168,6 +170,9 @@
     @endif
     @if($needsQrScanner)
     <script defer src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+    @endif
+    @if($needsChartJs)
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     @endif
 
     {{-- Pin versi CDN (hindari @latest floating). Perf: jangan unduh versi tak terduga tiap hari. --}}
@@ -917,6 +922,13 @@
                         $ujianItems[] = ['ujian.ruangan.saya', ['ujian.ruangan.*'], 'door-open', 'Ruang Ujian Hari Ini'];
                     }
                     $groups['ujian'] = ['Ujian', 'file-check-2', $ujianItems];
+                }
+
+                // ── Pemilihan OSIS (paslon, token QR, dashboard live, hasil) ──
+                if ($modulOn('osis') && ($isAdmin || auth()->user()?->canAccess('manage_osis'))) {
+                    $groups['osis'] = ['Pemilihan OSIS', 'award', [
+                        ['osis.index', ['osis.*'], 'award', 'Kelola Pemilihan'],
+                    ]];
                 }
 
                 // ── Cetak Data (export Excel: siswa, guru, kelas, absensi guru, agenda, nilai) ──

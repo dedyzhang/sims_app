@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\HandlesClassroomUploads;
+use App\Http\Controllers\Concerns\HandlesContentLock;
 use App\Http\Requests\GradeClassroomSubmissionRequest;
 use App\Http\Requests\StoreClassroomSubmissionRequest;
 use App\Models\ClassroomAssignment;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ClassroomSubmissionController extends Controller implements \Illuminate\Routing\Controllers\HasMiddleware
 {
+    use HandlesClassroomUploads, HandlesContentLock;
+
     public static function middleware(): array
     {
         return [
@@ -28,7 +31,13 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
     /** Siswa mengumpulkan tugas (boleh banyak file). */
     public function store(StoreClassroomSubmissionRequest $request, ClassroomAssignment $assignment)
     {
-        $classroom = $assignment->classroom;
+        // Satu tugas bisa ditaut ke BANYAK kelas (classroom_assignment_links) — resolveClassroom()
+        // (dr HandlesContentLock, dipakai jg oleh show/download/lock) cari dulu kelas yg ditaut &
+        // cocok dgn id_kelas siswa ini, baru fallback ke $assignment->classroom (kelas asal). Dulu
+        // di sini langsung pakai $assignment->classroom mentah2 — siswa yg akses tugas ini lewat
+        // kelasnya SENDIRI (bukan kelas asal tempat tugas dibuat) kena 403 walau keanggotaannya di
+        // kelasnya sendiri valid, krn authorize() ceknya ke classroom yg SALAH.
+        $classroom = $this->resolveClassroom($request, $assignment);
         $this->authorize('submit', $classroom);
 
         abort_unless($assignment->status === 'published', 403, 'Tugas belum dibuka.');
@@ -77,7 +86,10 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
     /** Guru memberi nilai + feedback. */
     public function grade(GradeClassroomSubmissionRequest $request, ClassroomSubmission $submission)
     {
-        $this->authorize('manage', $submission->assignment->classroom);
+        // Pakai kelas TEMPAT SUBMISSION INI DIKUMPULKAN ($submission->classroom, terisi sejak
+        // store()), bukan kelas asal tugas — guru yg mengampu kelas lain yg ditaut jangan sampai
+        // 403 gara2 ceknya ke kelas asal (pola sama dgn download(), lihat catatan di bawah).
+        $this->authorize('manage', $submission->classroom ?? $submission->assignment->classroom);
 
         $max = $submission->assignment->max_score;
         $submission->update([
@@ -96,7 +108,7 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
     /** Guru membatalkan pengumpulan tugas siswa agar bisa direvisi. */
     public function returnSubmission(ClassroomSubmission $submission)
     {
-        $this->authorize('manage', $submission->assignment->classroom);
+        $this->authorize('manage', $submission->classroom ?? $submission->assignment->classroom);
 
         // Hanya bisa batalkan jika status submitted atau graded
         abort_unless(in_array($submission->status, ['submitted', 'graded']), 403, 'Tugas tidak dalam status dikumpulkan atau dinilai.');

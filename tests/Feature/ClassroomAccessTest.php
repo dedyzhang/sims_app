@@ -483,6 +483,102 @@ class ClassroomAccessTest extends TestCase
         $this->actingAs($teacher)->get(route('classroom.submission.file', $file))->assertStatus(200);
     }
 
+    /**
+     * Regresi bug produksi nyata: siswa di kelas NON-asal (tugas ditaut ke banyak kelas via
+     * classroom_assignment_links) dapat 403 "This action is unauthorized" saat kumpul tugas,
+     * walau keanggotaannya di kelasnya SENDIRI valid — ClassroomSubmissionController::store()
+     * dulu authorize() ke $assignment->classroom (kelas asal) mentah2, bukan resolveClassroom()
+     * (yg dipakai show()/download()/lock, sudah benar). classroom:repair-membership TIDAK
+     * memperbaiki ini krn keanggotaan siswa memang sudah benar — yg salah adalah controller
+     * mengecek ke classroom yg SALAH.
+     */
+    public function test_siswa_di_kelas_non_asal_tetap_bisa_mengumpulkan_tugas(): void
+    {
+        $teacher = User::create(['username' => 'teacher_submit_regresi', 'password' => Hash::make('password'), 'access' => 'guru']);
+        $student = User::create(['username' => 'student_7d_submit_regresi', 'password' => Hash::make('password'), 'access' => 'siswa']);
+
+        $semester = Semester::create(['semester' => 1, 'tahun' => '2024/2025', 'aktif' => true]);
+        $kelas7B = Kelas::create(['tingkat' => 7, 'kelas' => 'B']);
+        $kelas7D = Kelas::create(['tingkat' => 7, 'kelas' => 'D']);
+        \App\Models\Siswa::create(['id_login' => $student->uuid, 'id_kelas' => $kelas7D->uuid, 'nama' => 'Student 7D Submit', 'nis' => '99901', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+
+        $pelajaran = Pelajaran::create(['nama' => 'Pendidikan Pancasila', 'ringkasan' => 'PPKN', 'kkm' => 75]);
+        $classroom7B = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7B->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-B Submit', 'status' => 'published', 'class_code' => 'SUBMITB', 'created_by' => $teacher->uuid]);
+        $classroom7D = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7D->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-D Submit', 'status' => 'published', 'class_code' => 'SUBMITD', 'created_by' => $teacher->uuid]);
+
+        // Siswa HANYA anggota 7D — bukan kelas asal (7B) tempat tugas dibuat.
+        \App\Models\ClassroomMember::create(['classroom_id' => $classroom7D->uuid, 'user_id' => $student->uuid, 'role_in_class' => 'siswa', 'joined_at' => now()]);
+
+        // Tugas dibuat di 7B (kelas asal), ditaut jg ke 7D.
+        $assignment = \App\Models\ClassroomAssignment::create([
+            'classroom_id' => $classroom7B->uuid, 'created_by' => $teacher->uuid,
+            'title' => 'Latihan Regresi', 'status' => 'published', 'max_score' => 100,
+        ]);
+        \Illuminate\Support\Facades\DB::table('classroom_assignment_links')->insert([
+            ['assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7B->uuid, 'created_at' => now(), 'updated_at' => now()],
+            ['assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7D->uuid, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $response = $this->actingAs($student)->post(route('classroom.submission.store', $assignment), [
+            'body' => 'Jawaban siswa 7D',
+            'submit_action' => 'submit',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'Tugas berhasil dikumpulkan.');
+
+        // classroom_id yg tersimpan harus classroom7D (kelas siswa SENDIRI), bukan 7B (kelas asal).
+        $this->assertDatabaseHas('classroom_submissions', [
+            'assignment_id' => $assignment->uuid,
+            'student_id'    => $student->uuid,
+            'classroom_id'  => $classroom7D->uuid,
+            'status'        => 'submitted',
+        ]);
+    }
+
+    /** Guru pengampu kelas non-asal tetap bisa menilai submission siswa di kelasnya. */
+    public function test_guru_pengampu_kelas_non_asal_tetap_bisa_menilai_submission(): void
+    {
+        $teacher = User::create(['username' => 'teacher_grade_regresi', 'password' => Hash::make('password'), 'access' => 'guru']);
+        $guru = Guru::create(['id_login' => $teacher->uuid, 'nama' => 'Guru Grade Regresi', 'nik' => '4444444444', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+        $student = User::create(['username' => 'student_grade_regresi', 'password' => Hash::make('password'), 'access' => 'siswa']);
+
+        $semester = Semester::create(['semester' => 1, 'tahun' => '2024/2025', 'aktif' => true]);
+        $kelas7B = Kelas::create(['tingkat' => 7, 'kelas' => 'B']);
+        $kelas7D = Kelas::create(['tingkat' => 7, 'kelas' => 'D']);
+        \App\Models\Siswa::create(['id_login' => $student->uuid, 'id_kelas' => $kelas7D->uuid, 'nama' => 'Student Grade 7D', 'nis' => '99902', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+
+        $pelajaran = Pelajaran::create(['nama' => 'Pendidikan Pancasila', 'ringkasan' => 'PPKN', 'kkm' => 75]);
+        $classroom7B = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7B->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-B Grade', 'status' => 'published', 'class_code' => 'GRADEB', 'created_by' => $teacher->uuid]);
+        $classroom7D = Classroom::create(['id_semester' => $semester->id, 'id_kelas' => $kelas7D->uuid, 'id_pelajaran' => $pelajaran->uuid, 'title' => 'PPKN VII-D Grade', 'status' => 'published', 'class_code' => 'GRADED', 'created_by' => $teacher->uuid]);
+
+        // Guru mengajar 7D (bukan 7B — kelas asal tugas) via Ngajar.
+        Ngajar::create(['id_guru' => $guru->uuid, 'id_kelas' => $kelas7D->uuid, 'id_pelajaran' => $pelajaran->uuid]);
+
+        $assignment = \App\Models\ClassroomAssignment::create([
+            'classroom_id' => $classroom7B->uuid, 'created_by' => $teacher->uuid,
+            'title' => 'Tugas Grade Regresi', 'status' => 'published', 'max_score' => 100,
+        ]);
+        \Illuminate\Support\Facades\DB::table('classroom_assignment_links')->insert([
+            ['assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7B->uuid, 'created_at' => now(), 'updated_at' => now()],
+            ['assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7D->uuid, 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $submission = \App\Models\ClassroomSubmission::create([
+            'assignment_id' => $assignment->uuid, 'classroom_id' => $classroom7D->uuid,
+            'student_id' => $student->uuid, 'status' => 'submitted', 'submitted_at' => now(),
+        ]);
+
+        $response = $this->actingAs($teacher)->post(route('classroom.submission.grade', $submission), [
+            'score' => 88, 'feedback' => 'Bagus',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'Nilai disimpan.');
+        $this->assertDatabaseHas('classroom_submissions', ['uuid' => $submission->uuid, 'score' => 88, 'status' => 'graded']);
+    }
+
     public function test_comments_and_submissions_are_segregated_by_classroom()
     {
         $teacher = User::create([

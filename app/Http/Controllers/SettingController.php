@@ -43,6 +43,7 @@ class SettingController extends Controller
         'manage_rapat' => 'Mengelola Agenda Rapat (Notulen)',
         'manage_kaih' => 'Mengelola Kuesioner & Rekap 7 KAIH',
         'manage_ujian' => 'Membuat, Mengelola & Menilai Ujian (PTS/PAS/UAS/Harian)',
+        'manage_osis' => 'Mengelola Pemilihan Ketua OSIS (Paslon, Token QR, Live & Hasil)',
     ];
 
     public function index()
