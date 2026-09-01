@@ -45,10 +45,13 @@ return new class extends Migration
 
             // NULL diperlakukan "distinct" oleh MySQL/Postgres/SQLite — jadi banyak baris guru
             // (id_siswa NULL) tetap boleh, tapi 1 siswa tak bisa py 2 token di pemilihan yg sama.
+            // Nama index custom (bukan auto-generate Laravel) — auto-generate utk 2 index komposit
+            // di bawah tembus 61-62 dari batas 64 char MySQL (margin cuma 2-3 char, terlalu mepet
+            // mengingat app ini sebelumnya pernah kena masalah persis ini di tabel lain).
             $table->unique(['id_pemilihan', 'id_siswa']);
             $table->unique(['id_pemilihan', 'id_guru']);
-            $table->index(['id_pemilihan', 'tipe_pemilih', 'sudah_memilih_at']); // dashboard live
-            $table->index(['id_pemilihan', 'tipe_pemilih', 'id_paslon_dipilih']); // chart hasil
+            $table->index(['id_pemilihan', 'tipe_pemilih', 'sudah_memilih_at'], 'osis_pemilih_dashboard_index'); // dashboard live
+            $table->index(['id_pemilihan', 'tipe_pemilih', 'id_paslon_dipilih'], 'osis_pemilih_hasil_index'); // chart hasil
         });
     }
 

@@ -38,9 +38,24 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
+            // Dulu null — Laravel cek isset() sebelum apply pragma via PDO, dan isset() atas
+            // nilai null itu FALSE, jadi 3 pragma ini TAK PERNAH benar2 dijalankan (dibuktikan
+            // langsung: isset(['busy_timeout'=>null]) === false). Akibatnya SQLite jalan pakai
+            // journal_mode DEFAULT (rollback journal, bukan WAL) — dalam mode ini penulis
+            // (write) memblokir SEMUA pembaca lain (bukan cuma sesama penulis) selama
+            // transaksinya berjalan. Login = beberapa query TULIS (sesi, last_seen) + BACA
+            // (cek user) — begitu ada request lain (mis. trafik Arena Belajar) sedang menulis
+            // ke file SQLite yg sama, request login lain yg butuh membaca bisa ikut terhambat/
+            // gagal → persis pola "database access/locked" yg berulang. WAL membiarkan
+            // pembaca jalan TANPA menunggu penulis (cuma sesama penulis yg tetap antre) — ini
+            // FIX UTAMANYA. busy_timeout eksplisit sbg jaring pengaman tambahan (PDO SQLite
+            // punya default 60000ms sendiri kalau tak di-override; 10 detik di sini cukup
+            // menyerap lonjakan singkat tanpa bikin request macet lama kalau ada yg genuinely
+            // nyangkut). synchronous=normal adalah pasangan resmi yg direkomendasikan bareng
+            // WAL (aman, lebih cepat drpd 'full' krn fsync lebih jarang).
+            'busy_timeout' => (int) env('DB_SQLITE_BUSY_TIMEOUT', 10000),
+            'journal_mode' => env('DB_SQLITE_JOURNAL_MODE', 'wal'),
+            'synchronous' => env('DB_SQLITE_SYNCHRONOUS', 'normal'),
             'transaction_mode' => 'DEFERRED',
         ],
 

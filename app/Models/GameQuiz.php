@@ -168,6 +168,25 @@ class GameQuiz extends Model
         return (bool) $this->activeLiveSession($classroom);
     }
 
+    public function activePracticeSession(?Classroom $classroom = null): ?GamePracticeSession
+    {
+        $classroom = $classroom ?? $this->classroom;
+        if (!$classroom) {
+            return null;
+        }
+
+        return GamePracticeSession::where('quiz_id', $this->uuid)
+            ->where('classroom_id', $classroom->uuid)
+            ->whereIn('status', ['lobby', 'question', 'reveal', 'standings'])
+            ->latest()
+            ->first();
+    }
+
+    public function hasActivePracticeSession(?Classroom $classroom = null): bool
+    {
+        return (bool) $this->activePracticeSession($classroom);
+    }
+
     public function allowsSolo(): bool
     {
         return ($this->play_mode ?? 'bebas') !== 'live';

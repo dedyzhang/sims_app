@@ -8,6 +8,7 @@
 
 @php
     $isLive = $quiz->hasActiveLiveSession($classroom);
+    $hasActivePractice = $quiz->hasActivePracticeSession($classroom);
     $playerName = auth()->user()->displayName();
 @endphp
 
@@ -298,6 +299,16 @@
                     </span>
                     @if($isLive)<span class="arena-rx-tool-pulse" aria-hidden="true"></span>@endif
                 </a>
+                @if($quiz->allowsLive())
+                <a href="{{ route('classroom.arena.latihan.show', [$classroom, $quiz]) }}" class="arena-rx-tool tone-template">
+                    <span class="arena-rx-tool-ico"><i data-lucide="flask-conical"></i></span>
+                    <span class="arena-rx-tool-copy">
+                        <strong>{{ $hasActivePractice ? 'Lanjut Latihan' : 'Latihan (uji coba)' }}</strong>
+                        <small>Coba dulu sebelum live — gabung tanpa login</small>
+                    </span>
+                    @if($hasActivePractice)<span class="arena-rx-tool-pulse" aria-hidden="true"></span>@endif
+                </a>
+                @endif
                 <a href="{{ route('classroom.arena.results', [$classroom, $quiz]) }}" class="arena-rx-tool tone-hasil">
                     <span class="arena-rx-tool-ico"><i data-lucide="trophy"></i></span>
                     <span class="arena-rx-tool-copy">

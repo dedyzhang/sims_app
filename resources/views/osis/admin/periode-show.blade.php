@@ -155,7 +155,8 @@
                                 <button type="submit" class="text-xs text-primary font-semibold mr-3">Generate Token</button>
                             </form>
                             @if (($tokenPerKelas[$k->uuid] ?? 0) > 0)
-                                <a href="{{ route('osis.pemilih.cetakKelas', [$pemilihan, $k]) }}" target="_blank" class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Cetak QR</a>
+                                <a href="{{ route('osis.pemilih.cetakKelas', [$pemilihan, $k]) }}" target="_blank" class="text-xs text-slate-500 dark:text-slate-400 font-semibold mr-3">Cetak QR</a>
+                                <a href="{{ route('osis.pemilih.cetakAbsensiKelas', [$pemilihan, $k]) }}" target="_blank" class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Cetak Absensi</a>
                             @endif
                         </td>
                     </tr>
@@ -169,7 +170,8 @@
                                 <button type="submit" class="text-xs text-primary font-semibold mr-3">Generate Token</button>
                             </form>
                             @if ($tokenGuru > 0)
-                                <a href="{{ route('osis.pemilih.cetakGuru', $pemilihan) }}" target="_blank" class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Cetak QR</a>
+                                <a href="{{ route('osis.pemilih.cetakGuru', $pemilihan) }}" target="_blank" class="text-xs text-slate-500 dark:text-slate-400 font-semibold mr-3">Cetak QR</a>
+                                <a href="{{ route('osis.pemilih.cetakAbsensiGuru', $pemilihan) }}" target="_blank" class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Cetak Absensi</a>
                             @endif
                         </td>
                     </tr>

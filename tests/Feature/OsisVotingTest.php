@@ -277,6 +277,25 @@ class OsisVotingTest extends TestCase
         ])->assertSessionHasErrors('jadwal_selesai');
     }
 
+    public function test_cetak_absensi_kelas_pdf_berhasil_dan_ikut_permission_gate(): void
+    {
+        $admin = $this->admin();
+        [$kelas, $siswas] = $this->buatKelasSiswa(3);
+        $pemilihan = OsisPemilihan::create(['nama' => 'Test', 'status' => 'dibuka']);
+        $paslon = OsisPaslon::create(['id_pemilihan' => $pemilihan->uuid, 'nomor_urut' => 1, 'nama_ketua' => 'Budi']);
+
+        $this->actingAs($admin)->post(route('osis.pemilih.generateSiswa', $pemilihan), ['id_kelas' => $kelas->uuid]);
+        $pemilihSatu = OsisPemilih::where('id_pemilihan', $pemilihan->uuid)->where('id_siswa', $siswas->first()->uuid)->first();
+        $this->post(route('osis.publik.store', $pemilihSatu->token), ['id_paslon' => $paslon->uuid]);
+
+        // Admin ber-akses: PDF berhasil digenerate (status "Sudah Pilih" utk 1 siswa dites manual via Read tool, lihat riwayat kerja).
+        $this->actingAs($admin)->get(route('osis.pemilih.cetakAbsensiKelas', [$pemilihan, $kelas]))->assertOk();
+
+        // Guru tanpa permission manage_osis ditolak, konsisten dgn seluruh route admin OSIS lain.
+        $guru = User::create(['username' => 'guru_cetak_absensi', 'password' => Hash::make('x'), 'access' => 'guru']);
+        $this->actingAs($guru)->get(route('osis.pemilih.cetakAbsensiKelas', [$pemilihan, $kelas]))->assertForbidden();
+    }
+
     public function test_role_tanpa_permission_ditolak_dari_menu_admin(): void
     {
         $guru = User::create(['username' => 'guru_biasa', 'password' => Hash::make('x'), 'access' => 'guru']);

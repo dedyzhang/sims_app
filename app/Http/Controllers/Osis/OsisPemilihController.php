@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Models\Siswa;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
@@ -156,6 +157,106 @@ class OsisPemilihController extends Controller
             'kelas' => null, 'pemilihan' => $pemilihan,
             'sekolah' => ['nama' => Setting::get('nama_sekolah', 'Sekolah'), 'npsn' => Setting::get('npsn')],
         ])->setPaper('a4', 'portrait')->stream('qr-osis-guru.pdf');
+    }
+
+    /**
+     * Daftar hadir 1 kelas: SATU tabel teks (tanpa QR, jadi baris jauh lebih pendek dari
+     * cetakKelas), status "Sudah/Belum Memilih" TERISI OTOMATIS dari sudah_memilih_at —
+     * bukan lembar tanda tangan manual. ±30 siswa/kelas di sekolah ini muat jauh di bawah
+     * 1 halaman A4 dgn baris sepadat ini (pola sama ujian/ruangan/_hadirBody.blade.php yg
+     * terbukti muat 1 kelas penuh), jadi TIDAK di-chunk seperti cetakKelas.
+     */
+    public function cetakAbsensiKelas(OsisPemilihan $pemilihan, Kelas $kelas)
+    {
+        $pemilihList = OsisPemilih::where('id_pemilihan', $pemilihan->uuid)
+            ->where('tipe_pemilih', 'siswa')
+            ->whereHas('siswa', fn ($q) => $q->where('id_kelas', $kelas->uuid))
+            ->with('siswa:uuid,nama,nis')
+            ->get()
+            ->sortBy(fn ($p) => $p->siswa->nama ?? $p->nama_snapshot)
+            ->values();
+
+        abort_if($pemilihList->isEmpty(), 404, 'Belum ada token pemilih utk kelas ini — generate dulu.');
+
+        $rows = $pemilihList->map(fn ($p) => [
+            'nama' => $p->siswa->nama ?? $p->nama_snapshot,
+            'nis' => $p->siswa->nis ?? $p->nis_snapshot,
+            'sudah' => $p->sudahMemilih(),
+            'waktu' => $p->sudah_memilih_at?->translatedFormat('d/m/y H:i'),
+        ]);
+
+        return Pdf::loadView('osis.admin.cetak-absensi', $this->kopData() + [
+            'rows' => $rows,
+            'kelas' => $kelas,
+            'pemilihan' => $pemilihan,
+            'labelIdentitas' => 'NIS',
+            'judulKelompok' => 'Kelas '.$kelas->tingkat.$kelas->kelas,
+        ])->setPaper('a4', 'portrait')->stream("absensi-osis-{$kelas->tingkat}{$kelas->kelas}.pdf");
+    }
+
+    public function cetakAbsensiGuru(OsisPemilihan $pemilihan)
+    {
+        $pemilihList = OsisPemilih::where('id_pemilihan', $pemilihan->uuid)
+            ->where('tipe_pemilih', 'guru')
+            ->with('guru:uuid,nama,nip')
+            ->get()
+            ->sortBy(fn ($p) => $p->guru->nama ?? $p->nama_snapshot)
+            ->values();
+
+        abort_if($pemilihList->isEmpty(), 404, 'Belum ada token pemilih guru — generate dulu.');
+
+        $rows = $pemilihList->map(fn ($p) => [
+            'nama' => $p->guru->nama ?? $p->nama_snapshot,
+            'nis' => $p->guru->nip ?? '-',
+            'sudah' => $p->sudahMemilih(),
+            'waktu' => $p->sudah_memilih_at?->translatedFormat('d/m/y H:i'),
+        ]);
+
+        return Pdf::loadView('osis.admin.cetak-absensi', $this->kopData() + [
+            'rows' => $rows,
+            'kelas' => null,
+            'pemilihan' => $pemilihan,
+            'labelIdentitas' => 'NIP',
+            'judulKelompok' => 'Guru & Karyawan',
+        ])->setPaper('a4', 'portrait')->stream('absensi-osis-guru.pdf');
+    }
+
+    /** Pola sama persis UjianRekapController::kopData() — kop surat + kepsek dari Guru ber-akses 'kepala'. */
+    private function kopData(): array
+    {
+        $kepsek = Guru::whereHas('user', fn ($q) => $q->where('access', 'kepala'))->first();
+
+        return [
+            'namaSekolah' => Setting::get('nama_sekolah', ''),
+            'alamatSekolah' => Setting::get('alamat_sekolah', ''),
+            'kopTeks' => Setting::get('kop_teks'),
+            'kopLogoKiri' => $this->kopImgDataUri('kop_logo_kiri', 'img/tutwuri.png'),
+            'kopLogoKanan' => $this->kopImgDataUri('kop_logo_kanan', 'img/maitreyawira_square.png'),
+            'kepsekNama' => $kepsek?->nama ?? Setting::get('kepala_sekolah', ''),
+        ];
+    }
+
+    private function kopImgDataUri(string $key, string $default): ?string
+    {
+        $v = Setting::get($key);
+        if ($v && Storage::disk('public')->exists($v)) {
+            return $this->fileToDataUri(Storage::disk('public')->path($v));
+        }
+        if (file_exists(public_path($default))) {
+            return $this->fileToDataUri(public_path($default));
+        }
+
+        return null;
+    }
+
+    private function fileToDataUri(string $path): ?string
+    {
+        if (! is_file($path)) {
+            return null;
+        }
+        $mime = @mime_content_type($path) ?: 'image/png';
+
+        return 'data:'.$mime.';base64,'.base64_encode((string) file_get_contents($path));
     }
 
     /** Roster detail per kelas — LAZY, dipanggil manual admin (bukan auto-poll), paginated. */

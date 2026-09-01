@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Notifications\ArenaLiveStartedNotification;
 use App\Services\GameAnswerGrader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -125,6 +126,54 @@ class GameLiveTest extends TestCase
         $this->assertSame('question', $state['status']);
     }
 
+    /**
+     * Keluhan FL: Arena Belajar berat saat siswa main. Root cause besar: sessionPayload()
+     * (dibangun tiap poll state(), ~tiap 4 detik per siswa) dulu me-load SEMUA soal+opsi
+     * kuis via $quiz->questions()->with('options')->get() cuma utk pakai SATU baris (soal
+     * aktif) — makin banyak soal kuisnya, makin berat tiap poll, padahal isi soal yg lain
+     * tak pernah dipakai. Test ini mengunci jumlah query state() TETAP walau kuisnya 20 soal.
+     */
+    public function test_query_state_tidak_naik_seiring_jumlah_soal_kuis(): void
+    {
+        Notification::fake();
+        $this->actingAs($this->guruUser)->post(route('classroom.arena.live.start', [$this->classroom, $this->quiz]));
+        $this->actingAs($this->guruUser)->postJson(route('classroom.arena.live.advance', [$this->classroom, $this->quiz]));
+
+        // Poll sekali DULU di luar pengukuran — supaya baris GameLiveParticipant sudah ke-INSERT
+        // (poll pertama beda jumlah query dari poll berikutnya krn ada INSERT itu). Kedua
+        // pengukuran di bawah jadi sama-sama "poll ke-N", sesi & user yg identik — cuma jumlah
+        // soal kuisnya yg beda, itu variabel satu-satunya yg mau diuji.
+        $this->actingAs($this->siswaUser)->getJson(route('classroom.arena.live.state', [$this->classroom, $this->quiz]));
+
+        DB::enableQueryLog();
+        $this->actingAs($this->siswaUser)->getJson(route('classroom.arena.live.state', [$this->classroom, $this->quiz]))->assertOk();
+        $queriesKecil = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        // Tambah 18 soal lagi (total 20) ke KUIS & SESI live yg SAMA yg sedang berjalan.
+        for ($i = 0; $i < 18; $i++) {
+            $q = GameQuestion::create([
+                'quiz_id' => $this->quiz->uuid, 'type' => 'mcq', 'question_text' => "Soal tambahan {$i}",
+                'points' => 1, 'sort_order' => 10 + $i,
+            ]);
+            for ($j = 0; $j < 4; $j++) {
+                GameQuestionOption::create(['question_id' => $q->uuid, 'option_text' => "Opsi {$j}", 'is_correct' => $j === 0, 'sort_order' => $j]);
+            }
+        }
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($this->siswaUser)->getJson(route('classroom.arena.live.state', [$this->classroom, $this->quiz]))->assertOk();
+        $queriesBesar = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame(
+            $queriesKecil,
+            $queriesBesar,
+            "Jumlah query state() harus SAMA persis kuis 2 soal vs 20 soal (skrg {$queriesKecil} vs {$queriesBesar}) — indikasi load-semua-soal per poll kembali muncul."
+        );
+    }
+
     public function test_correct_answer_raises_leaderboard(): void
     {
         Notification::fake();
@@ -147,6 +196,93 @@ class GameLiveTest extends TestCase
         $this->assertNotEmpty($board);
         $this->assertSame($this->siswaUser->uuid, $board[0]['student_id']);
         $this->assertGreaterThan(0, $board[0]['score']);
+    }
+
+    /**
+     * Bug dilaporkan FL: podium beda antara guru & siswa. Root cause: saat hide_scores aktif,
+     * urutan siswa dulu SAMA SEKALI tak di-sort (skip sortByDesc), sementara guru (yg selalu
+     * lolos !hideScores) tetap ter-sort — dua penampil, dua urutan berbeda. Sekarang sorting
+     * selalu terjadi via ORDER BY di query (bukan collection sort kondisional) — cuma field
+     * score/correct yg disembunyikan dari payload siswa, urutan barisnya harus tetap identik.
+     */
+    public function test_podium_urutan_sama_guru_dan_siswa_walau_hide_scores(): void
+    {
+        $this->quiz->update(['hide_scores' => true]);
+        $siswaB = User::create(['username' => 'siswa_live_b', 'password' => Hash::make('x'), 'access' => 'siswa']);
+        Siswa::create(['id_login' => $siswaB->uuid, 'id_kelas' => $this->classroom->id_kelas, 'nama' => 'Siswa Live B', 'nis' => '8003', 'jk' => 'P', 'face_descriptor' => [0.1]]);
+        ClassroomMember::create(['classroom_id' => $this->classroom->uuid, 'user_id' => $siswaB->uuid, 'role_in_class' => 'siswa', 'joined_at' => now()]);
+
+        Notification::fake();
+        $this->actingAs($this->guruUser)->post(route('classroom.arena.live.start', [$this->classroom, $this->quiz]));
+        $this->actingAs($this->guruUser)->postJson(route('classroom.arena.live.advance', [$this->classroom, $this->quiz]));
+        $session = GameLiveSession::latest()->first();
+        $correct = GameQuestionOption::where('question_id', $session->current_question_id)->where('is_correct', true)->first();
+        $wrong = GameQuestionOption::where('question_id', $session->current_question_id)->where('is_correct', false)->first();
+
+        // siswaUser jawab benar (skor > 0), siswaB jawab salah (skor 0) — beda peringkat jelas.
+        $this->actingAs($this->siswaUser)->postJson(route('classroom.arena.live.answer', [$this->classroom, $this->quiz]), [
+            'question_id' => $session->current_question_id, 'selected_option_id' => $correct->uuid,
+        ])->assertOk();
+        $this->actingAs($siswaB)->postJson(route('classroom.arena.live.answer', [$this->classroom, $this->quiz]), [
+            'question_id' => $session->current_question_id, 'selected_option_id' => $wrong->uuid,
+        ])->assertOk();
+
+        $guruBoard = $this->actingAs($this->guruUser)
+            ->getJson(route('classroom.arena.live.leaderboard', [$this->classroom, $this->quiz]))
+            ->assertOk()->json('leaderboard');
+        $siswaBoard = $this->actingAs($this->siswaUser)
+            ->getJson(route('classroom.arena.live.leaderboard', [$this->classroom, $this->quiz]))
+            ->assertOk()->json();
+
+        $this->assertTrue($siswaBoard['scores_hidden']);
+        $this->assertArrayNotHasKey('score', $siswaBoard['leaderboard'][0], 'Siswa tak boleh lihat skor saat hide_scores aktif.');
+        $this->assertSame(
+            array_column($guruBoard, 'student_id'),
+            array_column($siswaBoard['leaderboard'], 'student_id'),
+            'Urutan podium (siapa di posisi ke berapa) harus SAMA antara guru & siswa, walau siswa tak lihat angka skornya.'
+        );
+        $this->assertSame($this->siswaUser->uuid, $guruBoard[0]['student_id'], 'Yang jawab benar harus di posisi 1.');
+    }
+
+    /**
+     * Bug dilaporkan FL: podium beda-beda tiap soal. Salah satu penyebab: query leaderboard
+     * dulu TANPA ORDER BY sama sekali di level SQL (cuma sortByDesc('score') di collection,
+     * itu pun cuma kalau !hideScores) — utk siswa yg skornya SERI, urutan tak dijamin stabil
+     * antar-request. Sekarang ada tiebreak eksplisit (updated_at lalu uuid) — harus stabil.
+     */
+    public function test_podium_urutan_stabil_walau_skor_seri(): void
+    {
+        $siswaB = User::create(['username' => 'siswa_live_seri', 'password' => Hash::make('x'), 'access' => 'siswa']);
+        Siswa::create(['id_login' => $siswaB->uuid, 'id_kelas' => $this->classroom->id_kelas, 'nama' => 'Siswa Seri', 'nis' => '8004', 'jk' => 'P', 'face_descriptor' => [0.1]]);
+        ClassroomMember::create(['classroom_id' => $this->classroom->uuid, 'user_id' => $siswaB->uuid, 'role_in_class' => 'siswa', 'joined_at' => now()]);
+
+        Notification::fake();
+        $this->actingAs($this->guruUser)->post(route('classroom.arena.live.start', [$this->classroom, $this->quiz]));
+        $this->actingAs($this->guruUser)->postJson(route('classroom.arena.live.advance', [$this->classroom, $this->quiz]));
+        $session = GameLiveSession::latest()->first();
+        $correct = GameQuestionOption::where('question_id', $session->current_question_id)->where('is_correct', true)->first();
+
+        // Kedua siswa jawab BENAR — skor seri.
+        $this->actingAs($this->siswaUser)->postJson(route('classroom.arena.live.answer', [$this->classroom, $this->quiz]), [
+            'question_id' => $session->current_question_id, 'selected_option_id' => $correct->uuid,
+        ])->assertOk();
+        $this->actingAs($siswaB)->postJson(route('classroom.arena.live.answer', [$this->classroom, $this->quiz]), [
+            'question_id' => $session->current_question_id, 'selected_option_id' => $correct->uuid,
+        ])->assertOk();
+
+        $first = $this->actingAs($this->guruUser)
+            ->getJson(route('classroom.arena.live.leaderboard', [$this->classroom, $this->quiz]))
+            ->assertOk()->json('leaderboard');
+        $second = $this->actingAs($this->guruUser)
+            ->getJson(route('classroom.arena.live.leaderboard', [$this->classroom, $this->quiz]))
+            ->assertOk()->json('leaderboard');
+
+        $this->assertSame($first[0]['score'], $first[1]['score'], 'Sengaja seri utk tes ini.');
+        $this->assertSame(
+            array_column($first, 'student_id'),
+            array_column($second, 'student_id'),
+            'Urutan podium utk siswa yg skornya seri harus tetap sama di panggilan berikutnya.'
+        );
     }
 
     public function test_siswa_luar_cannot_answer_live(): void
@@ -181,6 +317,52 @@ class GameLiveTest extends TestCase
         ]);
         $this->assertSame(1.0, $grader->matchRatio($match, json_encode(['H2O' => 'Air', 'O2' => 'Oksigen'])));
         $this->assertSame(0.5, $grader->matchRatio($match, json_encode(['H2O' => 'Air', 'O2' => 'Salah'])));
+    }
+
+    /**
+     * Bug dilaporkan FL: soal mencocokkan teracak ULANG saat siswa lagi menjawab, jadi opsi
+     * yg diincar berpindah posisi. Root cause: publicMeta() dulu pakai shuffle() polos yg
+     * dipanggil ulang tiap sessionPayload() dibangun — yaitu tiap poll live/state (~4 detik)
+     * selama soal aktif. Sekarang di-seed per (sesi, soal) — urutan HARUS sama di seluruh
+     * poll selama soal yg sama masih aktif.
+     */
+    public function test_urutan_opsi_soal_mencocokkan_stabil_antar_poll(): void
+    {
+        GameQuestion::create([
+            'quiz_id' => $this->quiz->uuid, 'type' => 'match', 'question_text' => 'Pasangkan',
+            'points' => 2, 'sort_order' => 2,
+            'meta' => ['pairs' => [
+                ['left' => 'H2O', 'right' => 'Air'],
+                ['left' => 'O2', 'right' => 'Oksigen'],
+                ['left' => 'CO2', 'right' => 'Karbon Dioksida'],
+                ['left' => 'N2', 'right' => 'Nitrogen'],
+            ]],
+        ]);
+
+        Notification::fake();
+        $this->actingAs($this->guruUser)->post(route('classroom.arena.live.start', [$this->classroom, $this->quiz]));
+        // Maju sampai soal ke-3 (match): lobby->q1(mcq), q1->reveal, reveal->standings,
+        // standings->q2(short_answer), q2->reveal, reveal->standings, standings->q3(match).
+        for ($i = 0; $i < 7; $i++) {
+            $this->actingAs($this->guruUser)->postJson(route('classroom.arena.live.advance', [$this->classroom, $this->quiz]));
+        }
+        $session = GameLiveSession::latest()->first();
+        $this->assertSame('question', $session->status);
+        $this->assertSame(2, $session->question_index);
+
+        $first = $this->actingAs($this->siswaUser)
+            ->getJson(route('classroom.arena.live.state', [$this->classroom, $this->quiz]))
+            ->assertOk()->json('session.question.meta.rights');
+        $second = $this->actingAs($this->siswaUser)
+            ->getJson(route('classroom.arena.live.state', [$this->classroom, $this->quiz]))
+            ->assertOk()->json('session.question.meta.rights');
+        $thirdByOtherViewer = $this->actingAs($this->guruUser)
+            ->getJson(route('classroom.arena.live.state', [$this->classroom, $this->quiz]))
+            ->assertOk()->json('session.question.meta.rights');
+
+        $this->assertSame($first, $second, 'Urutan opsi mencocokkan harus sama di poll berikutnya (siswa yg sama).');
+        $this->assertSame($first, $thirdByOtherViewer, 'Urutan opsi mencocokkan harus sama walau dilihat guru vs siswa.');
+        $this->assertEqualsCanonicalizing(['Air', 'Oksigen', 'Karbon Dioksida', 'Nitrogen'], $first, 'Tetap semua opsi asli, cuma urutannya yg diacak.');
     }
 
     public function test_live_answer_locked_on_second_post(): void

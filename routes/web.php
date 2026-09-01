@@ -59,6 +59,8 @@ use App\Http\Controllers\ForumController;
 use App\Http\Controllers\ForumReactionController;
 use App\Http\Controllers\GameAttemptController;
 use App\Http\Controllers\GameLiveController;
+use App\Http\Controllers\GamePracticeController;
+use App\Http\Controllers\GamePracticeJoinController;
 use App\Http\Controllers\GameQuizController;
 use App\Http\Controllers\GameTemplateController;
 use App\Http\Controllers\QuestionQualityCheckerController;
@@ -159,6 +161,22 @@ Route::middleware(['modul:osis'])->prefix('pemilihan-osis')->name('osis.publik.'
     Route::get('/pilih/{token}', [OsisVoteController::class, 'show'])->name('show')->middleware('throttle:120,1');
     Route::post('/pilih/{token}', [OsisVoteController::class, 'store'])->name('store')->middleware('throttle:60,1');
 });
+
+// ─── Arena Belajar "Latihan": link publik via QR/barcode — TANPA login, TANPA perlu jadi
+//     anggota kelas. Identitas TAMU murni guest_token per-orang lewat query string (?g=...),
+//     pola sama Pemilihan OSIS di atas (bukan cookie/session Laravel, tak pernah Auth::login()).
+//     Sisi guru (host, login) ada di grup 'classroom.arena.latihan.*' yg ter-nest di dalam
+//     grup auth (lihat GamePracticeController). ───
+Route::middleware(['modul:akademik', 'modul:arena_belajar'])
+    ->prefix('arena-latihan')->name('latihan.publik.')
+    ->where(['joinToken' => '[A-Za-z0-9]{6,8}'])
+    ->group(function () {
+        Route::get('/{joinToken}', [GamePracticeJoinController::class, 'show'])->name('show')->middleware('throttle:120,1');
+        Route::post('/{joinToken}/gabung', [GamePracticeJoinController::class, 'join'])->name('join')->middleware('throttle:60,1');
+        Route::get('/{joinToken}/state', [GamePracticeJoinController::class, 'state'])->name('state')->middleware('throttle:360,1');
+        Route::get('/{joinToken}/podium', [GamePracticeJoinController::class, 'leaderboard'])->name('board')->middleware('throttle:360,1');
+        Route::post('/{joinToken}/jawab', [GamePracticeJoinController::class, 'answer'])->name('answer')->middleware('throttle:60,1');
+    });
 
 // Halaman "Langganan berakhir" — PUBLIK (tanpa auth) supaya siapa pun yang terkunci
 // oleh middleware EnforceLangganan tetap bisa melihat penjelasannya.
@@ -538,6 +556,15 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/{classroom}/arena-belajar/{quiz}/live/state', [GameLiveController::class, 'state'])->middleware('throttle:360,1')->name('arena.live.state');
             Route::get('/{classroom}/arena-belajar/{quiz}/live/podium', [GameLiveController::class, 'leaderboard'])->middleware('throttle:360,1')->name('arena.live.leaderboard');
             Route::post('/{classroom}/arena-belajar/{quiz}/live/jawab', [GameLiveController::class, 'answer'])->middleware('throttle:60,1')->name('arena.live.answer');
+            // Latihan: rehearsal sebelum live sungguhan — sisi GURU (login) di sini. Sisi TAMU
+            // (scan QR/barcode, tanpa login, tanpa perlu jadi anggota kelas) ada di grup publik
+            // terpisah dekat rute publik Pemilihan OSIS (lihat 'latihan.publik.*' di atas).
+            Route::get('/{classroom}/arena-belajar/{quiz}/latihan', [GamePracticeController::class, 'show'])->name('arena.latihan.show');
+            Route::post('/{classroom}/arena-belajar/{quiz}/latihan/mulai', [GamePracticeController::class, 'start'])->middleware('throttle:20,1')->name('arena.latihan.start');
+            Route::post('/{classroom}/arena-belajar/{quiz}/latihan/maju', [GamePracticeController::class, 'advance'])->middleware('throttle:60,1')->name('arena.latihan.advance');
+            Route::post('/{classroom}/arena-belajar/{quiz}/latihan/akhiri', [GamePracticeController::class, 'end'])->name('arena.latihan.end');
+            Route::get('/{classroom}/arena-belajar/{quiz}/latihan/state', [GamePracticeController::class, 'state'])->middleware('throttle:360,1')->name('arena.latihan.state');
+            Route::get('/{classroom}/arena-belajar/{quiz}/latihan/podium', [GamePracticeController::class, 'leaderboard'])->middleware('throttle:360,1')->name('arena.latihan.leaderboard');
             Route::post('/{classroom}/arena-belajar/{quiz}/template', [GameTemplateController::class, 'setTemplate'])->name('arena.template');
             Route::get('/{classroom}/arena-belajar/{quiz}/template/main', [GameTemplateController::class, 'playTemplate'])->name('arena.template.play');
             Route::get('/{classroom}/arena-belajar/{quiz}/tim', [GameTemplateController::class, 'teams'])->name('arena.teams');
@@ -1229,6 +1256,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/generate-guru', 'generateTokenGuru')->name('generateGuru');
             Route::get('/cetak/kelas/{kelas}', 'cetakKelas')->name('cetakKelas');
             Route::get('/cetak/guru', 'cetakGuru')->name('cetakGuru');
+            Route::get('/cetak-absensi/kelas/{kelas}', 'cetakAbsensiKelas')->name('cetakAbsensiKelas');
+            Route::get('/cetak-absensi/guru', 'cetakAbsensiGuru')->name('cetakAbsensiGuru');
             Route::get('/roster/kelas/{kelas}', 'rosterKelas')->name('rosterKelas');
         });
 

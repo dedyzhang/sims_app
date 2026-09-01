@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Guru;
 use App\Models\Siswa;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -32,13 +33,26 @@ class LoginController extends Controller
         ]);
 
         $credential = trim($request->credential);
-        $user = $this->resolveUserByCredential($credential);
+
+        try {
+            $user = $this->resolveUserByCredentialResilient($credential);
+        } catch (QueryException $e) {
+            report($e);
+
+            return back()->withErrors(['credential' => $this->dbBusyMessage()])->withInput(['credential' => $credential]);
+        }
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return back()->withErrors(['credential' => 'Username / NIK / NIS atau password salah.'])->withInput(['credential' => $credential]);
         }
 
-        Auth::login($user, $request->boolean('remember'));
+        try {
+            $this->loginResilient($user, $request->boolean('remember'));
+        } catch (QueryException $e) {
+            report($e);
+
+            return back()->withErrors(['credential' => $this->dbBusyMessage()])->withInput(['credential' => $credential]);
+        }
 
         return $this->redirectAfterLogin($user);
     }
@@ -53,13 +67,25 @@ class LoginController extends Controller
             'pin'        => 'required|digits:6',
         ]);
 
-        $user = $this->resolveUserByCredential($request->credential);
+        try {
+            $user = $this->resolveUserByCredentialResilient($request->credential);
+        } catch (QueryException $e) {
+            report($e);
+
+            return response()->json(['message' => $this->dbBusyMessage()], 503);
+        }
 
         if (!$user || !$user->pin || !Hash::check($request->pin, $user->pin)) {
             return response()->json(['message' => 'Kredensial atau PIN salah.'], 401);
         }
 
-        Auth::login($user);
+        try {
+            $this->loginResilient($user);
+        } catch (QueryException $e) {
+            report($e);
+
+            return response()->json(['message' => $this->dbBusyMessage()], 503);
+        }
 
         return response()->json([
             'message'  => 'Login berhasil.',
@@ -237,6 +263,30 @@ class LoginController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Hosting shared (spt Hostinger) sering membatasi jumlah koneksi MySQL bersamaan
+     * (max_user_connections) — saat trafik ramai (siswa login serentak, Arena Belajar live,
+     * dst), koneksi baru bisa ditolak SESAAT sampai koneksi lain selesai & dilepas. Ini
+     * gangguan SEMENTARA, bukan kredensial salah wajar — coba lagi 3x dgn jeda singkat
+     * (200ms/400ms/600ms) memberi waktu pool koneksi mengosong sebelum benar2 menyerah.
+     * Query login SENGAJA dipisah dari cek password/Auth::login — supaya password salah
+     * (kasus normal, JANGAN diulang-ulang) tak ikut ke-retry.
+     */
+    private function resolveUserByCredentialResilient(string $credential): ?User
+    {
+        return retry(3, fn () => $this->resolveUserByCredential($credential), fn (int $attempt) => $attempt * 200);
+    }
+
+    private function loginResilient(User $user, bool $remember = false): void
+    {
+        retry(3, fn () => Auth::login($user, $remember), fn (int $attempt) => $attempt * 200);
+    }
+
+    private function dbBusyMessage(): string
+    {
+        return 'Server sedang sibuk, silakan coba masuk lagi dalam beberapa detik.';
     }
 
     private function redirectAfterLogin(User $user)

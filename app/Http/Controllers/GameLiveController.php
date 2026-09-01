@@ -16,6 +16,7 @@ use App\Policies\GameQuizPolicy;
 use App\Services\GameAnswerGrader;
 use App\Support\ArenaAccessToken;
 use App\Support\ArenaJoinQr;
+use App\Support\ArenaSoloShuffle;
 use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -243,10 +244,21 @@ class GameLiveController extends Controller implements HasMiddleware
         $me = null;
 
         if ($assignment) {
+            // Urutan SELALU dihitung sama (ORDER BY di query, bukan sortByDesc kondisional) —
+            // dulu saat hide_scores aktif, urutan siswa sama sekali tak di-sort (skip sortByDesc),
+            // beda dgn urutan guru yg tetap ter-sort — itu sebab podium guru vs siswa berbeda.
+            // Tiebreak ganda (updated_at lalu uuid) bikin urutan STABIL antar-poll/antar-soal
+            // walau skor seri — sebelumnya tanpa ORDER BY sama sekali, urutan seri bisa
+            // berubah-ubah tiap request (tak dijamin stabil oleh DB engine).
+            // total_score/correct_count SELALU disinkronkan di answer() setiap kali siswa
+            // menjawab — jadi tak perlu eager-load 'answers' & hitung ulang di sini.
             $rows = $assignment->attempts()
-                ->with(['student', 'answers'])
+                ->with(['student:uuid,username', 'student.guru:uuid,id_login,nama', 'student.siswa:uuid,id_login,nama'])
                 ->where('source', GameAttempt::SOURCE_LIVE)
                 ->whereIn('status', ['in_progress', 'submitted', 'graded'])
+                ->orderByDesc('total_score')
+                ->orderBy('updated_at')
+                ->orderBy('uuid')
                 ->get()
                 ->map(function (GameAttempt $a) use ($hideScores) {
                     $row = [
@@ -254,13 +266,12 @@ class GameLiveController extends Controller implements HasMiddleware
                         'name'       => $a->student?->displayName() ?? 'Siswa',
                     ];
                     if (!$hideScores) {
-                        $row['score'] = (int) ($a->total_score ?: $a->answers->sum('points_awarded'));
-                        $row['correct'] = (int) ($a->correct_count ?: $a->answers->where('is_correct', true)->count());
+                        $row['score'] = (int) $a->total_score;
+                        $row['correct'] = (int) $a->correct_count;
                     }
 
                     return $row;
                 })
-                ->when(!$hideScores, fn ($c) => $c->sortByDesc('score'))
                 ->values()
                 ->take(20)
                 ->values();
@@ -465,6 +476,13 @@ class GameLiveController extends Controller implements HasMiddleware
      * - fase 'question': waktu soal habis, ATAU semua peserta yg tercatat hadir sudah jawab soal ini.
      * - fase 'reveal'/'standings': sudah lewat jeda otomatis (REVEAL_SECONDS/STANDINGS_SECONDS).
      * Host tetap bisa maju manual kapan saja lewat advance() — ini murni percepatan tambahan.
+     *
+     * Endpoint ini dipanggil oleh SETIAP peserta di SETIAP poll (~4 detik) — kalau kelas isi
+     * 30 siswa, itu 30 pemanggilan/siklus. Dulu semuanya langsung buka DB::transaction()
+     * + lockForUpdate() pada SATU baris game_live_sessions, walau 99% siklus kondisinya
+     * belum terpenuhi (blm waktunya) — bikin poll saling antre kunci baris yg sama, makin
+     * berat makin banyak siswa. Sekarang: cek dulu TANPA lock (mightNeedAdvance) — cuma
+     * masuk transaksi+lock kalau pre-check ini bilang "kemungkinan sudah waktunya".
      */
     private function autoAdvanceIfNeeded(
         GameLiveSession $session,
@@ -473,6 +491,10 @@ class GameLiveController extends Controller implements HasMiddleware
         GameAnswerGrader $grader
     ): GameLiveSession {
         if (!$session->isActive()) {
+            return $session;
+        }
+
+        if (!$this->mightNeedAdvance($session, $quiz)) {
             return $session;
         }
 
@@ -487,22 +509,29 @@ class GameLiveController extends Controller implements HasMiddleware
                 return $locked ?? $session;
             }
 
-            $shouldAdvance = match ($locked->status) {
-                'question' => ($locked->question_deadline_at && now()->greaterThanOrEqualTo($locked->question_deadline_at))
-                    || $this->allJoinedHaveAnswered($locked, $quiz),
-                'reveal' => $locked->phase_started_at
-                    && now()->greaterThanOrEqualTo($locked->phase_started_at->copy()->addSeconds(self::REVEAL_SECONDS)),
-                'standings' => $locked->phase_started_at
-                    && now()->greaterThanOrEqualTo($locked->phase_started_at->copy()->addSeconds(self::STANDINGS_SECONDS)),
-                default => false,
-            };
-
-            if (!$shouldAdvance) {
+            // Re-cek DI DALAM lock (bukan cuma percaya pre-check di luar) — kondisi bisa
+            // berubah antara pre-check dan sini (dua poll nyaris bersamaan), dan cuma yg
+            // pertama dapat lock yg boleh benar-benar transisi.
+            if (!$this->mightNeedAdvance($locked, $quiz)) {
                 return $locked;
             }
 
             return $this->transitionState($locked, $questions, $quiz, $classroom, $grader);
         });
+    }
+
+    /** Cek murah TANPA lock: apakah sesi ini kemungkinan perlu diperiksa utk auto-advance? */
+    private function mightNeedAdvance(GameLiveSession $session, GameQuiz $quiz): bool
+    {
+        return match ($session->status) {
+            'question' => ($session->question_deadline_at && now()->greaterThanOrEqualTo($session->question_deadline_at))
+                || $this->allJoinedHaveAnswered($session, $quiz),
+            'reveal' => $session->phase_started_at
+                && now()->greaterThanOrEqualTo($session->phase_started_at->copy()->addSeconds(self::REVEAL_SECONDS)),
+            'standings' => $session->phase_started_at
+                && now()->greaterThanOrEqualTo($session->phase_started_at->copy()->addSeconds(self::STANDINGS_SECONDS)),
+            default => false,
+        };
     }
 
     /** Semua siswa yg tercatat "masuk" sesi ini sudah kirim jawaban utk soal yg sedang aktif? */
@@ -518,15 +547,20 @@ class GameLiveController extends Controller implements HasMiddleware
             return false;
         }
 
-        $attemptIds = GameAttempt::where('assignment_id', $assignment->uuid)
-            ->where('source', GameAttempt::SOURCE_LIVE)
-            ->pluck('uuid');
+        return $this->answeredCountFor($assignment, $session->current_question_id) >= $joinedCount;
+    }
 
-        $answeredCount = GameAnswer::whereIn('attempt_id', $attemptIds)
-            ->where('question_id', $session->current_question_id)
+    /** Berapa attempt live (utk assignment ini) yg sudah jawab soal $questionId — SATU query (whereHas). */
+    private function answeredCountFor(GameQuizAssignment $assignment, ?string $questionId): int
+    {
+        if (!$questionId) {
+            return 0;
+        }
+
+        return GameAnswer::where('question_id', $questionId)
+            ->whereHas('attempt', fn ($q) => $q->where('assignment_id', $assignment->uuid)
+                ->where('source', GameAttempt::SOURCE_LIVE))
             ->count();
-
-        return $answeredCount >= $joinedCount;
     }
 
     private function finalizeLiveAttempts(GameQuiz $quiz, Classroom $classroom, GameAnswerGrader $grader): void
@@ -557,9 +591,12 @@ class GameLiveController extends Controller implements HasMiddleware
 
     private function sessionPayload(GameLiveSession $session, GameQuiz $quiz, ?User $user = null): array
     {
-        $questions = $quiz->questions()->with('options')->orderBy('sort_order')->get();
+        // Dulu: load SEMUA soal+opsi tiap poll (tiap ~4 detik, per siswa) cuma utk pakai SATU
+        // baris (soal aktif) — utk kuis 20 soal x 4 opsi itu ~100 baris dihidrasi sia-sia per
+        // poll. Sekarang: soal aktif saja (query terarah), total soal cukup COUNT (tanpa hidrasi).
+        $questionTotal = $quiz->questions()->count();
         $current = $session->current_question_id
-            ? $questions->firstWhere('uuid', $session->current_question_id)
+            ? $quiz->questions()->with('options')->where('uuid', $session->current_question_id)->first()
             : null;
 
         $questionPayload = null;
@@ -569,7 +606,7 @@ class GameLiveController extends Controller implements HasMiddleware
                 'type'          => $current->type,
                 'question_text' => $current->question_text,
                 'points'        => $current->points,
-                'meta'          => $this->publicMeta($current),
+                'meta'          => $this->publicMeta($current, $session),
                 'options'       => $current->options->map(fn ($o) => [
                     'uuid'        => $o->uuid,
                     'option_text' => $o->option_text,
@@ -595,10 +632,7 @@ class GameLiveController extends Controller implements HasMiddleware
             $joinedCount = GameLiveParticipant::where('session_id', $session->uuid)->count();
             $assignment = $quiz->assignmentFor($session->classroom);
             $answeredCount = $assignment
-                ? GameAnswer::whereIn('attempt_id', GameAttempt::where('assignment_id', $assignment->uuid)
-                        ->where('source', GameAttempt::SOURCE_LIVE)->pluck('uuid'))
-                    ->where('question_id', $session->current_question_id)
-                    ->count()
+                ? $this->answeredCountFor($assignment, $session->current_question_id)
                 : 0;
         }
 
@@ -633,7 +667,7 @@ class GameLiveController extends Controller implements HasMiddleware
             'status'               => $session->status,
             'status_label'         => $session->statusLabel(),
             'question_index'       => $session->question_index,
-            'question_total'       => $questions->count(),
+            'question_total'       => $questionTotal,
             'current_question_id' => $session->current_question_id,
             'question'             => $questionPayload,
             'question_started_at' => optional($session->question_started_at)?->toIso8601String(),
@@ -647,12 +681,21 @@ class GameLiveController extends Controller implements HasMiddleware
         ];
     }
 
-    private function publicMeta($question): ?array
+    private function publicMeta($question, GameLiveSession $session): ?array
     {
         if ($question->type === 'match') {
             $pairs = $question->meta['pairs'] ?? [];
             $lefts = collect($pairs)->pluck('left')->values();
-            $rights = collect($pairs)->pluck('right')->shuffle()->values();
+            // Dulu shuffle() polos — diacak ULANG tiap kali sessionPayload() dipanggil, yaitu
+            // tiap poll (~4 detik) SELAMA soal ini aktif, utk SETIAP siswa. Akibatnya posisi
+            // opsi di dropdown berubah-ubah persis saat siswa lagi menjawab. Sekarang pakai
+            // shuffle deterministik (pola sama App\Support\ArenaSoloShuffle di mode solo) —
+            // di-seed dari sesi+soal, jadi urutan SAMA selama soal ini aktif, apa pun berapa
+            // kali/siapa yg poll.
+            $rights = ArenaSoloShuffle::shuffle(
+                collect($pairs)->pluck('right')->values(),
+                'live|'.$session->uuid.'|match|'.$question->uuid
+            );
 
             return [
                 'lefts'  => $lefts,

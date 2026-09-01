@@ -11,6 +11,9 @@ Artisan::command('inspire', function () {
 // Terbitkan Ruang Kelas / materi / tugas terjadwal setiap menit.
 Schedule::command('classroom:publish-scheduled')->everyMinute()->withoutOverlapping();
 
+// Latihan Arena Belajar: sesi & data tamu sekali-pakai, tak ada nilai retensi jangka panjang.
+Schedule::command('latihan:bersihkan-sesi')->dailyAt('02:00')->withoutOverlapping();
+
 // Sarpras: pengingat jadwal pemeliharaan yang jatuh tempo (harian 07:00).
 Schedule::command('sarpras:pemeliharaan-reminder')->dailyAt('07:00')->withoutOverlapping();
 
