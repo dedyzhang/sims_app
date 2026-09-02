@@ -8,6 +8,8 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Daftar ujian yang ditetapkan untuk kelas Anda.</p>
     </div>
 
+    <x-qr-scan-button label="Scan QR Ruangan Ujian" />
+
     <div class="grid gap-3">
         @forelse($ujianKelasList as $uk)
         @php

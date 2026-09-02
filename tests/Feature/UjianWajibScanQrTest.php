@@ -95,7 +95,7 @@ class UjianWajibScanQrTest extends TestCase
         $ujian = $this->buatMapelHariIni('Fisika', 'TOKENWALL');
 
         $this->actingAs($this->siswaUser)->get(route('ujian.siswa.gate', $ujian))
-            ->assertOk()->assertSee('Anda Belum Scan QR Ruangan')->assertDontSee('Token Masuk');
+            ->assertOk()->assertSee('Anda Belum Scan QR Ruangan')->assertSee('Scan Sekarang')->assertDontSee('Token Masuk');
 
         $this->actingAs($this->siswaUser)->post(route('ujian.siswa.start', $ujian), ['token' => 'TOKENWALL'])
             ->assertForbidden();

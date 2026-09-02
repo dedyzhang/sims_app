@@ -26,7 +26,8 @@
             </ul>
         </div>
         @endif
-        <p class="text-xs text-slate-400 pt-2">Anda boleh menutup halaman ini dan menunggu instruksi pengawas.</p>
+        <a href="{{ route('ujian.siswa.index') }}" class="inline-block w-full px-5 py-2.5 rounded-xl text-sm font-bold text-white mt-2" style="background:var(--cp)">Pilih Mata Pelajaran</a>
+        <p class="text-xs text-slate-400 pt-1">Atau tutup halaman ini dan tunggu instruksi pengawas.</p>
     </div>
 </div>
 @endsection

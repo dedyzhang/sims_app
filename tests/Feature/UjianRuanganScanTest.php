@@ -74,7 +74,8 @@ class UjianRuanganScanTest extends TestCase
         $this->actingAs($siswaUser)->get(route('ujian.ruangan.scan', $this->ruangan))
             ->assertOk()
             ->assertSee('Kehadiran Tercatat')
-            ->assertSee($this->ruangan->nama);
+            ->assertSee($this->ruangan->nama)
+            ->assertSee('Pilih Mata Pelajaran');
 
         $this->assertDatabaseHas('ujian_daftar_hadir', [
             'id_ruangan' => $this->ruangan->uuid, 'id_siswa' => $this->siswaRoster->uuid,

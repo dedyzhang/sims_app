@@ -15,7 +15,8 @@
         @else
         <p class="text-xs text-amber-600 dark:text-amber-400">Anda belum terdaftar di ruangan ujian manapun — hubungi panitia ujian.</p>
         @endif
-        <a href="{{ route('ujian.siswa.gate', $ujian) }}" class="inline-block px-5 py-2.5 rounded-xl text-sm font-bold text-white" style="background:var(--cp)">Sudah Scan — Muat Ulang</a>
+        <x-qr-scan-button label="Scan Sekarang" />
+        <a href="{{ route('ujian.siswa.gate', $ujian) }}" class="block text-xs text-slate-400 hover:text-primary">Sudah scan? Muat ulang halaman ini</a>
         <a href="{{ route('ujian.siswa.index') }}" class="block text-xs text-slate-400 hover:text-primary">Kembali ke Daftar Ujian</a>
     </div>
 </div>

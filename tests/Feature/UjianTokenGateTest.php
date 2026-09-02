@@ -162,6 +162,16 @@ class UjianTokenGateTest extends TestCase
         $res->assertDontSee('Ujian Belum Dimulai');
     }
 
+    /** Siswa harus bisa scan QR ruangan langsung dari dalam website (kamera in-app), tanpa perlu keluar aplikasi — tombolnya tampil di halaman Ujian Saya. */
+    public function test_index_siswa_menampilkan_tombol_scan_qr_ruangan(): void
+    {
+        $siswa = $this->buatSiswa('siswa_index_scan_button', $this->kelas);
+
+        $this->actingAs($siswa)->get(route('ujian.siswa.index'))
+            ->assertOk()
+            ->assertSee('Scan QR Ruangan Ujian');
+    }
+
     public function test_index_siswa_mengabaikan_attempt_yang_dibatalkan(): void
     {
         // Attempt lama yg sudah di-soft-cancel (mis. reset oleh guru, Fase 5) TIDAK
