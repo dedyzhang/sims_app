@@ -65,7 +65,10 @@ class UjianRekapTest extends TestCase
 
         $res = $this->actingAs($this->admin)->get(route('ujian.rekap.index', ['tanggal' => now()->toDateString()]));
         $res->assertOk();
-        $res->assertSee('AD-HOC');
+        // Baris ini tetap tampil (sesi yatim tapi sudah py BA) — bukan collapse ke empty-state.
+        // Badge "AD-HOC" sengaja dihapus (FL: tak mau ada konsep ad-hoc lagi).
+        $res->assertDontSee('Tidak ada sesi di ruangan ini pada tanggal terpilih.');
+        $res->assertDontSee('AD-HOC');
         $res->assertSee('5');
     }
 

@@ -19,7 +19,6 @@
         .text-center { text-align: center; }
         .font-bold { font-weight: bold; }
         .italic { font-style: italic; color: #555; }
-        .bg-adhoc { background-color: #fff9c4; font-size: 8pt; padding: 2px 4px; border-radius: 2px; }
     </style>
 </head>
 <body>
@@ -84,7 +83,6 @@
                                 
                                 <td>
                                     @if($agenda['tipe'] === 'adhoc')
-                                        <span class="bg-adhoc">AD-HOC</span><br>
                                         {{ $ba ? $ba->ujianList->pluck('pelajaran.nama')->filter()->implode(', ') : 'Tanpa Jadwal' }}
                                     @else
                                         {{ $sesi->mapelNama() ?: 'Agenda tanpa mapel' }}

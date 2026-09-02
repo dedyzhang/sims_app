@@ -9,6 +9,7 @@ use App\Models\Pelajaran;
 use App\Models\Siswa;
 use App\Models\Ujian;
 use App\Models\UjianAttempt;
+use App\Models\UjianBeritaAcara;
 use App\Models\UjianJadwal;
 use App\Models\UjianKelas;
 use App\Models\UjianPaket;
@@ -308,6 +309,89 @@ class UjianRuanganMonitorTest extends TestCase
             ->assertSee('RUANGTOKEN')
             ->assertSee('TOKENTINGKAT8')
             ->assertSee('Kelas 8');
+    }
+
+    /**
+     * Bug report FL: field Pengawas & Jumlah Hadir/Tidak Hadir di form Berita Acara sekarang
+     * murni ketik manual, gampang tak sinkron dgn kenyataan. Pengawas: dropdown tetap ada
+     * TAPI cuma cadangan — begitu sudah tercatat (dari scan), tampil read-only + WAJIB hidden
+     * input (kalau tidak, submit tanpa field itu bakal mengosongkan pengawas yg sudah tercatat).
+     */
+    public function test_pengawas_sudah_tercatat_tampil_readonly_dan_tak_hilang_saat_disimpan_ulang(): void
+    {
+        $guruPengawas = Guru::create(['id_login' => User::create(['username' => 'guru_pengawas_tercatat', 'password' => Hash::make('rahasia123'), 'access' => 'guru'])->uuid, 'nama' => 'Guru Pengawas Tercatat', 'nik' => '9333300003', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+        UjianBeritaAcara::create([
+            'id_ruangan' => $this->ruangan->uuid, 'id_sesi' => $this->sesi->uuid,
+            'tanggal' => now()->toDateString(), 'id_guru_pengawas' => $guruPengawas->uuid,
+        ]);
+
+        $res = $this->actingAs($this->guruBebas)->get(route('ujian.ruangan.monitor', $this->ruangan));
+        $res->assertOk();
+        $res->assertSee('Guru Pengawas Tercatat');
+        // Hidden input wajib ada (bug guard: tanpa ini, submit ulang bakal mengosongkan pengawas
+        // yg sudah tercatat — dropdown edit-bebas sengaja tak dicek negatif di sini krn modal
+        // "Tambah Berita Acara" yg kosong/terpisah tetap sah py dropdown-nya sendiri).
+        $res->assertSee('<input type="hidden" name="id_guru_pengawas" value="' . $guruPengawas->uuid . '">', false);
+
+        // Submit ULANG tanpa field id_guru_pengawas (spt form read-only yg cuma kirim hidden input) — DB TAK BOLEH berubah.
+        $this->actingAs($this->guruBebas)->post(route('ujian.ruangan.sesi.simpan', [$this->ruangan, $this->sesi]), [
+            'id_ujian' => [$this->ujian->uuid], 'id_guru_pengawas' => $guruPengawas->uuid, 'catatan_kejadian' => 'Cek ulang.', 'hadir' => [],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('ujian_berita_acara', [
+            'id_ruangan' => $this->ruangan->uuid, 'id_sesi' => $this->sesi->uuid, 'id_guru_pengawas' => $guruPengawas->uuid,
+        ]);
+    }
+
+    public function test_wajib_scan_qr_hitung_jumlah_hadir_default_dari_scan(): void
+    {
+        $this->paket->update(['wajib_scan_qr' => true]);
+        $this->ruangan->peserta()->create(['id_siswa' => $this->siswaLuarRoster->uuid]);
+
+        $this->actingAs($this->siswaUser)->get(route('ujian.ruangan.scan', $this->ruangan))->assertOk();
+
+        $res = $this->actingAs($this->guruBebas)->get(route('ujian.ruangan.monitor', $this->ruangan));
+        $res->assertOk();
+        $res->assertViewHas('sesiHariIni', fn ($list) => $list->first()->jumlahHadirDefault === 1);
+    }
+
+    public function test_wajib_scan_qr_nonaktif_hitung_jumlah_hadir_default_dari_yang_sudah_mulai_ujian(): void
+    {
+        // $this->attempt (setUp) sudah dibuat via token TANPA scan sama sekali — paket ini
+        // defaultnya wajib_scan_qr=false, jadi "sudah mulai ujian" adalah satu2nya sinyal.
+        $res = $this->actingAs($this->guruBebas)->get(route('ujian.ruangan.monitor', $this->ruangan));
+        $res->assertOk();
+        $res->assertViewHas('sesiHariIni', fn ($list) => $list->first()->jumlahHadirDefault === 1);
+    }
+
+    public function test_wajib_scan_qr_aktif_mengabaikan_attempt_tanpa_scan(): void
+    {
+        // $this->attempt dibuat SEBELUM toggle ini — buktikan mode wajib_scan_qr=true
+        // TAK PERNAH melirik UjianAttempt sama sekali, murni dari baris hadir hasil scan.
+        $this->paket->update(['wajib_scan_qr' => true]);
+
+        $res = $this->actingAs($this->guruBebas)->get(route('ujian.ruangan.monitor', $this->ruangan));
+        $res->assertOk();
+        $res->assertViewHas('sesiHariIni', fn ($list) => $list->first()->jumlahHadirDefault === 0);
+    }
+
+    /** Bug report FL: tak mau ada konsep "ad-hoc" lagi — sesi terjadwal & Berita Acara yg ditambah manual harus tampil SATU daftar seragam, tanpa badge/label pembeda. */
+    public function test_sesi_terjadwal_dan_ba_manual_tampil_seragam_tanpa_label_ad_hoc(): void
+    {
+        $this->actingAs($this->guruBebas)->post(route('ujian.ruangan.beritaAcara.adhoc', $this->ruangan), [
+            'id_ujian' => [$this->ujian->uuid], 'jam_mulai_aktual' => '13:00', 'jam_selesai_aktual' => '14:00',
+            'catatan_kejadian' => 'Ditambah manual.', 'hadir' => [],
+        ])->assertRedirect();
+
+        $res = $this->actingAs($this->guruBebas)->get(route('ujian.ruangan.monitor', $this->ruangan));
+        $res->assertOk();
+        $res->assertSee('Tambah Berita Acara');
+        $res->assertDontSee('Tambah Berita Acara (Tanpa Sesi)');
+        $res->assertDontSee('Ad-hoc');
+        $res->assertDontSee('AD-HOC');
+        $res->assertDontSee('Tanpa Sesi');
+        // Mapel yg sama muncul dua kali (sesi terjadwal + entri manual) — cukup pastikan tampil.
+        $res->assertSee('Matematika');
     }
 
     public function test_daftar_ruangan_saya_tampilkan_tombol_scan_walau_cuma_satu_ruangan(): void

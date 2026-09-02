@@ -88,7 +88,6 @@
                                         
                                         <td class="px-5 py-4 align-top border-r border-slate-200 dark:border-slate-700">
                                             @if($agenda['tipe'] === 'adhoc')
-                                                <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 mb-1">AD-HOC</span><br>
                                                 <span class="font-medium text-slate-700 dark:text-slate-200">
                                                     {{ $ba ? $ba->ujianList->pluck('pelajaran.nama')->filter()->implode(', ') : 'Tanpa Jadwal' }}
                                                 </span>

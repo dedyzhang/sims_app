@@ -93,27 +93,41 @@
         </div>
     </div>
 
-    {{-- Berita Acara + Daftar Hadir — SATU modal per sesi (gabungan; guru centang mapel yg
-         dicakup, lalu cek/koreksi daftar hadir, satu tombol Simpan utk semuanya). --}}
+    {{-- Berita Acara + Daftar Hadir — SATU modal per sesi/entri (gabungan; guru centang mapel
+         yg dicakup, lalu cek/koreksi daftar hadir, satu tombol Simpan utk semuanya). Sesi
+         terjadwal & entri yg ditambah manual TAMPIL SERAGAM (satu daftar terurut jam, tanpa
+         kategori "ad-hoc" terpisah) — guru tetap bisa tambah manual + isi jam sendiri lewat
+         tombol di bawah, cuma tak dibedakan gaya visual/label lagi. --}}
     <div class="space-y-4" x-data="{ modalTerbuka: null }">
         <div class="flex items-center justify-between px-1 flex-wrap gap-2">
             <h2 class="font-bold text-slate-800 dark:text-slate-100">Berita Acara &amp; Daftar Hadir</h2>
             <button type="button" @click="modalTerbuka = 'adhoc-new'" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
-                <i data-lucide="plus" class="w-4 h-4"></i> Tambah Berita Acara (Tanpa Sesi)
+                <i data-lucide="plus" class="w-4 h-4"></i> Tambah Berita Acara
             </button>
         </div>
 
         <div class="grid gap-3">
-            @forelse($sesiHariIni as $sesi)
-            @php $ba = $sesi->beritaAcara; @endphp
+            @forelse($agendaGabungan as $agenda)
+            @php $sesi = $agenda['sesi']; $ba = $agenda['ba']; $isSesi = $agenda['tipe'] === 'sesi'; @endphp
             <div class="card p-4 flex items-center justify-between gap-3 flex-wrap">
                 <div>
-                    <p class="font-bold text-slate-800 dark:text-slate-100">{{ $sesi->mapelNama() ?: '—' }}</p>
+                    <p class="font-bold text-slate-800 dark:text-slate-100">{{ ($isSesi ? $sesi->mapelNama() : $ba->mapelNama()) ?: '—' }}</p>
                     <p class="text-xs text-slate-500 mt-0.5">
-                        {{ \App\Support\TanggalIndo::panjang($sesi->tanggal) }} &middot;
-                        {{ substr($sesi->jam_mulai, 0, 5) }}&ndash;{{ substr($sesi->jam_selesai, 0, 5) }}
-                        @if($sesi->label) &middot; Sesi {{ $sesi->label }} @endif
-                        &middot; {{ $sesi->jumlahSeharusnya }} peserta seharusnya
+                        {{ \App\Support\TanggalIndo::panjang($isSesi ? $sesi->tanggal : $ba->tanggal) }} &middot;
+                        @if($isSesi)
+                            {{ substr($sesi->jam_mulai, 0, 5) }}&ndash;{{ substr($sesi->jam_selesai, 0, 5) }}
+                            @if($sesi->label) &middot; Sesi {{ $sesi->label }} @endif
+                            &middot; {{ $sesi->jumlahSeharusnya }} peserta seharusnya
+                        @else
+                            {{ substr($ba->sesi?->jam_mulai ?? $ba->jam_mulai_aktual, 0, 5) }}&ndash;{{ substr($ba->sesi?->jam_selesai ?? $ba->jam_selesai_aktual, 0, 5) }}
+                            &middot; {{ $ba->jumlahSeharusnya }} peserta seharusnya
+                            @php
+                                $tokenEntri = $ba->ujianList->flatMap(fn ($u) => $u->kelas)->pluck('token_masuk')->unique()->filter()->values();
+                            @endphp
+                            @if($tokenEntri->isNotEmpty())
+                                &middot; Token: <span class="font-mono font-bold text-slate-700 dark:text-slate-300">{{ $tokenEntri->join(', ') }}</span>
+                            @endif
+                        @endif
                     </p>
                 </div>
                 <div class="flex items-center gap-3 flex-wrap">
@@ -124,57 +138,18 @@
                     <a href="{{ route('ujian.ruangan.beritaAcara.cetak', [$ruangan, $ba]) }}" target="_blank" class="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
                         <i data-lucide="printer" class="w-3.5 h-3.5"></i> Cetak BA
                     </a>
-                    <a href="{{ route('ujian.ruangan.sesi.hadir.cetak', [$ruangan, $sesi]) }}" target="_blank" class="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
+                    <a href="{{ $isSesi ? route('ujian.ruangan.sesi.hadir.cetak', [$ruangan, $sesi]) : route('ujian.ruangan.beritaAcara.hadir.cetak', [$ruangan, $ba]) }}" target="_blank" class="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
                         <i data-lucide="printer" class="w-3.5 h-3.5"></i> Cetak Hadir
                     </a>
                     @endif
-                    <button type="button" @click="modalTerbuka = '{{ $sesi->uuid }}'" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold">
+                    <button type="button" @click="modalTerbuka = '{{ $isSesi ? $sesi->uuid : 'adhoc-'.$ba->uuid }}'" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold">
                         {{ $ba->exists ? 'Edit' : 'Tambahkan' }} Berita Acara &amp; Daftar Hadir
                     </button>
                 </div>
             </div>
             @empty
-            <div class="card p-6 text-center text-slate-400 text-sm" x-show="{{ $baAdhocList->isEmpty() ? 'true' : 'false' }}">Belum ada sesi ujian dijadwalkan hari ini di ruangan ini.</div>
+            <div class="card p-6 text-center text-slate-400 text-sm">Belum ada sesi ujian dijadwalkan hari ini di ruangan ini.</div>
             @endforelse
-
-            {{-- Menampilkan Berita Acara Ad-hoc --}}
-            @foreach($baAdhocList as $baAdhoc)
-            <div class="card p-4 flex items-center justify-between gap-3 flex-wrap border-dashed border-2 border-primary/20">
-                <div>
-                    <p class="font-bold text-slate-800 dark:text-slate-100">{{ $baAdhoc->mapelNama() ?: '—' }} <span class="badge bg-primary/10 text-primary ml-2">Ad-hoc</span></p>
-                    <p class="text-xs text-slate-500 mt-0.5">
-                        {{ \App\Support\TanggalIndo::panjang($baAdhoc->tanggal) }} &middot;
-                        {{ substr($baAdhoc->sesi?->jam_mulai ?? $baAdhoc->jam_mulai_aktual, 0, 5) }}&ndash;{{ substr($baAdhoc->sesi?->jam_selesai ?? $baAdhoc->jam_selesai_aktual, 0, 5) }}
-                        &middot; {{ $baAdhoc->jumlahSeharusnya }} peserta seharusnya
-                        @php
-                            $adhocTokens = $baAdhoc->ujianList
-                                ->flatMap(fn($u) => $u->kelas)
-                                ->pluck('token_masuk')
-                                ->unique()
-                                ->filter()
-                                ->values();
-                        @endphp
-                        @if($adhocTokens->isNotEmpty())
-                            &middot; Token: <span class="font-mono font-bold text-slate-700 dark:text-slate-300">{{ $adhocTokens->join(', ') }}</span>
-                        @endif
-                    </p>
-                </div>
-                <div class="flex items-center gap-3 flex-wrap">
-                    <span class="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                        <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Sudah diisi
-                    </span>
-                    <a href="{{ route('ujian.ruangan.beritaAcara.cetak', [$ruangan, $baAdhoc]) }}" target="_blank" class="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
-                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> Cetak BA
-                    </a>
-                    <a href="{{ route('ujian.ruangan.beritaAcara.hadir.cetak', [$ruangan, $baAdhoc]) }}" target="_blank" class="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
-                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> Cetak Hadir
-                    </a>
-                    <button type="button" @click="modalTerbuka = 'adhoc-{{ $baAdhoc->uuid }}'" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold">
-                        Edit Berita Acara &amp; Daftar Hadir
-                    </button>
-                </div>
-            </div>
-            @endforeach
         </div>
 
         {{-- Wadah modal — konten tiap sesi dirender server-side (Blade), ditampilkan/disembunyikan via x-show --}}
@@ -219,13 +194,19 @@
 
                         <div>
                             <label class="block text-xs font-medium text-slate-500 mb-1">Pengawas</label>
+                            @if($ba->id_guru_pengawas)
+                            <p class="form-input bg-slate-50 dark:bg-slate-700/40 text-slate-700 dark:text-slate-200">{{ $ba->pengawas?->nama }}{{ $ba->pengawas?->nik ? ' — NIK ' . $ba->pengawas->nik : '' }}</p>
+                            <input type="hidden" name="id_guru_pengawas" value="{{ $ba->id_guru_pengawas }}">
+                            <p class="text-xs text-slate-400 mt-1">Otomatis dari guru yang scan QR ruangan saat sesi ini berlangsung.</p>
+                            @else
                             <select name="id_guru_pengawas" class="form-select">
                                 <option value="">— belum ada yang scan / pilih manual —</option>
                                 @foreach($guruList as $g)
                                 <option value="{{ $g->uuid }}" @selected($ba->id_guru_pengawas === $g->uuid)>{{ $g->nama }}{{ $g->nik ? ' — NIK ' . $g->nik : '' }}</option>
                                 @endforeach
                             </select>
-                            <p class="text-xs text-slate-400 mt-1">Terisi otomatis dari guru yang scan QR ruangan saat sesi ini berlangsung — bisa dikoreksi manual di sini.</p>
+                            <p class="text-xs text-slate-400 mt-1">Belum ada yang scan QR ruangan — pilih manual sbg cadangan, atau biarkan kosong dan tunggu ada yang scan.</p>
+                            @endif
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
@@ -239,11 +220,11 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-slate-500 mb-1">Jumlah Hadir</label>
-                                <input type="number" min="0" name="jumlah_hadir" value="{{ $ba->jumlah_hadir }}" class="form-input">
+                                <input type="number" min="0" name="jumlah_hadir" value="{{ $ba->jumlah_hadir ?? $sesi->jumlahHadirDefault }}" class="form-input">
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-slate-500 mb-1">Jumlah Tidak Hadir</label>
-                                <input type="number" min="0" name="jumlah_tidak_hadir" value="{{ $ba->jumlah_tidak_hadir }}" class="form-input">
+                                <input type="number" min="0" name="jumlah_tidak_hadir" value="{{ $ba->jumlah_tidak_hadir ?? $sesi->jumlahTidakHadirDefault }}" class="form-input">
                             </div>
                         </div>
                         <div>
@@ -254,20 +235,24 @@
                         <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
                             <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
                                 <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Daftar Hadir</label>
-                                <p class="text-xs text-slate-400">Terisi otomatis "Hadir" begitu siswa scan QR ruangan — sesuaikan kalau perlu.</p>
+                                <p class="text-xs text-slate-400">Terisi otomatis dari scan QR ruangan / sudah mulai ujian (tergantung setting sekolah) — sesuaikan kalau perlu.</p>
                             </div>
                             <div class="divide-y divide-slate-100 dark:divide-slate-700 border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
                                 @forelse($ruangan->peserta->sortBy(fn($p) => $p->siswa?->nama) as $p)
-                                @php $existing = $sesi->hadirMap->get($p->id_siswa); @endphp
+                                @php
+                                    $existing = $sesi->hadirMap->get($p->id_siswa);
+                                    $autoHadir = (bool) $sesi->autoHadirMap->get($p->id_siswa);
+                                    $defaultStatus = $existing->status ?? ($autoHadir ? 'hadir' : 'alpa');
+                                @endphp
                                 @if($p->siswa)
                                 <div class="p-2.5 flex items-center gap-3 flex-wrap">
                                     <input type="hidden" name="hadir[{{ $loop->index }}][id_siswa]" value="{{ $p->id_siswa }}">
                                     <span class="text-sm font-medium flex-1 min-w-32">{{ $p->siswa->nama }}</span>
                                     <select name="hadir[{{ $loop->index }}][status]" class="form-select py-1 text-xs w-auto">
-                                        <option value="hadir" @selected(($existing->status ?? 'hadir') === 'hadir')>Hadir</option>
-                                        <option value="izin" @selected(($existing->status ?? '') === 'izin')>Izin</option>
-                                        <option value="sakit" @selected(($existing->status ?? '') === 'sakit')>Sakit</option>
-                                        <option value="alpa" @selected(($existing->status ?? '') === 'alpa')>Alpa</option>
+                                        <option value="hadir" @selected($defaultStatus === 'hadir')>Hadir</option>
+                                        <option value="izin" @selected($defaultStatus === 'izin')>Izin</option>
+                                        <option value="sakit" @selected($defaultStatus === 'sakit')>Sakit</option>
+                                        <option value="alpa" @selected($defaultStatus === 'alpa')>Alpa</option>
                                     </select>
                                     <input type="text" name="hadir[{{ $loop->index }}][keterangan]" value="{{ $existing->keterangan ?? '' }}" placeholder="Keterangan (opsional)" class="form-input py-1 text-xs flex-1 min-w-40">
                                 </div>
@@ -302,7 +287,7 @@
                 <div class="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-2xl my-8" @click.outside="modalTerbuka = null">
                     <div class="p-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-700">
                         <div>
-                            <p class="font-bold text-slate-800 dark:text-slate-100">{{ $baAdhocModal->exists ? 'Edit Berita Acara Ad-hoc' : 'Berita Acara Baru (Tanpa Sesi)' }}</p>
+                            <p class="font-bold text-slate-800 dark:text-slate-100">{{ $baAdhocModal->exists ? 'Edit Berita Acara' : 'Berita Acara Baru' }}</p>
                             <p class="text-xs text-slate-500 mt-0.5">{{ $ruangan->nama }}</p>
                         </div>
                         <button type="button" @click="modalTerbuka = null" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -331,12 +316,19 @@
 
                         <div>
                             <label class="block text-xs font-medium text-slate-500 mb-1">Pengawas</label>
+                            @if($baAdhocModal->id_guru_pengawas)
+                            <p class="form-input bg-slate-50 dark:bg-slate-700/40 text-slate-700 dark:text-slate-200">{{ $baAdhocModal->pengawas?->nama }}{{ $baAdhocModal->pengawas?->nik ? ' — NIK ' . $baAdhocModal->pengawas->nik : '' }}</p>
+                            <input type="hidden" name="id_guru_pengawas" value="{{ $baAdhocModal->id_guru_pengawas }}">
+                            <p class="text-xs text-slate-400 mt-1">Otomatis dari guru yang scan QR ruangan saat sesi ini berlangsung.</p>
+                            @else
                             <select name="id_guru_pengawas" class="form-select">
-                                <option value="">— pilih manual —</option>
+                                <option value="">— belum ada yang scan / pilih manual —</option>
                                 @foreach($guruList as $g)
                                 <option value="{{ $g->uuid }}" @selected($baAdhocModal->id_guru_pengawas === $g->uuid)>{{ $g->nama }}{{ $g->nik ? ' — NIK ' . $g->nik : '' }}</option>
                                 @endforeach
                             </select>
+                            <p class="text-xs text-slate-400 mt-1">Belum ada yang scan QR ruangan — pilih manual sbg cadangan, atau biarkan kosong dan tunggu ada yang scan.</p>
+                            @endif
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
@@ -350,11 +342,11 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-slate-500 mb-1">Jumlah Hadir</label>
-                                <input type="number" min="0" name="jumlah_hadir" value="{{ $baAdhocModal->jumlah_hadir }}" class="form-input">
+                                <input type="number" min="0" name="jumlah_hadir" value="{{ $baAdhocModal->jumlah_hadir ?? ($baAdhocModal->exists ? $baAdhocModal->jumlahHadirDefault : '') }}" class="form-input">
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-slate-500 mb-1">Jumlah Tidak Hadir</label>
-                                <input type="number" min="0" name="jumlah_tidak_hadir" value="{{ $baAdhocModal->jumlah_tidak_hadir }}" class="form-input">
+                                <input type="number" min="0" name="jumlah_tidak_hadir" value="{{ $baAdhocModal->jumlah_tidak_hadir ?? ($baAdhocModal->exists ? $baAdhocModal->jumlahTidakHadirDefault : '') }}" class="form-input">
                             </div>
                         </div>
                         <div>
@@ -365,19 +357,26 @@
                         <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
                             <div class="flex items-center justify-between mb-2 flex-wrap gap-1">
                                 <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Daftar Hadir</label>
+                                @if($baAdhocModal->exists)
+                                <p class="text-xs text-slate-400">Terisi otomatis dari scan QR ruangan / sudah mulai ujian (tergantung setting sekolah) — sesuaikan kalau perlu.</p>
+                                @endif
                             </div>
                             <div class="divide-y divide-slate-100 dark:divide-slate-700 border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
                                 @forelse($ruangan->peserta->sortBy(fn($p) => $p->siswa?->nama) as $p)
-                                @php $existing = $baAdhocModal->exists ? $baAdhocModal->hadirMap->get($p->id_siswa) : null; @endphp
+                                @php
+                                    $existing = $baAdhocModal->exists ? $baAdhocModal->hadirMap->get($p->id_siswa) : null;
+                                    $autoHadir = $baAdhocModal->exists ? (bool) $baAdhocModal->autoHadirMap->get($p->id_siswa) : false;
+                                    $defaultStatus = $existing->status ?? ($autoHadir ? 'hadir' : ($baAdhocModal->exists ? 'alpa' : 'hadir'));
+                                @endphp
                                 @if($p->siswa)
                                 <div class="p-2.5 flex items-center gap-3 flex-wrap">
                                     <input type="hidden" name="hadir[{{ $loop->index }}][id_siswa]" value="{{ $p->id_siswa }}">
                                     <span class="text-sm font-medium flex-1 min-w-32">{{ $p->siswa->nama }}</span>
                                     <select name="hadir[{{ $loop->index }}][status]" class="form-select py-1 text-xs w-auto">
-                                        <option value="hadir" @selected(($existing->status ?? 'hadir') === 'hadir')>Hadir</option>
-                                        <option value="izin" @selected(($existing->status ?? '') === 'izin')>Izin</option>
-                                        <option value="sakit" @selected(($existing->status ?? '') === 'sakit')>Sakit</option>
-                                        <option value="alpa" @selected(($existing->status ?? '') === 'alpa')>Alpa</option>
+                                        <option value="hadir" @selected($defaultStatus === 'hadir')>Hadir</option>
+                                        <option value="izin" @selected($defaultStatus === 'izin')>Izin</option>
+                                        <option value="sakit" @selected($defaultStatus === 'sakit')>Sakit</option>
+                                        <option value="alpa" @selected($defaultStatus === 'alpa')>Alpa</option>
                                     </select>
                                     <input type="text" name="hadir[{{ $loop->index }}][keterangan]" value="{{ $existing->keterangan ?? '' }}" placeholder="Keterangan (opsional)" class="form-input py-1 text-xs flex-1 min-w-40">
                                 </div>
