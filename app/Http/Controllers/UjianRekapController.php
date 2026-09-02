@@ -30,6 +30,19 @@ class UjianRekapController extends Controller implements HasMiddleware
         ];
     }
 
+    /**
+     * Sesi "yatim" (jadwalnya sudah dihapus admin) TANPA data apa pun (Berita Acara/Daftar
+     * Hadir) sama sekali tak pernah "terjadi" apa-apa di situ — tak ada gunanya muncul jadi
+     * baris hantu "AD-HOC/Tanpa Jadwal" di rekap. Sesi yatim yg SUDAH terlanjur py BA/daftar
+     * hadir TETAP dipertahankan (data historis asli, jangan hilang dari laporan). Relasi
+     * jadwal/beritaAcara/daftarHadir WAJIB sudah di-eager-load oleh caller sebelum filter
+     * ini dipakai di Collection, supaya tak N+1.
+     */
+    private function sesiPunyaData(UjianSesi $sesi): bool
+    {
+        return $sesi->jadwal->isNotEmpty() || $sesi->beritaAcara->isNotEmpty() || $sesi->daftarHadir->isNotEmpty();
+    }
+
     public function index(Request $request)
     {
         $tanggal = $request->input('tanggal') ? Carbon::parse($request->input('tanggal')) : now();
@@ -42,14 +55,15 @@ class UjianRekapController extends Controller implements HasMiddleware
         }
 
         // Ambil semua sesi (termasuk adhoc yang dibuat tanpa jadwal) pada tanggal tersebut
-        $sesiQuery = UjianSesi::with(['paket', 'jadwal.ujian.pelajaran'])
+        $sesiQuery = UjianSesi::with(['paket', 'jadwal.ujian.pelajaran', 'beritaAcara', 'daftarHadir'])
             ->whereDate('tanggal', $tanggalString);
-            
+
         if ($paketId) {
             $sesiQuery->where('id_ujian_paket', $paketId);
         }
-        $sesiList = $sesiQuery->get();
-            
+        // Sesi yatim (jadwal dihapus) yg tak py data apa pun dibuang di sini — lihat sesiPunyaData().
+        $sesiList = $sesiQuery->get()->filter(fn ($s) => $this->sesiPunyaData($s))->values();
+
         // Kumpulkan paket ID dari sesi-sesi tersebut
         $paketIds = $sesiList->pluck('id_ujian_paket')->filter()->unique();
         if ($paketId) {
@@ -124,14 +138,14 @@ class UjianRekapController extends Controller implements HasMiddleware
         $tanggalString = $tanggal->toDateString();
         $paketId = $request->input('paket_id');
 
-        $sesiQuery = UjianSesi::with(['paket', 'jadwal.ujian.pelajaran'])
+        $sesiQuery = UjianSesi::with(['paket', 'jadwal.ujian.pelajaran', 'beritaAcara', 'daftarHadir'])
             ->whereDate('tanggal', $tanggalString);
-            
+
         if ($paketId) {
             $sesiQuery->where('id_ujian_paket', $paketId);
         }
-        $sesiList = $sesiQuery->get();
-            
+        $sesiList = $sesiQuery->get()->filter(fn ($s) => $this->sesiPunyaData($s))->values();
+
         $paketIds = $sesiList->pluck('id_ujian_paket')->filter()->unique();
         if ($paketId) {
             $paketIds = collect([$paketId]);
@@ -140,20 +154,20 @@ class UjianRekapController extends Controller implements HasMiddleware
         $ruanganList = UjianRuangan::with(['paket', 'peserta'])
             ->whereIn('id_ujian_paket', $paketIds)
             ->get();
-            
+
         $baSemua = UjianBeritaAcara::with(['pengawas', 'ujianList.pelajaran', 'sesi.jadwal'])
             ->whereDate('tanggal', $tanggalString)
             ->get();
-            
+
         $beritaAcaraList = $baSemua->whereIn('id_ruangan', $ruanganList->pluck('uuid'));
 
         $rekap = [];
         foreach ($ruanganList as $ruangan) {
             $sesiUntukRuangan = $sesiList->where('id_ujian_paket', $ruangan->id_ujian_paket);
             $baUntukRuangan = $beritaAcaraList->where('id_ruangan', $ruangan->uuid);
-            
+
             $agendas = [];
-            
+
             foreach ($sesiUntukRuangan as $sesi) {
                 $ba = $baUntukRuangan->where('id_sesi', $sesi->uuid)->first();
                 $agendas[] = [
@@ -300,15 +314,15 @@ class UjianRekapController extends Controller implements HasMiddleware
         $paketId = $request->input('paket_id');
         $paketAktif = $paketId ? UjianPaket::find($paketId) : null;
 
-        $sesiQuery = UjianSesi::with(['paket.semester', 'jadwal.ujian.pelajaran'])
+        $sesiQuery = UjianSesi::with(['paket.semester', 'jadwal.ujian.pelajaran', 'beritaAcara', 'daftarHadir'])
             ->whereDate('tanggal', $tanggalString);
-            
+
         if ($paketId) {
             $sesiQuery->where('id_ujian_paket', $paketId);
         }
-            
-        $sesiList = $sesiQuery->get();
-            
+
+        $sesiList = $sesiQuery->get()->filter(fn ($s) => $this->sesiPunyaData($s))->values();
+
         $paketIds = $sesiList->pluck('id_ujian_paket')->filter()->unique();
         if ($paketId) {
             $paketIds = collect([$paketId]);
