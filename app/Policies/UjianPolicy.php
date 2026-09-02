@@ -78,8 +78,18 @@ class UjianPolicy
         if (!$siswa || $siswa->id_kelas !== $ujianKelas->id_kelas) {
             return false;
         }
+        if (!$ujianKelas->isOpenNow()) {
+            return false;
+        }
 
-        return $ujianKelas->isOpenNow();
+        // Defense-in-depth: gate ramah utamanya di UjianSiswaController::gate(), ini
+        // jaga-jaga kalau ada yg coba POST token langsung ke start() tanpa lewat gate().
+        $ujian = $ujianKelas->ujian;
+        if ($ujian?->wajibScanQr() && !$ujian->paket->sudahDicekSiswa($siswa)) {
+            return false;
+        }
+
+        return true;
     }
 
     public function gradeEssay(User $user, Ujian $ujian): bool

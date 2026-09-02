@@ -19,6 +19,22 @@
         @endunless
     </div>
 
+    @if($tokenHariIni->isNotEmpty())
+    <div class="card p-4 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+        <h2 class="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1.5 mb-2">
+            <i data-lucide="key-round" class="w-3.5 h-3.5"></i> Token Ujian Hari Ini
+        </h2>
+        <div class="grid sm:grid-cols-2 gap-2">
+            @foreach($tokenHariIni as $t)
+            <div class="flex items-center justify-between gap-3 bg-white dark:bg-slate-800 rounded-lg px-3 py-2 border border-amber-100 dark:border-amber-900/40">
+                <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $t['mapel'] }}</span>
+                <span class="font-mono font-bold text-base tracking-widest text-amber-700 dark:text-amber-400">{{ $t['token'] ?: '—' }}</span>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- Status live — HANYA siswa yg sudah mulai mengerjakan (roster lengkap ada di Daftar Hadir di bawah) --}}
     <div x-show="mapelOpsi.length > 1" class="flex items-center gap-2">
         <label class="text-xs font-semibold text-slate-500">Mata Pelajaran:</label>
@@ -94,17 +110,6 @@
                         {{ substr($sesi->jam_mulai, 0, 5) }}&ndash;{{ substr($sesi->jam_selesai, 0, 5) }}
                         @if($sesi->label) &middot; Sesi {{ $sesi->label }} @endif
                         &middot; {{ $sesi->jumlahSeharusnya }} peserta seharusnya
-                        @php
-                            $tokens = $sesi->jadwal
-                                ->flatMap(fn($j) => $j->ujian?->kelas ?? collect())
-                                ->pluck('token_masuk')
-                                ->unique()
-                                ->filter()
-                                ->values();
-                        @endphp
-                        @if($tokens->isNotEmpty())
-                            &middot; Token: <span class="font-mono font-bold text-slate-700 dark:text-slate-300">{{ $tokens->join(', ') }}</span>
-                        @endif
                     </p>
                 </div>
                 <div class="flex items-center gap-3 flex-wrap">

@@ -43,6 +43,33 @@ class UjianRuanganMonitorController extends Controller
             ->pluck('id_ujian')->unique()->all();
     }
 
+    /**
+     * Mapel + token hari ini utk peserta ruangan ini — pengawas bisa lihat langsung tanpa
+     * minta guru mapel/admin. Discope ke kelas peserta ruangan ini (bukan semua kelas yg
+     * py ujian itu) spy tak ikut nampilin token tingkat lain yg tak relevan bagi ruangan ini.
+     */
+    private function tokenHariIni(UjianRuangan $ruangan): \Illuminate\Support\Collection
+    {
+        $idUjianHariIni = $this->idUjianHariIni($ruangan);
+        if (empty($idUjianHariIni)) {
+            return collect();
+        }
+
+        $idKelasPeserta = $ruangan->peserta()->with('siswa')->get()
+            ->pluck('siswa.id_kelas')->filter()->unique()->values();
+
+        return UjianKelas::with('ujian.pelajaran')
+            ->whereIn('id_ujian', $idUjianHariIni)
+            ->whereIn('id_kelas', $idKelasPeserta)
+            ->get()
+            ->groupBy('id_ujian')
+            ->map(fn ($grp) => [
+                'mapel' => $grp->first()->ujian?->pelajaran?->nama ?? $grp->first()->ujian?->judul,
+                'token' => $grp->pluck('token_masuk')->filter()->unique()->implode(', '),
+            ])
+            ->values();
+    }
+
     /** Daftar ruangan yg boleh dimasuki guru TANPA scan fisik — semua ruangan yg py ujian dijadwalkan hari ini (siapa pun guru boleh masuk, lihat UjianRuanganPolicy::awasi()). */
     public function daftarRuanganSaya(Request $request)
     {
@@ -72,8 +99,9 @@ class UjianRuanganMonitorController extends Controller
         $guruList = Guru::orderBy('nama')->get();
         $baAdhocList = $this->baAdhocHariIni($ruangan);
         $allUjianList = $ruangan->paket->ujian ?? collect();
+        $tokenHariIni = $this->tokenHariIni($ruangan);
 
-        return view('ujian.ruangan.monitor', compact('ruangan', 'sesiHariIni', 'adaJadwalHariIni', 'guruList', 'baAdhocList', 'allUjianList'));
+        return view('ujian.ruangan.monitor', compact('ruangan', 'sesiHariIni', 'adaJadwalHariIni', 'guruList', 'baAdhocList', 'allUjianList', 'tokenHariIni'));
     }
 
     /**
@@ -511,7 +539,7 @@ class UjianRuanganMonitorController extends Controller
         abort_unless($sesi->id_ujian_paket === $ruangan->id_ujian_paket, 404);
         $ruangan->load(['paket.semester', 'peserta.siswa.kelas']);
 
-        $hadirBySiswa = UjianDaftarHadir::where('id_ruangan', $ruangan->uuid)->whereDate('tanggal', $sesi->tanggal->toDateString())->get()->keyBy('id_siswa');
+        $hadirBySiswa = UjianDaftarHadir::where('id_ruangan', $ruangan->uuid)->where('id_sesi', $sesi->uuid)->get()->keyBy('id_siswa');
 
         return \Barryvdh\DomPDF\Facade\Pdf::loadView('ujian.ruangan.hadirCetak', [
             'ruangan'      => $ruangan,

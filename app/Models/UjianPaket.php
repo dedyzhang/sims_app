@@ -18,7 +18,7 @@ class UjianPaket extends Model
     protected $primaryKey = 'uuid';
 
     protected $fillable = [
-        'nama', 'jenis', 'id_semester', 'tanggal_mulai', 'tanggal_selesai', 'status', 'created_by',
+        'nama', 'jenis', 'id_semester', 'tanggal_mulai', 'tanggal_selesai', 'status', 'created_by', 'wajib_scan_qr',
     ];
 
     protected function casts(): array
@@ -26,6 +26,7 @@ class UjianPaket extends Model
         return [
             'tanggal_mulai'   => 'date',
             'tanggal_selesai' => 'date',
+            'wajib_scan_qr'   => 'boolean',
         ];
     }
 
@@ -52,6 +53,16 @@ class UjianPaket extends Model
     public function jadwal()
     {
         return $this->hasMany(UjianJadwal::class, 'id_ujian_paket', 'uuid');
+    }
+
+    /** Sudah scan QR (status 'hadir', bukan cuma ada baris — koreksi manual pengawas ke izin/sakit/alpa harus ikut menutup akses) HARI INI di ruangan manapun milik paket ini. */
+    public function sudahDicekSiswa(Siswa $siswa): bool
+    {
+        return UjianDaftarHadir::where('id_siswa', $siswa->uuid)
+            ->where('status', 'hadir')
+            ->whereDate('tanggal', now()->toDateString())
+            ->whereHas('ruangan', fn ($q) => $q->where('id_ujian_paket', $this->uuid))
+            ->exists();
     }
 
     public function jenisLabel(): string

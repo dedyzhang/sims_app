@@ -135,12 +135,17 @@ class UjianJadwalTest extends TestCase
         $this->assertNotNull($uk->dibuka_mulai, 'Window lama dibiarkan apa adanya, bukan ikut dikosongkan.');
     }
 
-    public function test_tanggal_jadwal_di_luar_rentang_paket_ditolak(): void
+    /** Guru harus bisa jadwalkan ujian di luar rentang tanggal_mulai/tanggal_selesai paket (mis. hari ini/lampau) — paket cuma label periode, bukan pagar tanggal jadwal. */
+    public function test_tanggal_jadwal_boleh_di_luar_rentang_paket(): void
     {
         $this->actingAs($this->admin)->post(route('ujian.paket.jadwal.store', $this->paket), [
             'id_ujian' => $this->ujian->uuid, 'tanggal' => '2027-01-15',
             'jam_mulai' => '08:00', 'jam_selesai' => '10:00',
-        ])->assertStatus(422);
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('ujian_jadwal', [
+            'id_ujian_paket' => $this->paket->uuid, 'tanggal' => '2027-01-15 00:00:00',
+        ]);
     }
 
     public function test_guru_bukan_pengelola_paket_tak_bisa_tambah_jadwal(): void

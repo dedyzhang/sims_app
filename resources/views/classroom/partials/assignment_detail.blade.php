@@ -15,6 +15,7 @@
     <div class="flex items-center gap-1 flex-shrink-0">
         <a href="{{ route('classroom.assignment.grading', [$assignment, 'class' => $classroom->uuid]) }}" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 hover:border-primary whitespace-nowrap">Penilaian</a>
         <a href="{{ route('classroom.assignment.edit', $assignment) }}" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-primary"><i data-lucide="pencil" class="w-4 h-4"></i></a>
+        <form method="POST" action="{{ route('classroom.assignment.destroy', $assignment) }}" onsubmit="return confirmDelete(this)">@csrf @method('DELETE')<button class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-rose-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></form>
     </div>
     @endif
 </div>

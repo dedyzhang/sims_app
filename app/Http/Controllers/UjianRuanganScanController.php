@@ -20,7 +20,10 @@ use Illuminate\Http\Request;
  * di muka — otorisasi guru murni via UjianRuanganPolicy::awasi() (guru mana
  * pun boleh, asal ruangan ini py ujian dijadwalkan hari itu). "Bukti hadir di
  * ruangan" = tahu URL scan-nya, yg cuma bisa didapat dgn scan fisik QR di
- * lokasi — bukan penugasan administratif.
+ * lokasi — bukan penugasan administratif. Siswa scan SEKALI mengisi hadir utk
+ * SEMUA mapel hari itu sekaligus (bukan cuma sesi yg sedang jalan) — dipakai jg
+ * sbg gate akses ambil-ujian kalau paket ini UjianPaket::wajib_scan_qr (lihat
+ * UjianPolicy::take()/UjianSiswaController::gate()).
  */
 class UjianRuanganScanController extends Controller
 {
@@ -67,38 +70,42 @@ class UjianRuanganScanController extends Controller
         $peserta = $ruangan->peserta()->where('id_siswa', $siswa->uuid)->first();
         abort_unless($peserta, 403, 'Anda tidak terdaftar sebagai peserta di ruangan ini — hubungi pengawas.');
 
-        $sesi = $this->resolveSesiUntukCheckin($ruangan, $siswa);
-        abort_unless($sesi, 404, 'Belum bisa menentukan sesi ujian yang sesuai untuk Anda saat ini — hubungi pengawas.');
+        $sesiList = $this->resolveSesiUntukCheckin($ruangan, $siswa);
+        abort_unless($sesiList->isNotEmpty(), 404, 'Belum bisa menentukan sesi ujian yang sesuai untuk Anda saat ini — hubungi pengawas.');
 
-        // firstOrCreate: scan berulang TIDAK menimpa status yg sudah tercatat (mis.
-        // kalau pengawas sempat koreksi manual) — cuma catat sekali per sesi.
-        $hadir = UjianDaftarHadir::firstOrCreate(
+        // firstOrCreate per sesi: satu scan langsung mengisi hadir utk SEMUA mapel hari
+        // ini yg eligible kelasnya (dipakai jg utk buka akses UjianPaket::wajib_scan_qr
+        // seharian sekali scan — lihat UjianPaket::sudahDicekSiswa()). Scan berulang TIDAK
+        // menimpa status yg sudah tercatat (mis. kalau pengawas sempat koreksi manual).
+        $hadirList = $sesiList->map(fn (UjianSesi $sesi) => UjianDaftarHadir::firstOrCreate(
             ['id_ruangan' => $ruangan->uuid, 'id_siswa' => $siswa->uuid, 'id_sesi' => $sesi->uuid],
             ['status' => 'hadir', 'tanggal' => $sesi->tanggal->toDateString(), 'dicatat_oleh' => $siswa->id_login, 'dicatat_pada' => now()]
-        );
+        ));
 
         return view('ujian.ruangan.checkin', [
             'ruangan' => $ruangan,
             'siswa' => $siswa,
-            'hadir' => $hadir,
-            'baruSajaDicatat' => $hadir->wasRecentlyCreated,
+            'hadir' => $hadirList->first(),
+            'sesiList' => $sesiList,
+            'baruSajaDicatat' => $hadirList->contains->wasRecentlyCreated,
         ]);
     }
 
     /**
-     * Resolusi sesi mana yg dimaksud siswa ini scan — TIDAK bisa pakai
-     * sesiAktifSekarang() polos (tie-break jam doang) krn produksi py kasus nyata
-     * 2 sesi jam IDENTIK (mapel beda) di hari yg sama; siswa yg ikut mapel A bisa
-     * salah tercatat ke sesi mapel B kalau cuma ditie-break dari jam. Dicocokkan
-     * lewat kelas siswa vs UjianKelas tiap sesi (query sama dgn
-     * jumlahPesertaSeharusnya) — kalau eligible di >1 sesi, jam aktif jadi
-     * tie-break; kalau ruangan cuma py 1 sesi hari itu, langsung pakai itu.
+     * Resolusi SEMUA sesi hari ini yg relevan bagi siswa ini scan — dipakai baik utk
+     * mengisi daftar hadir per-sesi (dokumen resmi) MAUPUN (via UjianPaket::sudahDicekSiswa())
+     * utk membuka akses ambil-ujian seharian sekaligus kalau paket ini wajib_scan_qr, jadi
+     * SENGAJA tak dipersempit ke satu sesi (tie-break jam) lagi spt sebelumnya — satu scan
+     * di pagi hari harus menutupi semua mapel hari itu, bukan cuma sesi yg sedang jalan saat
+     * itu. Dicocokkan lewat kelas siswa vs UjianKelas tiap sesi (query sama dgn
+     * jumlahPesertaSeharusnya) supaya siswa TIDAK salah tercatat ke sesi mapel yg bukan
+     * diikutinya (mis. 2 sesi jam identik, mapel beda, kelas beda — kasus nyata produksi).
      */
-    private function resolveSesiUntukCheckin(UjianRuangan $ruangan, Siswa $siswa): ?UjianSesi
+    private function resolveSesiUntukCheckin(UjianRuangan $ruangan, Siswa $siswa): \Illuminate\Support\Collection
     {
         $sesiHariIni = $ruangan->sesiPada();
         if ($sesiHariIni->isEmpty()) {
-            return null;
+            return collect();
         }
 
         $sesiCocokMapel = $sesiHariIni->filter(
@@ -107,21 +114,12 @@ class UjianRuanganScanController extends Controller
                 ->exists()
         );
 
-        if ($sesiCocokMapel->count() === 1) {
-            return $sesiCocokMapel->first();
-        }
-
-        if ($sesiCocokMapel->count() > 1) {
-            $sekarang = now()->format('H:i:s');
-            $aktif = $sesiCocokMapel
-                ->filter(fn (UjianSesi $s) => $s->jam_mulai <= $sekarang && $sekarang <= $s->jam_selesai)
-                ->sortByDesc('jam_mulai')->first();
-
-            return $aktif ?? $sesiCocokMapel->sortByDesc('jam_mulai')->first();
+        if ($sesiCocokMapel->isNotEmpty()) {
+            return $sesiCocokMapel->values();
         }
 
         // Tak ada sesi yg cocok kelasnya (data UjianKelas blm lengkap) — fallback aman
-        // kalau ruangan cuma py 1 sesi hari itu, kalau >1 tak bisa ditebak, gagal 404.
-        return $sesiHariIni->count() === 1 ? $sesiHariIni->first() : null;
+        // kalau ruangan cuma py 1 sesi hari itu, kalau >1 ambigu, jangan menebak (404).
+        return $sesiHariIni->count() === 1 ? $sesiHariIni : collect();
     }
 }

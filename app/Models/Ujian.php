@@ -60,6 +60,12 @@ class Ujian extends Model
         return $this->belongsTo(UjianPaket::class, 'id_ujian_paket', 'uuid');
     }
 
+    /** Ujian standalone (id_ujian_paket null, "Ulangan Harian" bebas guru) selalu mode 1 — tak pernah wajib scan. */
+    public function wajibScanQr(): bool
+    {
+        return (bool) ($this->paket?->wajib_scan_qr ?? false);
+    }
+
     /** Baris jadwal (hari×jam) milik ujian ini — lihat UjianJadwalSync utk cara dipakai. */
     public function jadwalUjian()
     {

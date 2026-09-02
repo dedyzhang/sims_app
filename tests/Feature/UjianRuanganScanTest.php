@@ -156,6 +156,37 @@ class UjianRuanganScanTest extends TestCase
         ]);
     }
 
+    /** Satu scan mengisi hadir utk SEMUA sesi hari itu yg eligible kelasnya (bukan cuma satu) — dasar mode UjianPaket::wajib_scan_qr "scan sekali buka semua mapel hari itu". */
+    public function test_siswa_scan_sekali_tercatat_hadir_di_semua_sesi_yang_eligible_kelasnya(): void
+    {
+        $admin = User::first() ?? User::create(['username' => 'admin_scan_fanout', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
+
+        $sesi1 = UjianSesi::create(['id_ujian_paket' => $this->paket->uuid, 'tanggal' => now()->toDateString(), 'jam_mulai' => '00:00', 'jam_selesai' => '23:59', 'label' => '1']);
+        $ujian1 = \App\Models\Ujian::create([
+            'id_pelajaran' => \App\Models\Pelajaran::create(['nama' => 'Matematika Fanout', 'kkm' => 75])->uuid,
+            'created_by' => $admin->uuid, 'id_ujian_paket' => $this->paket->uuid,
+            'judul' => 'PAS Matematika Fanout', 'jenis' => 'pas', 'target_nilai' => 'pas', 'durasi_menit' => 60,
+        ]);
+        UjianJadwal::create(['id_ujian_paket' => $this->paket->uuid, 'id_ujian' => $ujian1->uuid, 'id_sesi' => $sesi1->uuid, 'tanggal' => now()->toDateString(), 'jam_mulai' => '00:00', 'jam_selesai' => '23:59']);
+        \App\Models\UjianKelas::create(['id_ujian' => $ujian1->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => 'TOKEN1F']);
+
+        $sesi2 = UjianSesi::create(['id_ujian_paket' => $this->paket->uuid, 'tanggal' => now()->toDateString(), 'jam_mulai' => '00:00', 'jam_selesai' => '23:59', 'label' => '2']);
+        $ujian2 = \App\Models\Ujian::create([
+            'id_pelajaran' => \App\Models\Pelajaran::create(['nama' => 'IPA Fanout', 'kkm' => 75])->uuid,
+            'created_by' => $admin->uuid, 'id_ujian_paket' => $this->paket->uuid,
+            'judul' => 'PAS IPA Fanout', 'jenis' => 'pas', 'target_nilai' => 'pas', 'durasi_menit' => 60,
+        ]);
+        UjianJadwal::create(['id_ujian_paket' => $this->paket->uuid, 'id_ujian' => $ujian2->uuid, 'id_sesi' => $sesi2->uuid, 'tanggal' => now()->toDateString(), 'jam_mulai' => '00:00', 'jam_selesai' => '23:59']);
+        \App\Models\UjianKelas::create(['id_ujian' => $ujian2->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => 'TOKEN2F']);
+
+        $siswaUser = $this->actingAsSiswa();
+        $this->actingAs($siswaUser)->get(route('ujian.ruangan.scan', $this->ruangan))->assertOk();
+
+        $this->assertSame(2, \App\Models\UjianDaftarHadir::where('id_ruangan', $this->ruangan->uuid)->where('id_siswa', $this->siswaRoster->uuid)->count());
+        $this->assertDatabaseHas('ujian_daftar_hadir', ['id_ruangan' => $this->ruangan->uuid, 'id_siswa' => $this->siswaRoster->uuid, 'id_sesi' => $sesi1->uuid]);
+        $this->assertDatabaseHas('ujian_daftar_hadir', ['id_ruangan' => $this->ruangan->uuid, 'id_siswa' => $this->siswaRoster->uuid, 'id_sesi' => $sesi2->uuid]);
+    }
+
     public function test_guru_mana_pun_boleh_scan_masuk_monitor_kalau_ada_jadwal_hari_ini(): void
     {
         $this->beriJadwalHariIni();

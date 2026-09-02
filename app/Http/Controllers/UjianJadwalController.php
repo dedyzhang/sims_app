@@ -34,7 +34,6 @@ class UjianJadwalController extends Controller
             'sesi_label' => 'nullable|string|max:50',
         ]);
         $ujian = $paket->ujian()->findOrFail($data['id_ujian']);
-        $this->validasiRentangTanggal($paket, $data['tanggal']);
 
         $data['id_ujian_paket'] = $paket->uuid;
         $data['id_sesi'] = $this->resolveIdSesi($paket, $data);
@@ -55,7 +54,6 @@ class UjianJadwalController extends Controller
             'jam_selesai'=> 'required|date_format:H:i|after:jam_mulai',
             'sesi_label' => 'nullable|string|max:50',
         ]);
-        $this->validasiRentangTanggal($paket, $data['tanggal']);
 
         $data['id_sesi'] = $this->resolveIdSesi($paket, $data);
         $jadwal->update($data);
@@ -98,16 +96,5 @@ class UjianJadwalController extends Controller
     private function pastikanMilikPaket(UjianPaket $paket, UjianJadwal $jadwal): void
     {
         abort_unless($jadwal->id_ujian_paket === $paket->uuid, 404);
-    }
-
-    private function validasiRentangTanggal(UjianPaket $paket, string $tanggal): void
-    {
-        if ($paket->tanggal_mulai && $paket->tanggal_selesai) {
-            abort_if(
-                $tanggal < $paket->tanggal_mulai->toDateString() || $tanggal > $paket->tanggal_selesai->toDateString(),
-                422,
-                'Tanggal di luar rentang periode paket ini.'
-            );
-        }
     }
 }

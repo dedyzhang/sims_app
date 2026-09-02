@@ -75,7 +75,10 @@ class OsisDashboardController extends Controller
 
         return response()->json([
             'ok' => true,
-            'labels' => $paslonList->map(fn ($p) => "No.{$p->nomor_urut} {$p->nama_ketua}".($p->nama_wakil ? " – {$p->nama_wakil}" : ''))->values(),
+            // Label chart cukup "No.X" — nama lengkap bikin label sumbu-x kepanjangan/tumpang
+            // tindih; nomor paslon sudah cukup dikenali karena kartu paslon di halaman lain
+            // (kelola paslon/hasil) sudah menampilkan nama lengkapnya.
+            'labels' => $paslonList->map(fn ($p) => "No.{$p->nomor_urut}")->values(),
             'siswa' => $paslonList->map(fn ($p) => (int) ($suaraSiswa[$p->uuid] ?? 0))->values(),
             'guru' => $paslonList->map(fn ($p) => (int) ($suaraGuru[$p->uuid] ?? 0))->values(),
         ]);

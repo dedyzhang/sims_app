@@ -85,13 +85,34 @@ class UjianSiswaController extends Controller implements HasMiddleware
         // keamanan, siswa tetap harus masukkan token yg benar lagi (lewat form gate ini,
         // diproses start() yg akan MELANJUTKAN attempt yg sama, bukan bikin baru).
         if ($attempt && $attempt->wajib_token_ulang) {
-            return view('ujian.siswa.gate', compact('ujian', 'ujianKelas'));
+            return $this->butuhScanQr($ujian, $siswa)
+                ? $this->viewWajibScan($ujian, $siswa)
+                : view('ujian.siswa.gate', compact('ujian', 'ujianKelas'));
         }
         if ($attempt) {
             return redirect()->route('ujian.siswa.kerjakan', [$ujian, $attempt]);
         }
 
+        if ($this->butuhScanQr($ujian, $siswa)) {
+            return $this->viewWajibScan($ujian, $siswa);
+        }
+
         return view('ujian.siswa.gate', compact('ujian', 'ujianKelas'));
+    }
+
+    private function butuhScanQr(Ujian $ujian, Siswa $siswa): bool
+    {
+        return $ujian->wajibScanQr() && !$ujian->paket->sudahDicekSiswa($siswa);
+    }
+
+    private function viewWajibScan(Ujian $ujian, Siswa $siswa)
+    {
+        $peserta = \App\Models\UjianRuanganPeserta::where('id_siswa', $siswa->uuid)
+            ->whereHas('ruangan', fn ($q) => $q->where('id_ujian_paket', $ujian->id_ujian_paket))
+            ->with('ruangan')
+            ->first();
+
+        return view('ujian.siswa.wajibScan', ['ujian' => $ujian, 'ruangan' => $peserta?->ruangan]);
     }
 
     public function start(Request $request, Ujian $ujian)

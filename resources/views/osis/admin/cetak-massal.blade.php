@@ -22,6 +22,9 @@
         .col-qr  { width: 28%; text-align: center; }
         .col-qr img { width: 20mm; height: 20mm; }
         .compact .col-qr img { width: 17mm; height: 17mm; }
+        {{-- Nama diulang di bawah QR (bukan cuma di kolom Nama) — kalau lembar ini digunting jadi
+             per-orang, tiap potongan QR tetap "berlabel" sendiri, tak gampang tertukar. --}}
+        .col-qr-nama { font-size: 8px; font-weight: bold; margin-top: 1mm; line-height: 1.2; }
     </style>
 </head>
 <body>
@@ -44,12 +47,18 @@
         <tbody>
         @foreach ($page as $i => $r)
             <tr>
-                {{-- $perHalaman (BUKAN $page->count()) sbg pengali — halaman terakhir bisa lebih
-                     pendek dari $perHalaman, pakai count()-nya sendiri akan salah nomor. --}}
-                <td class="col-no">{{ $loop->parent->index * $perHalaman + $i + 1 }}</td>
+                {{-- $i BUKAN posisi lokal 0..perHalaman-1 — chunk() Laravel (array_chunk dgn
+                     preserveKeys=true) mempertahankan key ASLI dari $rows penuh di tiap halaman,
+                     jadi $i sudah otomatis jadi index global. Formula lama sengaja menambah lagi
+                     "$loop->parent->index * $perHalaman" di atasnya — dobel hitung offset halaman,
+                     itu sebab nomor lompat (mis. 21..30 di halaman 2, 41..50 di halaman 3, dst). --}}
+                <td class="col-no">{{ $i + 1 }}</td>
                 <td class="col-nm">{{ $r['nama'] }}</td>
                 <td class="col-tt">{{ $r['nis'] }}</td>
-                <td class="col-qr"><img src="{{ $r['qrUri'] }}"></td>
+                <td class="col-qr">
+                    <img src="{{ $r['qrUri'] }}">
+                    <div class="col-qr-nama">{{ $r['nama'] }}</div>
+                </td>
             </tr>
         @endforeach
         </tbody>

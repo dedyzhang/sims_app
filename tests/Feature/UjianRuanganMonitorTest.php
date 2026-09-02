@@ -291,6 +291,16 @@ class UjianRuanganMonitorTest extends TestCase
             ->assertSee('Siswa Ruangan Monitor');
     }
 
+    /** Bug report FL: pengawas harus bisa lihat token ujian hari ini tanpa minta guru mapel/admin — discope ke kelas peserta RUANGAN INI saja (RUANGTOKEN2 milik kelasLain yg TAK ada di roster ruangan ini, tidak boleh ikut tampil). */
+    public function test_halaman_monitor_menampilkan_token_ujian_hari_ini_discope_ke_roster_ruangan(): void
+    {
+        $this->actingAs($this->guruBebas)->get(route('ujian.ruangan.monitor', $this->ruangan))
+            ->assertOk()
+            ->assertSee('Token Ujian Hari Ini')
+            ->assertSee('RUANGTOKEN')
+            ->assertDontSee('RUANGTOKEN2');
+    }
+
     public function test_daftar_ruangan_saya_tampilkan_tombol_scan_walau_cuma_satu_ruangan(): void
     {
         // TIDAK auto-redirect walau cuma 1 ruangan — guru harus tetap lihat & tap sendiri
