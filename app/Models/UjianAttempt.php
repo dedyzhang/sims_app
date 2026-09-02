@@ -87,4 +87,30 @@ class UjianAttempt extends Model
             default                  => 'Sedang Mengerjakan',
         };
     }
+
+    /**
+     * Skor SEMENTARA (soal objektif saja, esai dianggap 0) — supaya halaman Hasil tak
+     * kosong ("—") selama status masih 'submitted' menunggu esai dinilai guru. Skala sama
+     * persis dgn total_skor final (UjianGrader::normalisasiSkor()), jadi angkanya "naik" ke
+     * skor final begitu esai selesai dinilai, bukan lompat skala. Null kalau memang belum
+     * ada skor objektif sama sekali (belum submit). $totalPoin/$modeSkor opsional — kirim
+     * dari caller kalau sudah dihitung di luar (roster banyak siswa, hindari N+1).
+     */
+    public function skorSementara(?int $totalPoin = null, ?string $modeSkor = null): ?float
+    {
+        if ($this->status === self::STATUS_DINILAI) {
+            return $this->total_skor !== null ? (float) $this->total_skor : null;
+        }
+        if ($this->skor_objektif === null) {
+            return null;
+        }
+
+        if ($totalPoin === null || $modeSkor === null) {
+            $ujian = $this->ujianKelas->ujian;
+            $totalPoin ??= (int) UjianSoal::where('id_ujian', $ujian->uuid)->get()->sum(fn (UjianSoal $s) => $s->poinEfektif());
+            $modeSkor ??= $ujian->pelajaran?->mode_skor_ujian ?? 'rata_rata';
+        }
+
+        return \App\Services\UjianGrader::normalisasiSkor((float) $this->skor_objektif, $totalPoin, $modeSkor);
+    }
 }

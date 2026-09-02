@@ -603,7 +603,12 @@ class UjianController extends Controller implements HasMiddleware
 
         $roster = $rosterService->untukKelas($untukRoster);
 
-        return view('ujian.hasil.index', compact('ujian', 'ujianKelasList', 'roster', 'kelasFilter'));
+        // Dihitung SEKALI di sini (bukan per-baris di view) supaya skorSementara() tak N+1
+        // ke ujian_soal utk tiap siswa di roster — lihat UjianAttempt::skorSementara().
+        $totalPoin = (int) $ujian->soal->sum(fn ($s) => $s->poinEfektif());
+        $modeSkor = $ujian->pelajaran?->mode_skor_ujian ?? 'rata_rata';
+
+        return view('ujian.hasil.index', compact('ujian', 'ujianKelasList', 'roster', 'kelasFilter', 'totalPoin', 'modeSkor'));
     }
 
     /** Rincian jawaban per-soal satu siswa — dipakai dari baris roster Hasil & Transfer/Pemantauan. */
@@ -620,13 +625,17 @@ class UjianController extends Controller implements HasMiddleware
 
         $siswaProfil = Siswa::where('id_login', $siswa->uuid)->first();
         $jawabanBySoal = collect();
+        $totalPoin = 0;
+        $modeSkor = 'rata_rata';
 
         if ($attempt) {
             $ujian->load(['soal' => fn ($q) => $q->orderBy('urutan'), 'soal.opsi']);
             $jawabanBySoal = UjianJawaban::where('id_attempt', $attempt->uuid)->get()->keyBy('id_soal');
+            $totalPoin = (int) $ujian->soal->sum(fn ($s) => $s->poinEfektif());
+            $modeSkor = $ujian->pelajaran?->mode_skor_ujian ?? 'rata_rata';
         }
 
-        return view('ujian.hasil.detail', compact('ujian', 'attempt', 'siswaProfil', 'jawabanBySoal'));
+        return view('ujian.hasil.detail', compact('ujian', 'attempt', 'siswaProfil', 'jawabanBySoal', 'totalPoin', 'modeSkor'));
     }
 
     /**

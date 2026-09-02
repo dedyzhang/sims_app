@@ -122,6 +122,39 @@ class UjianRosterHasilTest extends TestCase
         $res->assertSee('belum mengerjakan');
     }
 
+    /** Bug report FL: skor jangan kosong ("—") selagi esai belum dinilai — tampilkan skor objektif sementara, bukan nunggu status 'dinilai' penuh. */
+    public function test_hasil_index_menampilkan_skor_sementara_selagi_esai_belum_dinilai(): void
+    {
+        $siswa = $this->buatSiswa('siswa_skor_sementara', $this->kelasA);
+        UjianAttempt::create([
+            'id_ujian_kelas' => $this->ujianKelasA->uuid, 'id_siswa' => $siswa->uuid,
+            'urutan_soal' => [], 'urutan_opsi' => [], 'status' => UjianAttempt::STATUS_SUBMITTED,
+            'skor_objektif' => 10, 'butuh_penilaian_manual' => true,
+        ]);
+
+        $res = $this->actingAs($this->admin)->get(route('ujian.hasil.index', $this->ujian));
+        $res->assertOk();
+        // 1 soal poin 10, mode default rata_rata -> 10/10*100 = 100.0
+        $res->assertSee('100.0');
+        $res->assertSee('(sementara)');
+    }
+
+    public function test_hasil_detail_menampilkan_skor_sementara_selagi_esai_belum_dinilai(): void
+    {
+        $siswa = $this->buatSiswa('siswa_detail_sementara', $this->kelasA);
+        UjianAttempt::create([
+            'id_ujian_kelas' => $this->ujianKelasA->uuid, 'id_siswa' => $siswa->uuid,
+            'urutan_soal' => [], 'urutan_opsi' => [], 'status' => UjianAttempt::STATUS_SUBMITTED,
+            'skor_objektif' => 10, 'butuh_penilaian_manual' => true,
+        ]);
+
+        $res = $this->actingAs($this->admin)->get(route('ujian.hasil.detail', [$this->ujian, $siswa]));
+        $res->assertOk();
+        $res->assertSee('Skor Sementara');
+        $res->assertSee('100.0');
+        $res->assertSee('esai belum dinilai');
+    }
+
     public function test_guru_bukan_pemilik_ujian_ditolak_akses_hasil_detail(): void
     {
         $guruLainUser = User::create(['username' => 'guru_lain_roster', 'password' => Hash::make('rahasia123'), 'access' => 'guru']);

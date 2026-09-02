@@ -24,9 +24,13 @@
             <p class="text-xs text-slate-400">Status</p>
             <p class="font-semibold">{{ $attempt->statusLabel() }}</p>
         </div>
+        @php $skor = $attempt->skorSementara($totalPoin, $modeSkor); @endphp
         <div>
-            <p class="text-xs text-slate-400">Skor Akhir</p>
-            <p class="font-mono font-bold">{{ $attempt->status === 'dinilai' ? number_format($attempt->total_skor, 1) : '—' }}</p>
+            <p class="text-xs text-slate-400">{{ $attempt->status === 'dinilai' ? 'Skor Akhir' : 'Skor Sementara' }}</p>
+            <p class="font-mono font-bold">{{ $skor !== null ? number_format($skor, 1) : '—' }}</p>
+            @if($skor !== null && $attempt->status !== 'dinilai')
+            <p class="text-[10px] text-amber-500 mt-0.5">Soal objektif saja — esai belum dinilai</p>
+            @endif
         </div>
         <div>
             <p class="text-xs text-slate-400">Selesai</p>

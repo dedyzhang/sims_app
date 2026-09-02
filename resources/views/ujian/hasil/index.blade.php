@@ -52,7 +52,15 @@
                             </span>
                         @endif
                     </td>
-                    <td class="px-4 py-2.5 font-mono">{{ $attempt?->status === 'dinilai' ? number_format($attempt->total_skor, 1) : '—' }}</td>
+                    <td class="px-4 py-2.5 font-mono">
+                        @php $skor = $attempt?->skorSementara($totalPoin, $modeSkor); @endphp
+                        @if($skor !== null)
+                            {{ number_format($skor, 1) }}
+                            @if($attempt->status !== 'dinilai')<span class="text-[10px] text-amber-500 font-sans font-normal">(sementara)</span>@endif
+                        @else
+                            —
+                        @endif
+                    </td>
                     <td class="px-4 py-2.5">
                         @if(!$attempt)
                             <span class="badge bg-slate-100 dark:bg-slate-700 text-slate-500">—</span>

@@ -44,9 +44,12 @@ class UjianRuanganMonitorController extends Controller
     }
 
     /**
-     * Mapel + token hari ini utk peserta ruangan ini — pengawas bisa lihat langsung tanpa
-     * minta guru mapel/admin. Discope ke kelas peserta ruangan ini (bukan semua kelas yg
-     * py ujian itu) spy tak ikut nampilin token tingkat lain yg tak relevan bagi ruangan ini.
+     * SEMUA mapel + token hari ini utk PAKET ini (bukan cuma kelas yg kebetulan jadi
+     * peserta ruangan ini) — pengawas bisa bantu siswa tingkat/mapel apa pun yg ujian hari
+     * itu tanpa perlu minta guru mapel/admin. Token dikelompokkan per tingkat (bukan
+     * digabung rata) krn tiap tingkat py token beda (lihat "token per tingkat" di
+     * UjianKelas) — digabung jadi satu string malah bikin pengawas salah kasih token ke
+     * kelas yg salah.
      */
     private function tokenHariIni(UjianRuangan $ruangan): \Illuminate\Support\Collection
     {
@@ -55,18 +58,25 @@ class UjianRuanganMonitorController extends Controller
             return collect();
         }
 
-        $idKelasPeserta = $ruangan->peserta()->with('siswa')->get()
-            ->pluck('siswa.id_kelas')->filter()->unique()->values();
-
-        return UjianKelas::with('ujian.pelajaran')
+        return UjianKelas::with(['ujian.pelajaran', 'kelas'])
             ->whereIn('id_ujian', $idUjianHariIni)
-            ->whereIn('id_kelas', $idKelasPeserta)
             ->get()
             ->groupBy('id_ujian')
-            ->map(fn ($grp) => [
-                'mapel' => $grp->first()->ujian?->pelajaran?->nama ?? $grp->first()->ujian?->judul,
-                'token' => $grp->pluck('token_masuk')->filter()->unique()->implode(', '),
-            ])
+            ->map(function ($grp) {
+                $perTingkat = $grp->groupBy(fn ($uk) => $uk->kelas?->tingkat)
+                    ->map(fn ($g, $tingkat) => [
+                        'tingkat' => $tingkat,
+                        'token'   => $g->pluck('token_masuk')->filter()->unique()->implode(', '),
+                    ])
+                    ->sortKeys()
+                    ->values();
+
+                return [
+                    'mapel'       => $grp->first()->ujian?->pelajaran?->nama ?? $grp->first()->ujian?->judul,
+                    'perTingkat'  => $perTingkat,
+                ];
+            })
+            ->sortBy('mapel')
             ->values();
     }
 

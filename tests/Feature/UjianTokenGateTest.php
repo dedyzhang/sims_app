@@ -176,6 +176,19 @@ class UjianTokenGateTest extends TestCase
             ->assertSee('qr-scanner@1.4.2', false);
     }
 
+    /** Bug report FL: sebagian HP siswa gagal masuk fullscreen (requestFullscreen() ditolak/tak didukung), siswa terjebak permanen di overlay wajib-fullscreen tanpa jalan keluar — perlu tombol lanjut tanpa fullscreen. */
+    public function test_halaman_kerjakan_menampilkan_tombol_lanjut_tanpa_layar_penuh(): void
+    {
+        $siswa = $this->buatSiswa('siswa_fs_escape', $this->kelas);
+        $this->actingAs($siswa)->post(route('ujian.siswa.start', $this->ujian), ['token' => 'RAHASIA1'])->assertRedirect();
+        $attempt = UjianAttempt::where('id_siswa', $siswa->uuid)->firstOrFail();
+
+        $this->actingAs($siswa)->get(route('ujian.siswa.kerjakan', [$this->ujian, $attempt]))
+            ->assertOk()
+            ->assertSee('Lanjutkan tanpa layar penuh')
+            ->assertSee('lanjutTanpaLayarPenuh()', false);
+    }
+
     public function test_index_siswa_mengabaikan_attempt_yang_dibatalkan(): void
     {
         // Attempt lama yg sudah di-soft-cancel (mis. reset oleh guru, Fase 5) TIDAK

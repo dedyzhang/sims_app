@@ -43,6 +43,9 @@
             <button type="button" @click="masukLayarPenuh()" class="btn-primary px-6 py-3 rounded-xl text-sm font-bold inline-flex items-center gap-2">
                 <i data-lucide="maximize" class="w-4 h-4"></i> Masuk Layar Penuh
             </button>
+            <button type="button" @click="lanjutTanpaLayarPenuh()" class="block mx-auto text-xs text-slate-400 hover:text-slate-200 underline">
+                HP tidak bisa masuk layar penuh? Lanjutkan tanpa layar penuh
+            </button>
         </div>
     </div>
 
@@ -227,6 +230,18 @@ function ujianKerjakan(cfg) {
             } else {
                 this.fsActive = true; // browser tanpa Fullscreen API (fallback jujur, bukan proteksi penuh)
             }
+        },
+
+        // Sebagian HP siswa gagal/menolak Fullscreen API (requestFullscreen() reject diam2,
+        // lihat catch() di atas) — tanpa jalan keluar ini siswa tsb terjebak permanen di
+        // overlay ini, tak pernah bisa mulai ujian sama sekali. `intentional` dipasang SEBELUM
+        // fsActive=true supaya syncFs() (yg jalan lewat event fullscreenchange kalau memang
+        // sempat browser sempat masuk fullscreen sebentar lalu gagal) tak salah lapor
+        // "keluar_fullscreen" akibat aksi ini sendiri.
+        lanjutTanpaLayarPenuh() {
+            this.intentional = true;
+            this.fsActive = true;
+            this.$nextTick(() => { this.intentional = false; });
         },
 
         formatWaktu(detik) {

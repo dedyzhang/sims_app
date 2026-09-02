@@ -26,9 +26,13 @@
         </h2>
         <div class="grid sm:grid-cols-2 gap-2">
             @foreach($tokenHariIni as $t)
-            <div class="flex items-center justify-between gap-3 bg-white dark:bg-slate-800 rounded-lg px-3 py-2 border border-amber-100 dark:border-amber-900/40">
-                <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $t['mapel'] }}</span>
-                <span class="font-mono font-bold text-base tracking-widest text-amber-700 dark:text-amber-400">{{ $t['token'] ?: '—' }}</span>
+            <div class="bg-white dark:bg-slate-800 rounded-lg px-3 py-2 border border-amber-100 dark:border-amber-900/40">
+                <p class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $t['mapel'] }}</p>
+                <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                    @foreach($t['perTingkat'] as $pt)
+                    <span class="text-xs text-slate-500 dark:text-slate-400">Kelas {{ $pt['tingkat'] }}: <span class="font-mono font-bold text-sm tracking-widest text-amber-700 dark:text-amber-400">{{ $pt['token'] ?: '—' }}</span></span>
+                    @endforeach
+                </div>
             </div>
             @endforeach
         </div>
