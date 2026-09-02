@@ -169,7 +169,11 @@ class UjianTokenGateTest extends TestCase
 
         $this->actingAs($siswa)->get(route('ujian.siswa.index'))
             ->assertOk()
-            ->assertSee('Scan QR Ruangan Ujian');
+            ->assertSee('Scan QR Ruangan Ujian')
+            // Bug report FL: tombol tampil tapi library kamera gagal dimuat — script CDN
+            // qr-scanner di layouts/app.blade.php dimuat kondisional per path, lupa
+            // didaftarkan utk halaman ini.
+            ->assertSee('qr-scanner@1.4.2', false);
     }
 
     public function test_index_siswa_mengabaikan_attempt_yang_dibatalkan(): void

@@ -95,7 +95,12 @@ class UjianWajibScanQrTest extends TestCase
         $ujian = $this->buatMapelHariIni('Fisika', 'TOKENWALL');
 
         $this->actingAs($this->siswaUser)->get(route('ujian.siswa.gate', $ujian))
-            ->assertOk()->assertSee('Anda Belum Scan QR Ruangan')->assertSee('Scan Sekarang')->assertDontSee('Token Masuk');
+            ->assertOk()->assertSee('Anda Belum Scan QR Ruangan')->assertSee('Scan Sekarang')->assertDontSee('Token Masuk')
+            // Bug report FL: tombol scan muncul tapi kamera gagal ("Fitur scan QR belum siap
+            // dimuat") — root cause: script CDN qr-scanner di layout dimuat KONDISIONAL per
+            // $path (layouts/app.blade.php), lupa didaftarkan utk halaman siswa ini. Assert
+            // script-nya benar2 ada di HTML, bukan cuma tombolnya.
+            ->assertSee('qr-scanner@1.4.2', false);
 
         $this->actingAs($this->siswaUser)->post(route('ujian.siswa.start', $ujian), ['token' => 'TOKENWALL'])
             ->assertForbidden();

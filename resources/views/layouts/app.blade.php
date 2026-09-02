@@ -131,8 +131,12 @@
             || str_contains($path, 'poin/')
             || (str_contains($path, 'guru') && str_contains($path, 'pelajaran'))
             || str_contains($path, 'ngajar');
-        // Scan QR kamera (guru masuk ruang ujian) — cuma halaman daftar "Ruang Ujian Hari Ini".
-        $needsQrScanner = $path === 'ujian/ruangan-saya';
+        // Scan QR kamera — guru: daftar "Ruang Ujian Hari Ini"; siswa: "Ujian Saya" (tombol
+        // scan proaktif) & gerbang "ujian/{ujian}/mulai" (wall wajib-scan/gate token, keduanya
+        // pakai view yg sama <x-qr-scan-button>).
+        $needsQrScanner = $path === 'ujian/ruangan-saya'
+            || $path === 'ujian/saya'
+            || (str_starts_with($path, 'ujian/') && str_ends_with($path, '/mulai'));
         // Chart hasil pemilihan OSIS — app ini belum py library chart JS lain, muat CDN cuma di sini.
         $needsChartJs = str_starts_with($path, 'osis/') && str_contains($path, '/hasil');
         // Kiosk / scan: kurangi widget floating AI (R4.1).
