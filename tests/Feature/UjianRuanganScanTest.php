@@ -11,6 +11,7 @@ use App\Models\UjianRuangan;
 use App\Models\UjianSesi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -186,6 +187,54 @@ class UjianRuanganScanTest extends TestCase
         $this->assertSame(2, \App\Models\UjianDaftarHadir::where('id_ruangan', $this->ruangan->uuid)->where('id_siswa', $this->siswaRoster->uuid)->count());
         $this->assertDatabaseHas('ujian_daftar_hadir', ['id_ruangan' => $this->ruangan->uuid, 'id_siswa' => $this->siswaRoster->uuid, 'id_sesi' => $sesi1->uuid]);
         $this->assertDatabaseHas('ujian_daftar_hadir', ['id_ruangan' => $this->ruangan->uuid, 'id_siswa' => $this->siswaRoster->uuid, 'id_sesi' => $sesi2->uuid]);
+    }
+
+    /**
+     * Bug performa produksi (simulasi ujian 100+ siswa serentak, wajib_scan_qr aktif): versi
+     * lama resolveSesiUntukCheckin() query 1x PER SESI di dalam loop + checkinSiswa() query
+     * firstOrCreate() 1x PER SESI (2 query/sesi) — utk paket dgn banyak mapel/sesi hari itu,
+     * SATU scan bisa jadi belasan-puluhan query, dikali ratusan siswa scan nyaris bersamaan.
+     * Sekarang jumlah query per scan HARUS TETAP (batch), tak boleh naik seiring jumlah sesi.
+     */
+    public function test_jumlah_query_saat_scan_tidak_naik_seiring_jumlah_sesi(): void
+    {
+        $admin = User::first() ?? User::create(['username' => 'admin_scan_perf', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
+        $buatMapelUntukKelasIni = function (string $label) use ($admin) {
+            $sesi = UjianSesi::create(['id_ujian_paket' => $this->paket->uuid, 'tanggal' => now()->toDateString(), 'jam_mulai' => '00:00', 'jam_selesai' => '23:59', 'label' => $label]);
+            $ujian = \App\Models\Ujian::create([
+                'id_pelajaran' => \App\Models\Pelajaran::create(['nama' => 'Mapel Perf ' . $label, 'kkm' => 75])->uuid,
+                'created_by' => $admin->uuid, 'id_ujian_paket' => $this->paket->uuid,
+                'judul' => 'PAS Mapel Perf ' . $label, 'jenis' => 'pas', 'target_nilai' => 'pas', 'durasi_menit' => 60,
+            ]);
+            UjianJadwal::create(['id_ujian_paket' => $this->paket->uuid, 'id_ujian' => $ujian->uuid, 'id_sesi' => $sesi->uuid, 'tanggal' => now()->toDateString(), 'jam_mulai' => '00:00', 'jam_selesai' => '23:59']);
+            \App\Models\UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => 'TOKENPERF' . $label]);
+        };
+
+        // Baseline: 1 mapel/sesi.
+        $buatMapelUntukKelasIni('1');
+        $siswaBaseline = $this->actingAsSiswa();
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($siswaBaseline)->get(route('ujian.ruangan.scan', $this->ruangan))->assertOk();
+        $queryBaseline = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        // 7 mapel/sesi TAMBAHAN (total 8) — siswa BARU (roster baru) spy jalur insert baru sungguh dieksekusi.
+        for ($i = 2; $i <= 8; $i++) {
+            $buatMapelUntukKelasIni((string) $i);
+        }
+        $siswaBaruUser = User::create(['username' => 'siswa_scan_perf', 'password' => Hash::make('rahasia123'), 'access' => 'siswa']);
+        $siswaBaru = Siswa::create(['id_login' => $siswaBaruUser->uuid, 'id_kelas' => $this->kelas->uuid, 'nama' => 'Siswa Scan Perf', 'nis' => '7901', 'jk' => 'L', 'face_descriptor' => [0.1, 0.2]]);
+        $this->ruangan->peserta()->create(['id_siswa' => $siswaBaru->uuid]);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($siswaBaruUser)->get(route('ujian.ruangan.scan', $this->ruangan))->assertOk();
+        $queryDelapanSesi = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        $this->assertSame(8, \App\Models\UjianDaftarHadir::where('id_ruangan', $this->ruangan->uuid)->where('id_siswa', $siswaBaru->uuid)->count());
+        $this->assertLessThanOrEqual($queryBaseline + 2, $queryDelapanSesi, 'Jumlah query scan tidak boleh naik seiring jumlah sesi/mapel (harus batch, bukan N+1).');
     }
 
     public function test_guru_mana_pun_boleh_scan_masuk_monitor_kalau_ada_jadwal_hari_ini(): void

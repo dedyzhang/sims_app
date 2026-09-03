@@ -65,6 +65,14 @@ class UjianRuanganScanController extends Controller
         );
     }
 
+    /**
+     * Bug performa nyata (produksi, simulasi ujian sekolah 100+ siswa serentak, wajib_scan_qr
+     * aktif): versi lama panggil firstOrCreate() SATU PER SATU per sesi (2 query/sesi: SELECT
+     * lalu INSERT kalau belum ada) — utk paket dgn banyak mapel/sesi, satu scan bisa jadi
+     * belasan-puluhan query, dikali ratusan siswa scan nyaris bersamaan = lonjakan koneksi DB
+     * (kontributor 408 saat website down). Sekarang SATU query cek yg sudah ada + SATU bulk
+     * insert (kalau ada yg belum) — total 2 query brp pun banyaknya sesi, bukan 2×N.
+     */
     private function checkinSiswa(UjianRuangan $ruangan, Siswa $siswa)
     {
         $peserta = $ruangan->peserta()->where('id_siswa', $siswa->uuid)->first();
@@ -73,21 +81,42 @@ class UjianRuanganScanController extends Controller
         $sesiList = $this->resolveSesiUntukCheckin($ruangan, $siswa);
         abort_unless($sesiList->isNotEmpty(), 404, 'Belum bisa menentukan sesi ujian yang sesuai untuk Anda saat ini — hubungi pengawas.');
 
-        // firstOrCreate per sesi: satu scan langsung mengisi hadir utk SEMUA mapel hari
-        // ini yg eligible kelasnya (dipakai jg utk buka akses UjianPaket::wajib_scan_qr
-        // seharian sekali scan — lihat UjianPaket::sudahDicekSiswa()). Scan berulang TIDAK
-        // menimpa status yg sudah tercatat (mis. kalau pengawas sempat koreksi manual).
-        $hadirList = $sesiList->map(fn (UjianSesi $sesi) => UjianDaftarHadir::firstOrCreate(
-            ['id_ruangan' => $ruangan->uuid, 'id_siswa' => $siswa->uuid, 'id_sesi' => $sesi->uuid],
-            ['status' => 'hadir', 'tanggal' => $sesi->tanggal->toDateString(), 'dicatat_oleh' => $siswa->id_login, 'dicatat_pada' => now()]
-        ));
+        $idSesi = $sesiList->pluck('uuid');
+        $existingBySesi = UjianDaftarHadir::where('id_ruangan', $ruangan->uuid)
+            ->where('id_siswa', $siswa->uuid)
+            ->whereIn('id_sesi', $idSesi)
+            ->get()->keyBy('id_sesi');
+
+        $sekarang = now();
+        // Scan berulang TIDAK menimpa status yg sudah tercatat (mis. kalau pengawas sempat
+        // koreksi manual ke izin/sakit/alpa) — cuma sesi yg BELUM py baris sama sekali yg diisi.
+        $rowsBaru = $sesiList->reject(fn (UjianSesi $sesi) => $existingBySesi->has($sesi->uuid))
+            ->map(fn (UjianSesi $sesi) => [
+                'uuid' => (string) \Illuminate\Support\Str::orderedUuid(),
+                'id_ruangan' => $ruangan->uuid, 'id_siswa' => $siswa->uuid, 'id_sesi' => $sesi->uuid,
+                'status' => 'hadir', 'tanggal' => $sesi->tanggal->toDateString(),
+                'dicatat_oleh' => $siswa->id_login, 'dicatat_pada' => $sekarang,
+                'created_at' => $sekarang, 'updated_at' => $sekarang,
+            ]);
+
+        if ($rowsBaru->isNotEmpty()) {
+            UjianDaftarHadir::insert($rowsBaru->all());
+        }
+
+        // Gabung existing (dari query) + baru (dari nilai yg baru saja di-insert, tanpa query
+        // ulang) — cukup utk kebutuhan tampilan (statusLabel/dicatat_pada), tak perlu re-fetch.
+        $hadirList = $sesiList->map(fn (UjianSesi $sesi) => $existingBySesi->get($sesi->uuid) ?? new UjianDaftarHadir([
+            'id_ruangan' => $ruangan->uuid, 'id_siswa' => $siswa->uuid, 'id_sesi' => $sesi->uuid,
+            'status' => 'hadir', 'tanggal' => $sesi->tanggal->toDateString(),
+            'dicatat_oleh' => $siswa->id_login, 'dicatat_pada' => $sekarang,
+        ]));
 
         return view('ujian.ruangan.checkin', [
             'ruangan' => $ruangan,
             'siswa' => $siswa,
             'hadir' => $hadirList->first(),
             'sesiList' => $sesiList,
-            'baruSajaDicatat' => $hadirList->contains->wasRecentlyCreated,
+            'baruSajaDicatat' => $rowsBaru->isNotEmpty(),
         ]);
     }
 
@@ -108,10 +137,12 @@ class UjianRuanganScanController extends Controller
             return collect();
         }
 
+        // SATU query (bukan satu per sesi di dalam loop, lihat docblock checkinSiswa()) — ambil
+        // semua id_ujian yg mapelnya memang diujikan utk kelas siswa ini, lalu cocokkan di
+        // memori pakai $sesi->jadwal yg sudah di-eager-load dari sesiPada().
+        $idUjianKelasIni = UjianKelas::where('id_kelas', $siswa->id_kelas)->pluck('id_ujian');
         $sesiCocokMapel = $sesiHariIni->filter(
-            fn (UjianSesi $s) => UjianKelas::whereIn('id_ujian', $s->jadwal->pluck('id_ujian'))
-                ->where('id_kelas', $siswa->id_kelas)
-                ->exists()
+            fn (UjianSesi $s) => $s->jadwal->pluck('id_ujian')->intersect($idUjianKelasIni)->isNotEmpty()
         );
 
         if ($sesiCocokMapel->isNotEmpty()) {

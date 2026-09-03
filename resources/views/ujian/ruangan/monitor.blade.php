@@ -412,7 +412,7 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
 
         init() {
             this.muat();
-            this._timer = setInterval(() => this.muat(), 5000);
+            this._timer = window.simsPollInterval(() => this.muat(), 5000); // jeda otomatis saat tab hidden
         },
 
         async muat() {
