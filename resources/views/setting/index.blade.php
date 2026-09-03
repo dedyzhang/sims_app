@@ -696,8 +696,8 @@
                 <div class="min-w-0">
                     <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="server-off" class="w-4 h-4 text-rose-500"></i> Mode Darurat: Hemat Beban Server</h2>
                     <p class="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Jika aktif, widget latar belakang (bel notifikasi, komentar materi, badge chat/grup, ticker dashboard, kuota AI, dsb) BERHENTI menyegarkan otomatis di seluruh aplikasi — pengguna masih bisa buka manual/refresh.
-                        <span class="font-semibold text-slate-500 dark:text-slate-300">Ujian yang sedang berjalan, pemantauan ruangan ujian, dan Arena Belajar Live/Latihan TIDAK terpengaruh</span> — itu tetap jalan normal karena fitur inti, bukan widget latar belakang.
+                        Jika aktif, widget latar belakang (bel notifikasi, komentar materi, badge chat/grup, ticker dashboard, kuota AI, Arena Belajar Live/Latihan, dsb) BERHENTI menyegarkan otomatis di seluruh aplikasi — pengguna masih bisa buka manual/refresh. Kuis Arena Belajar yang sedang live akan ikut berhenti update selama mode ini aktif.
+                        <span class="font-semibold text-slate-500 dark:text-slate-300">Hanya ujian yang sedang berjalan & pemantauan ruangan ujian yang TIDAK terpengaruh</span> — itu tetap jalan normal karena satu-satunya fitur yang dikecualikan.
                     </p>
                     <p class="text-xs text-slate-400 mt-1">Berlaku untuk tab yang dibuka/dimuat ulang setelah disimpan — tidak instan ke tab yang sudah terbuka.</p>
                     <p class="text-xs mt-2 font-semibold" :class="on ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'" x-text="on ? '● Aktif — polling latar belakang dimatikan' : '○ Nonaktif — polling normal'"></p>

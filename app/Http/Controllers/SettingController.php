@@ -418,10 +418,10 @@ class SettingController extends Controller
 
     /**
      * Mode darurat hemat server: nonaktifkan polling widget latar belakang (notifikasi,
-     * komentar, badge chat/grup, ticker dashboard, dst) di seluruh aplikasi tanpa perlu
-     * ubah kode. TIDAK menyentuh polling fitur inti yang sedang aktif dipakai (ujian
-     * berjalan, pemantauan ruangan ujian, Arena Belajar Live/Latihan) — lihat flag
-     * `essential` di window.simsPollInterval, layouts/app.blade.php.
+     * komentar, badge chat/grup, ticker dashboard, Arena Belajar Live/Latihan, dst) di
+     * seluruh aplikasi tanpa perlu ubah kode. TIDAK menyentuh polling ujian yang sedang
+     * berjalan & pemantauan ruangan ujian — satu-satunya yang dikecualikan (lihat flag
+     * `essential` di window.simsPollInterval, layouts/app.blade.php).
      * Berlaku utk tab yg dimuat/reload SETELAH toggle diubah (bukan instan ke tab yg
      * sudah terbuka) — sengaja, supaya toggle-nya sendiri tak perlu polling status.
      */

@@ -2,8 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChatbotConversation;
+use App\Models\ChatbotMessage;
 use App\Models\User;
 use App\Models\UserFcmToken;
+use App\Models\UserFeedback;
+use App\Services\Chatbot\ChatbotService;
+use App\Support\GrupChatMenu;
+use App\Support\ModulAktif;
 use App\Support\NotificationGate;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -11,7 +17,16 @@ use Illuminate\Support\Collection;
 
 class NotificationController extends Controller
 {
-    /** Get notifications JSON */
+    public function __construct(private ChatbotService $chatbot) {}
+
+    /**
+     * Get notifications JSON — sekaligus "status bar" gabungan: dulu bel notifikasi, badge
+     * grup chat, badge chatbot, badge chat-admin, dan badge masukan masing2 nembak request
+     * sendiri2 (bersamaan persis tiap halaman dimuat & tiap interval) — sekarang badge
+     * lain2 itu numpang di SATU response yang sama, cuma disertakan kalau relevan utk role
+     * user (lihat badgesLainnya()). Bel tetap satu2nya yg menjadwalkan polling-nya sendiri
+     * (layouts/app.blade.php) — komponen lain jadi murni pendengar event 'notif-updated'.
+     */
     public function getNotifications(Request $request)
     {
         $user = $request->user();
@@ -39,7 +54,42 @@ class NotificationController extends Controller
             'notifications' => $formatted,
             'unreadCount' => $unreadStats['unread'],
             'unreadPengumuman' => $unreadStats['pengumuman'],
+            ...$this->badgesLainnya($user),
         ]);
+    }
+
+    /**
+     * Badge widget lain di luar notifikasi, digabung ke response yang sama alih2 tiap
+     * widget nembak fetch sendiri. Field per-role hanya disertakan kalau memang relevan —
+     * sama dgn syarat @if yg sebelumnya membungkus tiap widget di layouts/app.blade.php.
+     */
+    private function badgesLainnya(User $user): array
+    {
+        $badges = [];
+
+        if (ModulAktif::aktif('grup_chat') && GrupChatMenu::tampil($user)) {
+            $badges['grupUnread'] = GrupChatMenu::unreadTotal($user);
+        }
+
+        if (ModulAktif::aktif('chatbot') && in_array($user->access, ['siswa', 'orangtua'], true)) {
+            $badges['chatbotUnread'] = $this->chatbot->unreadForUser($user);
+        }
+
+        if (in_array($user->access, ['superadmin', 'admin'], true)) {
+            $badges['adminChatUnread'] = max(
+                ChatbotConversation::where('status', 'waiting')->count(),
+                ChatbotMessage::where('sender', 'user')
+                    ->whereNull('read_at')
+                    ->whereHas('conversation', fn ($q) => $q->whereIn('status', ['waiting', 'assigned']))
+                    ->count()
+            );
+        }
+
+        if ($user->canAccess('manage_feedback')) {
+            $badges['feedbackUnread'] = UserFeedback::where('status', 'baru')->count();
+        }
+
+        return $badges;
     }
 
     /** Mark single notification as read */
