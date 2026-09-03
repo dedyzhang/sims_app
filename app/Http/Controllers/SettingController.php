@@ -416,6 +416,22 @@ class SettingController extends Controller
         return back()->with('success', 'Pengaturan agenda sebelum pulang disimpan.');
     }
 
+    /**
+     * Mode darurat hemat server: nonaktifkan polling widget latar belakang (notifikasi,
+     * komentar, badge chat/grup, ticker dashboard, dst) di seluruh aplikasi tanpa perlu
+     * ubah kode. TIDAK menyentuh polling fitur inti yang sedang aktif dipakai (ujian
+     * berjalan, pemantauan ruangan ujian, Arena Belajar Live/Latihan) — lihat flag
+     * `essential` di window.simsPollInterval, layouts/app.blade.php.
+     * Berlaku utk tab yg dimuat/reload SETELAH toggle diubah (bukan instan ke tab yg
+     * sudah terbuka) — sengaja, supaya toggle-nya sendiri tak perlu polling status.
+     */
+    public function setPollingDarurat(Request $request)
+    {
+        Setting::set('polling_darurat_aktif', $request->boolean('polling_darurat_aktif') ? '1' : '0');
+
+        return back()->with('success', 'Pengaturan mode darurat hemat server disimpan. Berlaku untuk tab yang dibuka/dimuat ulang setelah ini.');
+    }
+
     /** Izinkan wali kelas melihat (read-only) nilai formatif/sumatif/PAS mapel lain di kelasnya. */
     public function setWalikelasLihatNilai(Request $request)
     {

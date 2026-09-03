@@ -1050,6 +1050,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/face-reset-all', 'resetAllFaceVerification')->name('setting.faceResetAll');
             Route::post('/kiosk-token/regenerate', 'regenerateKioskToken')->name('setting.kioskToken.regenerate');
             Route::post('/agenda-wajib-pulang', 'setAgendaWajibPulang')->name('setting.agendaWajibPulang');
+            Route::post('/polling-darurat', 'setPollingDarurat')->name('setting.pollingDarurat');
             Route::post('/jenis-aturan', 'setJenisAturan')->name('setting.jenisAturan');
             Route::post('/poin-terlambat-aturan', 'setPoinTerlambatAturan')->name('setting.poinTerlambatAturan');
             Route::post('/lokasi-qr', 'setLokasiQr')->name('setting.lokasiQr');

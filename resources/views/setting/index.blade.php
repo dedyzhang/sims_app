@@ -687,6 +687,28 @@
             </div>
         </form>
 
+        {{-- Mode darurat hemat server: matikan polling widget latar belakang seluruh app --}}
+        <form method="POST" action="{{ route('setting.pollingDarurat') }}" class="card p-6 border-2"
+              :class="on ? 'border-rose-300 dark:border-rose-700' : 'border-transparent'"
+              x-data="{ on: {{ ($settings['polling_darurat_aktif'] ?? '0')=='1' ? 'true' : 'false' }} }">
+            @csrf
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="server-off" class="w-4 h-4 text-rose-500"></i> Mode Darurat: Hemat Beban Server</h2>
+                    <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Jika aktif, widget latar belakang (bel notifikasi, komentar materi, badge chat/grup, ticker dashboard, kuota AI, dsb) BERHENTI menyegarkan otomatis di seluruh aplikasi — pengguna masih bisa buka manual/refresh.
+                        <span class="font-semibold text-slate-500 dark:text-slate-300">Ujian yang sedang berjalan, pemantauan ruangan ujian, dan Arena Belajar Live/Latihan TIDAK terpengaruh</span> — itu tetap jalan normal karena fitur inti, bukan widget latar belakang.
+                    </p>
+                    <p class="text-xs text-slate-400 mt-1">Berlaku untuk tab yang dibuka/dimuat ulang setelah disimpan — tidak instan ke tab yang sudah terbuka.</p>
+                    <p class="text-xs mt-2 font-semibold" :class="on ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'" x-text="on ? '● Aktif — polling latar belakang dimatikan' : '○ Nonaktif — polling normal'"></p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                    <input type="checkbox" name="polling_darurat_aktif" value="1" class="hidden peer" x-model="on" @change="$el.form.submit()">
+                    <div class="relative w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-rose-500 transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition peer-checked:after:translate-x-5"></div>
+                </label>
+            </div>
+        </form>
+
         <div class="grid sm:grid-cols-2 gap-4">
             <form method="POST" action="{{ route('setting.poinTerlambat') }}" class="card p-6 space-y-3">
                 @csrf

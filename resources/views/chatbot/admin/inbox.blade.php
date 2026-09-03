@@ -1461,7 +1461,7 @@
 
     // ---------- Polling ----------
     function tick() { loadQueue(); if (activeId) loadMessages(); }
-    function start() { if (!pollTimer) pollTimer = setInterval(tick, pollEvery); }
+    function start() { if (!pollTimer && !window.SIMS_HEMAT_POLLING) pollTimer = setInterval(tick, pollEvery); } // mode darurat hemat server
     function stop()  { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') { tick(); start(); } else stop();

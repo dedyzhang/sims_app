@@ -557,6 +557,7 @@
 
     function startPolling() {
         if (pollTimer) return;
+        if (window.SIMS_HEMAT_POLLING) return; // mode darurat hemat server: chatbot bubble tak wajib real-time
         pollTimer = setInterval(poll, pollEvery);
     }
     function stopPolling() {

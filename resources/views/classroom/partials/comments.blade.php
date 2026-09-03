@@ -88,12 +88,18 @@
             replyBodies: {},
             loading: false,
             init() {
+                // TIDAK di-gate mode darurat: list komentar dirender murni dari x-for="c in comments"
+                // (tak ada fallback server-rendered) — kalau fetch pertama ini ditahan, komentar yg
+                // SUDAH ADA jadi tak tampil sama sekali, bukan cuma "telat refresh". Beda dgn
+                // badge/notifikasi yg boleh kosong sementara.
                 this.fetchComments();
-                // Polling 15s (was 5s); pause saat tab hidden
+                // Polling 45s (was 15s — salah satu endpoint request terbanyak, ~3.3rb/jam
+                // pas beban tinggi; komentar tak butuh real-time, telat beberapa puluh detik
+                // tak masalah); pause saat tab hidden
                 if (window.simsPollInterval) {
-                    window.simsPollInterval(() => this.fetchComments(), 15000);
+                    window.simsPollInterval(() => this.fetchComments(), 45000);
                 } else {
-                    setInterval(() => { if (!document.hidden) this.fetchComments(); }, 15000);
+                    setInterval(() => { if (!document.hidden) this.fetchComments(); }, 45000);
                 }
             },
             countAll() {

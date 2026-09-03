@@ -3713,11 +3713,8 @@
 
             startQuotaPolling() {
                 if (this.quotaTimer) clearInterval(this.quotaTimer);
-                // 15s (was 10s); skip tick saat tab hidden
-                this.quotaTimer = setInterval(() => {
-                    if (document.hidden) return;
-                    this.refreshQuota(false);
-                }, 15000);
+                // 15s; skip tick saat tab hidden; ikut mode darurat hemat server
+                this.quotaTimer = window.simsPollInterval(() => this.refreshQuota(false), 15000);
             },
 
             async refreshQuota(fresh = false) {

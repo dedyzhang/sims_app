@@ -196,10 +196,16 @@
             if (typeof document !== 'undefined' && document.hidden) return;
             try { fn(); } catch (_) {}
         };
-        window.simsPollInterval = function (fn, ms) {
-            const id = setInterval(() => window.simsWhenVisible(fn), ms);
+        // Mode darurat hemat server (admin, /settings): saat aktif, SEMUA polling yg TIDAK
+        // ditandai essential berhenti menyegarkan otomatis. Dibaca sekali per page-load —
+        // toggle admin berlaku ke tab yg dimuat/reload SETELAHNYA, bukan instan ke tab yg
+        // sudah terbuka (sengaja, biar toggle-nya sendiri tak perlu polling status).
+        window.SIMS_HEMAT_POLLING = @json(\App\Models\Setting::get('polling_darurat_aktif', '0') === '1');
+        window.simsPollInterval = function (fn, ms, essential = false) {
+            const paused = () => !essential && window.SIMS_HEMAT_POLLING;
+            const id = setInterval(() => { if (!paused()) window.simsWhenVisible(fn); }, ms);
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) window.simsWhenVisible(fn);
+                if (!document.hidden && !paused()) window.simsWhenVisible(fn);
             });
             return id;
         };
@@ -1885,7 +1891,7 @@
                 window.addEventListener('message', (e) => {
                     if (e.data === 'chatfab:close') { this.open = false; this.poll(); }
                 });
-                this.poll();                                   // cek awal saat halaman dibuka
+                if (!window.SIMS_HEMAT_POLLING) this.poll();   // cek awal saat halaman dibuka; mode darurat: tahan juga fetch pertama
                 window.simsPollInterval(() => this.poll(), 20000); // pause saat tab hidden
             },
         }
@@ -2008,7 +2014,7 @@
                         this.adminChatUnread = Math.max(Number(data.unread_count || 0), Number(data.waiting_count || 0));
                     } catch (_) {}
                 };
-                fetchBadge();
+                if (!window.SIMS_HEMAT_POLLING) fetchBadge(); // mode darurat: tahan juga fetch pertama
                 if (!this.adminChatBadgeTimer) this.adminChatBadgeTimer = window.simsPollInterval(fetchBadge, 20000);
                 @endif
             },
@@ -2022,7 +2028,7 @@
                         this.feedbackUnread = Number(data.new_count || 0);
                     } catch (_) {}
                 };
-                fetchBadge();
+                if (!window.SIMS_HEMAT_POLLING) fetchBadge(); // mode darurat: tahan juga fetch pertama
                 if (!this.feedbackBadgeTimer) this.feedbackBadgeTimer = window.simsPollInterval(fetchBadge, 20000);
                 @endif
             },
@@ -2038,7 +2044,7 @@
                         this.grupUnread = Number(data.unread || 0);
                     } catch (_) {}
                 };
-                fetchBadge();
+                if (!window.SIMS_HEMAT_POLLING) fetchBadge(); // mode darurat: tahan juga fetch pertama
                 if (!this.grupBadgeTimer) this.grupBadgeTimer = window.simsPollInterval(fetchBadge, 30000);
                 @endif
             },
@@ -2171,9 +2177,14 @@
                     this.audio.preload = 'auto';
                     this.audio.volume = 0.6;
                 } catch (_) { this.audio = null; }
-                this.fetchNotifications();
-                // Polling 15s (was 10s); pause saat tab hidden (simsPollInterval)
-                window.simsPollInterval(() => this.fetchNotifications(), 15000);
+                // Mode darurat hemat server: tahan juga fetch PERTAMA ini (bukan cuma
+                // pengulangannya) — inilah yg justru tembak tepat di detik-detik rawan (banyak
+                // orang login bersamaan), jauh sebelum interval sempat jalan.
+                if (!window.SIMS_HEMAT_POLLING) this.fetchNotifications();
+                // Polling 45s (was 15s — endpoint ini request TERBANYAK di seluruh app, ~8.2rb/jam
+                // pas beban tinggi; notifikasi tak butuh sampai se-real-time itu, tunda beberapa
+                // puluh detik tak masalah) — pause saat tab hidden (simsPollInterval)
+                window.simsPollInterval(() => this.fetchNotifications(), 45000);
             },
             async fetchNotifications() {
                 if (document.hidden) return;

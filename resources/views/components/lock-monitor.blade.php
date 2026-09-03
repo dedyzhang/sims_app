@@ -71,7 +71,7 @@
             firstLoad = false; if (window.lucide) lucide.createIcons();
         } catch (e) {}
     }
-    poll(); setInterval(poll, 3000);
+    poll(); window.simsPollInterval(poll, 3000); // jeda otomatis saat tab hidden; ikut mode darurat hemat server
 })();
 </script>
 @endpush

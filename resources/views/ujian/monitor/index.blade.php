@@ -81,7 +81,7 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
 
         init() {
             this.muat();
-            this._timer = setInterval(() => this.muat(), 5000);
+            this._timer = window.simsPollInterval(() => this.muat(), 5000, true); // essential: pemantauan ujian, tak boleh ikut mode darurat; jeda otomatis saat tab hidden
         },
 
         async muat() {

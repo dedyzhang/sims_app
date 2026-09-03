@@ -250,7 +250,7 @@ function arenaLatihanTamu(cfg) {
         },
         boot() {
             this.poll();
-            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs);
+            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, true); // essential: kuis berjalan, tak boleh ikut mode darurat
             this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
