@@ -204,7 +204,7 @@ function arenaLatihanGuru(cfg) {
         },
         boot() {
             this.poll();
-            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs); // ikut mode darurat hemat server (hanya ujian yg dikecualikan)
+            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'arena_latihan'); // bisa dimatikan lewat Performa Server
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
         async poll() {

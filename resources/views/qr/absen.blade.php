@@ -149,7 +149,7 @@ function qrAbsen(cfg){
             if(this.aktif && (this.schoolLat || (this.points && this.points.length))) this.status = 'Tekan "Perbarui" untuk menampilkan posisi Anda di peta.';
             // Segarkan geofence dari server agar bonus jam sibuk / titik tidak stale di tab lama.
             this.refreshGeoConfig();
-            this._geoPoll = window.simsPollInterval(()=> this.refreshGeoConfig(true), 60000); // ikut mode darurat hemat server
+            this._geoPoll = window.simsPollInterval(()=> this.refreshGeoConfig(true), 60000, 'geofence_absen'); // bisa dimatikan lewat Performa Server
             window.addEventListener('beforeunload', ()=> { if(this._geoPoll) clearInterval(this._geoPoll); });
         },
 

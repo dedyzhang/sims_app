@@ -213,7 +213,7 @@
         return refreshForumComments();
     }
     if (window.simsPollInterval) {
-        window.simsPollInterval(refreshForumCommentsVisible, 15000);
+        window.simsPollInterval(refreshForumCommentsVisible, 15000, 'forum_komentar');
     } else {
         setInterval(refreshForumCommentsVisible, 15000);
     }

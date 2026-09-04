@@ -35,7 +35,7 @@ function osisHasil(url) {
         chartSiswa: null, chartGuru: null,
         async init() {
             await this.muat();
-            window.simsPollInterval(() => this.muat(), 15000); // skip saat tab background
+            window.simsPollInterval(() => this.muat(), 15000, 'osis_hasil'); // skip saat tab background
         },
         async muat() {
             const r = await fetch(url, { headers: { Accept: 'application/json' } });

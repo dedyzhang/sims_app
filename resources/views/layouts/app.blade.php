@@ -196,13 +196,19 @@
             if (typeof document !== 'undefined' && document.hidden) return;
             try { fn(); } catch (_) {}
         };
-        // Mode darurat hemat server (admin, /settings): saat aktif, SEMUA polling yg TIDAK
-        // ditandai essential berhenti menyegarkan otomatis. Dibaca sekali per page-load —
-        // toggle admin berlaku ke tab yg dimuat/reload SETELAHNYA, bukan instan ke tab yg
-        // sudah terbuka (sengaja, biar toggle-nya sendiri tak perlu polling status).
-        window.SIMS_HEMAT_POLLING = @json(\App\Models\Setting::get('polling_darurat_aktif', '0') === '1');
-        window.simsPollInterval = function (fn, ms, essential = false) {
-            const paused = () => !essential && window.SIMS_HEMAT_POLLING;
+        // Performa Server (admin, /settings tab "Performa Server"): daftar kode widget yg
+        // admin matikan satu-per-satu (App\Support\PollingWidget). Dibaca sekali per
+        // page-load — toggle admin berlaku ke tab yg dimuat/reload SETELAHNYA, bukan instan
+        // ke tab yg sudah terbuka (sengaja, biar toggle-nya sendiri tak perlu polling status).
+        window.SIMS_POLLING_NONAKTIF = @json(\App\Support\PollingWidget::daftarNonaktif());
+        window.simsPollingNonaktif = function (kode) {
+            return !!kode && window.SIMS_POLLING_NONAKTIF.includes(kode);
+        };
+        // kode: kode widget dari App\Support\PollingWidget — biarkan null/kosong utk polling
+        // yg TAK PERNAH boleh dimatikan lewat Performa Server (ujian berjalan, pemantauan
+        // ruangan ujian).
+        window.simsPollInterval = function (fn, ms, kode = null) {
+            const paused = () => window.simsPollingNonaktif(kode);
             const id = setInterval(() => { if (!paused()) window.simsWhenVisible(fn); }, ms);
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden && !paused()) window.simsWhenVisible(fn);
@@ -1894,9 +1900,10 @@
                 // Tak polling sendiri lagi — badge numpang di response gabungan bel notifikasi
                 // (NotificationController::badgesLainnya()), dikirim lewat event 'notif-updated'.
                 // poll() manual TETAP dipakai saat panel ditutup (di atas) — itu aksi user, bukan
-                // polling berkala, jadi tak ikut mode darurat.
+                // polling berkala, jadi tak ikut Performa Server.
                 window.addEventListener('notif-updated', (e) => {
                     if (this.open) return; // saat terbuka, widget mengurus state-nya sendiri
+                    if (window.simsPollingNonaktif('badge_chatbot')) return;
                     this.unread = Number(e.detail?.chatbotUnread || 0);
                 });
             },
@@ -2016,6 +2023,7 @@
             initAdminChatBadge(){
                 @if($isAdmin)
                 window.addEventListener('notif-updated', (e) => {
+                    if (window.simsPollingNonaktif('badge_chat_admin')) return;
                     this.adminChatUnread = Number(e.detail?.adminChatUnread || 0);
                 });
                 @endif
@@ -2023,6 +2031,7 @@
             initFeedbackBadge(){
                 @if($canManageFeedback)
                 window.addEventListener('notif-updated', (e) => {
+                    if (window.simsPollingNonaktif('badge_masukan')) return;
                     this.feedbackUnread = Number(e.detail?.feedbackUnread || 0);
                 });
                 @endif
@@ -2030,6 +2039,7 @@
             initGrupBadge(){
                 @if($modulOn('grup_chat') && $grupChatTampil)
                 window.addEventListener('notif-updated', (e) => {
+                    if (window.simsPollingNonaktif('badge_grup')) return;
                     this.grupUnread = Number(e.detail?.grupUnread || 0);
                 });
                 @endif
@@ -2163,14 +2173,15 @@
                     this.audio.preload = 'auto';
                     this.audio.volume = 0.6;
                 } catch (_) { this.audio = null; }
-                // Mode darurat hemat server: tahan juga fetch PERTAMA ini (bukan cuma
-                // pengulangannya) — inilah yg justru tembak tepat di detik-detik rawan (banyak
-                // orang login bersamaan), jauh sebelum interval sempat jalan.
-                if (!window.SIMS_HEMAT_POLLING) this.fetchNotifications();
+                // Performa Server: tahan juga fetch PERTAMA ini (bukan cuma pengulangannya) —
+                // inilah yg justru tembak tepat di detik-detik rawan (banyak orang login
+                // bersamaan), jauh sebelum interval sempat jalan. Mematikan 'notifikasi' ikut
+                // membekukan 4 badge yg numpang response ini (lihat App\Support\PollingWidget).
+                if (!window.simsPollingNonaktif('notifikasi')) this.fetchNotifications();
                 // Polling 45s (was 15s — endpoint ini request TERBANYAK di seluruh app, ~8.2rb/jam
                 // pas beban tinggi; notifikasi tak butuh sampai se-real-time itu, tunda beberapa
                 // puluh detik tak masalah) — pause saat tab hidden (simsPollInterval)
-                window.simsPollInterval(() => this.fetchNotifications(), 45000);
+                window.simsPollInterval(() => this.fetchNotifications(), 45000, 'notifikasi');
             },
             async fetchNotifications() {
                 if (document.hidden) return;
@@ -2502,7 +2513,7 @@
         };
 
         // Update stats every 30s; pause when tab hidden
-        window.simsPollInterval(updateTickerStats, 30000);
+        window.simsPollInterval(updateTickerStats, 30000, 'ticker');
     });
 </script>
 

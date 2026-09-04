@@ -395,7 +395,7 @@ function arenaLive(cfg) {
             // (mis. guru pindah ke layar lain sebentar), langsung poll lagi begitu kembali
             // terlihat — konsisten dgn pola polling lain di app ini, kurangi beban server
             // dari tab yg dibiarkan terbuka di background.
-            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs); // ikut mode darurat hemat server (hanya ujian yg dikecualikan)
+            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'arena_live'); // bisa dimatikan lewat Performa Server
             this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
@@ -490,7 +490,7 @@ function arenaLive(cfg) {
             this.pollBackoffMs = ms;
             if (this.timer) clearInterval(this.timer);
             this.timer = setTimeout(() => {
-                this.timer = window.simsPollInterval(() => this.poll(), this.pollMs); // ikut mode darurat hemat server (hanya ujian yg dikecualikan)
+                this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'arena_live'); // bisa dimatikan lewat Performa Server
                 this.poll();
             }, ms);
         },

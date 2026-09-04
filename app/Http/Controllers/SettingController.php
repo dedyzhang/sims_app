@@ -417,19 +417,20 @@ class SettingController extends Controller
     }
 
     /**
-     * Mode darurat hemat server: nonaktifkan polling widget latar belakang (notifikasi,
-     * komentar, badge chat/grup, ticker dashboard, Arena Belajar Live/Latihan, dst) di
-     * seluruh aplikasi tanpa perlu ubah kode. TIDAK menyentuh polling ujian yang sedang
-     * berjalan & pemantauan ruangan ujian — satu-satunya yang dikecualikan (lihat flag
-     * `essential` di window.simsPollInterval, layouts/app.blade.php).
-     * Berlaku utk tab yg dimuat/reload SETELAH toggle diubah (bukan instan ke tab yg
-     * sudah terbuka) — sengaja, supaya toggle-nya sendiri tak perlu polling status.
+     * Performa Server: nonaktifkan polling widget SATU-PER-SATU (bukan satu tombol besar)
+     * — daftar kanonik & kelompoknya ada di App\Support\PollingWidget. Ujian yang sedang
+     * berjalan & pemantauan ruangan ujian TIDAK pernah masuk daftar ini, jadi tak pernah
+     * bisa dimatikan lewat sini.
+     * Berlaku utk tab yg dimuat/reload SETELAH disimpan (bukan instan ke tab yg sudah
+     * terbuka) — sengaja, supaya toggle-nya sendiri tak perlu polling status.
      */
-    public function setPollingDarurat(Request $request)
+    public function setPollingNonaktif(Request $request)
     {
-        Setting::set('polling_darurat_aktif', $request->boolean('polling_darurat_aktif') ? '1' : '0');
+        foreach (\App\Support\PollingWidget::kodeValid() as $kode) {
+            Setting::set(\App\Support\PollingWidget::settingKey($kode), $request->boolean($kode) ? '1' : '0');
+        }
 
-        return back()->with('success', 'Pengaturan mode darurat hemat server disimpan. Berlaku untuk tab yang dibuka/dimuat ulang setelah ini.');
+        return back()->with('success', 'Pengaturan performa server disimpan. Berlaku untuk tab yang dibuka/dimuat ulang setelah ini.');
     }
 
     /** Izinkan wali kelas melihat (read-only) nilai formatif/sumatif/PAS mapel lain di kelasnya. */

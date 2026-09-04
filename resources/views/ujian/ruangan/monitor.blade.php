@@ -412,7 +412,7 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
 
         init() {
             this.muat();
-            this._timer = window.simsPollInterval(() => this.muat(), 5000, true); // essential: pemantauan ruangan ujian, tak boleh ikut mode darurat; jeda otomatis saat tab hidden tetap berlaku
+            this._timer = window.simsPollInterval(() => this.muat(), 5000); // tanpa kode = tak pernah ada di daftar Performa Server (pemantauan ruangan ujian); jeda otomatis saat tab hidden tetap berlaku
         },
 
         async muat() {

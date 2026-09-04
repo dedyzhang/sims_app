@@ -1461,7 +1461,7 @@
 
     // ---------- Polling ----------
     function tick() { loadQueue(); if (activeId) loadMessages(); }
-    function start() { if (!pollTimer && !window.SIMS_HEMAT_POLLING) pollTimer = setInterval(tick, pollEvery); } // mode darurat hemat server
+    function start() { if (!pollTimer && !window.simsPollingNonaktif('chatbot_admin_inbox')) pollTimer = setInterval(tick, pollEvery); } // Performa Server
     function stop()  { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') { tick(); start(); } else stop();

@@ -250,7 +250,7 @@ function arenaLatihanTamu(cfg) {
         },
         boot() {
             this.poll();
-            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs); // ikut mode darurat hemat server (hanya ujian yg dikecualikan)
+            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'arena_latihan_tamu'); // bisa dimatikan lewat Performa Server
             this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },

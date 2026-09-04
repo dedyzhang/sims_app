@@ -356,7 +356,7 @@ function grupChat(cfg) {
         // ── Polling ────────────────────────────────────────────────────────
         arm() {
             if (this.timer) clearInterval(this.timer);
-            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs); // ikut mode darurat hemat server
+            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'pesan_grup'); // bisa dimatikan lewat Performa Server
         },
         backoff(ms) {
             if (this.timer) clearInterval(this.timer);

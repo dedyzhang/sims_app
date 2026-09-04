@@ -10,7 +10,7 @@
 
     {{-- Tabs --}}
     <div class="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 mb-6 flex-wrap">
-        @foreach(['sekolah'=>['Identitas','building-2'],'fitur'=>['Fitur','toggle-left'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock'],'disiplin'=>['Kedisiplinan','shield-alert'],'sosmed'=>['Media Sosial','share-2'],'integrasi'=>['Integrasi','plug'],'aplikasi'=>['Aplikasi','smartphone']] as $key => [$label,$icon])
+        @foreach(['sekolah'=>['Identitas','building-2'],'fitur'=>['Fitur','toggle-left'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock'],'disiplin'=>['Kedisiplinan','shield-alert'],'sosmed'=>['Media Sosial','share-2'],'integrasi'=>['Integrasi','plug'],'aplikasi'=>['Aplikasi','smartphone'],'performa'=>['Performa Server','sliders-horizontal']] as $key => [$label,$icon])
         <button @click="tab='{{ $key }}'"
                 :class="tab==='{{ $key }}' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
                 class="seg flex-1 min-w-fit flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition">
@@ -687,28 +687,6 @@
             </div>
         </form>
 
-        {{-- Mode darurat hemat server: matikan polling widget latar belakang seluruh app --}}
-        <form method="POST" action="{{ route('setting.pollingDarurat') }}" class="card p-6 border-2"
-              :class="on ? 'border-rose-300 dark:border-rose-700' : 'border-transparent'"
-              x-data="{ on: {{ ($settings['polling_darurat_aktif'] ?? '0')=='1' ? 'true' : 'false' }} }">
-            @csrf
-            <div class="flex items-start justify-between gap-4">
-                <div class="min-w-0">
-                    <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="server-off" class="w-4 h-4 text-rose-500"></i> Mode Darurat: Hemat Beban Server</h2>
-                    <p class="text-xs text-slate-400 mt-1 leading-relaxed">
-                        Jika aktif, widget latar belakang (bel notifikasi, komentar materi, badge chat/grup, ticker dashboard, kuota AI, Arena Belajar Live/Latihan, dsb) BERHENTI menyegarkan otomatis di seluruh aplikasi — pengguna masih bisa buka manual/refresh. Kuis Arena Belajar yang sedang live akan ikut berhenti update selama mode ini aktif.
-                        <span class="font-semibold text-slate-500 dark:text-slate-300">Hanya ujian yang sedang berjalan & pemantauan ruangan ujian yang TIDAK terpengaruh</span> — itu tetap jalan normal karena satu-satunya fitur yang dikecualikan.
-                    </p>
-                    <p class="text-xs text-slate-400 mt-1">Berlaku untuk tab yang dibuka/dimuat ulang setelah disimpan — tidak instan ke tab yang sudah terbuka.</p>
-                    <p class="text-xs mt-2 font-semibold" :class="on ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'" x-text="on ? '● Aktif — polling latar belakang dimatikan' : '○ Nonaktif — polling normal'"></p>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
-                    <input type="checkbox" name="polling_darurat_aktif" value="1" class="hidden peer" x-model="on" @change="$el.form.submit()">
-                    <div class="relative w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-rose-500 transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition peer-checked:after:translate-x-5"></div>
-                </label>
-            </div>
-        </form>
-
         <div class="grid sm:grid-cols-2 gap-4">
             <form method="POST" action="{{ route('setting.poinTerlambat') }}" class="card p-6 space-y-3">
                 @csrf
@@ -905,6 +883,46 @@
             </form>
             @endif
         </div>
+    </div>
+
+    {{-- Performa Server: matikan widget polling satu-per-satu --}}
+    <div x-show="tab==='performa'" x-transition class="space-y-4">
+        <form method="POST" action="{{ route('setting.pollingNonaktif') }}" class="card p-6 space-y-5">
+            @csrf
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="sliders-horizontal" class="w-4 h-4 text-rose-500"></i> Matikan Widget Latar Belakang Satu-per-Satu</h2>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                    Pilih widget mana yang berhenti menyegarkan otomatis. Berguna sebelum acara beban tinggi (mis. simulasi ujian serentak) untuk mengurangi jumlah request ke server — pengguna masih bisa buka/refresh manual.
+                    <span class="font-semibold text-slate-500 dark:text-slate-300">Ujian yang sedang berjalan & pemantauan ruangan ujian tidak pernah ada di daftar ini</span> — itu tak pernah bisa dimatikan lewat sini.
+                </p>
+                <p class="text-xs text-slate-400 mt-1">Berlaku untuk tab yang dibuka/dimuat ulang setelah disimpan — tidak instan ke tab yang sudah terbuka.</p>
+            </div>
+
+            @php $kelompokPolling = collect(\App\Support\PollingWidget::semua())->groupBy('kelompok'); @endphp
+            @foreach($kelompokPolling as $kelompok => $items)
+            <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
+                <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">{{ $kelompok }}</h3>
+                <div class="space-y-2">
+                    @foreach($items as $kode => $item)
+                    <label class="flex items-start justify-between gap-4 py-1.5 cursor-pointer">
+                        <span class="min-w-0">
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $item['label'] }}</span>
+                            @if($item['catatan'])
+                            <span class="block text-xs text-slate-400 mt-0.5">{{ $item['catatan'] }}</span>
+                            @endif
+                        </span>
+                        <input type="checkbox" name="{{ $kode }}" value="1" class="mt-1 flex-shrink-0 w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-400"
+                               @checked(\App\Support\PollingWidget::nonaktif($kode))>
+                    </label>
+                    @endforeach
+                </div>
+            </div>
+            @endforeach
+
+            <div class="pt-2">
+                <button type="submit" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold">Simpan Pengaturan Performa</button>
+            </div>
+        </form>
     </div>
 
     {{-- Kedisiplinan: sistem poin & aturan --}}

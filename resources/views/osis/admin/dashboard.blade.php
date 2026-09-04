@@ -91,7 +91,7 @@ function osisDashboard(url, rosterUrlTpl) {
             this.poll();
             // simsPollInterval (bukan setInterval polos): skip polling saat tab background,
             // refresh begitu kembali visible — konvensi polling app ini (lihat layouts/app.blade.php).
-            window.simsPollInterval(() => this.poll(), 5000);
+            window.simsPollInterval(() => this.poll(), 5000, 'osis_dashboard');
         },
         async poll() {
             const r = await fetch(url, { headers: { Accept: 'application/json' } });

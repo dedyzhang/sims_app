@@ -101,7 +101,7 @@ function privateChat(cfg) {
         init() {
             this.absorb(this.awal);
             this.$nextTick(() => { this.bottom(); window.lucide?.createIcons(); });
-            this.timer = window.simsPollInterval(() => this.poll(), 4000); // jeda otomatis saat tab hidden; ikut mode darurat hemat server
+            this.timer = window.simsPollInterval(() => this.poll(), 4000, 'private_chat'); // jeda otomatis saat tab hidden; bisa dimatikan lewat Performa Server
         },
         absorb(list) {
             for (const message of list || []) {

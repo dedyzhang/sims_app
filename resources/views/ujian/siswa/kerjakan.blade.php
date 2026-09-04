@@ -209,7 +209,7 @@ function ujianKerjakan(cfg) {
             // Jeda otomatis saat tab di-background (pola sama spt polling lain di app ini) —
             // aman krn cron ujian:auto-submit tiap menit sudah jadi jaring pengaman server-side
             // independen dari polling ini utk kasus waktu habis pas tab tersembunyi.
-            this._statusHandle = window.simsPollInterval(() => this.cekStatus(), 15000, true); // essential: ujian berjalan, tak boleh ikut mode darurat
+            this._statusHandle = window.simsPollInterval(() => this.cekStatus(), 15000); // tanpa kode = tak pernah ada di daftar Performa Server (ujian berjalan)
 
             const syncFs = () => {
                 const on = !!(document.fullscreenElement || document.webkitFullscreenElement);

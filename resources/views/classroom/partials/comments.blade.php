@@ -97,7 +97,7 @@
                 // pas beban tinggi; komentar tak butuh real-time, telat beberapa puluh detik
                 // tak masalah); pause saat tab hidden
                 if (window.simsPollInterval) {
-                    window.simsPollInterval(() => this.fetchComments(), 45000);
+                    window.simsPollInterval(() => this.fetchComments(), 45000, 'komentar_kelas');
                 } else {
                     setInterval(() => { if (!document.hidden) this.fetchComments(); }, 45000);
                 }
