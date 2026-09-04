@@ -885,20 +885,20 @@
         </div>
     </div>
 
-    {{-- Performa Server: matikan widget polling satu-per-satu --}}
+    {{-- Performa Server: aktif/nonaktifkan widget polling satu-per-satu --}}
     <div x-show="tab==='performa'" x-transition class="space-y-4">
-        <form method="POST" action="{{ route('setting.pollingNonaktif') }}" class="card p-6 space-y-5">
+        <form method="POST" action="{{ route('setting.pollingNonaktif') }}" class="card p-6 space-y-5" x-data>
             @csrf
             <div>
-                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="sliders-horizontal" class="w-4 h-4 text-rose-500"></i> Matikan Widget Latar Belakang Satu-per-Satu</h2>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="sliders-horizontal" class="w-4 h-4 text-rose-500"></i> Widget Latar Belakang</h2>
                 <p class="text-xs text-slate-400 mt-1 leading-relaxed">
-                    Pilih widget mana yang berhenti menyegarkan otomatis. Berguna sebelum acara beban tinggi (mis. simulasi ujian serentak) untuk mengurangi jumlah request ke server — pengguna masih bisa buka/refresh manual.
+                    <span class="font-semibold text-emerald-600 dark:text-emerald-400">Tercentang = jalan normal</span> (bawaan). Hilangkan centang untuk MEMATIKAN widget itu sementara — berguna sebelum acara beban tinggi (mis. simulasi ujian serentak) untuk mengurangi jumlah request ke server; pengguna masih bisa buka/refresh manual.
                     <span class="font-semibold text-slate-500 dark:text-slate-300">Ujian yang sedang berjalan & pemantauan ruangan ujian tidak pernah ada di daftar ini</span> — itu tak pernah bisa dimatikan lewat sini.
                 </p>
-                <p class="text-xs text-slate-400 mt-1">Berlaku untuk tab yang dibuka/dimuat ulang setelah disimpan — tidak instan ke tab yang sudah terbuka.</p>
+                <p class="text-xs text-slate-400 mt-1">Jangan lupa klik "Simpan" di bagian paling bawah setelah selesai memilih — perubahan berlaku untuk tab yang dibuka/dimuat ulang sesudahnya, bukan instan ke tab yang sudah terbuka.</p>
             </div>
 
-            @php $kelompokPolling = collect(\App\Support\PollingWidget::semua())->groupBy('kelompok'); @endphp
+            @php $kelompokPolling = collect(\App\Support\PollingWidget::semua())->groupBy('kelompok', true); @endphp
             @foreach($kelompokPolling as $kelompok => $items)
             <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
                 <h3 class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">{{ $kelompok }}</h3>
@@ -911,15 +911,15 @@
                             <span class="block text-xs text-slate-400 mt-0.5">{{ $item['catatan'] }}</span>
                             @endif
                         </span>
-                        <input type="checkbox" name="{{ $kode }}" value="1" class="mt-1 flex-shrink-0 w-4 h-4 rounded border-slate-300 text-rose-500 focus:ring-rose-400"
-                               @checked(\App\Support\PollingWidget::nonaktif($kode))>
+                        <input type="checkbox" name="{{ $kode }}" value="1" class="mt-1 flex-shrink-0 w-4 h-4 rounded border-slate-300 text-emerald-500 focus:ring-emerald-400"
+                               @checked(\App\Support\PollingWidget::aktif($kode))>
                     </label>
                     @endforeach
                 </div>
             </div>
             @endforeach
 
-            <div class="pt-2">
+            <div class="pt-2 sticky bottom-0 bg-white dark:bg-slate-800 -mx-6 -mb-6 px-6 py-4 border-t border-slate-100 dark:border-slate-700 rounded-b-2xl">
                 <button type="submit" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold">Simpan Pengaturan Performa</button>
             </div>
         </form>

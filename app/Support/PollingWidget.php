@@ -76,14 +76,20 @@ class PollingWidget
         return array_keys(self::semua());
     }
 
+    /** '1' (default) = polling jalan normal (checkbox tercentang); '0' = dimatikan admin. */
     public static function settingKey(string $kode): string
     {
-        return 'polling_nonaktif_'.$kode;
+        return 'polling_aktif_'.$kode;
+    }
+
+    public static function aktif(string $kode): bool
+    {
+        return Setting::get(self::settingKey($kode), '1') === '1';
     }
 
     public static function nonaktif(string $kode): bool
     {
-        return Setting::get(self::settingKey($kode), '0') === '1';
+        return ! self::aktif($kode);
     }
 
     /** @return array<int, string> kode yang saat ini nonaktif — dikirim ke JS sbg window.SIMS_POLLING_NONAKTIF */
