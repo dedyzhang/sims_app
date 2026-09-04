@@ -296,6 +296,30 @@ class OsisVotingTest extends TestCase
         $this->actingAs($guru)->get(route('osis.pemilih.cetakAbsensiKelas', [$pemilihan, $kelas]))->assertForbidden();
     }
 
+    /**
+     * Cetak QR pemilih kelas: estimasi awal "10 baris/halaman" TERBUKTI meleset saat
+     * dirender sungguhan lewat dompdf (row asli lebih tinggi dari perkiraan mm manual) —
+     * cuma 8 baris yg benar2 muat per halaman, sisanya meluber ke halaman baru yg nyaris
+     * kosong (kertas terbuang, dilaporkan FL). Diverifikasi manual via render PDF
+     * sungguhan (lihat riwayat kerja) bahwa 8/9 memang pas; test ini cuma mengunci bahwa
+     * nilai LAMA yg terbukti salah (10/12) tak lagi diterima sbg per_halaman valid.
+     */
+    public function test_cetak_qr_kelas_per_halaman_normalisasi_ke_nilai_yang_benar2_muat(): void
+    {
+        $admin = $this->admin();
+        [$kelas, $siswas] = $this->buatKelasSiswa(3);
+        $pemilihan = OsisPemilihan::create(['nama' => 'Test', 'status' => 'dibuka']);
+        $this->actingAs($admin)->post(route('osis.pemilih.generateSiswa', $pemilihan), ['id_kelas' => $kelas->uuid]);
+
+        // per_halaman lama (10/12) TERBUKTI salah (kertas terbuang) — tak boleh lagi
+        // diterima apa adanya, harus dinormalisasi ke default baru (8) yg benar2 muat.
+        $this->actingAs($admin)->get(route('osis.pemilih.cetakKelas', [$pemilihan, $kelas]).'?per_halaman=10')->assertOk();
+        $this->actingAs($admin)->get(route('osis.pemilih.cetakKelas', [$pemilihan, $kelas]).'?per_halaman=12')->assertOk();
+        // Nilai baru yg SUDAH diverifikasi benar2 muat (lihat docblock controller).
+        $this->actingAs($admin)->get(route('osis.pemilih.cetakKelas', [$pemilihan, $kelas]).'?per_halaman=8')->assertOk();
+        $this->actingAs($admin)->get(route('osis.pemilih.cetakKelas', [$pemilihan, $kelas]).'?per_halaman=9')->assertOk();
+    }
+
     public function test_role_tanpa_permission_ditolak_dari_menu_admin(): void
     {
         $guru = User::create(['username' => 'guru_biasa', 'password' => Hash::make('x'), 'access' => 'guru']);

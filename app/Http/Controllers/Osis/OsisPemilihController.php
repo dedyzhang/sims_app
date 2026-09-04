@@ -90,14 +90,21 @@ class OsisPemilihController extends Controller
 
     /**
      * Cetak QR 1 kelas: A4 potret, tabel SATU KOLOM baris (persis gaya "lembar absensi"),
-     * tiap baris = 1 siswa. Area cetak ≈281mm, kop+header ≈35mm, sisa ≈246mm utk baris:
-     * 10 baris/halaman → QR 20mm; 12 baris/halaman → QR 17mm (masih dlm rentang scannable,
-     * terbukti di kartu-pelajar cetak-massal yg pakai QR 15mm). Default 10/lembar.
+     * tiap baris = 1 siswa.
+     *
+     * Estimasi awal "10 baris/halaman (QR 20mm) & 12 baris/halaman (QR 17mm)" TERBUKTI
+     * SALAH saat dirender sungguhan lewat dompdf — tinggi baris asli lebih besar dari
+     * perkiraan mm manual, jadi cuma 8 (QR 20mm) / 9 (QR 17mm) baris yg BENAR2 muat, sisanya
+     * meluber ke halaman baru yg nyaris kosong (kertas terbuang). Angka 8/9 di sini bukan
+     * hasil hitung ulang di atas kertas, tapi diverifikasi lewat render PDF sungguhan (bukan
+     * cuma dihitung manual lagi — supaya tak mengulang kesalahan yg sama).
+     * QR 17mm masih dlm rentang scannable (terbukti di kartu-pelajar cetak-massal yg pakai
+     * QR 15mm). Default 8/lembar.
      */
     public function cetakKelas(OsisPemilihan $pemilihan, Kelas $kelas, Request $request)
     {
-        $perHalaman = (int) $request->input('per_halaman', 10);
-        $perHalaman = in_array($perHalaman, [10, 12], true) ? $perHalaman : 10;
+        $perHalaman = (int) $request->input('per_halaman', 8);
+        $perHalaman = in_array($perHalaman, [8, 9], true) ? $perHalaman : 8;
 
         $pemilihList = OsisPemilih::where('id_pemilihan', $pemilihan->uuid)
             ->where('tipe_pemilih', 'siswa')
@@ -132,8 +139,8 @@ class OsisPemilihController extends Controller
 
     public function cetakGuru(OsisPemilihan $pemilihan, Request $request)
     {
-        $perHalamanInput = (int) $request->input('per_halaman', 10);
-        $perHalaman = in_array($perHalamanInput, [10, 12], true) ? $perHalamanInput : 10;
+        $perHalamanInput = (int) $request->input('per_halaman', 8);
+        $perHalaman = in_array($perHalamanInput, [8, 9], true) ? $perHalamanInput : 8;
 
         $pemilihList = OsisPemilih::where('id_pemilihan', $pemilihan->uuid)
             ->where('tipe_pemilih', 'guru')

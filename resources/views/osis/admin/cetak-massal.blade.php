@@ -35,7 +35,9 @@
         <div class="jdl">DAFTAR PEMILIH &amp; QR — {{ $pemilihan->nama }}</div>
         <div class="info">{{ $kelas ? 'Kelas '.$kelas->tingkat.$kelas->kelas : 'Guru & Karyawan' }} — Pindai QR pada baris nama Anda untuk memilih.</div>
     </div>
-    <table class="roster {{ $perHalaman > 10 ? 'compact' : '' }}">
+    {{-- compact (QR 17mm) hanya utk per_halaman=9; default per_halaman=8 pakai QR 20mm biasa —
+         lihat komentar OsisPemilihController::cetakKelas() soal kenapa angkanya 8/9, bukan 10/12. --}}
+    <table class="roster {{ $perHalaman > 8 ? 'compact' : '' }}">
         <thead>
             <tr>
                 <th class="col-no">No</th>
