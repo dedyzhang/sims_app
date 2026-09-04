@@ -6,9 +6,12 @@ use App\Http\Middleware\EnsureModulAktif;
 use App\Http\Middleware\EnforceLangganan;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\UpdateLastSeen;
+use App\Support\DbBusy;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -37,5 +40,21 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Hosting shared (mis. Hostinger) sering membatasi jumlah koneksi MySQL bersamaan
+        // — saat trafik ramai (siswa buka ujian/scan QR serentak), koneksi baru bisa
+        // ditolak SESAAT. Ini gangguan sementara, bukan bug — tampilkan pesan "coba lagi"
+        // yg ramah alih2 exception mentah. Titik ini menangkap SEMUA jalur, termasuk yg
+        // gagal di route-model-binding (sebelum kode controller sempat jalan sama sekali,
+        // jadi tak bisa ditangani lewat retry() di dalam controller).
+        $exceptions->render(function (QueryException $e, Request $request) {
+            if (! DbBusy::terdeteksi($e)) {
+                return null; // biarkan Laravel tangani spt biasa — bukan gangguan koneksi ini.
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => DbBusy::pesan()], 503);
+            }
+
+            return response()->view('errors.db-busy', [], 503);
+        });
     })->create();

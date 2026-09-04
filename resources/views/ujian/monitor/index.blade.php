@@ -81,7 +81,9 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
 
         init() {
             this.muat();
-            this._timer = window.simsPollInterval(() => this.muat(), 5000); // tanpa kode = tak pernah ada di daftar Performa Server (pemantauan ujian); jeda otomatis saat tab hidden
+            // 8s (was 5s) — dipakai guru/pengawas, kontribusi beban kecil, tetap dinaikkan
+            // sedikit sbg bagian dari pengurangan menyeluruh.
+            this._timer = window.simsPollInterval(() => this.muat(), 8000); // tanpa kode = tak pernah ada di daftar Performa Server (pemantauan ujian); jeda otomatis saat tab hidden
         },
 
         async muat() {

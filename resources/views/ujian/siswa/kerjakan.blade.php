@@ -209,7 +209,14 @@ function ujianKerjakan(cfg) {
             // Jeda otomatis saat tab di-background (pola sama spt polling lain di app ini) —
             // aman krn cron ujian:auto-submit tiap menit sudah jadi jaring pengaman server-side
             // independen dari polling ini utk kasus waktu habis pas tab tersembunyi.
-            this._statusHandle = window.simsPollInterval(() => this.cekStatus(), 15000); // tanpa kode = tak pernah ada di daftar Performa Server (ujian berjalan)
+            // 30s (was 15s) — cekStatus cuma jaring pengaman kedua (deteksi dikunci/waktu
+            // diubah guru), telat setengah menit tak masalah; ini yg jalan TERUS-MENERUS
+            // sepanjang durasi ujian utk SEMUA siswa serentak, jadi paling berat ketimbang
+            // burst sesaat di awal. Jitter acak ±4dtk per siswa (dihitung sekali di sini,
+            // bukan tiap tick) supaya siswa yg mulai ujian PERSIS bersamaan (sesi/token yg
+            // sama) lama-lama menyebar waktunya, bukan terus menembak bersamaan tiap 30dtk.
+            const jitterMs = Math.floor(Math.random() * 8000) - 4000;
+            this._statusHandle = window.simsPollInterval(() => this.cekStatus(), 30000 + jitterMs); // tanpa kode = tak pernah ada di daftar Performa Server (ujian berjalan)
 
             const syncFs = () => {
                 const on = !!(document.fullscreenElement || document.webkitFullscreenElement);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RetriesOnDbBusy;
 use App\Models\Siswa;
 use App\Models\UjianBeritaAcara;
 use App\Models\UjianDaftarHadir;
@@ -27,19 +28,26 @@ use Illuminate\Http\Request;
  */
 class UjianRuanganScanController extends Controller
 {
+    use RetriesOnDbBusy;
+
     public function scan(Request $request, UjianRuangan $ruangan)
     {
-        $user = $request->user();
+        // Satu QR fisik dipakai puluhan-ratusan siswa scan nyaris bersamaan pas ujian
+        // mulai — titik paling rawan tembakan bersamaan di seluruh app. retryOnDbBusy:
+        // coba lagi diam2 3x kalau kena penolakan koneksi sesaat.
+        return $this->retryOnDbBusy(function () use ($request, $ruangan) {
+            $user = $request->user();
 
-        if ($siswa = $user->siswa) {
-            return $this->checkinSiswa($ruangan, $siswa);
-        }
+            if ($siswa = $user->siswa) {
+                return $this->checkinSiswa($ruangan, $siswa);
+            }
 
-        $this->authorize('awasi', $ruangan);
-        $this->catatPengawasSesiAktif($ruangan, $user->guru);
+            $this->authorize('awasi', $ruangan);
+            $this->catatPengawasSesiAktif($ruangan, $user->guru);
 
-        return redirect()->route('ujian.ruangan.monitor', $ruangan)
-            ->with('success', 'Berhasil masuk sebagai pengawas ruangan ' . $ruangan->nama . '.');
+            return redirect()->route('ujian.ruangan.monitor', $ruangan)
+                ->with('success', 'Berhasil masuk sebagai pengawas ruangan ' . $ruangan->nama . '.');
+        });
     }
 
     /**

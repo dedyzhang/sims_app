@@ -412,7 +412,10 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
 
         init() {
             this.muat();
-            this._timer = window.simsPollInterval(() => this.muat(), 5000); // tanpa kode = tak pernah ada di daftar Performa Server (pemantauan ruangan ujian); jeda otomatis saat tab hidden tetap berlaku
+            // 8s (was 5s) — dipakai guru/pengawas (jumlah jauh lebih sedikit drpd siswa),
+            // jadi kontribusinya ke beban server kecil; tetap dinaikkan sedikit sbg bagian
+            // dari pengurangan menyeluruh, tanpa mengorbankan responsivitas pemantauan.
+            this._timer = window.simsPollInterval(() => this.muat(), 8000); // tanpa kode = tak pernah ada di daftar Performa Server (pemantauan ruangan ujian); jeda otomatis saat tab hidden tetap berlaku
         },
 
         async muat() {
