@@ -81,6 +81,7 @@ class UjianSoalController extends Controller
             ]);
 
             $this->simpanOpsi($soal, $data);
+            $ujian->clearSoalCache();
         });
 
         return back()->with('success', 'Soal ditambahkan.');
@@ -106,6 +107,7 @@ class UjianSoalController extends Controller
 
             $soal->opsi()->delete();
             $this->simpanOpsi($soal, $data);
+            $ujian->clearSoalCache();
         });
 
         return back()->with('success', 'Soal diperbarui.');
@@ -118,6 +120,7 @@ class UjianSoalController extends Controller
         abort_if($ujian->isPublished() || $ujian->isClosed(), 422, 'Ujian yang sudah terbit/ditutup tidak bisa diubah soalnya.');
 
         $soal->delete();
+        $ujian->clearSoalCache();
 
         return back()->with('success', 'Soal dihapus.');
     }
@@ -152,6 +155,7 @@ class UjianSoalController extends Controller
             foreach ($data['urutan'] as $i => $soalUuid) {
                 UjianSoal::where('id_ujian', $ujian->uuid)->where('uuid', $soalUuid)->update(['urutan' => $i + 1]);
             }
+            $ujian->clearSoalCache();
         });
 
         return back()->with('success', 'Urutan soal diperbarui.');

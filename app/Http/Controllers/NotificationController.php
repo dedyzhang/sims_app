@@ -34,8 +34,9 @@ class NotificationController extends Controller
             return response()->json(['ok' => false], 401);
         }
 
-        // Tandai/bersihkan sampah unread yang gagal gate agar tidak memenuhi window.
-        $this->purgeInaccessibleUnread($user);
+        // PERFORMA: Dimatikan karena memicu chunk DB queries setiap 45 detik saat user aktif (polling).
+        // Cukup biarkan exclude query base filter yang mencegah notif sampah ini muncul ke user.
+        // $this->purgeInaccessibleUnread($user);
 
         $feed = $this->visibleNotifications($user, unreadOnly: false, limit: 20);
         $unreadStats = $this->unreadStats($user);
@@ -166,20 +167,21 @@ class NotificationController extends Controller
         $unread = 0;
         $pengumuman = 0;
 
-        $this->baseQuery($user, unreadOnly: true)
+        $notifications = $this->baseQuery($user, unreadOnly: true)
             ->orderBy('created_at', 'desc')
-            ->chunkById(200, function (Collection $chunk) use ($user, &$unread, &$pengumuman) {
-                $preload = NotificationGate::preload($user, $chunk);
-                foreach ($chunk as $n) {
-                    if (! NotificationGate::userCanView($user, (array) ($n->data ?? []), $preload)) {
-                        continue;
-                    }
-                    $unread++;
-                    if (($n->data['type'] ?? null) === 'pengumuman') {
-                        $pengumuman++;
-                    }
-                }
-            });
+            ->take(100)
+            ->get();
+
+        $preload = NotificationGate::preload($user, $notifications);
+        foreach ($notifications as $n) {
+            if (! NotificationGate::userCanView($user, (array) ($n->data ?? []), $preload)) {
+                continue;
+            }
+            $unread++;
+            if (($n->data['type'] ?? null) === 'pengumuman') {
+                $pengumuman++;
+            }
+        }
 
         return ['unread' => $unread, 'pengumuman' => $pengumuman];
     }

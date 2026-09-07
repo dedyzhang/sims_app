@@ -654,6 +654,20 @@ class UjianController extends Controller implements HasMiddleware
         return back()->with('success', 'Transfer nilai dicoba ulang — status: ' . $attempt->fresh()->status_transfer_nilai);
     }
 
+    public function paksaSelesai(Request $request, Ujian $ujian, UjianAttempt $attempt)
+    {
+        $this->authorize('manage', $ujian);
+        abort_unless($attempt->ujianKelas->id_ujian === $ujian->uuid, 404);
+        abort_unless($attempt->status === UjianAttempt::STATUS_IN_PROGRESS, 422, 'Siswa tidak sedang mengerjakan.');
+
+        $grader = app(\App\Services\UjianGrader::class);
+        $grader->autoSubmitKarenaWaktuHabis($attempt);
+
+        UjianPelanggaran::create(['id_attempt' => $attempt->uuid, 'id_siswa' => $attempt->id_siswa, 'tipe' => 'diselesaikan_paksa_admin']);
+
+        return back()->with('success', 'Ujian siswa berhasil diselesaikan secara paksa.');
+    }
+
     /**
      * "Buka Kembali Akses" utk attempt yg SUDAH SELESAI (submitted/dinilai) dari halaman
      * Hasil & Transfer — BEDA dari "Reset Ulang" di Pemantauan Live

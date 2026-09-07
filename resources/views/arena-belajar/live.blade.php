@@ -447,6 +447,12 @@ function arenaLive(cfg) {
                 if (seq !== this.pollSeq) return;
                 const prevQ = this.session?.current_question_id;
                 this.session = sData.session;
+                if (this.session?.status === 'ended') {
+                    if (this.timer) {
+                        clearInterval(this.timer);
+                        this.timer = null;
+                    }
+                }
                 if (this.session?.current_question_id !== prevQ) {
                     this.selected = null;
                     this.selectedMulti = [];

@@ -2312,6 +2312,7 @@
     // Pola fetch()+CSRF SAMA seperti simpan tata letak dashboard — tanpa mekanisme baru.
     window.registerFcmToken = function(token, deviceType) {
         if (!token) return;
+        if (sessionStorage.getItem('fcm_token_registered') === token) return;
         const meta = document.querySelector('meta[name="csrf-token"]');
         if (!meta || !meta.content) return;
         if (window.__mwFcmRegisterInFlight) return;
@@ -2332,6 +2333,7 @@
                 var j = null;
                 try { j = text ? JSON.parse(text) : null; } catch (eParse) {}
                 if (r.ok && j && j.ok === true) {
+                    sessionStorage.setItem('fcm_token_registered', token);
                     if (window.AndroidFcm && typeof AndroidFcm.onTokenRegistered === 'function') {
                         AndroidFcm.onTokenRegistered();
                     }
@@ -2363,6 +2365,7 @@
         // Saat logout, bersihkan flag di Android + hapus baris token user ini.
         document.querySelectorAll('form[action*="logout"]').forEach(function (form) {
             form.addEventListener('submit', function () {
+                sessionStorage.removeItem('fcm_token_registered');
                 var token = '';
                 try {
                     if (window.AndroidFcm && typeof AndroidFcm.getToken === 'function') {

@@ -160,7 +160,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
             }
 
             $attempt = DB::transaction(function () use ($ujian, $ujianKelas, $request) {
-                $soal = $ujian->soal()->with('opsi')->get();
+                $soal = $ujian->getCachedSoalDanOpsi();
 
                 $urutanSoal = $ujian->acak_soal ? $soal->pluck('uuid')->shuffle()->values()->all() : $soal->pluck('uuid')->all();
 
@@ -212,7 +212,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
             }
 
-            $soalById = $ujian->soal()->with('opsi')->get()->keyBy('uuid');
+            $soalById = $ujian->getCachedSoalDanOpsi()->keyBy('uuid');
             $urutan = collect($attempt->urutan_soal)->map(fn ($id) => $soalById->get($id))->filter()->values();
             $jawabanTersimpan = UjianJawaban::where('id_attempt', $attempt->uuid)->get()->keyBy('id_soal');
 
@@ -279,7 +279,8 @@ class UjianSiswaController extends Controller implements HasMiddleware
             'jawaban_esai'       => 'nullable|string|max:10000',
         ]);
 
-        $soal = UjianSoal::where('id_ujian', $ujian->uuid)->where('uuid', $data['id_soal'])->firstOrFail();
+        $soal = $ujian->getCachedSoalDanOpsi()->firstWhere('uuid', $data['id_soal']);
+        abort_unless($soal, 404, 'Soal tidak ditemukan.');
 
         UjianJawaban::updateOrCreate(
             ['id_attempt' => $attempt->uuid, 'id_soal' => $soal->uuid],

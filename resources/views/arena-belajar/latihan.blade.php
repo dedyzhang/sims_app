@@ -216,6 +216,12 @@ function arenaLatihanGuru(cfg) {
                 const sData = await sRes.json();
                 if (seq !== this.pollSeq) return;
                 this.session = sData.session;
+                if (this.session?.status === 'ended') {
+                    if (this.timer) {
+                        clearInterval(this.timer);
+                        this.timer = null;
+                    }
+                }
                 this.$nextTick(() => window.lucide && lucide.createIcons());
             } catch (e) {
                 return;

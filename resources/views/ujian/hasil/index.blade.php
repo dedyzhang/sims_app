@@ -78,6 +78,14 @@
                          sekaligus bisa muncul berbarengan di satu baris. title/aria-label
                          menjaga konteksnya tetap ada (tooltip hover + pembaca layar). --}}
                     <td class="px-4 py-2.5 text-right space-x-1 whitespace-nowrap">
+                        @if($attempt && $attempt->status === 'in_progress')
+                        <form method="POST" action="{{ route('ujian.hasil.paksaSelesai', [$ujian, $attempt]) }}" class="inline" onsubmit="return confirmAction(this, 'Kumpulkan paksa ujian {{ $siswa->nama }} sekarang? Semua jawaban yang tersimpan akan langsung dinilai.', 'red')">
+                            @csrf
+                            <button type="submit" title="Paksa Selesai & Nilai" aria-label="Paksa Selesai & Nilai" class="inline-flex p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10">
+                                <i data-lucide="check-square" class="w-4 h-4"></i>
+                            </button>
+                        </form>
+                        @endif
                         @if($attempt && $attempt->status === 'dinilai' && $attempt->status_transfer_nilai !== 'berhasil')
                         <form method="POST" action="{{ route('ujian.hasil.transferUlang', [$ujian, $attempt]) }}" class="inline">
                             @csrf

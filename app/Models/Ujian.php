@@ -49,6 +49,20 @@ class Ujian extends Model
         return $this->hasMany(UjianSoal::class, 'id_ujian', 'uuid')->orderBy('urutan');
     }
 
+    public function getCachedSoalDanOpsi()
+    {
+        return \Illuminate\Support\Facades\Cache::remember(
+            'ujian_' . $this->uuid . '_soal_opsi',
+            now()->addHours(6),
+            fn () => $this->soal()->with('opsi')->get()
+        );
+    }
+
+    public function clearSoalCache()
+    {
+        \Illuminate\Support\Facades\Cache::forget('ujian_' . $this->uuid . '_soal_opsi');
+    }
+
     public function kelas()
     {
         return $this->hasMany(UjianKelas::class, 'id_ujian', 'uuid');
