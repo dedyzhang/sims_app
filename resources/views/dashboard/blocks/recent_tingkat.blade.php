@@ -1,7 +1,7 @@
 @php
-    $perTingkat = \App\Models\Kelas::withCount('siswa')->get()
+    $perTingkat = ($kelasStats ?? \App\Models\Kelas::withCount('siswa')->get())
         ->groupBy('tingkat')
-        ->map(fn($g) => $g->sum('siswa_count'))
+        ->map(fn($g) => $g->sum(fn($k) => $k->siswa_count ?? ($k->siswa_l_count + $k->siswa_p_count)))
         ->sortKeys(SORT_NATURAL);
     $maxTingkat = max($perTingkat->max() ?? 0, 1);
 @endphp

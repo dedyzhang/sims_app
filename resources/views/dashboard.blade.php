@@ -385,10 +385,13 @@
 @php
     $access = auth()->user()?->access;
     $nama = auth()->user() ? auth()->user()->displayName() : 'Tamu';
-    $totalSiswa = $stats['total_siswa'] ?? \App\Models\Siswa::count();
-    $totalGuru  = $stats['total_guru'] ?? \App\Models\Guru::count();
-    $totalKelas = $stats['total_kelas'] ?? \App\Models\Kelas::count();
-    $totalMapel = \App\Models\Pelajaran::count();
+    $tickerStats = \App\Support\TickerStats::raw();
+    $totalSiswa = $stats['total_siswa'] ?? $tickerStats['siswa'];
+    $totalGuru  = $stats['total_guru'] ?? $tickerStats['guru'];
+    $totalKelas = $stats['total_kelas'] ?? $tickerStats['kelas'];
+    $totalMapel = $tickerStats['mapel'];
+    $siswaL = $stats['siswa_l'] ?? $tickerStats['siswaL'];
+    $siswaP = $stats['siswa_p'] ?? $tickerStats['siswaP'];
     // $siswaL/$siswaP TIDAK dihitung di sini — hanya dipakai blok recent_komposisi, yg sudah
     // menghitungnya sendiri (dulu dobel: header + blok). Biar blok yg hitung sekali (admin saja).
     $pref = auth()->user()?->prefTampilan(); // memo per-instance (sudah dihitung di controller/layout)
@@ -658,7 +661,7 @@
             @if(str_starts_with($block, 'sarpras_') && ! auth()->user()->can('sarpras.dashboard.lihat'))
                 @continue
             @endif
-            @include('partials.dash-block-item', ['block' => $block, 'spans' => $spans, 'hiddenBlocks' => $hiddenBlocks, 'blockLabel' => $blockLabel])
+            @include('partials.dash-block-item', ['block' => $block, 'spans' => $spans, 'hiddenBlocks' => $hiddenBlocks, 'blockLabel' => $blockLabel, 'kelasStats' => $kelasStats ?? null])
         @endforeach
     </div>
 </div>

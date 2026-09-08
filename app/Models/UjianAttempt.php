@@ -108,7 +108,7 @@ class UjianAttempt extends Model
         if ($totalPoin === null || $modeSkor === null) {
             $ujian = $this->ujianKelas->ujian;
             $totalPoin ??= (int) UjianSoal::where('id_ujian', $ujian->uuid)->get()->sum(fn (UjianSoal $s) => $s->poinEfektif());
-            $modeSkor ??= $ujian->pelajaran?->mode_skor_ujian ?? 'rata_rata';
+            $modeSkor ??= $ujian->mode_skor ?? 'rata_rata';
         }
 
         return \App\Services\UjianGrader::normalisasiSkor((float) $this->skor_objektif, $totalPoin, $modeSkor);

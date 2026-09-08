@@ -101,6 +101,14 @@
             <textarea name="instruksi" rows="3" class="form-input">{{ old('instruksi', $ujian->instruksi) }}</textarea>
         </div>
 
+        <div>
+            <label class="form-label">Mode Perhitungan Nilai <span class="text-rose-500">*</span></label>
+            <select name="mode_skor" required class="form-select">
+                <option value="rata_rata" @selected(old('mode_skor', $ujian->mode_skor) === 'rata_rata')>Rata-rata (Maksimal skor selalu 100)</option>
+                <option value="akumulasi" @selected(old('mode_skor', $ujian->mode_skor) === 'akumulasi')>Akumulasi Poin (Penjumlahan seluruh poin bobot soal)</option>
+            </select>
+        </div>
+
         <div class="grid sm:grid-cols-3 gap-3 pt-1">
             <label class="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" name="acak_soal" value="1" @checked(old('acak_soal', $ujian->acak_soal)) class="rounded text-primary focus:ring-primary"> Acak urutan soal

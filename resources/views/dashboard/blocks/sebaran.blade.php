@@ -1,11 +1,15 @@
-{{-- ===== Sebaran Siswa per Kelas (rombel) — dua bar per kelas: Laki-laki vs Perempuan ===== --}}
 @php
-    $perKelas = \App\Models\Kelas::withCount([
+    $perKelas = $kelasStats ?? \App\Models\Kelas::withCount([
             'siswa as siswa_l_count' => fn ($q) => $q->where('jk', 'L'),
             'siswa as siswa_p_count' => fn ($q) => $q->where('jk', 'P'),
         ])
         ->orderBy('tingkat')->orderBy('kelas')->get();
-    $perKelas->each(fn ($k) => $k->siswa_count = $k->siswa_l_count + $k->siswa_p_count);
+    
+    // Fallback if not loaded via kelasStats
+    if (!isset($perKelas[0]->siswa_count)) {
+        $perKelas->each(fn ($k) => $k->siswa_count = $k->siswa_l_count + $k->siswa_p_count);
+    }
+    
     $maxSingle = max($perKelas->max('siswa_l_count') ?? 0, $perKelas->max('siswa_p_count') ?? 0, 1);
 @endphp
 <div class="card p-5">

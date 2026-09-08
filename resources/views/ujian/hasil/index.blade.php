@@ -12,17 +12,36 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Target nilai: {{ strtoupper($ujian->target_nilai) }} — nilai ditransfer otomatis begitu attempt selesai dinilai. Semua siswa kelas ter-assign ditampilkan, termasuk yang belum mengerjakan.</p>
     </div>
 
-    @if($ujianKelasList->count() > 1)
-    <form method="GET" action="{{ route('ujian.hasil.index', $ujian) }}" class="flex items-center gap-2">
-        <label class="text-xs font-semibold text-slate-500">Kelas:</label>
-        <select name="kelas" class="form-select py-1.5 text-sm w-auto" onchange="this.form.submit()">
-            <option value="" @selected(!$kelasFilter)>Semua kelas</option>
-            @foreach($ujianKelasList->sortBy(fn($uk) => [$uk->kelas?->tingkat, $uk->kelas?->kelas]) as $uk)
-                <option value="{{ $uk->id_kelas }}" @selected($kelasFilter === $uk->id_kelas)>{{ $uk->kelas?->tingkat }}{{ $uk->kelas?->kelas }}</option>
-            @endforeach
-        </select>
-    </form>
-    @endif
+    <div class="flex items-center justify-between mb-4">
+        @if($ujianKelasList->count() > 1)
+        <form method="GET" action="{{ route('ujian.hasil.index', $ujian) }}" class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-slate-500">Kelas:</label>
+            <select name="kelas" class="form-select py-1.5 text-sm w-auto" onchange="this.form.submit()">
+                <option value="" @selected(!$kelasFilter)>Semua kelas</option>
+                @foreach($ujianKelasList->sortBy(fn($uk) => [$uk->kelas?->tingkat, $uk->kelas?->kelas]) as $uk)
+                    <option value="{{ $uk->id_kelas }}" @selected($kelasFilter === $uk->id_kelas)>{{ $uk->kelas?->tingkat }}{{ $uk->kelas?->kelas }}</option>
+                @endforeach
+            </select>
+        </form>
+        @else
+        <div></div>
+        @endif
+
+        <div class="flex items-center gap-2">
+            <form method="POST" action="{{ route('ujian.hasil.paksaSelesaiSemua', $ujian) }}" onsubmit="return confirmAction(this, 'Kumpulkan secara paksa SEMUA siswa yang berstatus Sedang Mengerjakan? Mereka akan dinilai secara otomatis saat ini juga.', 'red')">
+                @csrf
+                <button type="submit" class="btn-primary bg-rose-500 hover:bg-rose-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="check-square" class="w-4 h-4"></i> Kumpul Semua
+                </button>
+            </form>
+            <form method="POST" action="{{ route('ujian.hasil.resetSemua', $ujian) }}" onsubmit="return confirmAction(this, 'Hapus SELURUH hasil pengerjaan semua siswa? Siswa harus mengulang dari awal dan nilai yang sudah ditransfer ke buku nilai akan dicabut.', 'red')">
+                @csrf
+                <button type="submit" class="btn-primary bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Reset Semua
+                </button>
+            </form>
+        </div>
+    </div>
 
     <div class="card overflow-hidden">
         <div class="overflow-x-auto">

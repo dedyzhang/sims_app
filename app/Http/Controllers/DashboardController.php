@@ -40,13 +40,24 @@ class DashboardController extends Controller
         // Blok tetap punya fallback `?? query` sbg jaring pengaman kalau var tak ter-share.
         $rowsPresensiHariIni = null;
         $totalGuru = null;
-        if (in_array($user->access, ['superadmin', 'admin', 'kepala'])) {
-            $totalGuru = Guru::count();
+        $kelasStats = null;
+        if (in_array($user->access, ['superadmin', 'admin', 'kepala', 'kurikulum', 'kesiswaan'])) {
+            $tickerStats = \App\Support\TickerStats::raw();
+            $totalGuru = $tickerStats['guru'];
             $rowsPresensiHariIni = \App\Models\PresensiGuru::whereDate('tanggal', now()->toDateString())->get();
+            
+            // Optimization: Get classes with L/P counts to replace 5 separate queries in various dashboard blocks
+            $kelasStats = \App\Models\Kelas::withCount([
+                'siswa as siswa_l_count' => fn ($q) => $q->where('jk', 'L'),
+                'siswa as siswa_p_count' => fn ($q) => $q->where('jk', 'P'),
+            ])->orderBy('tingkat')->orderBy('kelas')->get();
+
             $stats = [
-                'total_siswa' => Siswa::count(),
+                'total_siswa' => $kelasStats->sum('siswa_l_count') + $kelasStats->sum('siswa_p_count'),
                 'total_guru'  => $totalGuru,
-                'total_kelas' => Kelas::count(),
+                'total_kelas' => $kelasStats->count(),
+                'siswa_l'     => $kelasStats->sum('siswa_l_count'),
+                'siswa_p'     => $kelasStats->sum('siswa_p_count'),
             ];
         }
 
@@ -57,12 +68,13 @@ class DashboardController extends Controller
         $sarpras = null;
         $sarprasRoles = ['superadmin', 'admin', 'kepala', 'sarpras'];
         if (UserRole::matches((string) $user->access, ...$sarprasRoles) && $user->can('sarpras.dashboard.lihat')) {
+            $tickerStats = \App\Support\TickerStats::raw();
             $sarpras = [
-                'totalAset'        => Aset::count(),
+                'totalAset'        => $tickerStats['aset'],
                 'nilaiTotalRp'     => Rupiah::format(Aset::sum('nilai_perolehan')),
-                'kerusakanTerbuka' => LaporanKerusakan::whereIn('status', ['dilaporkan', 'diterima'])->count(),
+                'kerusakanTerbuka' => $tickerStats['kerusakan'],
                 'kerusakanDarurat' => LaporanKerusakan::whereIn('status', ['dilaporkan', 'diterima'])->whereIn('urgensi', ['tinggi', 'darurat'])->count(),
-                'peminjamanAktif'  => Peminjaman::whereIn('status', ['dipinjam', 'terlambat'])->count(),
+                'peminjamanAktif'  => $tickerStats['peminjaman'],
                 'peminjamanMenunggu' => Peminjaman::where('status', 'diajukan')->count(),
                 'pengadaanPending' => Pengadaan::where('status', 'diajukan')->count(),
                 'pengadaanDisetujui' => Pengadaan::where('status', 'disetujui')->count(),
@@ -96,7 +108,7 @@ class DashboardController extends Controller
             ->get();
         }
 
-        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget', 'sarpras', 'aiQuotaUsage', 'piketGuruTidakHadir', 'rowsPresensiHariIni', 'totalGuru'));
+        return view('dashboard', compact('user', 'semester', 'pref', 'stats', 'sosmed', 'siswaWidget', 'sarpras', 'aiQuotaUsage', 'piketGuruTidakHadir', 'rowsPresensiHariIni', 'totalGuru', 'kelasStats'));
     }
 
     /** Data widget dashboard khusus siswa: jadwal hari ini, poin/P3, absensi, podium sekolah. */

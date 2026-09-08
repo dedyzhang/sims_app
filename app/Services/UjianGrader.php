@@ -214,7 +214,7 @@ class UjianGrader
 
         $skorTotal = $jawabanList->sum(fn ($j) => (float) $j->skor_diperoleh);
         $totalPoin = (int) $soalById->sum(fn (UjianSoal $s) => $s->poinEfektif());
-        $modeSkor = $attempt->ujianKelas->ujian->pelajaran?->mode_skor_ujian ?? 'rata_rata';
+        $modeSkor = $attempt->ujianKelas->ujian->mode_skor ?? 'rata_rata';
 
         $totalSkorFinal = self::normalisasiSkor($skorTotal, $totalPoin, $modeSkor);
 

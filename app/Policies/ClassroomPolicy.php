@@ -57,23 +57,38 @@ class ClassroomPolicy
         return $user->access === 'siswa' && $classroom->isPublished() && $this->isMember($user, $classroom);
     }
 
+    private static ?array $memberCache = null;
+
     private function isMember(User $user, Classroom $classroom): bool
     {
-        return ClassroomMember::where('classroom_id', $classroom->uuid)->where('user_id', $user->uuid)->exists();
+        if (self::$memberCache === null) {
+            self::$memberCache = ClassroomMember::where('user_id', $user->uuid)->pluck('classroom_id')->flip()->toArray();
+        }
+        return isset(self::$memberCache[$classroom->uuid]);
     }
 
     /** Guru pengampu mapel ini di kelas ini (id_guru + id_kelas + id_pelajaran). */
+    private static ?array $teachingSubjectCache = null;
+
     private function teachesSubject(User $user, Classroom $classroom): bool
     {
         $guru = $user->guru;
         if (!$guru || !$classroom->id_kelas) {
             return false;
         }
-        return Ngajar::where('id_guru', $guru->uuid)
-            ->where('id_kelas', $classroom->id_kelas)
-            ->where('id_pelajaran', $classroom->id_pelajaran)
-            ->exists();
+
+        if (self::$teachingSubjectCache === null) {
+            self::$teachingSubjectCache = Ngajar::where('id_guru', $guru->uuid)
+                ->get(['id_kelas', 'id_pelajaran'])
+                ->map(fn($n) => $n->id_kelas . '_' . $n->id_pelajaran)
+                ->flip()
+                ->toArray();
+        }
+
+        return isset(self::$teachingSubjectCache[$classroom->id_kelas . '_' . $classroom->id_pelajaran]);
     }
+
+    private static ?array $teachingKelasCache = null;
 
     /** Guru yang mengajar kelas ini (mapel apa pun) atau wali kelasnya. */
     private function teachesKelas(User $user, Classroom $classroom): bool
@@ -82,7 +97,13 @@ class ClassroomPolicy
         if (!$guru || !$classroom->id_kelas) {
             return false;
         }
-        return Ngajar::where('id_guru', $guru->uuid)->where('id_kelas', $classroom->id_kelas)->exists()
-            || \App\Models\Walikelas::where('id_guru', $guru->uuid)->where('id_kelas', $classroom->id_kelas)->exists();
+
+        if (self::$teachingKelasCache === null) {
+            $ngajar = Ngajar::where('id_guru', $guru->uuid)->pluck('id_kelas');
+            $wali = \App\Models\Walikelas::where('id_guru', $guru->uuid)->pluck('id_kelas');
+            self::$teachingKelasCache = $ngajar->concat($wali)->flip()->toArray();
+        }
+
+        return isset(self::$teachingKelasCache[$classroom->id_kelas]);
     }
 }

@@ -185,7 +185,7 @@ return [
         // Batas request/hari model gratis OpenRouter (tanpa kredit). Angka resmi bisa berubah.
         'free_daily_limit' => (int) env('OPENROUTER_FREE_DAILY_LIMIT', 50),
         // Cache singkat hasil GET /key agar UI live tanpa memukul API tiap detik.
-        'quota_cache_seconds' => (int) env('OPENROUTER_QUOTA_CACHE_SECONDS', 8),
+        'quota_cache_seconds' => (int) env('OPENROUTER_QUOTA_CACHE_SECONDS', 300),
         'site_url' => env('OPENROUTER_SITE_URL', env('APP_URL', 'http://localhost')),
         'site_name' => env('OPENROUTER_SITE_NAME', env('APP_NAME', 'SIMS')),
     ],
@@ -202,7 +202,7 @@ return [
             'trim',
             explode(',', (string) env('NINEROUTER_FALLBACK_MODELS', '')),
         ))),
-        'quota_cache_seconds' => (int) env('NINEROUTER_QUOTA_CACHE_SECONDS', 8),
+        'quota_cache_seconds' => (int) env('NINEROUTER_QUOTA_CACHE_SECONDS', 300),
     ],
 
     // Ketahanan panggilan HTTP.

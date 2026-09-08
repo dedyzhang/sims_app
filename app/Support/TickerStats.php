@@ -38,7 +38,7 @@ class TickerStats
             $peminjaman = class_exists(\App\Sarpras\Models\Peminjaman::class)
                 ? \App\Sarpras\Models\Peminjaman::whereIn('status', ['dipinjam', 'terlambat'])->count() : 0;
 
-            $semester = Semester::where('aktif', true)->first();
+            $semester = Semester::aktif();
 
             return [
                 'siswa'          => Siswa::count(),

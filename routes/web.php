@@ -1215,6 +1215,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{ujian}/hasil/{attempt}/transfer-ulang', [UjianController::class, 'transferUlang'])->name('hasil.transferUlang');
         Route::post('/{ujian}/hasil/{attempt}/buka-akses', [UjianController::class, 'bukaAksesSelesai'])->name('hasil.bukaAkses');
         Route::post('/{ujian}/hasil/{attempt}/paksa-selesai', [UjianController::class, 'paksaSelesai'])->name('hasil.paksaSelesai');
+        Route::post('/{ujian}/hasil/paksa-selesai-semua', [UjianController::class, 'paksaSelesaiSemua'])->name('hasil.paksaSelesaiSemua');
+        Route::post('/{ujian}/hasil/reset-semua', [UjianController::class, 'resetSemua'])->name('hasil.resetSemua');
         Route::post('/{ujian}/pembahasan/toggle', [UjianController::class, 'togglePembahasan'])->name('pembahasan.toggle');
 
         Route::get('/{ujian}/pemantauan', [UjianMonitorController::class, 'index'])->name('monitor.index');

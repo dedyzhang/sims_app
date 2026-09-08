@@ -105,6 +105,7 @@ class UjianController extends Controller implements HasMiddleware
             'id_kelas'              => 'nullable|array',
             'id_kelas.*'            => 'uuid|exists:kelas,uuid',
             'durasi_menit'          => 'required|integer|min:5|max:600',
+            'mode_skor'             => 'required|in:rata_rata,akumulasi',
             'acak_soal'             => 'nullable|boolean',
             'acak_opsi'             => 'nullable|boolean',
             'tampilkan_pembahasan'  => 'nullable|boolean',
@@ -163,6 +164,7 @@ class UjianController extends Controller implements HasMiddleware
                 'instruksi'             => $data['instruksi'] ?? null,
                 'jenis'                 => $data['jenis'],
                 'target_nilai'          => $data['target_nilai'],
+                'mode_skor'             => $data['mode_skor'],
                 'durasi_menit'          => $data['durasi_menit'],
                 'acak_soal'             => $request->boolean('acak_soal', true),
                 'acak_opsi'             => $request->boolean('acak_opsi', true),
@@ -270,6 +272,7 @@ class UjianController extends Controller implements HasMiddleware
             'id_pelajaran'          => 'nullable|uuid|exists:pelajarans,uuid',
             'target_nilai'          => 'nullable|in:pts,pas',
             'durasi_menit'          => 'required|integer|min:5|max:600',
+            'mode_skor'             => 'required|in:rata_rata,akumulasi',
             'acak_soal'             => 'nullable|boolean',
             'acak_opsi'             => 'nullable|boolean',
             'tampilkan_pembahasan'  => 'nullable|boolean',
@@ -278,6 +281,7 @@ class UjianController extends Controller implements HasMiddleware
         $update = [
             'judul'                 => $data['judul'],
             'instruksi'             => $data['instruksi'] ?? null,
+            'mode_skor'             => $data['mode_skor'],
             // Guru biasa terkunci ke 'harian' (lihat catatan sama di store()) — cuma
             // admin/pengelola yang boleh ganti Jenis ke pts/pas/uas.
             'jenis'                 => $this->bolehAturKelas($request->user()) ? $data['jenis'] : 'harian',
@@ -606,7 +610,7 @@ class UjianController extends Controller implements HasMiddleware
         // Dihitung SEKALI di sini (bukan per-baris di view) supaya skorSementara() tak N+1
         // ke ujian_soal utk tiap siswa di roster — lihat UjianAttempt::skorSementara().
         $totalPoin = (int) $ujian->soal->sum(fn ($s) => $s->poinEfektif());
-        $modeSkor = $ujian->pelajaran?->mode_skor_ujian ?? 'rata_rata';
+        $modeSkor = $ujian->mode_skor ?? 'rata_rata';
 
         return view('ujian.hasil.index', compact('ujian', 'ujianKelasList', 'roster', 'kelasFilter', 'totalPoin', 'modeSkor'));
     }
@@ -632,7 +636,7 @@ class UjianController extends Controller implements HasMiddleware
             $ujian->load(['soal' => fn ($q) => $q->orderBy('urutan'), 'soal.opsi']);
             $jawabanBySoal = UjianJawaban::where('id_attempt', $attempt->uuid)->get()->keyBy('id_soal');
             $totalPoin = (int) $ujian->soal->sum(fn ($s) => $s->poinEfektif());
-            $modeSkor = $ujian->pelajaran?->mode_skor_ujian ?? 'rata_rata';
+            $modeSkor = $ujian->mode_skor ?? 'rata_rata';
         }
 
         return view('ujian.hasil.detail', compact('ujian', 'attempt', 'siswaProfil', 'jawabanBySoal', 'totalPoin', 'modeSkor'));
@@ -666,6 +670,43 @@ class UjianController extends Controller implements HasMiddleware
         UjianPelanggaran::create(['id_attempt' => $attempt->uuid, 'id_siswa' => $attempt->id_siswa, 'tipe' => 'diselesaikan_paksa_admin']);
 
         return back()->with('success', 'Ujian siswa berhasil diselesaikan secara paksa.');
+    }
+
+    public function paksaSelesaiSemua(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujian->kelas()->pluck('uuid'))
+            ->where('status', UjianAttempt::STATUS_IN_PROGRESS)
+            ->get();
+        
+        $grader = app(\App\Services\UjianGrader::class);
+        $count = 0;
+        foreach ($attempts as $attempt) {
+            $grader->autoSubmitKarenaWaktuHabis($attempt);
+            UjianPelanggaran::create(['id_attempt' => $attempt->uuid, 'id_siswa' => $attempt->id_siswa, 'tipe' => 'diselesaikan_paksa_admin']);
+            $count++;
+        }
+
+        return back()->with('success', "$count siswa yang sedang mengerjakan berhasil diselesaikan secara paksa.");
+    }
+
+    public function resetSemua(Request $request, Ujian $ujian, UjianNilaiTransfer $transfer)
+    {
+        $this->authorize('manage', $ujian);
+        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujian->kelas()->pluck('uuid'))->get();
+        
+        $count = 0;
+        DB::transaction(function () use ($attempts, $transfer, &$count) {
+            foreach ($attempts as $attempt) {
+                if ($attempt->status_transfer_nilai === 'berhasil') {
+                    $transfer->revert($attempt);
+                }
+                $attempt->delete();
+                $count++;
+            }
+        });
+
+        return back()->with('success', "$count data ujian siswa berhasil direset secara massal. Mereka bisa mulai ujian dari awal.");
     }
 
     /**

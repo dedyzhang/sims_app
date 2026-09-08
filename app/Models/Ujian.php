@@ -16,7 +16,7 @@ class Ujian extends Model
 
     protected $fillable = [
         'id_pelajaran', 'id_materi', 'id_ujian_paket', 'created_by', 'judul', 'instruksi', 'jenis',
-        'target_nilai', 'durasi_menit', 'acak_soal', 'acak_opsi', 'tampilkan_pembahasan', 'status',
+        'target_nilai', 'mode_skor', 'durasi_menit', 'acak_soal', 'acak_opsi', 'tampilkan_pembahasan', 'status',
     ];
 
     protected function casts(): array
