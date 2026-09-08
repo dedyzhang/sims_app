@@ -900,9 +900,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         // Guru
         Route::get('/guru/import/kredensial', [GuruController::class, 'importKredensial'])->name('guru.import.kredensial');
         Route::get('/guru/import/template', [GuruController::class, 'downloadTemplate'])->name('guru.import.template');
-        Route::get('/siswa/template', [SiswaController::class, 'downloadTemplate'])->name('siswa.template');
-        Route::post('/siswa/import', [SiswaController::class, 'import'])->name('siswa.import');
-        Route::resource('siswa', SiswaController::class);
+
 
         // ─── Alumni ───
         Route::middleware('modul:alumni')->group(function () {
