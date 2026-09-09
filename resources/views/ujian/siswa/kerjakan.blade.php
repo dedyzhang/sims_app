@@ -392,7 +392,22 @@ function ujianKerjakan(cfg) {
                 if (document.fullscreenElement || document.webkitFullscreenElement) {
                     try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); } catch (e) {}
                 }
-                if (res.redirected) { window.location.href = res.url; return; }
+                
+                if (res.redirected) { 
+                    window.location.href = res.url; 
+                    return; 
+                }
+                
+                if (res.ok) {
+                    try {
+                        const data = await res.json();
+                        if (data && data.redirect) {
+                            window.location.href = data.redirect;
+                            return;
+                        }
+                    } catch (err) {}
+                }
+                
                 window.location.href = cfg.urlTerkunci;
             } catch (e) {
                 window.location.href = cfg.urlTerkunci;
@@ -402,3 +417,4 @@ function ujianKerjakan(cfg) {
 }
 </script>
 @endpush
+

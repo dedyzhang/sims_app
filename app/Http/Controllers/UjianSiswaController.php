@@ -88,7 +88,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 ->latest()->first();
 
             if ($attempt && $attempt->status !== UjianAttempt::STATUS_IN_PROGRESS) {
-                return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
+                if ($request->wantsJson()) { return response()->json(['redirect' => route('ujian.siswa.hasil', [$ujian, $attempt])]); } return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
             }
             if ($attempt && $attempt->isLocked()) {
                 return view('ujian.siswa.terkunci', compact('ujian', 'attempt'));
@@ -202,14 +202,14 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 return view('ujian.siswa.terkunci', compact('ujian', 'attempt'));
             }
             if ($attempt->status !== UjianAttempt::STATUS_IN_PROGRESS) {
-                return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
+                if ($request->wantsJson()) { return response()->json(['redirect' => route('ujian.siswa.hasil', [$ujian, $attempt])]); } return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
             }
             if ($attempt->isExpired()) {
                 // JANGAN redirect ke gate() di sini — gate() akan redirect balik ke sini lagi
                 // selama attempt masih 'in_progress' & belum lewat sweep cron ujian:auto-submit,
                 // jadi finalisasi langsung di tempat supaya tidak loop tak berujung.
                 app(\App\Services\UjianGrader::class)->autoSubmitKarenaWaktuHabis($attempt);
-                return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
+                if ($request->wantsJson()) { return response()->json(['redirect' => route('ujian.siswa.hasil', [$ujian, $attempt])]); } return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
             }
 
             $soalById = $ujian->getCachedSoalDanOpsi()->keyBy('uuid');
@@ -327,7 +327,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
             app(\App\Services\UjianGrader::class)->finalisasiObjektif($attempt->fresh());
         });
 
-        return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
+        if ($request->wantsJson()) { return response()->json(['redirect' => route('ujian.siswa.hasil', [$ujian, $attempt])]); } return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
     }
 
     public function hasil(Request $request, Ujian $ujian, UjianAttempt $attempt)
@@ -342,3 +342,4 @@ class UjianSiswaController extends Controller implements HasMiddleware
         abort_unless($attempt->id_siswa === $request->user()->uuid, 403);
     }
 }
+
