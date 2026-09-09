@@ -389,6 +389,20 @@ function ujianKerjakan(cfg) {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this._csrf },
                 });
+                
+                if (res.status === 503) {
+                    this.mengumpulkan = false;
+                    $.alert({
+                        title: 'Server Sibuk',
+                        content: 'Server sedang sibuk memproses ujian siswa lain. Mohon klik Kumpulkan Ujian sekali lagi.',
+                        type: 'red'
+                    });
+                    // Nyalakan ulang timer jika tadinya berjalan
+                    this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
+                    this._statusHandle = setInterval(() => { if (!document.hidden) this.cekStatus(); }, 30000);
+                    return;
+                }
+
                 if (document.fullscreenElement || document.webkitFullscreenElement) {
                     try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); } catch (e) {}
                 }

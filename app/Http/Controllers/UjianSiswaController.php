@@ -312,22 +312,28 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
     public function submit(Request $request, Ujian $ujian, UjianAttempt $attempt)
     {
-        $this->pastikanMilikSiswa($request, $attempt);
-        abort_if($attempt->isLocked(), 403, 'Ujian terkunci — hubungi guru/panitia untuk membuka kembali.');
-        abort_unless($attempt->status === UjianAttempt::STATUS_IN_PROGRESS, 422, 'Ujian ini sudah dikumpulkan.');
+        return $this->retryOnDbBusy(function () use ($request, $ujian, $attempt) {
+            $this->pastikanMilikSiswa($request, $attempt);
+            abort_if($attempt->isLocked(), 403, 'Ujian terkunci — hubungi guru/panitia untuk membuka kembali.');
+            abort_unless($attempt->status === UjianAttempt::STATUS_IN_PROGRESS, 422, 'Ujian ini sudah dikumpulkan.');
 
-        DB::transaction(function () use ($attempt) {
-            $attempt = UjianAttempt::where('uuid', $attempt->uuid)->lockForUpdate()->first();
-            if ($attempt->status !== UjianAttempt::STATUS_IN_PROGRESS) {
-                return;
+            DB::transaction(function () use ($attempt) {
+                $attempt = UjianAttempt::where('uuid', $attempt->uuid)->lockForUpdate()->first();
+                if ($attempt->status !== UjianAttempt::STATUS_IN_PROGRESS) {
+                    return;
+                }
+                // Penilaian objektif otomatis + transfer nilai (Fase 4) dipasang di sini
+                // lewat UjianGrader::finalisasiObjektif() — utk saat ini cukup tutup attempt-nya.
+                $attempt->update(['status' => UjianAttempt::STATUS_SUBMITTED, 'selesai_pada' => now()]);
+                app(\App\Services\UjianGrader::class)->finalisasiObjektif($attempt->fresh());
+            });
+
+            if ($request->wantsJson()) {
+                return response()->json(['redirect' => route('ujian.siswa.hasil', [$ujian, $attempt])]);
             }
-            // Penilaian objektif otomatis + transfer nilai (Fase 4) dipasang di sini
-            // lewat UjianGrader::finalisasiObjektif() — utk saat ini cukup tutup attempt-nya.
-            $attempt->update(['status' => UjianAttempt::STATUS_SUBMITTED, 'selesai_pada' => now()]);
-            app(\App\Services\UjianGrader::class)->finalisasiObjektif($attempt->fresh());
+            
+            return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
         });
-
-        if ($request->wantsJson()) { return response()->json(['redirect' => route('ujian.siswa.hasil', [$ujian, $attempt])]); } return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
     }
 
     public function hasil(Request $request, Ujian $ujian, UjianAttempt $attempt)
