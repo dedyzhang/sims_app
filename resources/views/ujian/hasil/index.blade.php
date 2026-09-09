@@ -34,6 +34,12 @@
                     <i data-lucide="check-square" class="w-4 h-4"></i> Kumpul Semua
                 </button>
             </form>
+            <form method="POST" action="{{ route('ujian.hasil.transferSemua', $ujian) }}?kelas={{ $kelasFilter }}" onsubmit="return confirmAction(this, 'Transfer nilai semua siswa yang sudah selesai dinilai ke buku nilai secara massal?', 'blue')">
+                @csrf
+                <button type="submit" class="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
+                    <i data-lucide="send" class="w-4 h-4"></i> Transfer Semua Nilai
+                </button>
+            </form>
             <form method="POST" action="{{ route('ujian.hasil.resetSemua', $ujian) }}" onsubmit="return confirmAction(this, 'Hapus SELURUH hasil pengerjaan semua siswa? Siswa harus mengulang dari awal dan nilai yang sudah ditransfer ke buku nilai akan dicabut.', 'red')">
                 @csrf
                 <button type="submit" class="btn-primary bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
@@ -138,3 +144,4 @@
     </div>
 </div>
 @endsection
+

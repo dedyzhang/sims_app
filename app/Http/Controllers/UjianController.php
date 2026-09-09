@@ -583,6 +583,12 @@ class UjianController extends Controller implements HasMiddleware
     public function destroy(Request $request, Ujian $ujian)
     {
         $this->authorize('manage', $ujian);
+        
+        $request->validate(['password' => 'required|string']);
+        if (!\Illuminate\Support\Facades\Hash::check($request->password, auth()->user()->password)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['password' => 'Password tidak valid.']);
+        }
+
         abort_if($ujian->isPublished(), 422, 'Tutup ujian dulu sebelum menghapusnya.');
 
         $ujian->delete();
@@ -647,6 +653,32 @@ class UjianController extends Controller implements HasMiddleware
      * transfer otomatis sebelumnya gagal krn rapor terkunci, dan admin memang sudah
      * sadar membuka kunci itu utk memasukkan nilai ini.
      */
+        public function transferSemua(Request $request, Ujian $ujian, UjianNilaiTransfer $transfer)
+    {
+        $this->authorize('manage', $ujian);
+        
+        $kelasFilter = $request->string('kelas')->toString();
+        
+        $query = UjianAttempt::whereIn('id_ujian_kelas', $ujian->kelas()->pluck('uuid'))
+            ->where('status', UjianAttempt::STATUS_DINILAI);
+            
+        if ($kelasFilter) {
+            $query->whereHas('ujianKelas', function ($q) use ($kelasFilter) {
+                $q->where('id_kelas', $kelasFilter);
+            });
+        }
+        
+        $attempts = $query->get();
+        $count = 0;
+        
+        foreach ($attempts as $attempt) {
+            $transfer->transfer($attempt);
+            $count++;
+        }
+        
+        return back()->with('success', "Berhasil memproses transfer nilai untuk {} siswa.");
+    }
+
     public function transferUlang(Request $request, Ujian $ujian, UjianAttempt $attempt, UjianNilaiTransfer $transfer)
     {
         $this->authorize('manage', $ujian);
@@ -774,3 +806,5 @@ class UjianController extends Controller implements HasMiddleware
         return [$ngajars];
     }
 }
+
+

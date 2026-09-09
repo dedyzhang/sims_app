@@ -27,6 +27,25 @@
         <a href="{{ route('ujian.pengaturan.edit', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
             <i data-lucide="settings" class="w-4 h-4 inline"></i> Pengaturan
         </a>
+        <div x-data="{ openBackup: false }" class="inline-block">
+            <button type="button" @click="openBackup = true" class="px-4 py-2 rounded-xl text-sm font-semibold border border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30">
+                <i data-lucide="download-cloud" class="w-4 h-4 inline"></i> Backup Data
+            </button>
+            <div x-show="openBackup" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" style="display: none;">
+                <form method="POST" action="{{ route('ujian.backup', $ujian) }}" class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl text-left" @click.outside="openBackup = false">
+                    @csrf
+                    <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">Konfirmasi Password</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 whitespace-normal">Silakan masukkan password admin Anda untuk mendownload backup data ujian ini.</p>
+                    <div>
+                        <input type="password" name="password" required class="form-input w-full" placeholder="Password Admin">
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button type="button" @click="openBackup = false" class="btn-secondary px-4 py-2 rounded-xl text-sm">Batal</button>
+                        <button type="submit" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold" @click="setTimeout(() => openBackup = false, 500)">Download Backup</button>
+                    </div>
+                </form>
+            </div>
+        </div>
         @unless($ujian->status === 'draft')
         <a href="{{ route('ujian.monitor.index', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
             <i data-lucide="radar" class="w-4 h-4 inline"></i> Pemantauan Live
@@ -181,3 +200,5 @@
     </div>
 </div>
 @endsection
+
+

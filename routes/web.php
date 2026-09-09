@@ -1177,6 +1177,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/ruangan/{ruangan}/berita-acara/{beritaAcara}/hadir/cetak', [UjianRuanganMonitorController::class, 'cetakHadirAdhoc'])->name('ruangan.beritaAcara.hadir.cetak');
         Route::get('/ruangan/{ruangan}/berita-acara/{beritaAcara}/cetak', [UjianRuanganMonitorController::class, 'cetakBeritaAcara'])->name('ruangan.beritaAcara.cetak');
 
+                Route::post('/restore', [\App\Http\Controllers\UjianBackupController::class, 'restore'])->name('ujian.restore');
+        Route::post('/{ujian}/backup', [\App\Http\Controllers\UjianBackupController::class, 'backup'])->name('ujian.backup');
         Route::get('/{ujian}', [UjianController::class, 'show'])->name('show');
         Route::get('/{ujian}/edit', [UjianController::class, 'edit'])->name('edit');
         Route::get('/{ujian}/pratinjau', [UjianController::class, 'pratinjau'])->name('pratinjau');
@@ -1215,6 +1217,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{ujian}/hasil/{attempt}/paksa-selesai', [UjianController::class, 'paksaSelesai'])->name('hasil.paksaSelesai');
         Route::post('/{ujian}/hasil/paksa-selesai-semua', [UjianController::class, 'paksaSelesaiSemua'])->name('hasil.paksaSelesaiSemua');
         Route::post('/{ujian}/hasil/reset-semua', [UjianController::class, 'resetSemua'])->name('hasil.resetSemua');
+        Route::post('/{ujian}/hasil/transfer-semua', [UjianController::class, 'transferSemua'])->name('hasil.transferSemua');
         Route::post('/{ujian}/pembahasan/toggle', [UjianController::class, 'togglePembahasan'])->name('pembahasan.toggle');
 
         Route::get('/{ujian}/pemantauan', [UjianMonitorController::class, 'index'])->name('monitor.index');
@@ -1373,3 +1376,6 @@ Route::middleware(['auth', 'role:admin', 'modul:chatbot'])->prefix('chatbot/admi
     Route::post('/settings/avatar', [ChatbotAdminController::class, 'updateAvatar'])->name('settings.avatar');
     Route::post('/settings/quick-questions', [ChatbotAdminController::class, 'updateQuickQuestions'])->name('settings.quick-questions');
 });
+
+
+

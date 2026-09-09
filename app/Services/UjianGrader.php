@@ -224,6 +224,8 @@ class UjianGrader
             'butuh_penilaian_manual' => false,
         ]);
 
-        app(UjianNilaiTransfer::class)->transfer($attempt->fresh());
+        // app(UjianNilaiTransfer::class)->transfer($attempt->fresh()); // Dinonaktifkan: Menggunakan tombol Transfer Semua secara massal
     }
 }
+
+
