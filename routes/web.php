@@ -1177,8 +1177,8 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/ruangan/{ruangan}/berita-acara/{beritaAcara}/hadir/cetak', [UjianRuanganMonitorController::class, 'cetakHadirAdhoc'])->name('ruangan.beritaAcara.hadir.cetak');
         Route::get('/ruangan/{ruangan}/berita-acara/{beritaAcara}/cetak', [UjianRuanganMonitorController::class, 'cetakBeritaAcara'])->name('ruangan.beritaAcara.cetak');
 
-                Route::post('/restore', [\App\Http\Controllers\UjianBackupController::class, 'restore'])->name('ujian.restore');
-        Route::post('/{ujian}/backup', [\App\Http\Controllers\UjianBackupController::class, 'backup'])->name('ujian.backup');
+                Route::post('/restore', [\App\Http\Controllers\UjianBackupController::class, 'restore'])->name('restore');
+        Route::post('/{ujian}/backup', [\App\Http\Controllers\UjianBackupController::class, 'backup'])->name('backup');
         Route::get('/{ujian}', [UjianController::class, 'show'])->name('show');
         Route::get('/{ujian}/edit', [UjianController::class, 'edit'])->name('edit');
         Route::get('/{ujian}/pratinjau', [UjianController::class, 'pratinjau'])->name('pratinjau');
@@ -1376,6 +1376,7 @@ Route::middleware(['auth', 'role:admin', 'modul:chatbot'])->prefix('chatbot/admi
     Route::post('/settings/avatar', [ChatbotAdminController::class, 'updateAvatar'])->name('settings.avatar');
     Route::post('/settings/quick-questions', [ChatbotAdminController::class, 'updateQuickQuestions'])->name('settings.quick-questions');
 });
+
 
 
 
