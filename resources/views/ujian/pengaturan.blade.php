@@ -134,7 +134,7 @@
         <button type="button" @click="open = true" class="px-4 py-2 rounded-xl text-sm font-bold bg-blue-600 text-white hover:bg-blue-700">Backup Sekarang</button>
         
         <div x-show="open" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" style="display: none;">
-            <form method="POST" action="{{ route('ujian.backup', $ujian) }}" class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl" @click.outside="open = false">
+            <form method="POST" action="{{ route('ujian.backup', $ujian) }}" class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl" @click.outside="open = false" onsubmit="setTimeout(() => document.getElementById('global-loading-spinner')?.classList.add('hidden'), 500)">
                 @csrf
                 <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">Konfirmasi Password</h3>
                 <p class="text-sm text-slate-500 dark:text-slate-400">Silakan masukkan password admin Anda untuk mendownload backup data ujian ini.</p>
@@ -169,7 +169,6 @@
             </form>
         </div>
     </div>
-    @unless($ujian->isPublished())
     <div class="card p-6 border-l-4 !border-l-rose-500 space-y-2" x-data="{ open: false }">
         <h2 class="font-bold text-rose-700 dark:text-rose-400">Hapus Ujian</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400">Menghapus ujian ini beserta seluruh soal, kelas, dan token yang sudah ditetapkan. Tindakan ini tidak bisa dibatalkan.</p>
@@ -190,9 +189,12 @@
             </form>
         </div>
     </div>
-    @endunless
-</div>
+    </div>
 @endsection
+
+
+
+
 
 
 

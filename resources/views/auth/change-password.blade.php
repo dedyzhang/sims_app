@@ -80,6 +80,7 @@
         <div>
             <form method="POST" action="/ganti-password" class="card p-6 space-y-4" x-data="{ s1:false, s2:false, s3:false }">
                 @csrf
+                @unless(auth()->user()->must_change_password)
                 <div>
                     <label class="form-label">Password Lama</label>
                     <div class="relative">
@@ -90,6 +91,11 @@
                     </div>
                     @error('current_password')<p class="text-rose-500 text-xs mt-1.5">{{ $message }}</p>@enderror
                 </div>
+                @else
+                <div class="bg-blue-50 text-blue-700 p-4 rounded-xl text-sm border border-blue-100 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300">
+                    <i data-lucide="info" class="w-4 h-4 inline mr-1"></i> Anda sedang dalam mode reset password. Silakan langsung masukkan password baru Anda tanpa perlu memasukkan password lama.
+                </div>
+                @endunless
                 <div>
                     <label class="form-label">Password Baru</label>
                     <div class="relative">
@@ -198,3 +204,4 @@
 </script>
 @endpush
 @endsection
+

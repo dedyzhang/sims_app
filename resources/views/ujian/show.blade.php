@@ -32,7 +32,7 @@
                 <i data-lucide="download-cloud" class="w-4 h-4 inline"></i> Backup Data
             </button>
             <div x-show="openBackup" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" style="display: none;">
-                <form method="POST" action="{{ route('ujian.backup', $ujian) }}" class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl text-left" @click.outside="openBackup = false">
+                <form method="POST" action="{{ route('ujian.backup', $ujian) }}" class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl text-left" @click.outside="openBackup = false" onsubmit="setTimeout(() => document.getElementById('global-loading-spinner')?.classList.add('hidden'), 500)">
                     @csrf
                     <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">Konfirmasi Password</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 whitespace-normal">Silakan masukkan password admin Anda untuk mendownload backup data ujian ini.</p>
@@ -200,5 +200,6 @@
     </div>
 </div>
 @endsection
+
 
 

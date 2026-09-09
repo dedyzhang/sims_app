@@ -125,13 +125,19 @@ class LoginController extends Controller
             return redirect()->route('ganti.password')->with('error', 'Silakan kustomisasi username Anda terlebih dahulu.');
         }
 
-        $request->validate([
-            'current_password' => 'required',
-            'new_password'     => 'required|min:6|confirmed',
-        ]);
+        if ($user->must_change_password) {
+            $request->validate([
+                'new_password' => 'required|min:6|confirmed',
+            ]);
+        } else {
+            $request->validate([
+                'current_password' => 'required',
+                'new_password'     => 'required|min:6|confirmed',
+            ]);
 
-        if (!Hash::check($request->current_password, $user->password)) {
-            return back()->withErrors(['current_password' => 'Password lama salah.']);
+            if (!Hash::check($request->current_password, $user->password)) {
+                return back()->withErrors(['current_password' => 'Password lama salah.']);
+            }
         }
 
         $user->update([
@@ -307,3 +313,4 @@ class LoginController extends Controller
         return route('dashboard');
     }
 }
+

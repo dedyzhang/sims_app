@@ -30,15 +30,7 @@ class UjianBackupController extends Controller
             throw ValidationException::withMessages(['password' => 'Password tidak valid.']);
         }
 
-        $ujian->load([
-            'paket', 'soal.opsi', 
-            'kelas', 
-            'sesi', 
-            'jadwal', 
-            'ruangan.peserta', 
-            'attempts.jawaban', 
-            'attempts.pelanggaran'
-        ]);
+        $ujian->load(['paket', 'soal.opsi', 'kelas.attempts.jawaban', 'kelas.attempts.pelanggaran']);
 
         $data = $ujian->toArray();
         $json = json_encode($data, JSON_PRETTY_PRINT);
@@ -77,66 +69,43 @@ class UjianBackupController extends Controller
             // Restore Paket & Soal
             if (isset($data['paket'])) {
                 $paketData = collect($data['paket'])->except('soal')->toArray();
-                UjianPaket::withTrashed()->updateOrCreate(['uuid' => $paketData['uuid']], $paketData);
+                UjianPaket::updateOrCreate(['uuid' => $paketData['uuid']], $paketData);
                 
                 if (isset($data['soal'])) {
                     foreach ($data['soal'] as $soal) {
                         $soalData = collect($soal)->except('opsi')->toArray();
-                        UjianSoal::withTrashed()->updateOrCreate(['uuid' => $soalData['uuid']], $soalData);
+                        UjianSoal::updateOrCreate(['uuid' => $soalData['uuid']], $soalData);
                         
                         if (isset($soal['opsi'])) {
                             foreach ($soal['opsi'] as $opsi) {
-                                UjianSoalOpsi::withTrashed()->updateOrCreate(['uuid' => $opsi['uuid']], $opsi);
+                                UjianSoalOpsi::updateOrCreate(['uuid' => $opsi['uuid']], $opsi);
                             }
                         }
                     }
                 }
             }
 
-            // Restore Kelas, Sesi, Jadwal
+            // Restore Kelas & Attempts
             if (isset($data['kelas'])) {
                 foreach ($data['kelas'] as $kelas) {
-                    UjianKelas::updateOrCreate(['uuid' => $kelas['uuid']], $kelas);
-                }
-            }
-            if (isset($data['sesi'])) {
-                foreach ($data['sesi'] as $sesi) {
-                    UjianSesi::updateOrCreate(['uuid' => $sesi['uuid']], $sesi);
-                }
-            }
-            if (isset($data['jadwal'])) {
-                foreach ($data['jadwal'] as $jadwal) {
-                    UjianJadwal::updateOrCreate(['uuid' => $jadwal['uuid']], $jadwal);
-                }
-            }
-            if (isset($data['ruangan'])) {
-                foreach ($data['ruangan'] as $ruangan) {
-                    $ruanganData = collect($ruangan)->except('peserta')->toArray();
-                    UjianRuangan::updateOrCreate(['uuid' => $ruanganData['uuid']], $ruanganData);
+                    $kelasData = collect($kelas)->except('attempts')->toArray();
+                    UjianKelas::updateOrCreate(['uuid' => $kelasData['uuid']], $kelasData);
                     
-                    if (isset(
-                        $ruangan['peserta'])) {
-                        foreach ($ruangan['peserta'] as $peserta) {
-                            UjianRuanganPeserta::updateOrCreate(['uuid' => $peserta['uuid']], $peserta);
-                        }
-                    }
-                }
-            }
-
-            // Restore Attempts & Jawaban
-            if (isset($data['attempts'])) {
-                foreach ($data['attempts'] as $attempt) {
-                    $attemptData = collect($attempt)->except(['jawaban', 'pelanggaran'])->toArray();
-                    UjianAttempt::withTrashed()->updateOrCreate(['uuid' => $attemptData['uuid']], $attemptData);
-                    
-                    if (isset($attempt['jawaban'])) {
-                        foreach ($attempt['jawaban'] as $jawaban) {
-                            UjianJawaban::updateOrCreate(['uuid' => $jawaban['uuid']], $jawaban);
-                        }
-                    }
-                    if (isset($attempt['pelanggaran'])) {
-                        foreach ($attempt['pelanggaran'] as $pelanggaran) {
-                            UjianPelanggaran::updateOrCreate(['uuid' => $pelanggaran['uuid']], $pelanggaran);
+                    if (isset($kelas['attempts'])) {
+                        foreach ($kelas['attempts'] as $attempt) {
+                            $attemptData = collect($attempt)->except(['jawaban', 'pelanggaran'])->toArray();
+                            UjianAttempt::updateOrCreate(['uuid' => $attemptData['uuid']], $attemptData);
+                            
+                            if (isset($attempt['jawaban'])) {
+                                foreach ($attempt['jawaban'] as $jawaban) {
+                                    UjianJawaban::updateOrCreate(['uuid' => $jawaban['uuid']], $jawaban);
+                                }
+                            }
+                            if (isset($attempt['pelanggaran'])) {
+                                foreach ($attempt['pelanggaran'] as $pelanggaran) {
+                                    UjianPelanggaran::updateOrCreate(['uuid' => $pelanggaran['uuid']], $pelanggaran);
+                                }
+                            }
                         }
                     }
                 }
@@ -156,5 +125,10 @@ class UjianBackupController extends Controller
         }
     }
 }
+
+
+
+
+
 
 
