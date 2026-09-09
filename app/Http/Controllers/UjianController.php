@@ -19,6 +19,8 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class UjianController extends Controller implements HasMiddleware
 {
@@ -580,6 +582,28 @@ class UjianController extends Controller implements HasMiddleware
             : 'Pembahasan disembunyikan kembali dari siswa.');
     }
 
+        public function resetTotal(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+        
+        if (!Hash::check($request->password, auth()->user()->password)) {
+            throw ValidationException::withMessages(['password' => 'Password tidak valid.']);
+        }
+        
+        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujian->kelas()->pluck('uuid'))->get();
+        $count = 0;
+        
+        DB::transaction(function () use ($attempts, &$count) {
+            foreach ($attempts as $attempt) {
+                // Jangan panggil $transfer->revert($attempt) di sini agar nilai di buku nilai tetap aman
+                $attempt->delete();
+                $count++;
+            }
+        });
+        
+        return back()->with('success', "Seluruh data pengerjaan ({$count} siswa) berhasil dihapus permanen. Ujian kembali seperti semula.");
+    }
+
     public function destroy(Request $request, Ujian $ujian)
     {
         $this->authorize('manage', $ujian);
@@ -728,11 +752,9 @@ class UjianController extends Controller implements HasMiddleware
         $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujian->kelas()->pluck('uuid'))->get();
         
         $count = 0;
-        DB::transaction(function () use ($attempts, $transfer, &$count) {
+        DB::transaction(function () use ($attempts, &$count) {
             foreach ($attempts as $attempt) {
-                if ($attempt->status_transfer_nilai === 'berhasil') {
-                    $transfer->revert($attempt);
-                }
+                // Jangan panggil $transfer->revert($attempt) di sini agar nilai di buku nilai tetap aman
                 $attempt->delete();
                 $count++;
             }
@@ -806,5 +828,9 @@ class UjianController extends Controller implements HasMiddleware
         return [$ngajars];
     }
 }
+
+
+
+
 
 

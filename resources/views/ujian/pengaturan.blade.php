@@ -149,6 +149,26 @@
         </div>
     </div>
 
+        <div class="card p-6 border-l-4 !border-l-amber-500 space-y-2" x-data="{ openReset: false }">
+        <h2 class="font-bold text-amber-700 dark:text-amber-400">Kosongkan Data Pengerjaan</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Menghapus seluruh rekaman jawaban dan sesi pengerjaan ujian siswa. <strong>Nilai yang sudah ditransfer ke buku nilai akan tetap aman dan tidak ikut terhapus.</strong> Ujian akan kembali kosong seperti belum dikerjakan.</p>
+        <button type="button" @click="openReset = true" class="px-4 py-2 rounded-xl text-sm font-bold bg-amber-600 text-white hover:bg-amber-700">Reset Semua Pengerjaan</button>
+        
+        <div x-show="openReset" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" style="display: none;">
+            <form method="POST" action="{{ route('ujian.resetTotal', $ujian) }}" class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-xl" @click.outside="openReset = false">
+                @csrf
+                <h3 class="text-lg font-bold text-amber-600">Konfirmasi Reset Data Pengerjaan</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Masukkan password admin Anda untuk mengonfirmasi penghapusan seluruh data jawaban siswa di ujian ini.</p>
+                <div>
+                    <input type="password" name="password" required class="form-input w-full" placeholder="Password Admin">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" @click="openReset = false" class="btn-secondary px-4 py-2 rounded-xl text-sm">Batal</button>
+                    <button type="submit" class="px-4 py-2 rounded-xl text-sm font-bold bg-amber-600 text-white hover:bg-amber-700" @click="setTimeout(() => openReset = false, 500)">Ya, Kosongkan Data</button>
+                </div>
+            </form>
+        </div>
+    </div>
     @unless($ujian->isPublished())
     <div class="card p-6 border-l-4 !border-l-rose-500 space-y-2" x-data="{ open: false }">
         <h2 class="font-bold text-rose-700 dark:text-rose-400">Hapus Ujian</h2>
@@ -173,5 +193,7 @@
     @endunless
 </div>
 @endsection
+
+
 
 

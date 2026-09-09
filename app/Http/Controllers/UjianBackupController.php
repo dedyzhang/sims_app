@@ -31,7 +31,7 @@ class UjianBackupController extends Controller
         }
 
         $ujian->load([
-            'paket.soal.opsi', 
+            'paket', 'soal.opsi', 
             'kelas', 
             'sesi', 
             'jadwal', 
@@ -79,8 +79,8 @@ class UjianBackupController extends Controller
                 $paketData = collect($data['paket'])->except('soal')->toArray();
                 UjianPaket::withTrashed()->updateOrCreate(['uuid' => $paketData['uuid']], $paketData);
                 
-                if (isset($data['paket']['soal'])) {
-                    foreach ($data['paket']['soal'] as $soal) {
+                if (isset($data['soal'])) {
+                    foreach ($data['soal'] as $soal) {
                         $soalData = collect($soal)->except('opsi')->toArray();
                         UjianSoal::withTrashed()->updateOrCreate(['uuid' => $soalData['uuid']], $soalData);
                         
@@ -156,4 +156,5 @@ class UjianBackupController extends Controller
         }
     }
 }
+
 

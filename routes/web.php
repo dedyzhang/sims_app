@@ -1179,6 +1179,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
                 Route::post('/restore', [\App\Http\Controllers\UjianBackupController::class, 'restore'])->name('restore');
         Route::post('/{ujian}/backup', [\App\Http\Controllers\UjianBackupController::class, 'backup'])->name('backup');
+        Route::post('/{ujian}/reset-total', [UjianController::class, 'resetTotal'])->name('resetTotal');
         Route::get('/{ujian}', [UjianController::class, 'show'])->name('show');
         Route::get('/{ujian}/edit', [UjianController::class, 'edit'])->name('edit');
         Route::get('/{ujian}/pratinjau', [UjianController::class, 'pratinjau'])->name('pratinjau');
@@ -1376,6 +1377,7 @@ Route::middleware(['auth', 'role:admin', 'modul:chatbot'])->prefix('chatbot/admi
     Route::post('/settings/avatar', [ChatbotAdminController::class, 'updateAvatar'])->name('settings.avatar');
     Route::post('/settings/quick-questions', [ChatbotAdminController::class, 'updateQuickQuestions'])->name('settings.quick-questions');
 });
+
 
 
 
