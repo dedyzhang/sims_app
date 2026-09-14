@@ -159,12 +159,23 @@
         </div>
     </div>
 
+    {{-- Overlay loading 1.5 detik tiap perpindahan/menjawab (sesuai request) --}}
+    <div x-show="loadingBlock" x-cloak class="fixed inset-0 z-[99999] bg-slate-900/50 flex items-center justify-center p-6 text-center backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-xl flex flex-col items-center gap-3">
+            <i data-lucide="loader-circle" class="w-10 h-10 text-primary animate-spin"></i>
+            <p class="text-slate-600 dark:text-slate-300 text-sm font-semibold m-0">Memproses...</p>
+        </div>
+    </div>
+
     {{-- Overlay terkunci (client-side, cadangan sebelum reload) --}}
     <div x-show="terkunci" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
         <div class="max-w-sm space-y-4">
             <i data-lucide="lock" class="w-14 h-14 text-rose-400 mx-auto"></i>
             <h2 class="text-white text-lg font-bold m-0">Ujian Terkunci</h2>
-            <p class="text-slate-300 text-sm m-0 leading-relaxed">Anda keluar dari layar penuh atau berpindah tab. Hubungi guru/panitia untuk membuka kembali.</p>
+            <p class="text-slate-300 text-sm m-0 leading-relaxed">Anda keluar dari layar penuh atau berpindah tab. Hubungi guru/panitia untuk mereset, lalu muat ulang halaman ini.</p>
+            <button type="button" @click="window.location.reload()" class="btn-primary px-6 py-3 rounded-xl text-sm font-bold mt-4">
+                Muat Ulang Halaman
+            </button>
         </div>
     </div>
 </div>
@@ -199,24 +210,20 @@ function ujianKerjakan(cfg) {
         intentional: false,
         simpanStatus: '',
         simpanError: false,
+        loadingBlock: false,
         _timerHandle: null,
+        
+        triggerBlock() {
+            this.loadingBlock = true;
+            setTimeout(() => { this.loadingBlock = false; }, 1500);
+        },
+        
         _statusHandle: null,
         _csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
 
         init() {
             this.tickCountdown();
             this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
-            // Jeda otomatis saat tab di-background (pola sama spt polling lain di app ini) —
-            // aman krn cron ujian:auto-submit tiap menit sudah jadi jaring pengaman server-side
-            // independen dari polling ini utk kasus waktu habis pas tab tersembunyi.
-            // 30s (was 15s) — cekStatus cuma jaring pengaman kedua (deteksi dikunci/waktu
-            // diubah guru), telat setengah menit tak masalah; ini yg jalan TERUS-MENERUS
-            // sepanjang durasi ujian utk SEMUA siswa serentak, jadi paling berat ketimbang
-            // burst sesaat di awal. Jitter acak ±4dtk per siswa (dihitung sekali di sini,
-            // bukan tiap tick) supaya siswa yg mulai ujian PERSIS bersamaan (sesi/token yg
-            // sama) lama-lama menyebar waktunya, bukan terus menembak bersamaan tiap 30dtk.
-            const jitterMs = Math.floor(Math.random() * 8000) - 4000;
-            this._statusHandle = window.simsPollInterval(() => this.cekStatus(), 30000 + jitterMs); // tanpa kode = tak pernah ada di daftar Performa Server (ujian berjalan)
 
             const syncFs = () => {
                 const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -275,32 +282,53 @@ function ujianKerjakan(cfg) {
         pindah(i) {
             if (i < 0 || i >= this.soal.length) return;
             this.idx = i;
+            this.triggerBlock();
         },
 
         sudahDijawab(s) {
-            const v = this.jawaban[s.uuid];
-            if (s.tipe === 'mcq_complex') return Array.isArray(v) && v.length > 0;
-            if (s.tipe === 'match') return v && Object.keys(v).length > 0;
-            if (s.tipe === 'essay') return !!(v && String(v).trim().length);
-            return !!v;
+            const j = this.jawaban[s.uuid];
+            if (s.tipe === 'mcq_complex') return Array.isArray(j) && j.length > 0;
+            if (s.tipe === 'match') return j && Object.keys(j).length > 0;
+            return !!j;
         },
 
         toggleMulti(soalUuid, opsiUuid) {
-            const cur = this.jawaban[soalUuid] || [];
-            const i = cur.indexOf(opsiUuid);
-            if (i === -1) cur.push(opsiUuid); else cur.splice(i, 1);
-            this.jawaban[soalUuid] = cur;
+            let arr = this.jawaban[soalUuid] || [];
+            if (arr.includes(opsiUuid)) arr = arr.filter(x => x !== opsiUuid);
+            else arr.push(opsiUuid);
+            this.jawaban[soalUuid] = arr;
         },
 
         setPasangan(soalUuid, kiri, kanan) {
-            const cur = { ...(this.jawaban[soalUuid] || {}) };
-            if (kanan) cur[kiri] = kanan; else delete cur[kiri];
-            this.jawaban[soalUuid] = cur;
+            let current = { ...(this.jawaban[soalUuid] || {}) };
+            if (kanan) current[kiri] = kanan; else delete current[kiri];
+            this.jawaban[soalUuid] = current;
             this.simpan(soalUuid);
         },
 
-        async simpan(soalUuid) {
+        _simpanTimers: {},
+
+        simpan(soalUuid) {
             if (this.terkunci || this.mengumpulkan) return;
+            this.simpanStatus = 'Menyimpan...';
+            this.simpanError = false;
+            this.triggerBlock();
+            
+            if (this._simpanTimers[soalUuid]) clearTimeout(this._simpanTimers[soalUuid]);
+            
+            // Jeda 1.5 detik per soal. Jika siswa klik opsi berulang kali dengan cepat, 
+            // hanya 1 request terakhir yang akan dikirim ke server. Ini mencegah WAF hosting marah.
+            this._simpanTimers[soalUuid] = setTimeout(() => {
+                this._doSimpan(soalUuid);
+            }, 1500);
+        },
+
+        async _doSimpan(soalUuid) {
+            if (this.terkunci) return;
+            
+            // Hapus penanda timer agar tidak diflush ulang
+            this._simpanTimers[soalUuid] = null;
+            
             const s = this.soal.find(x => x.uuid === soalUuid);
             if (!s) return;
             const payload = { id_soal: soalUuid };
@@ -315,7 +343,16 @@ function ujianKerjakan(cfg) {
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this._csrf },
                     body: JSON.stringify(payload),
                 });
-                if (res.status === 403) { this.kunci(); return; }
+                
+                if (res.status === 403) { 
+                    const isJson = res.headers.get('content-type')?.includes('application/json');
+                    if (isJson) {
+                        this.kunci(); 
+                        return; 
+                    }
+                    throw new Error('WAF block (403 HTML)');
+                }
+                
                 if (!res.ok) throw new Error('gagal simpan');
                 this.simpanStatus = 'Tersimpan';
                 this.simpanError = false;
@@ -348,17 +385,6 @@ function ujianKerjakan(cfg) {
             clearInterval(this._statusHandle);
         },
 
-        async cekStatus() {
-            try {
-                const res = await fetch(cfg.urlStatus, { headers: { 'Accept': 'application/json' } });
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data.batas_waktu_pada) this.batasWaktu = new Date(data.batas_waktu_pada).getTime();
-                if (data.dikunci) { this.kunci(); return; }
-                if (data.status !== 'in_progress') { window.location.href = cfg.urlTerkunci; }
-            } catch (e) {}
-        },
-
         konfirmasiSubmit() {
             const self = this;
             $.confirm({
@@ -376,6 +402,15 @@ function ujianKerjakan(cfg) {
         },
 
         async kumpulkan(otomatis) {
+            // Force flush semua jawaban yang masih di-debounce agar tidak hilang
+            for (let uuid in this._simpanTimers) {
+                if (this._simpanTimers[uuid]) {
+                    clearTimeout(this._simpanTimers[uuid]);
+                    this._simpanTimers[uuid] = null;
+                    await this._doSimpan(uuid); // Tunggu sampai tersimpan
+                }
+            }
+
             // SENGAJA tak pakai kunci() di sini — kunci() menyalakan `terkunci` yg
             // menampilkan overlay "Ujian Terkunci — Anda keluar dari layar penuh/berpindah
             // tab", pesan yg salah konteks (& menakutkan) utk submit yg SAH. `mengumpulkan`
@@ -390,16 +425,18 @@ function ujianKerjakan(cfg) {
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this._csrf },
                 });
                 
-                if (res.status === 503) {
+                // Jika error 503 (database busy) ATAU 403 HTML (diblokir WAF/ModSecurity hosting)
+                const isWafBlock = res.status === 403 && !res.headers.get('content-type')?.includes('application/json');
+                
+                if (res.status === 503 || isWafBlock) {
                     this.mengumpulkan = false;
                     $.alert({
-                        title: 'Server Sibuk',
-                        content: 'Server sedang sibuk memproses ujian siswa lain. Mohon klik Kumpulkan Ujian sekali lagi.',
+                        title: 'Server Sibuk / Terblokir',
+                        content: 'Koneksi Anda sempat ditolak oleh keamanan server (terlalu banyak siswa menekan bersamaan). Mohon klik Kumpulkan Ujian sekali lagi.',
                         type: 'red'
                     });
                     // Nyalakan ulang timer jika tadinya berjalan
                     this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
-                    this._statusHandle = setInterval(() => { if (!document.hidden) this.cekStatus(); }, 30000);
                     return;
                 }
 

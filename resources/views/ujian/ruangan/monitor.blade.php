@@ -9,11 +9,13 @@
         <nav class="text-xs text-slate-400 mb-1">
             <a href="{{ route('ujian.ruangan.saya') }}" class="hover:underline">Ruang Ujian Hari Ini</a> / {{ $ruangan->nama }}
         </nav>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center justify-between flex-wrap gap-2">
             <h1 class="page-title">{{ $ruangan->nama }}</h1>
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Diperbarui otomatis"></span>
+            <button type="button" @click="muat()" class="btn-primary px-4 py-2 text-sm font-semibold flex items-center gap-2">
+                <i data-lucide="refresh-cw" class="w-4 h-4" :class="{'animate-spin': loading}"></i> Segarkan Data
+            </button>
         </div>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ $ruangan->paket?->nama }} · Siswa yang sudah mulai mengerjakan · Diperbarui otomatis tiap 5 detik.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ $ruangan->paket?->nama }} · Daftar kehadiran siswa.</p>
         @unless($adaJadwalHariIni)
         <p class="text-xs text-amber-600 dark:text-amber-400 mt-1"><i data-lucide="info" class="w-3.5 h-3.5 inline"></i> Belum ada jadwal ujian untuk hari ini di paket ini — status pengerjaan siswa tidak ditampilkan sampai jadwal ditambahkan.</p>
         @endunless
@@ -412,10 +414,6 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
 
         init() {
             this.muat();
-            // 8s (was 5s) — dipakai guru/pengawas (jumlah jauh lebih sedikit drpd siswa),
-            // jadi kontribusinya ke beban server kecil; tetap dinaikkan sedikit sbg bagian
-            // dari pengurangan menyeluruh, tanpa mengorbankan responsivitas pemantauan.
-            this._timer = window.simsPollInterval(() => this.muat(), 8000); // tanpa kode = tak pernah ada di daftar Performa Server (pemantauan ruangan ujian); jeda otomatis saat tab hidden tetap berlaku
         },
 
         async muat() {

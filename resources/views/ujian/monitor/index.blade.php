@@ -8,13 +8,14 @@
     <div>
         <nav class="text-xs text-slate-400 mb-1">
             <a href="{{ route('ujian.index') }}" class="hover:underline">Ujian</a> /
-            <a href="{{ route('ujian.show', $ujian) }}" class="hover:underline">{{ $ujian->judul }}</a> / Pemantauan Live
+            <a href="{{ route('ujian.show', $ujian) }}" class="hover:underline">{{ $ujian->judul }}</a> / Pemantauan Siswa
         </nav>
-        <div class="flex items-center gap-2">
-            <h1 class="page-title">Pemantauan Live</h1>
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Diperbarui otomatis"></span>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+            <h1 class="page-title">Daftar Hadir Ujian</h1>
+            <button type="button" @click="muat()" class="btn-primary px-4 py-2 text-sm font-semibold flex items-center gap-2">
+                <i data-lucide="refresh-cw" class="w-4 h-4" :class="{'animate-spin': loading}"></i> Segarkan Data
+            </button>
         </div>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Diperbarui otomatis tiap 5 detik. Menampilkan semua siswa kelas ter-assign, termasuk yang belum mulai.</p>
     </div>
 
     <div x-show="kelasOpsi.length > 1" class="flex items-center gap-2">
@@ -56,7 +57,7 @@
                         </td>
                         <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                             <button type="button" x-show="a.dikunci" @click="bukaKunci(a)" class="text-xs text-primary hover:underline">Buka Kunci</button>
-                            <button type="button" x-show="a.status === 'in_progress' || a.dikunci" @click="resetUlang(a)" class="text-xs text-rose-600 hover:underline">Reset Ulang</button>
+                            <button type="button" x-show="a.attempt_uuid" @click="resetUlang(a)" class="text-xs text-rose-600 hover:underline">Reset Ulang</button>
                         </td>
                     </tr>
                 </template>
@@ -81,9 +82,6 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
 
         init() {
             this.muat();
-            // 8s (was 5s) — dipakai guru/pengawas, kontribusi beban kecil, tetap dinaikkan
-            // sedikit sbg bagian dari pengurangan menyeluruh.
-            this._timer = window.simsPollInterval(() => this.muat(), 8000); // tanpa kode = tak pernah ada di daftar Performa Server (pemantauan ujian); jeda otomatis saat tab hidden
         },
 
         async muat() {
