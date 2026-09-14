@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -60,6 +60,7 @@ class UjianBackupController extends Controller
             return back()->with('error', 'File backup tidak valid atau rusak.');
         }
 
+        \Illuminate\Database\Eloquent\Model::unguard();
         DB::beginTransaction();
         try {
             // Restore Ujian
@@ -122,13 +123,8 @@ class UjianBackupController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal memulihkan data: ' . $e->getMessage());
+        } finally {
+            \Illuminate\Database\Eloquent\Model::reguard();
         }
     }
 }
-
-
-
-
-
-
-
