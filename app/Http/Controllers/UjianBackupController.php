@@ -64,7 +64,7 @@ class UjianBackupController extends Controller
         DB::beginTransaction();
         try {
             // Restore Ujian
-            $ujianData = collect($data)->except(["paket", "kelas", "sesi", "jadwal", "ruangan", "attempts", "dibuat_oleh"])->toArray();
+            $ujianData = collect($data)->except(["paket", "soal", "kelas", "sesi", "jadwal", "ruangan", "attempts", "dibuat_oleh", "pelajaran", "materi"])->toArray();
             Ujian::withTrashed()->updateOrCreate(['uuid' => $ujianData['uuid']], $ujianData);
             
             // Restore Paket & Soal
