@@ -95,7 +95,7 @@ class UjianSoalController extends Controller
 
         $data = SoalValidator::validate($request);
 
-        DB::transaction(function () use ($soal, $data) {
+        DB::transaction(function () use ($soal, $data, $ujian) {
             $soal->update([
                 'tipe'       => $data['tipe'],
                 'teks_soal'  => $data['teks_soal'],

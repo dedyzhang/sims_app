@@ -93,4 +93,73 @@ class WalikelasController extends Controller
 
         return back()->with('success', 'Sekretaris kelas berhasil disimpan.');
     }
+    public function ruangKelasIndex(Request $request)
+    {
+        $kelas = $this->kelasSaya();
+        $classrooms = \App\Models\Classroom::where('status', '!=', 'archived')
+            ->where(function($q) use ($kelas) {
+                $q->where('id_kelas', $kelas->uuid)
+                  ->orWhereHas('kelas', function($q2) use ($kelas) {
+                      $q2->where('kelas.uuid', $kelas->uuid);
+                  });
+            })
+            ->with(['pelajaran', 'author'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return view('walikelas.ruang-kelas.index', compact('kelas', 'classrooms'));
+    }
+
+    public function ruangKelasShow(string $classCode)
+    {
+        $kelas = $this->kelasSaya();
+        $classroom = \App\Models\Classroom::where('class_code', $classCode)->firstOrFail();
+        
+        $isForMyClass = $classroom->id_kelas === $kelas->uuid || $classroom->kelas()->where('kelas.uuid', $kelas->uuid)->exists();
+        abort_unless($isForMyClass, 403, 'Ruang kelas ini bukan untuk kelas Anda.');
+
+        $assignments = $classroom->assignments()->orderBy('created_at', 'desc')->get();
+        $studentUserIds = Siswa::where('id_kelas', $kelas->uuid)->pluck('id_login')->filter()->all();
+        $totalStudents = count($studentUserIds);
+
+        $assignmentIds = $assignments->pluck('uuid')->all();
+        $submissions = collect();
+        if (!empty($assignmentIds) && !empty($studentUserIds)) {
+            $submissions = \App\Models\ClassroomSubmission::whereIn('assignment_id', $assignmentIds)
+                ->whereIn('student_id', $studentUserIds)
+                ->get()
+                ->groupBy('assignment_id');
+        }
+
+        foreach ($assignments as $assignment) {
+            $subs = $submissions->get($assignment->uuid, collect());
+            $assignment->submitted_count = $subs->whereIn('status', ['submitted', 'graded'])->count();
+            $assignment->total_students = $totalStudents;
+        }
+
+        return view('walikelas.ruang-kelas.show', compact('kelas', 'classroom', 'assignments'));
+    }
+
+    public function ruangKelasAssignment(string $classCode, string $assignmentUuid)
+    {
+        $kelas = $this->kelasSaya();
+        $classroom = \App\Models\Classroom::where('class_code', $classCode)->firstOrFail();
+        $isForMyClass = $classroom->id_kelas === $kelas->uuid || $classroom->kelas()->where('kelas.uuid', $kelas->uuid)->exists();
+        abort_unless($isForMyClass, 403, 'Akses ditolak.');
+
+        $assignment = $classroom->assignments()->where('classroom_assignments.uuid', $assignmentUuid)->firstOrFail();
+
+        $siswas = Siswa::where('id_kelas', $kelas->uuid)->orderBy('nama')->get();
+        $studentUserIds = $siswas->pluck('id_login')->filter()->all();
+
+        $submissions = collect();
+        if (!empty($studentUserIds)) {
+            $submissions = \App\Models\ClassroomSubmission::where('assignment_id', $assignment->uuid)
+                ->whereIn('student_id', $studentUserIds)
+                ->get()
+                ->keyBy('student_id');
+        }
+
+        return view('walikelas.ruang-kelas.assignment', compact('kelas', 'classroom', 'assignment', 'siswas', 'submissions'));
+    }
 }

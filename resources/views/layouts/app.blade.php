@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Dashboard') — {{ $namaSekolah ?? 'Edutive' }}</title>
+    <title>@yield('title', 'Dashboard') â€” {{ $namaSekolah ?? 'Edutive' }}</title>
 
     @if($sekolahLogoUrl)
         <link rel="shortcut icon" href="{{ $sekolahLogoUrl }}" type="image/x-icon">
@@ -18,30 +18,30 @@
 
     @php
         // Halaman kiosk publik (lihat EnsureKioskOrPermission) bisa dirender TANPA user login sama
-        // sekali → $pref harus tetap objek valid (bukan null) agar semua akses $pref->xxx di bawah aman.
+        // sekali â†’ $pref harus tetap objek valid (bukan null) agar semua akses $pref->xxx di bawah aman.
         $pref = auth()->user()?->prefTampilan()
             ?? new \App\Models\UserPreference(\App\Models\UserPreference::defaults());
         // Mode kiosk: sidebar/header/ticker disembunyikan. Dihitung PER-REQUEST dari variabel
         // $isKiosk yg dikirim controller (lihat AbsensiController::scan/QrAbsensiController::show),
-        // BUKAN dari session — supaya membuka link kiosk tak pernah memengaruhi tab lain di
+        // BUKAN dari session â€” supaya membuka link kiosk tak pernah memengaruhi tab lain di
         // browser yang sama yg mungkin sedang login sbg user lain.
         $kioskChrome = (bool) ($isKiosk ?? false);
         $isPanduanPage = request()->routeIs('panduan.visual');
         // $access/$isAdmin/$modulOn/$activeGroups dipakai di luar blok sidebar juga (mis.
-        // floating chat, script badge Grup Chat) — jadi dihitung di sini, bukan cuma di dalam
+        // floating chat, script badge Grup Chat) â€” jadi dihitung di sini, bukan cuma di dalam
         // <aside> yang bisa disembunyikan (mode kiosk). Definisi di dalam <aside> sengaja TIDAK
         // dihapus (redefinisi yg identik itu aman) supaya diff perubahan ini tetap kecil.
         $access  = auth()->user()?->access;
         $isAdmin = in_array($access, ['superadmin','admin']);
         $canManageFeedback = auth()->user()?->canAccess('manage_feedback') ?? false;
         $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
-        // Default aman (array kosong) — nilai sungguhan cuma dihitung di dalam <aside>. Dulu
+        // Default aman (array kosong) â€” nilai sungguhan cuma dihitung di dalam <aside>. Dulu
         // $activeGroups di skrip badge (baris ~1548) cuma lolos di mode kios krn kebetulan
         // ditulis dgn fallback `?? []`; kalau fallback itu suatu saat dihapus tanpa sadar, bug
         // "Undefined variable" yg sama persis dgn $modulOn akan muncul lagi. Definisi di sini
         // menutup celah itu tanpa bergantung pada fallback yg gampang lupa.
         $activeGroups = [];
-        // Dihitung di sini (blok yg SELALU jalan, termasuk mode kios tanpa sidebar) — dipakai di
+        // Dihitung di sini (blok yg SELALU jalan, termasuk mode kios tanpa sidebar) â€” dipakai di
         // 3 tempat (menu, item, skrip badge). Kalau didefinisikan di dalam <aside> saja, skrip
         // badge grup di bawah (di luar aside) kena "Undefined variable" saat kios (bug nyata).
         $grupChatTampil = auth()->user() ? \App\Support\GrupChatMenu::tampil(auth()->user()) : false;
@@ -55,8 +55,8 @@
             ],
         ];
         $navExpandedDefaults = [];
-        // Badge kosmetik — JANGAN sampai menjatuhkan seluruh halaman kalau tabelnya belum
-        // dimigrasikan (mis. baru deploy, migration belum jalan → tampil blank di production).
+        // Badge kosmetik â€” JANGAN sampai menjatuhkan seluruh halaman kalau tabelnya belum
+        // dimigrasikan (mis. baru deploy, migration belum jalan â†’ tampil blank di production).
         $feedbackUnreadCount = 0;
         if ($canManageFeedback) {
             try { $feedbackUnreadCount = \App\Models\UserFeedback::where('status', 'baru')->count(); }
@@ -131,13 +131,13 @@
             || str_contains($path, 'poin/')
             || (str_contains($path, 'guru') && str_contains($path, 'pelajaran'))
             || str_contains($path, 'ngajar');
-        // Scan QR kamera — guru: daftar "Ruang Ujian Hari Ini"; siswa: "Ujian Saya" (tombol
+        // Scan QR kamera â€” guru: daftar "Ruang Ujian Hari Ini"; siswa: "Ujian Saya" (tombol
         // scan proaktif) & gerbang "ujian/{ujian}/mulai" (wall wajib-scan/gate token, keduanya
         // pakai view yg sama <x-qr-scan-button>).
         $needsQrScanner = $path === 'ujian/ruangan-saya'
             || $path === 'ujian/saya'
             || (str_starts_with($path, 'ujian/') && str_ends_with($path, '/mulai'));
-        // Chart hasil pemilihan OSIS — app ini belum py library chart JS lain, muat CDN cuma di sini.
+        // Chart hasil pemilihan OSIS â€” app ini belum py library chart JS lain, muat CDN cuma di sini.
         $needsChartJs = str_starts_with($path, 'osis/') && str_contains($path, '/hasil');
         // Kiosk / scan: kurangi widget floating AI (R4.1).
         $isScanKioskSurface = (bool) ($isKiosk ?? false)
@@ -150,14 +150,14 @@
             || str_contains($path, 'kiosk-absensi')
             || str_contains($path, 'wajah-saya');
     @endphp
-    {{-- WAJIB tampil SEBELUM tag <script defer> Alpine di bawah — Alpine TIDAK menunggu
+    {{-- WAJIB tampil SEBELUM tag <script defer> Alpine di bawah â€” Alpine TIDAK menunggu
          DOMContentLoaded utk auto-start; ia mulai (dan langsung memproses semua x-init) segera
          setelah script defer-nya SENDIRI selesai dieksekusi, krn saat itu document.readyState
-         sudah 'interactive' (parsing kelar — itulah makna defer). Kalau TomSelect/Sortable/
+         sudah 'interactive' (parsing kelar â€” itulah makna defer). Kalau TomSelect/Sortable/
          DataTables didaftar SETELAH Alpine dlm urutan dokumen, Alpine akan SELALU start duluan
          dan x-init yg langsung manggil `new TomSelect(...)` (poin/siswa/create, poin/guru/create,
          walikelas, pemanggilan/create, guru+pelajaran, ngajar) SELALU dapat `TomSelect is not
-         defined` — bukan race condition/flaky, tapi pasti terjadi tiap kali, krn defer HANYA
+         defined` â€” bukan race condition/flaky, tapi pasti terjadi tiap kali, krn defer HANYA
          menjamin urutan ANTAR sesama script defer, bukan menunggu Alpine start. Taruh SEMUA
          library kondisional ini di sini (sebelum Alpine) supaya window.TomSelect/Sortable/dll
          sudah pasti ada saat Alpine mulai scan DOM. --}}
@@ -186,7 +186,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.js"></script>
     {{-- defer: lucide cuma dipakai lewat lucide.createIcons(), yg di HAMPIR semua tempat sudah
-         dijaga `if(window.lucide)`/`window.lucide &&` (aman kalau belum sempat load) — dipanggil
+         dijaga `if(window.lucide)`/`window.lucide &&` (aman kalau belum sempat load) â€” dipanggil
          ULANG scr penuh di DOMContentLoaded paling bawah (lihat script utama), jadi ikon tetap
          muncul walau sempat "telat" krn defer. --}}
     <script defer src="https://unpkg.com/lucide@0.468.0"></script>
@@ -198,13 +198,13 @@
         };
         // Performa Server (admin, /settings tab "Performa Server"): daftar kode widget yg
         // admin matikan satu-per-satu (App\Support\PollingWidget). Dibaca sekali per
-        // page-load — toggle admin berlaku ke tab yg dimuat/reload SETELAHNYA, bukan instan
+        // page-load â€” toggle admin berlaku ke tab yg dimuat/reload SETELAHNYA, bukan instan
         // ke tab yg sudah terbuka (sengaja, biar toggle-nya sendiri tak perlu polling status).
         window.SIMS_POLLING_NONAKTIF = @json(\App\Support\PollingWidget::daftarNonaktif());
         window.simsPollingNonaktif = function (kode) {
             return !!kode && window.SIMS_POLLING_NONAKTIF.includes(kode);
         };
-        // kode: kode widget dari App\Support\PollingWidget — biarkan null/kosong utk polling
+        // kode: kode widget dari App\Support\PollingWidget â€” biarkan null/kosong utk polling
         // yg TAK PERNAH boleh dimatikan lewat Performa Server (ujian berjalan, pemantauan
         // ruangan ujian).
         window.simsPollInterval = function (fn, ms, kode = null) {
@@ -238,7 +238,7 @@
         }
         .dataTables_wrapper .dataTables_paginate .paginate_button { border-radius: 0.375rem; padding: 0.25rem 0.75rem; }
     </style>
-    {{-- `defer` di <script> INLINE tak ada efeknya di browser (cuma diabaikan) — script ini aman
+    {{-- `defer` di <script> INLINE tak ada efeknya di browser (cuma diabaikan) â€” script ini aman
          BUKAN krn defer, tapi krn $(document).ready() sendiri sudah menunda ISI callback-nya sampai
          DOM siap (setelah semua <script defer src="..."> beneran selesai, termasuk DataTables yg
          kini defer). Yang jalan lgsg cuma pendaftaran ready()-nya, itu cuma butuh $ yg TETAP
@@ -266,7 +266,7 @@
                     language: {
                         search: "Cari:",
                         lengthMenu: "Tampilkan _MENU_",
-                        info: "Menampilkan _START_–_END_ dari _TOTAL_",
+                        info: "Menampilkan _START_â€“_END_ dari _TOTAL_",
                         infoEmpty: "Tidak ada data",
                         zeroRecords: "Data tidak ditemukan",
                         emptyTable: "Belum ada data",
@@ -358,7 +358,7 @@
         .dark .nav-search-input { background: rgba(15,23,42,.55); border-color: rgba(148,163,184,.22); color:#e2e8f0; }
         .nav-search-results { border: 1px solid color-mix(in srgb, var(--stx) 12%, transparent); background: color-mix(in srgb, var(--sbg) 94%, white); }
         .dark .nav-search-results { background: rgba(15,23,42,.72); border-color: rgba(148,163,184,.18); }
-        /* Tooltip melayang utk sidebar mode ikon (mini) — fixed agar tak terpotong scroll */
+        /* Tooltip melayang utk sidebar mode ikon (mini) â€” fixed agar tak terpotong scroll */
         .sb-tip { position:fixed; transform:translateY(-50%); background:#1e293b; color:#fff; font-size:12px;
             font-weight:600; line-height:1; padding:7px 11px; border-radius:9px; box-shadow:0 8px 22px rgba(15,23,42,.28);
             white-space:nowrap; z-index:9999; opacity:0; pointer-events:none; transition:opacity .12s ease; }
@@ -435,7 +435,7 @@
         .form-label { display:block; font-size:.8rem; font-weight:600; color: color-mix(in srgb, var(--cp) 45%, #475569); margin-bottom:.4rem; }
         .dark .form-label { color:#94a3b8; }
 
-        /* ===== TomSelect — samakan dengan form & pastikan dropdown opaque + di atas ===== */
+        /* ===== TomSelect â€” samakan dengan form & pastikan dropdown opaque + di atas ===== */
         .ts-wrapper { width:100%; }
         .ts-wrapper.single .ts-control { border:1.5px solid color-mix(in srgb, var(--cp) 11%, #cbd5e1) !important; border-radius:14px !important; padding:.55rem .9rem !important; min-height:42px; background:#fff !important; box-shadow:none !important; font-size:.875rem; color: color-mix(in srgb, var(--cp) 85%, #1e293b); }
         .ts-wrapper.focus .ts-control { border-color:var(--cp) !important; box-shadow:0 0 0 4px color-mix(in srgb, var(--cp) 14%, transparent) !important; }
@@ -456,7 +456,7 @@
         .modal-box { background:#fff; border-radius:24px; width:100%; max-height:92vh; overflow-y:auto; box-shadow:0 30px 60px -15px rgba(0,0,0,.3); }
         .dark .modal-box { background:#1e293b; }
 
-        /* ===== jQuery-confirm — disesuaikan tema & dibatasi lebarnya ===== */
+        /* ===== jQuery-confirm â€” disesuaikan tema & dibatasi lebarnya ===== */
         .jconfirm .jconfirm-bg { background:rgba(40,35,30,.5) !important; backdrop-filter:blur(5px); }
         /* paksa lebar container (override grid bootstrap col-md-* yang melebar penuh) */
         .jconfirm .jc-bs3-row, .jconfirm .jconfirm-row { display:flex !important; justify-content:center !important; align-items:flex-start !important; }
@@ -481,7 +481,7 @@
 
         @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
         @keyframes slideToast { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
-        /* fill mode forwards (bukan both) supaya transform akhir = none → tidak jadi containing block bagi modal position:fixed */
+        /* fill mode forwards (bukan both) supaya transform akhir = none â†’ tidak jadi containing block bagi modal position:fixed */
         .anim-fade { animation:fadeUp .4s cubic-bezier(.2,.8,.2,1); }
         .stagger > * { animation:fadeUp .45s cubic-bezier(.2,.8,.2,1) both; }
         .stagger > *:nth-child(1){animation-delay:.02s} .stagger > *:nth-child(2){animation-delay:.07s}
@@ -491,7 +491,7 @@
         @media (max-width:640px){ main{padding:1rem 1.25rem} .page-title{font-size:1.2rem} .hide-mobile{display:none!important} }
 
         /* ============================================================
-           GAYA "CORPORATE / ANALYZER" — sidebar gelap, kartu putih tegas,
+           GAYA "CORPORATE / ANALYZER" â€” sidebar gelap, kartu putih tegas,
            latar krem, tanpa motif. Tetap ikut warna tema lewat var(--cp).
            ============================================================ */
         body[data-style="corporate"] {
@@ -551,7 +551,7 @@
 @php $myFace = auth()->user()?->siswa?->face_photo_url ?? auth()->user()?->guru?->face_photo_url; @endphp
 
 {{-- h-screen (100vh) TIDAK cocok di mobile: address bar yang muncul/hilang bikin 100vh
-     ≠ tinggi layar terlihat → konten terpotong & muncul area putih saat scroll. h-[100dvh]
+     â‰  tinggi layar terlihat â†’ konten terpotong & muncul area putih saat scroll. h-[100dvh]
      (dynamic viewport height) mengikuti tinggi layar sebenarnya; h-screen jadi fallback
      utk browser lama yang belum dukung dvh. --}}
 <div class="h-screen h-[100dvh] flex flex-col relative z-10 min-h-0" :class="{ 'mob-open': mobileOpen }">
@@ -581,13 +581,13 @@
             @php
                 // $access/$isAdmin sudah dihitung di atas (dekat $kioskChrome), dipakai lagi di sini.
                 // Grup menu: key => [label, ikon, items[]]; item = [route, [pattern...], ikon, label]
-                // ModulAktif: on/off per sekolah dari Pengaturan → Fitur (default aktif).
+                // ModulAktif: on/off per sekolah dari Pengaturan â†’ Fitur (default aktif).
                 $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
                 // $grupChatTampil sudah dihitung sekali di blok @php paling atas (dipakai ulang di
-                // sini + skrip badge di bawah) — GrupChatMenu::tampil() query keanggotaan grup 1x.
+                // sini + skrip badge di bawah) â€” GrupChatMenu::tampil() query keanggotaan grup 1x.
                 $groups = [];
 
-                // ── Absensi (self-service: absen QR + absensi guru pribadi) ──
+                // â”€â”€ Absensi (self-service: absen QR + absensi guru pribadi) â”€â”€
                 if ($modulOn('absensi')) {
                     $absensiSayaItems = [];
                     if (auth()->user()?->siswa || auth()->user()?->guru) {
@@ -621,7 +621,7 @@
                     }
                 }
 
-                // ── Absensi & Presensi ──
+                // â”€â”€ Absensi & Presensi â”€â”€
                 if ($modulOn('absensi')) {
                     $presensiItems = [];
                     if ($isAdmin || auth()->user()?->canAccess('manage_absensi')) {
@@ -630,7 +630,7 @@
                         $presensiItems[] = ['presensi-guru.index', ['presensi-guru.*'], 'user-check',      'Presensi Guru'];
                         $presensiItems[] = ['wajah.galeri',        ['wajah.*'],         'scan-face',       'Validasi Wajah'];
                         $presensiItems[] = ['qr.absensi',          ['qr.*'],            'qr-code',         'QR Absensi'];
-                        // Pantau Lokasi: admin / kepala / kesiswaan (sekolah) — riwayat GPS absen, bukan live track.
+                        // Pantau Lokasi: admin / kepala / kesiswaan (sekolah) â€” riwayat GPS absen, bukan live track.
                         if (\App\Support\PantauLokasi::aktif() && \App\Support\PantauLokasi::canViewSchoolWide(auth()->user())) {
                             $presensiItems[] = ['pantau-lokasi.index', ['pantau-lokasi.*'], 'map-pinned', 'Pantau Lokasi'];
                         }
@@ -650,7 +650,7 @@
                     }
                 }
 
-                // ── Akademik ──
+                // â”€â”€ Akademik â”€â”€
                 $akademik = [];
                 if ($modulOn('akademik')) {
                     if ($access !== 'orangtua') {
@@ -709,7 +709,7 @@
                     }
                 }
 
-                // Asisten Guru: guru mapel, wali kelas, Kepala Sekolah, semua Waka, admin — bukan siswa/orang tua
+                // Asisten Guru: guru mapel, wali kelas, Kepala Sekolah, semua Waka, admin â€” bukan siswa/orang tua
                 if ($modulOn('asisten_guru') && \App\Support\UserRole::matches($access, 'guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sapras', 'admin')) {
                     $akademik[] = ['ai.teacher.index', ['ai.teacher.*'], 'sparkles', 'Asisten Guru'];
                 }
@@ -718,7 +718,7 @@
                     $groups['akademik'] = ['Akademik', 'book-open-check', $akademik];
                 }
 
-                // ── Analisis Data (Fase 4) — narasi data untuk pimpinan/staf ──
+                // â”€â”€ Analisis Data (Fase 4) â€” narasi data untuk pimpinan/staf â”€â”€
                 if ($modulOn('analisis_ai') && ($isAdmin || in_array($access, ['kepala', 'kurikulum', 'kesiswaan']))) {
                     $groups['analisis'] = ['Analisis Data', 'sparkles', [
                         ['ai.analyze.index', ['ai.analyze.*'], 'chart-line', 'Narasi Data'],
@@ -726,7 +726,7 @@
                     ]];
                 }
 
-                // ── Agenda ──
+                // â”€â”€ Agenda â”€â”€
                 if ($modulOn('agenda')) {
                     $agendaItems = [];
                     if (auth()->user()?->guru) {
@@ -745,7 +745,7 @@
                     }
                 }
 
-                // ── Piket Guru & Substitusi Kelas ──
+                // â”€â”€ Piket Guru & Substitusi Kelas â”€â”€
                 if ($modulOn('piket')) {
                     $piketItems = [];
 
@@ -776,10 +776,10 @@
                     }
                 }
 
-                // ── Kedisiplinan ──
+                // â”€â”€ Kedisiplinan â”€â”€
                 // $bolehKelolaDisiplin/$bolehLihatDisiplin/$disiplinItems didefinisikan DI LUAR gate
                 // modulOn('disiplin') karena Pemanggilan Ortu/Siswa (di bawah) memakainya independen
-                // dari modul disiplin — kalau di dalam gate, saat modul off variabelnya undefined
+                // dari modul disiplin â€” kalau di dalam gate, saat modul off variabelnya undefined
                 // dan bikin seluruh layout (dipakai di semua halaman) crash.
                 $jenisAturan = \App\Models\Setting::get('jenis_aturan', 'p3');
                 $bolehKelolaDisiplin = $isAdmin || auth()->user()?->canAccess('manage_disiplin');
@@ -833,11 +833,12 @@
                     $groups['disiplin'] = [$jenisAturan === 'poin' ? 'Poin & Aturan' : 'P3 Kedisiplinan', 'shield-alert', $disiplinItems];
                 }
 
-                // ── Wali Kelas ──
+                // â”€â”€ Wali Kelas â”€â”€
                 if (auth()->user()?->guru?->walikelas) {
                     $walikelasItems = [
                         ['walikelas.siswa.index', ['walikelas.siswa.*'], 'users-round', 'Data Siswa Kelas'],
-                        ['walikelas.sekretaris.form', ['walikelas.sekretaris.*'], 'user-cog', 'Set Sekretaris'],
+                                                ['walikelas.sekretaris.form', ['walikelas.sekretaris.*'], 'user-cog', 'Set Sekretaris'],
+                        ['walikelas.ruang_kelas.index', ['walikelas.ruang_kelas.*'], 'monitor-play', 'Pantau Tugas Ruang Kelas'],
                     ];
                     if ($modulOn('absensi')) {
                         // Digabung 1 menu (Absensi + Rekap + Daftar Wajah sudah saling ditautkan
@@ -867,10 +868,10 @@
                     $groups['walikelas'] = ['Wali Kelas', 'presentation', $walikelasItems];
                 }
 
-                // ── Sekretaris Kelas (siswa yg ditunjuk wali kelas) ──
+                // â”€â”€ Sekretaris Kelas (siswa yg ditunjuk wali kelas) â”€â”€
                 // "Ajukan Poin/P3" sekretaris sudah tampil di grup Kedisiplinan di atas
                 // ($bolehAjukanDisiplin); di sini cuma menu absensi krn beda modul (absensi vs
-                // disiplin) — kalau digabung ke grup lain, menu itu ikut hilang saat modul
+                // disiplin) â€” kalau digabung ke grup lain, menu itu ikut hilang saat modul
                 // disiplin/absensi yg lain sedang off.
                 if ($sekretarisKelasId && $modulOn('absensi')) {
                     $groups['sekretaris'] = ['Sekretaris Kelas', 'clipboard-check', [
@@ -878,7 +879,7 @@
                     ]];
                 }
 
-                // ── Sarana & Prasarana ──
+                // â”€â”€ Sarana & Prasarana â”€â”€
                 if ($modulOn('sarpras')) {
                     $bolehKelolaSarpras = $isAdmin
                         || auth()->user()?->canAccess('manage_sarpras')
@@ -901,7 +902,7 @@
                     }
                 }
 
-                // ── Keuangan ──
+                // â”€â”€ Keuangan â”€â”€
                 if ($modulOn('keuangan') && ($isAdmin || auth()->user()?->canAccess('manage_keuangan') || in_array($access, ['kepala', 'kepala_sekolah'], true))) {
                     $groups['keuangan'] = ['Keuangan / SPP', 'wallet', [
                         ['keuangan.index',      ['keuangan.index','keuangan.kelas','keuangan.bendahara-ai.wawasan','keuangan.bendahara-ai.export-paket'], 'layout-dashboard', 'Pembayaran SPP'],
@@ -911,10 +912,10 @@
                     ]];
                 }
 
-                // ── Ujian (formal: Harian/PTS/PAS/UAS) — terpisah dari Ruang Kelas/Arena Belajar ──
+                // â”€â”€ Ujian (formal: Harian/PTS/PAS/UAS) â€” terpisah dari Ruang Kelas/Arena Belajar â”€â”€
                 // auth()->user()?->guru (bukan cuma access==='guru') supaya staf dual-role
                 // kurikulum/kesiswaan/sapras yg JUGA mengajar (punya profil Guru + Ngajar)
-                // ikut lihat menu ini — kepala/kurikulum tetap dipertahankan terpisah krn
+                // ikut lihat menu ini â€” kepala/kurikulum tetap dipertahankan terpisah krn
                 // mereka boleh MEMANTAU semua ujian (UjianPolicy::monitor()) walau tak mengajar.
                 if ($modulOn('ujian') && ($isAdmin || auth()->user()?->canAccess('manage_ujian') || auth()->user()?->guru || in_array($access, ['kepala', 'kurikulum'], true))) {
                     $ujianItems = [
@@ -924,14 +925,14 @@
                         ], 'file-check-2', 'Kelola Ujian'],
                     ];
                     // Paket Ujian (folder PTS/PAS/UAS formal + ruangan/jadwal/pengawas) khusus
-                    // admin/pengelola — guru biasa cuma bikin Ulangan Harian lepas (lihat
+                    // admin/pengelola â€” guru biasa cuma bikin Ulangan Harian lepas (lihat
                     // UjianController::store()), tak lagi perlu/boleh sentuh Paket sama sekali.
                     if ($isAdmin || auth()->user()?->canAccess('manage_ujian')) {
                         $ujianItems[] = ['ujian.paket.index', ['ujian.paket.*'], 'folder-check', 'Paket Ujian'];
                         $ujianItems[] = ['ujian.rekap.index', ['ujian.rekap.*'], 'clipboard-list', 'Rekap Berita Acara'];
                     }
                     $ujianItems[] = ['bank-soal.index', ['bank-soal.*'], 'library', 'Bank Soal'];
-                    // Halaman "1 halaman" reset-kunci/hadir/berita-acara — jalur masuk UTAMA lewat scan
+                    // Halaman "1 halaman" reset-kunci/hadir/berita-acara â€” jalur masuk UTAMA lewat scan
                     // QR fisik di ruangan (guru mana pun boleh, asal ruangan py jadwal hari itu), menu
                     // ini cuma jalur cadangan tanpa scan.
                     if (auth()->user()?->guru) {
@@ -940,14 +941,14 @@
                     $groups['ujian'] = ['Ujian', 'file-check-2', $ujianItems];
                 }
 
-                // ── Pemilihan OSIS (paslon, token QR, dashboard live, hasil) ──
+                // â”€â”€ Pemilihan OSIS (paslon, token QR, dashboard live, hasil) â”€â”€
                 if ($modulOn('osis') && ($isAdmin || auth()->user()?->canAccess('manage_osis'))) {
                     $groups['osis'] = ['Pemilihan OSIS', 'award', [
                         ['osis.index', ['osis.*'], 'award', 'Kelola Pemilihan'],
                     ]];
                 }
 
-                // ── Cetak Data (export Excel: siswa, guru, kelas, absensi guru, agenda, nilai) ──
+                // â”€â”€ Cetak Data (export Excel: siswa, guru, kelas, absensi guru, agenda, nilai) â”€â”€
                 if ($modulOn('cetak') && $isAdmin) {
                     $groups['cetak'] = ['Cetak Data', 'printer', [
                         ['cetak.siswa.index', ['cetak.siswa.*'], 'users-round', 'Data Siswa'],
@@ -965,7 +966,7 @@
                     ]];
                 }
 
-                // ── Sistem ──
+                // â”€â”€ Sistem â”€â”€
                 if ($isAdmin || auth()->user()?->canAccess('manage_settings')) {
                     $groups['sistem'] = ['Sistem', 'sliders-horizontal', [
                         ['setting.index', ['setting.index', 'setting.kopRapor', 'setting.penjabaran', 'setting.tpRange'], 'settings-2', 'Pengaturan'],
@@ -974,16 +975,16 @@
                         ['setting.roles', ['setting.roles'], 'shield-check', 'Hak Akses & Fitur'],
                         ['pembaruan.index', ['pembaruan.*'], 'sparkles', 'Info Pembaruan'],
                     ]];
-                    // Langganan (lisensi) — hanya superadmin
+                    // Langganan (lisensi) â€” hanya superadmin
                     if ($access === 'superadmin') {
                         $groups['sistem'][2][] = ['langganan.index', ['langganan.*'], 'badge-check', 'Langganan'];
                     }
                 }
                 // (Akun Saya dipindah ke dropdown profil di navbar)
 
-                // Grup yang memuat halaman aktif → dibuka otomatis saat load. Beberapa route
+                // Grup yang memuat halaman aktif â†’ dibuka otomatis saat load. Beberapa route
                 // (mis. poin.siswa.index) sengaja dipakai bareng di 2 grup berbeda (Poin & Aturan
-                // milik kesiswaan + Wali Kelas milik walikelas, untuk user yang punya kedua peran) —
+                // milik kesiswaan + Wali Kelas milik walikelas, untuk user yang punya kedua peran) â€”
                 // jadi di sini kumpulkan SEMUA grup yang cocok, bukan cuma yang pertama ketemu.
                 // Pemilihan mana yang dibuka (kalau localStorage masih ingat grup mana yg sedang
                 // dibuka user) ditentukan di JS (lihat openGroup), supaya klik dari dalam menu
@@ -998,7 +999,7 @@
                     $activeGroups[] = 'bantuan';
                 }
 
-                // Progressive disclosure: grup panjang → item inti (by route) + sub-expand "Semua …"
+                // Progressive disclosure: grup panjang â†’ item inti (by route) + sub-expand "Semua â€¦"
                 $sidebarProgressive = [
                     'cetak' => [
                         'label' => 'Semua Cetak',
@@ -1036,9 +1037,9 @@
                 };
                 $registerNav('dashboard', ['dashboard'], 'layout-dashboard', 'Dashboard');
                 // Rute yg SELALU tampil permanen di sidebar (Dashboard + link statis lain di luar
-                // grup kategori) — dikecualikan dari "Baru Dibuka"/"Favorit" biar tak dobel tampil
+                // grup kategori) â€” dikecualikan dari "Baru Dibuka"/"Favorit" biar tak dobel tampil
                 // (nama-nama ini dicek terlepas dari kondisi modul/role yg sesungguhnya menentukan
-                // tampil-tidaknya link itu — aman kalau berlebih, cuma jadi tak pernah cocok bagi
+                // tampil-tidaknya link itu â€” aman kalau berlebih, cuma jadi tak pernah cocok bagi
                 // user yg memang tak pernah melihat link itu sama sekali).
                 $navPinnedRoutes = [
                     'dashboard', 'kartu-pelajar.self', 'kartu-guru.self', 'forum.index', 'pengumuman.index',
@@ -1140,7 +1141,7 @@
                 <label for="nav-menu-search" class="sr-only">Cari menu</label>
                 <div class="relative">
                     <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50 pointer-events-none"></i>
-                    <input id="nav-menu-search" type="search" x-model="navSearchQuery" placeholder="Cari menu…"
+                    <input id="nav-menu-search" type="search" x-model="navSearchQuery" placeholder="Cari menuâ€¦"
                            autocomplete="off"
                            class="nav-search-input w-full pl-9 pr-3 py-2 text-sm rounded-xl" />
                 </div>
@@ -1253,7 +1254,7 @@
             @endif
 
             {{-- Grup Chat: tampil hanya bila user benar-benar anggota sebuah grup (atau pengelola).
-                 JANGAN mendefinisikan variabel PHP di dalam blok @if($modulOn(...)) ini — variabel
+                 JANGAN mendefinisikan variabel PHP di dalam blok @if($modulOn(...)) ini â€” variabel
                  yang lahir di dalam cabang modul lalu dipakai di luarnya pernah membuat dashboard
                  crash saat modulnya dimatikan (lihat ModulAktifTest). --}}
             @if($modulOn('grup_chat') && $grupChatTampil)
@@ -1299,7 +1300,7 @@
             </a>
             @endif
 
-            {{-- Pantau Lokasi: orang tua (anaknya) — riwayat titik absen QR --}}
+            {{-- Pantau Lokasi: orang tua (anaknya) â€” riwayat titik absen QR --}}
             @if($modulOn('absensi') && $access === 'orangtua' && \App\Support\PantauLokasi::aktif() && \App\Support\PantauLokasi::canAccess(auth()->user()))
             <a href="{{ route('pantau-lokasi.index') }}" data-tip="Pantau Lokasi" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('pantau-lokasi.*') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="map-pinned" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
@@ -1598,7 +1599,7 @@
                 'anim-fade flex-1',
                 'min-h-0 flex flex-col' => $isPanduanPage,
             ])>@yield('content')</div>
-            {{-- Footer — selalu menempel di bawah berkat mt-auto (konten flex-1 mendorongnya turun) --}}
+            {{-- Footer â€” selalu menempel di bawah berkat mt-auto (konten flex-1 mendorongnya turun) --}}
             @unless(View::hasSection('hide_page_footer'))
             <footer class="mt-auto pt-4 border-t border-slate-200/70 dark:border-slate-700/60 text-center text-xs text-slate-400">
                 &copy; {{ date('Y') }} <span class="font-semibold text-slate-500 dark:text-slate-400">{{ $namaSekolah ?? 'Edutive' }}</span>. Seluruh hak cipta dilindungi.
@@ -1608,10 +1609,10 @@
     </div>
 </div>
 
-        {{-- SIMS-NET System Ticker Bar (Integrated for all roles, displaying real dashboard statistics) — disembunyikan di mode kiosk --}}
+        {{-- SIMS-NET System Ticker Bar (Integrated for all roles, displaying real dashboard statistics) â€” disembunyikan di mode kiosk --}}
         @unless($kioskChrome)
         @php
-            // Angka ticker diambil dari cache (App\Support\TickerStats) — menghindari
+            // Angka ticker diambil dari cache (App\Support\TickerStats) â€” menghindari
             // ~15 query agregat di setiap load halaman. Penyaringan per-role di bawah
             // murni operasi array (tanpa query tambahan).
             $role = auth()->user()->access ?? '';
@@ -1649,15 +1650,15 @@
                         </span>
                         
                         @if($showStudentStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>TOTAL SISWA:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-siswa">{{ number_format($tickerSiswa) }} ({{ number_format($tickerL) }} L • {{ number_format($tickerP) }} P)</span>
+                            <span class="text-emerald-400 font-bold ticker-val-siswa">{{ number_format($tickerSiswa) }} ({{ number_format($tickerL) }} L â€¢ {{ number_format($tickerP) }} P)</span>
                         </span>
                         @endif
 
                         @if($showTeacherStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>GURU AKTIF:</span>
                             <span class="text-emerald-400 font-bold ticker-val-guru">{{ number_format($tickerGuru) }} GURU</span>
@@ -1665,31 +1666,31 @@
                         @endif
 
                         @if($showTeacherStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>ROMBEL:</span>
                             <span class="text-emerald-400 font-bold ticker-val-kelas">{{ number_format($tickerKelas) }} KELAS</span>
                         </span>
                         @endif
 
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>KURIKULUM:</span>
                             <span class="text-emerald-400 font-bold ticker-val-mapel">{{ number_format($tickerMapel) }} MAPEL</span>
                         </span>
 
                         @if($showManagementStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>TOTAL ASET:</span>
                             <span class="text-emerald-400 font-bold ticker-val-aset">{{ number_format($tickerAset) }} UNIT</span>
                         </span>
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>KERUSAKAN TERBUKA:</span>
                             <span class="text-emerald-400 font-bold ticker-val-kerusakan">{{ number_format($tickerKerusakan) }} LAPORAN</span>
                         </span>
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>PEMINJAMAN AKTIF:</span>
                             <span class="text-emerald-400 font-bold ticker-val-peminjaman">{{ number_format($tickerPeminjaman) }} TRANSAKSI</span>
@@ -1697,13 +1698,13 @@
                         @endif
 
                         @if($showOnlineStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>USER ONLINE:</span>
                             <span class="text-cyan-400 font-bold ticker-val-online">{{ $tickerOnlineText }}</span>
                         </span>
                         @endif
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2 text-amber-400 font-bold">
                             <span class="relative flex h-2 w-2">
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -1714,22 +1715,22 @@
                     </div>
                     <!-- Duplicate for seamless loop scrolling -->
                     <div class="flex items-center gap-12" aria-hidden="true">
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>SEMESTER:</span>
                             <span class="text-emerald-400 font-bold ticker-val-semester">{{ $tickerSemesterLabel }}</span>
                         </span>
                         
                         @if($showStudentStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>TOTAL SISWA:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-siswa">{{ number_format($tickerSiswa) }} ({{ number_format($tickerL) }} L • {{ number_format($tickerP) }} P)</span>
+                            <span class="text-emerald-400 font-bold ticker-val-siswa">{{ number_format($tickerSiswa) }} ({{ number_format($tickerL) }} L â€¢ {{ number_format($tickerP) }} P)</span>
                         </span>
                         @endif
 
                         @if($showTeacherStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>GURU AKTIF:</span>
                             <span class="text-emerald-400 font-bold ticker-val-guru">{{ number_format($tickerGuru) }} GURU</span>
@@ -1737,31 +1738,31 @@
                         @endif
 
                         @if($showTeacherStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>ROMBEL:</span>
                             <span class="text-emerald-400 font-bold ticker-val-kelas">{{ number_format($tickerKelas) }} KELAS</span>
                         </span>
                         @endif
 
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>KURIKULUM:</span>
                             <span class="text-emerald-400 font-bold ticker-val-mapel">{{ number_format($tickerMapel) }} MAPEL</span>
                         </span>
 
                         @if($showManagementStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>TOTAL ASET:</span>
                             <span class="text-emerald-400 font-bold ticker-val-aset">{{ number_format($tickerAset) }} UNIT</span>
                         </span>
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>KERUSAKAN TERBUKA:</span>
                             <span class="text-emerald-400 font-bold ticker-val-kerusakan">{{ number_format($tickerKerusakan) }} LAPORAN</span>
                         </span>
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>PEMINJAMAN AKTIF:</span>
                             <span class="text-emerald-400 font-bold ticker-val-peminjaman">{{ number_format($tickerPeminjaman) }} TRANSAKSI</span>
@@ -1769,13 +1770,13 @@
                         @endif
 
                         @if($showOnlineStats)
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2">
                             <span>USER ONLINE:</span>
                             <span class="text-cyan-400 font-bold ticker-val-online">{{ $tickerOnlineText }}</span>
                         </span>
                         @endif
-                        <span class="text-slate-700">•</span>
+                        <span class="text-slate-700">â€¢</span>
                         <span class="flex items-center gap-2 text-amber-400 font-bold">
                             <span class="relative flex h-2 w-2">
                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -1802,7 +1803,7 @@
 
 {{-- Toasts --}}
 @php
-    // Satu sistem notifikasi: dukung dua konvensi key flash —
+    // Satu sistem notifikasi: dukung dua konvensi key flash â€”
     // 'success'/'error' (umum SIMS) & 'sukses'/'gagal' (modul Sarpras).
     // Hanya tampil bila benar-benar ADA teks (cegah toast judul tanpa keterangan).
     $toastSukses = trim((string) (session('success') ?? session('sukses') ?? ''));
@@ -1828,9 +1829,9 @@
 </div>
 
 @if(\App\Support\ModulAktif::aktif('chatbot') && in_array($access, ['siswa', 'orangtua']) && !$kioskChrome)
-{{-- ─── Floating Asisten Sekolah ─────────────────────────────────────────────
+{{-- â”€â”€â”€ Floating Asisten Sekolah â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Bola mengambang khusus SISWA & ORANG TUA untuk menghubungi admin manusia
-     (handoff). Staf & admin memakai widget AsistenAI, bukan ini — agar tiap
+     (handoff). Staf & admin memakai widget AsistenAI, bukan ini â€” agar tiap
      pengguna hanya melihat SATU bola sesuai kebutuhannya. Klik membuka panel
      chat yang meng-embed /chatbot via iframe; panel mengirim 'chatfab:close'
      lewat postMessage saat tombol tutup di dalam widget ditekan. --}}
@@ -1854,7 +1855,7 @@
             :class="open ? 'hidden sm:grid' : 'grid'"
             class="relative h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary-700 text-white shadow-lg shadow-primary/30 place-items-center hover:scale-105 active:scale-95 transition focus:outline-none focus:ring-4 focus:ring-primary/40"
             title="Asisten Sekolah">
-        {{-- Ikon chat (saat tertutup) — Lucide message-circle-more, seimbang & ter-center --}}
+        {{-- Ikon chat (saat tertutup) â€” Lucide message-circle-more, seimbang & ter-center --}}
         <svg x-show="!open" x-cloak class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
             <path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/>
@@ -1890,16 +1891,16 @@
                 try {
                     const r = await fetch(this.unreadUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                     if (r.ok) { const d = await r.json(); this.unread = d.unread || 0; }
-                } catch (_) { /* offline sesaat → biarkan badge apa adanya */ }
+                } catch (_) { /* offline sesaat â†’ biarkan badge apa adanya */ }
             },
             init() {
-                // Widget (di dalam iframe) menekan tombol tutup → postMessage ke parent.
+                // Widget (di dalam iframe) menekan tombol tutup â†’ postMessage ke parent.
                 window.addEventListener('message', (e) => {
                     if (e.data === 'chatfab:close') { this.open = false; this.poll(); }
                 });
-                // Tak polling sendiri lagi — badge numpang di response gabungan bel notifikasi
+                // Tak polling sendiri lagi â€” badge numpang di response gabungan bel notifikasi
                 // (NotificationController::badgesLainnya()), dikirim lewat event 'notif-updated'.
-                // poll() manual TETAP dipakai saat panel ditutup (di atas) — itu aksi user, bukan
+                // poll() manual TETAP dipakai saat panel ditutup (di atas) â€” itu aksi user, bukan
                 // polling berkala, jadi tak ikut Performa Server.
                 window.addEventListener('notif-updated', (e) => {
                     if (this.open) return; // saat terbuka, widget mengurus state-nya sendiri
@@ -1912,7 +1913,7 @@
 </script>
 @endif
 
-{{-- Widget AsistenAI (Fase 2) — STAF & ADMIN saja. Siswa & orang tua tidak
+{{-- Widget AsistenAI (Fase 2) â€” STAF & ADMIN saja. Siswa & orang tua tidak
      mendapat AI generatif; mereka memakai chatbot handoff ke admin di atas.
      R4.1: jangan muat di kiosk/scan absensi (hemat JS & fokus kamera). --}}
 @unless(in_array($access, ['siswa', 'orangtua']) || ($isScanKioskSurface ?? false))
@@ -1935,7 +1936,7 @@
             // Kalau halaman aktif cocok di >1 grup (mis. poin.siswa.index dipakai bareng oleh
             // grup "Poin & Aturan" dan "Wali Kelas" utk user yg punya kedua peran), utamakan
             // grup yang terakhir dibuka manual (localStorage) SELAMA grup itu tetap salah satu
-            // yang valid utk halaman ini — supaya klik link di dalam Wali Kelas tidak "meloncat"
+            // yang valid utk halaman ini â€” supaya klik link di dalam Wali Kelas tidak "meloncat"
             // ke Poin & Aturan begitu saja. Kalau tak ada localStorage yg cocok, pakai match pertama.
             openGroup: (() => {
                 const matches = @json($activeGroups ?? []);
@@ -1945,7 +1946,7 @@
             })(),
             navRegistry: @json($navRegistry),
             navPinnedRoutes: @json($navPinnedRoutes ?? []),
-            // Buka/tutup section "Navigasi"/"Favorit"/"Baru dibuka" — default semua terbuka
+            // Buka/tutup section "Navigasi"/"Favorit"/"Baru dibuka" â€” default semua terbuka
             // (perilaku lama), diingat per-browser lewat localStorage spt openGroup di atas.
             navSectionOpen: (() => {
                 const defaults = { nav: true, fav: true, recent: true };
@@ -2018,7 +2019,7 @@
             // Badge chat-admin/masukan/grup: dulu tiap satu poll sendiri (fetch + interval
             // terpisah, nembak bersamaan tiap halaman dimuat). Sekarang numpang di SATU
             // response gabungan yg sama dgn bel notifikasi (NotificationController::
-            // badgesLainnya()) — komponen ini jadi murni pendengar event 'notif-updated',
+            // badgesLainnya()) â€” komponen ini jadi murni pendengar event 'notif-updated',
             // tak polling sendiri lagi sama sekali.
             initAdminChatBadge(){
                 @if($isAdmin)
@@ -2079,7 +2080,7 @@
                 try {
                     const routes = JSON.parse(localStorage.getItem('sims_nav_recent') || localStorage.getItem('sb_recent') || '[]');
                     // Rute yg SUDAH permanen tampil di sidebar (Dashboard, Kartu ID, dst) dibuang dari
-                    // sini — kalau tidak, "Baru Dibuka" akan menampilkan link yg SAMA PERSIS dgn yg
+                    // sini â€” kalau tidak, "Baru Dibuka" akan menampilkan link yg SAMA PERSIS dgn yg
                     // sudah kelihatan di bagian statis di bawahnya, bikin dobel yg membingungkan.
                     this.navRecent = routes.filter(r => reg[r] && !pinned.includes(r)).map(r => reg[r]).slice(0, 5);
                 } catch (_) {
@@ -2173,14 +2174,14 @@
                     this.audio.preload = 'auto';
                     this.audio.volume = 0.6;
                 } catch (_) { this.audio = null; }
-                // Performa Server: tahan juga fetch PERTAMA ini (bukan cuma pengulangannya) —
+                // Performa Server: tahan juga fetch PERTAMA ini (bukan cuma pengulangannya) â€”
                 // inilah yg justru tembak tepat di detik-detik rawan (banyak orang login
                 // bersamaan), jauh sebelum interval sempat jalan. Mematikan 'notifikasi' ikut
                 // membekukan 4 badge yg numpang response ini (lihat App\Support\PollingWidget).
                 if (!window.simsPollingNonaktif('notifikasi')) this.fetchNotifications();
-                // Polling 45s (was 15s — endpoint ini request TERBANYAK di seluruh app, ~8.2rb/jam
+                // Polling 45s (was 15s â€” endpoint ini request TERBANYAK di seluruh app, ~8.2rb/jam
                 // pas beban tinggi; notifikasi tak butuh sampai se-real-time itu, tunda beberapa
-                // puluh detik tak masalah) — pause saat tab hidden (simsPollInterval)
+                // puluh detik tak masalah) â€” pause saat tab hidden (simsPollInterval)
                 window.simsPollInterval(() => this.fetchNotifications(), 45000, 'notifikasi');
             },
             async fetchNotifications() {
@@ -2198,7 +2199,7 @@
                         this.prevUnread = data.unreadCount;
                         this.unreadCount = data.unreadCount;
                         // Umpankan hitung pengumuman + badge grup/chatbot/chat-admin/masukan ke
-                        // widget masing2 — respons ini SATU2NYA yg dipoll skrg, gantikan 4 fetch
+                        // widget masing2 â€” respons ini SATU2NYA yg dipoll skrg, gantikan 4 fetch
                         // terpisah yg dulu nembak bersamaan tiap halaman dimuat & tiap interval
                         // (lihat NotificationController::badgesLainnya()). Widget yg tak relevan
                         // utk role user ini tak pernah pasang listener-nya, jadi angka 0 default
@@ -2224,7 +2225,7 @@
                 if (!this.soundOn || !this.audio) return;
                 try {
                     this.audio.currentTime = 0;
-                    // Autoplay bisa ditolak sebelum ada interaksi user → abaikan diam-diam.
+                    // Autoplay bisa ditolak sebelum ada interaksi user â†’ abaikan diam-diam.
                     this.audio.play().catch(() => {});
                 } catch (_) { /* noop */ }
             },
@@ -2309,7 +2310,7 @@
         }
     }
     // Registrasi token FCM dari Android (WebView memanggil ini setelah login).
-    // Pola fetch()+CSRF SAMA seperti simpan tata letak dashboard — tanpa mekanisme baru.
+    // Pola fetch()+CSRF SAMA seperti simpan tata letak dashboard â€” tanpa mekanisme baru.
     window.registerFcmToken = function(token, deviceType) {
         if (!token) return;
         if (sessionStorage.getItem('fcm_token_registered') === token) return;
@@ -2425,7 +2426,7 @@
         @if(session()->has('reset_account'))
         @php $ra = session('reset_account'); @endphp
         $.confirm({
-            title: '🔑 Password Berhasil Direset',
+            title: 'ðŸ”‘ Password Berhasil Direset',
             content: `
                 <div class="space-y-3.5 text-left text-slate-600 dark:text-slate-300">
                     <p class="text-sm">Berikut kredensial baru untuk <strong>{{ $ra['name'] ?? '' }}</strong> ({{ $ra['role'] ?? '' }}):</p>
@@ -2439,12 +2440,12 @@
                             <span class="font-mono font-bold text-amber-600 dark:text-amber-400 select-all">{{ $ra['password'] ?? '' }}</span>
                         </div>
                     </div>
-                    <p class="text-[11px] text-slate-400 font-medium">💡 Anda dapat menyalin kredensial di atas dengan mengklik tombol di bawah ini.</p>
+                    <p class="text-[11px] text-slate-400 font-medium">ðŸ’¡ Anda dapat menyalin kredensial di atas dengan mengklik tombol di bawah ini.</p>
                 </div>
             `,
             buttons: {
                 copy: {
-                    text: '📋 Salin Kredensial',
+                    text: 'ðŸ“‹ Salin Kredensial',
                     btnClass: 'btn-blue',
                     action: function() {
                         const text = "Username: {{ $ra['username'] ?? '' }}\nPassword: {{ $ra['password'] ?? '' }}";
@@ -2523,3 +2524,4 @@
 @stack('scripts')
 </body>
 </html>
+

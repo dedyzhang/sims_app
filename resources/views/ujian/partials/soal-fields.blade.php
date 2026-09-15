@@ -1,9 +1,9 @@
 {{-- Dipakai di dalam <form x-data="soalForm({...})">...</form> (lihat ujian/edit.blade.php).
-     teks_soal & opsi mcq/mcq_complex pakai TinyMCE (rumus + upload gambar) — lihat
+     teks_soal & opsi mcq/mcq_complex pakai TinyMCE (rumus + upload gambar) Ã¢â‚¬â€ lihat
      ujian/partials/rich-editor.blade.php. x-model SENGAJA tidak dipakai utk field2 itu krn
      TinyMCE mengambil alih DOM textarea-nya; nilai awal dibaca sekali lewat x-text, lalu
      TinyMCE sendiri yang menyinkronkan isi editor ke textarea saat form di-submit. --}}
-<div class="grid sm:grid-cols-[1fr_100px] gap-3">
+<div class="grid sm:grid-cols-[1fr_100px_100px] gap-3">
     <div>
         <label class="form-label">Tipe Soal</label>
         <select name="tipe" x-model="tipe" class="form-select"
@@ -19,8 +19,12 @@
         </select>
     </div>
     <div>
-        <label class="form-label">Poin</label>
+        <label class="form-label">Poin Benar</label>
         <input type="number" name="poin" x-model.number="poin" min="1" max="100" class="form-input">
+    </div>
+    <div>
+        <label class="form-label">Poin Salah</label>
+        <input type="number" name="poin_salah" x-model.number="poin_salah" step="any" class="form-input" placeholder="0">
     </div>
 </div>
 
@@ -28,7 +32,7 @@
     <label class="form-label">Teks Soal <span class="text-slate-400 font-normal">(bisa sisip rumus &amp; gambar)</span></label>
     {{-- SENGAJA tanpa `required`: TinyMCE menyembunyikan textarea aslinya (display:none) dan
          baru menyinkronkan isi ke situ lewat listener 'submit'-nya sendiri, yg jalan SETELAH
-         validasi native browser — kalau `required` dipasang, submit form akan diblokir diam2
+         validasi native browser Ã¢â‚¬â€ kalau `required` dipasang, submit form akan diblokir diam2
          oleh browser krn textarea (yg tersembunyi) masih kosong di titik validasi. Wajib-isi
          tetap ditegakkan di server (UjianSoalController::validateSoal(), 'required|string').
          Pola ini SAMA dgn classroom/partials/editor.blade.php yg juga sengaja tanpa required. --}}
@@ -40,22 +44,22 @@
     <label class="form-label" x-text="tipe==='mcq_complex' ? 'Opsi (centang SEMUA yang benar)' : 'Opsi (pilih satu yang benar)'"></label>
     <template x-for="(o, i) in opsi" :key="o._key">
         <div class="space-y-1.5 pb-3 border-b-2 border-slate-200 dark:border-slate-600 last:border-0 last:pb-0">
-            {{-- Judul "Opsi A/B/C/..." di tiap pembatas — sejajar huruf badge yg dilihat
+            {{-- Judul "Opsi A/B/C/..." di tiap pembatas Ã¢â‚¬â€ sejajar huruf badge yg dilihat
                  siswa (lihat kerjakan.blade.php), supaya guru jelas sedang edit opsi yg mana.
                  Tak relevan utk true_false (cuma "Benar"/"Salah" tetap, bukan opsi A/B/C). --}}
             <p x-show="tipe!=='true_false'" class="text-xs font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500" x-text="'Opsi ' + String.fromCharCode(65 + i)"></p>
             <div class="flex items-center gap-2">
                 {{-- SENGAJA x-model (bukan :checked + @click/@change): dicoba :checked+@click.prevent
-                     dulu — data Alpine benar tapi checkbox SUNGGUHAN tetap tak tercentang krn
+                     dulu Ã¢â‚¬â€ data Alpine benar tapi checkbox SUNGGUHAN tetap tak tercentang krn
                      "canceled activation steps" bawaan browser membalikkan `checked` SETELAH
-                     preventDefault(). Diganti :checked+@change (tanpa prevent) — masih gagal jg
+                     preventDefault(). Diganti :checked+@change (tanpa prevent) Ã¢â‚¬â€ masih gagal jg
                      utk kasus LAIN: begitu checkbox pernah "dirty" (pernah disentuh user/klik
                      sekali saja), :checked Alpine ternyata menulis ATRIBUT `checked` (bukan
-                     properti `.checked` langsung) — dan per spek HTML, ATRIBUT checkbox yg
+                     properti `.checked` langsung) Ã¢â‚¬â€ dan per spek HTML, ATRIBUT checkbox yg
                      sudah dirty TIDAK LAGI memengaruhi properti live-nya, jadi reset via kode
                      (mis. ganti tipe soal ke Benar/Salah) gagal diam2 pada checkbox yg SUDAH
                      pernah diklik user. x-model Alpine menulis PROPERTI `.checked` langsung
-                     (bukan atribut) — kebal thd masalah dirty-flag ini, pola dua-arah standar
+                     (bukan atribut) Ã¢â‚¬â€ kebal thd masalah dirty-flag ini, pola dua-arah standar
                      Alpine yg sudah teruji. Logika "hanya satu opsi benar" (mcq/true_false)
                      dijalankan SETELAH x-model menuliskan benar=true via @change. --}}
                 <input type="checkbox"
@@ -68,19 +72,19 @@
                     <i data-lucide="x" class="w-4 h-4"></i> <span class="text-xs">Hapus opsi</span>
                 </button>
             </div>
-            {{-- true_false: label tetap "Benar"/"Salah", tak pernah diedit — kirim via hidden input.
-                 SENGAJA x-if (bukan x-show) utk pasangan hidden-input/textarea di bawah ini —
+            {{-- true_false: label tetap "Benar"/"Salah", tak pernah diedit Ã¢â‚¬â€ kirim via hidden input.
+                 SENGAJA x-if (bukan x-show) utk pasangan hidden-input/textarea di bawah ini Ã¢â‚¬â€
                  keduanya BERBAGI `name="opsi[i][teks]"` yg sama. x-show cuma toggle CSS
-                 display:none, TIDAK melepas elemen dari DOM — dan display:none TIDAK
+                 display:none, TIDAK melepas elemen dari DOM Ã¢â‚¬â€ dan display:none TIDAK
                  mengecualikan field dari form submission. Akibatnya saat tipe=true_false,
                  KEDUANYA ikut ter-submit dgn name yg sama: textarea (yg pernah ter-mount jadi
                  TinyMCE waktu tipe masih mcq, lalu disembunyikan tanpa pernah di-unmount) ikut
                  menuliskan `value`-nya sendiri (kosong, krn TinyMCE cuma sinkron ke textarea
                  SAAT event 'submit', dan tak pernah diedit) SETELAH hidden input dlm urutan
-                 DOM — dan PHP/Laravel utk key array duplikat pakai nilai TERAKHIR, jadi
+                 DOM Ã¢â‚¬â€ dan PHP/Laravel utk key array duplikat pakai nilai TERAKHIR, jadi
                  textarea kosong itu menimpa "Benar"/"Salah" dari hidden input, bikin submit
                  gagal "field is required" walau checkbox & data Alpine sudah benar. x-if
-                 melepas elemen yg tak aktif dari DOM sepenuhnya — tak ada lagi duplikasi name. --}}
+                 melepas elemen yg tak aktif dari DOM sepenuhnya Ã¢â‚¬â€ tak ada lagi duplikasi name. --}}
             <template x-if="tipe==='true_false'">
                 <input type="hidden" :name="'opsi['+i+'][teks]'" :value="o.teks">
             </template>
@@ -94,18 +98,18 @@
 </div>
 
 {{-- match: pasangan kiri-kanan, pakai TinyMCE (bisa sisip rumus) spt teks_soal/opsi.
-     SENGAJA tanpa `required` (lihat catatan di teks_soal di atas) — field ini tersembunyi
+     SENGAJA tanpa `required` (lihat catatan di teks_soal di atas) Ã¢â‚¬â€ field ini tersembunyi
      lewat x-show saat tipe != match, dan browser TIDAK konsisten mengecualikan elemen di
      dalam ancestor x-show=false dari constraint validation, jadi `required` di sini akan
      diam2 memblokir submit soal tipe LAIN (mcq/essay/dst). Wajib-isi tetap ditegakkan
      server (required_if:tipe,match).
      Kiri & kanan SENGAJA bertumpuk (flex-col) di mobile, sejajar (sm:flex-row) di layar
-     lebar — dua TinyMCE penuh toolbar berdampingan di layar sempit membuat tiap editor
+     lebar Ã¢â‚¬â€ dua TinyMCE penuh toolbar berdampingan di layar sempit membuat tiap editor
      cuma dapat ~150px, toolbar-nya jadi patah/pecah bertingkat dan area ketik nyaris tak
-     bisa dipakai. Panah "→" diputar jadi "↓" (rotate-90) di mobile, tanpa perlu ikon kedua.
-     Pembatas putus-putus di sekitar panah — garis horizontal di mobile (memisahkan editor
+     bisa dipakai. Panah "Ã¢â€ â€™" diputar jadi "Ã¢â€ â€œ" (rotate-90) di mobile, tanpa perlu ikon kedua.
+     Pembatas putus-putus di sekitar panah Ã¢â‚¬â€ garis horizontal di mobile (memisahkan editor
      kiri/kanan yg bertumpuk), garis vertikal (border-l, sejajar tinggi via self-stretch) di
-     layar lebar — supaya jarak antar dua editor tak terlihat kosong tanpa penanda. --}}
+     layar lebar Ã¢â‚¬â€ supaya jarak antar dua editor tak terlihat kosong tanpa penanda. --}}
 <div x-show="tipe==='match'" x-cloak class="space-y-3">
     <label class="form-label">Pasangan (kiri dicocokkan dengan kanan) <span class="text-slate-400 font-normal">(bisa sisip rumus)</span></label>
     <template x-for="(p, i) in pasangan" :key="p._key">
@@ -127,11 +131,11 @@
     <button type="button" @click="addPasangan()" class="text-xs text-primary hover:underline">+ Tambah pasangan</button>
 </div>
 
-{{-- mcq_complex & match: cara penilaian — semua-benar-baru-dapat-poin (all_or_nothing:
+{{-- mcq_complex & match: cara penilaian Ã¢â‚¬â€ semua-benar-baru-dapat-poin (all_or_nothing:
      "Poin" adalah TOTAL soal apa adanya, tak dikali jumlah opsi/pasangan, krn semua-atau-
      tidak-sama-sekali tak punya konsep "per item"), atau poin sesuai jumlah yg benar
      (proporsional: "Poin" berarti poin PER opsi/pasangan benar, preview total dihitung
-     live dari poin × jumlah opsi/pasangan benar, supaya guru tak salah kira poin yg
+     live dari poin Ãƒâ€” jumlah opsi/pasangan benar, supaya guru tak salah kira poin yg
      diinput = total soal). --}}
 <div x-show="tipe==='mcq_complex' || tipe==='match'" x-cloak>
     <label class="form-label">Cara Penilaian</label>
@@ -148,7 +152,7 @@
     </template>
     <template x-if="skor_mode === 'proporsional'">
         <p class="text-xs text-slate-400 mt-1.5">
-            "Poin" di atas adalah poin PER <span x-text="tipe==='mcq_complex' ? 'opsi benar' : 'pasangan'"></span> —
+            "Poin" di atas adalah poin PER <span x-text="tipe==='mcq_complex' ? 'opsi benar' : 'pasangan'"></span> Ã¢â‚¬â€
             total poin soal ini: <span class="font-semibold text-slate-600 dark:text-slate-300" x-text="poin * (tipe==='mcq_complex' ? opsi.filter(o => o.benar).length : pasangan.length)"></span>
         </p>
     </template>
@@ -166,3 +170,5 @@
 </div>
 
 @include('ujian.partials.rich-editor')
+
+

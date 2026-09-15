@@ -31,14 +31,14 @@
      @copy.prevent @cut.prevent @paste.prevent @contextmenu.prevent
 >
     {{-- Overlay: wajib layar penuh sebelum mulai (gesture langsung dari klik). Disembunyikan
-         juga saat sudah terkunci ATAU sedang mengumpulkan — kalau tidak, overlay ini & overlay
+         juga saat sudah terkunci ATAU sedang mengumpulkan ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â kalau tidak, overlay ini & overlay
          "Ujian Terkunci"/"Mengumpulkan" di bawah bisa tampil bersamaan bertumpuk (semuanya
-         fixed inset-0, teks jadi bertabrakan) — exitFullscreen() saat submit bikin fsActive
+         fixed inset-0, teks jadi bertabrakan) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â exitFullscreen() saat submit bikin fsActive
          balik false persis di titik ini. --}}
     <div x-show="!fsActive && !terkunci && !mengumpulkan" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
         <div class="max-w-sm space-y-4">
             <i data-lucide="maximize" class="w-14 h-14 text-primary mx-auto"></i>
-            <h2 class="text-white text-lg font-bold m-0">Mode Ujian — Layar Penuh</h2>
+            <h2 class="text-white text-lg font-bold m-0">Mode Ujian ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Layar Penuh</h2>
             <p class="text-slate-300 text-sm m-0 leading-relaxed">Ketuk tombol di bawah untuk masuk layar penuh dan memulai pengerjaan. Waktu sudah berjalan.</p>
             <button type="button" @click="masukLayarPenuh()" class="btn-primary px-6 py-3 rounded-xl text-sm font-bold inline-flex items-center gap-2">
                 <i data-lucide="maximize" class="w-4 h-4"></i> Masuk Layar Penuh
@@ -79,7 +79,7 @@
     <template x-for="(s, i) in soal" :key="'panel-'+s.uuid">
         <div x-show="i === idx" x-cloak class="card p-5 space-y-4">
             <div class="flex items-center justify-between">
-                <p class="text-xs text-slate-400">Soal <span x-text="i+1"></span> dari <span x-text="soal.length"></span> · <span x-text="s.poin"></span> poin</p>
+                <p class="text-xs text-slate-400">Soal <span x-text="i+1"></span> dari <span x-text="soal.length"></span> ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· <span x-text="s.poin"></span> poin</p>
             </div>
             <div class="text-sm font-medium text-slate-800 dark:text-slate-100 ujian-rich-body" x-html="s.teks_soal"></div>
 
@@ -89,7 +89,7 @@
                     <label class="flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer"
                            :class="jawaban[s.uuid]===o.uuid ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-600'">
                         <input type="radio" :name="'opt-'+s.uuid" :checked="jawaban[s.uuid]===o.uuid"
-                               @change="jawaban[s.uuid] = o.uuid; simpan(s.uuid)" class="text-primary focus:ring-primary flex-shrink-0">
+                               @change="jawaban[s.uuid] = o.uuid; tandaiBerubah(s.uuid)" class="text-primary focus:ring-primary flex-shrink-0">
                         <span class="text-sm ujian-rich-body" x-html="o.teks"></span>
                     </label>
                 </template>
@@ -102,7 +102,7 @@
                     <label class="flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer"
                            :class="(jawaban[s.uuid]||[]).includes(o.uuid) ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-600'">
                         <input type="checkbox" :checked="(jawaban[s.uuid]||[]).includes(o.uuid)"
-                               @change="toggleMulti(s.uuid, o.uuid); simpan(s.uuid)"
+                               @change="toggleMulti(s.uuid, o.uuid); tandaiBerubah(s.uuid)"
                                class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 text-primary focus:ring-2 focus:ring-primary/30 transition cursor-pointer flex-shrink-0">
                         <span class="text-sm ujian-rich-body break-words min-w-0" x-html="o.teks"></span>
                     </label>
@@ -135,27 +135,27 @@
             {{-- essay --}}
             <div x-show="s.tipe==='essay'" x-cloak>
                 <textarea rows="6" class="form-input" placeholder="Tulis jawaban Anda di sini..."
-                          x-model="jawaban[s.uuid]" @input.debounce.900ms="simpan(s.uuid)"></textarea>
+                          x-model="jawaban[s.uuid]" @input="tandaiBerubah(s.uuid)"></textarea>
             </div>
 
             <div class="flex items-center justify-between pt-2">
-                <button type="button" @click="pindah(idx-1)" :disabled="idx===0" class="px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600 disabled:opacity-30">← Sebelumnya</button>
-                <button type="button" x-show="idx < soal.length-1" @click="pindah(idx+1)" class="px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600">Berikutnya →</button>
+                <button type="button" @click="pindah(idx-1)" :disabled="idx===0" class="px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600 disabled:opacity-30">&larr; Sebelumnya</button>
+                <button type="button" x-show="idx < soal.length-1" @click="pindah(idx+1)" class="px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600">Berikutnya &rarr;</button>
                 <button type="button" x-show="idx === soal.length-1" @click="konfirmasiSubmit()" class="px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700">Kumpulkan Ujian</button>
             </div>
         </div>
     </template>
 
-    {{-- Overlay mengumpulkan (submit normal/otomatis) — SENGAJA state TERPISAH dari
+    {{-- Overlay mengumpulkan (submit normal/otomatis) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â SENGAJA state TERPISAH dari
          "terkunci" (pelanggaran). Sebelumnya kumpulkan() reuse kunci() yg sama dgn
          pelanggaran fullscreen/tab, jadi siswa yg menekan "Kumpulkan Ujian" secara SAH
-         sempat melihat overlay "Ujian Terkunci — Anda keluar dari layar penuh..." yg
+         sempat melihat overlay "Ujian Terkunci ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Anda keluar dari layar penuh..." yg
          menakutkan & salah konteks (makin kentara kalau fetch submit-nya agak lambat). --}}
     <div x-show="mengumpulkan" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
         <div class="max-w-sm space-y-4">
             <i data-lucide="loader-circle" class="w-14 h-14 text-primary mx-auto animate-spin"></i>
-            <h2 class="text-white text-lg font-bold m-0">Mengumpulkan Ujian…</h2>
-            <p class="text-slate-300 text-sm m-0 leading-relaxed" x-text="mengumpulkanOtomatis ? 'Waktu ujian sudah habis — jawaban Anda sedang dikumpulkan otomatis.' : 'Mohon tunggu sebentar, jangan tutup halaman ini.'"></p>
+            <h2 class="text-white text-lg font-bold m-0">Mengumpulkan UjianÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦</h2>
+            <p class="text-slate-300 text-sm m-0 leading-relaxed" x-text="mengumpulkanOtomatis ? 'Waktu ujian sudah habis ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â jawaban Anda sedang dikumpulkan otomatis.' : 'Mohon tunggu sebentar, jangan tutup halaman ini.'"></p>
         </div>
     </div>
 
@@ -211,6 +211,7 @@ function ujianKerjakan(cfg) {
         simpanStatus: '',
         simpanError: false,
         loadingBlock: false,
+        _jawabanBerubah: {},
         _timerHandle: null,
         
         triggerBlock() {
@@ -250,7 +251,7 @@ function ujianKerjakan(cfg) {
         },
 
         // Sebagian HP siswa gagal/menolak Fullscreen API (requestFullscreen() reject diam2,
-        // lihat catch() di atas) — tanpa jalan keluar ini siswa tsb terjebak permanen di
+        // lihat catch() di atas) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â tanpa jalan keluar ini siswa tsb terjebak permanen di
         // overlay ini, tak pernah bisa mulai ujian sama sekali. `intentional` dipasang SEBELUM
         // fsActive=true supaya syncFs() (yg jalan lewat event fullscreenchange kalau memang
         // sempat browser sempat masuk fullscreen sebentar lalu gagal) tak salah lapor
@@ -278,9 +279,15 @@ function ujianKerjakan(cfg) {
                 this.kumpulkan(true);
             }
         },
-
         pindah(i) {
             if (i < 0 || i >= this.soal.length) return;
+            const currentUuid = this.soal[this.idx].uuid;
+            if (this._jawabanBerubah[currentUuid]) {
+                this._doSimpan(currentUuid);
+            }
+            this.idx = i;
+            this.triggerBlock();
+        }
             this.idx = i;
             this.triggerBlock();
         },
@@ -303,31 +310,16 @@ function ujianKerjakan(cfg) {
             let current = { ...(this.jawaban[soalUuid] || {}) };
             if (kanan) current[kiri] = kanan; else delete current[kiri];
             this.jawaban[soalUuid] = current;
-            this.simpan(soalUuid);
+            this.tandaiBerubah(soalUuid);
         },
 
-        _simpanTimers: {},
-
-        simpan(soalUuid) {
-            if (this.terkunci || this.mengumpulkan) return;
-            this.simpanStatus = 'Menyimpan...';
-            this.simpanError = false;
-            this.triggerBlock();
-            
-            if (this._simpanTimers[soalUuid]) clearTimeout(this._simpanTimers[soalUuid]);
-            
-            // Jeda 1.5 detik per soal. Jika siswa klik opsi berulang kali dengan cepat, 
-            // hanya 1 request terakhir yang akan dikirim ke server. Ini mencegah WAF hosting marah.
-            this._simpanTimers[soalUuid] = setTimeout(() => {
-                this._doSimpan(soalUuid);
-            }, 1500);
+        tandaiBerubah(soalUuid) {
+            this._jawabanBerubah[soalUuid] = true;
         },
-
         async _doSimpan(soalUuid) {
             if (this.terkunci) return;
             
-            // Hapus penanda timer agar tidak diflush ulang
-            this._simpanTimers[soalUuid] = null;
+            this._jawabanBerubah[soalUuid] = false;
             
             const s = this.soal.find(x => x.uuid === soalUuid);
             if (!s) return;
@@ -357,8 +349,9 @@ function ujianKerjakan(cfg) {
                 this.simpanStatus = 'Tersimpan';
                 this.simpanError = false;
             } catch (e) {
-                this.simpanStatus = 'Gagal tersimpan — periksa koneksi';
+                this.simpanStatus = 'Gagal tersimpan - periksa koneksi';
                 this.simpanError = true;
+                this._jawabanBerubah[soalUuid] = true;
             }
         },
 
@@ -400,19 +393,14 @@ function ujianKerjakan(cfg) {
                 },
             });
         },
-
         async kumpulkan(otomatis) {
-            // Force flush semua jawaban yang masih di-debounce agar tidak hilang
-            for (let uuid in this._simpanTimers) {
-                if (this._simpanTimers[uuid]) {
-                    clearTimeout(this._simpanTimers[uuid]);
-                    this._simpanTimers[uuid] = null;
-                    await this._doSimpan(uuid); // Tunggu sampai tersimpan
-                }
+            const currentUuid = this.soal[this.idx].uuid;
+            if (this._jawabanBerubah[currentUuid]) {
+                await this._doSimpan(currentUuid);
             }
 
-            // SENGAJA tak pakai kunci() di sini — kunci() menyalakan `terkunci` yg
-            // menampilkan overlay "Ujian Terkunci — Anda keluar dari layar penuh/berpindah
+            // SENGAJA tak pakai kunci() di sini ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â kunci() menyalakan `terkunci` yg
+            // menampilkan overlay "Ujian Terkunci ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Anda keluar dari layar penuh/berpindah
             // tab", pesan yg salah konteks (& menakutkan) utk submit yg SAH. `mengumpulkan`
             // adalah state terpisah dgn overlay netral sendiri (lihat kerjakan.blade.php).
             this.mengumpulkan = true;
@@ -468,4 +456,8 @@ function ujianKerjakan(cfg) {
 }
 </script>
 @endpush
+
+
+
+
 

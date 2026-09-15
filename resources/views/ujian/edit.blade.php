@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Susun Soal — ' . $ujian->judul)
+@section('title', 'Susun Soal â€” ' . $ujian->judul)
 
 @section('content')
 <div class="max-w-3xl mx-auto space-y-5">
@@ -11,7 +11,7 @@
         <div class="flex items-center justify-between gap-3 flex-wrap">
             <div>
                 <h1 class="page-title">Susun Soal</h1>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Total poin: {{ $ujian->soal->sum(fn($s) => $s->poinEfektif()) }} · {{ $ujian->soal->count() }} soal</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Total poin: {{ $ujian->soal->sum(fn($s) => $s->poinEfektif()) }} Â· {{ $ujian->soal->count() }} soal</p>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
                 <a href="{{ route('ujian.pratinjau', $ujian) }}" target="_blank" rel="noopener"
@@ -35,7 +35,7 @@
     </div>
     @endif
 
-    {{-- Modal "Sisipkan dari Bank Soal" — muat daftar soal bank mapel ini via fetch JSON
+    {{-- Modal "Sisipkan dari Bank Soal" â€” muat daftar soal bank mapel ini via fetch JSON
          (bukan Blade) begitu dibuka, supaya tak perlu reload halaman ujian utk pilih soal. --}}
     @if($ujian->status === 'draft' && $ujian->pelajaran)
     <div x-data="bankSoalPicker({{ Js::from(route('bank-soal.pilih', $ujian->pelajaran)) }}, {{ Js::from(route('ujian.soal.sisipkanBank', $ujian)) }})"
@@ -57,7 +57,7 @@
             <template x-if="!loading && daftar.length === 0">
                 <div class="py-8 text-center text-slate-400">
                     <p class="text-sm">Belum ada soal di Bank Soal mapel ini.</p>
-                    <a href="{{ route('bank-soal.show', $ujian->pelajaran) }}" target="_blank" class="text-xs text-primary hover:underline mt-1 inline-block">Buka Bank Soal →</a>
+                    <a href="{{ route('bank-soal.show', $ujian->pelajaran) }}" target="_blank" class="text-xs text-primary hover:underline mt-1 inline-block">Buka Bank Soal â†’</a>
                 </div>
             </template>
 
@@ -66,7 +66,7 @@
                     <label class="flex items-start gap-2.5 p-2.5 rounded-lg border border-slate-200 dark:border-slate-600 cursor-pointer hover:border-primary">
                         <input type="checkbox" :value="s.uuid" x-model="terpilih" class="rounded text-primary focus:ring-primary mt-0.5 flex-shrink-0">
                         <div class="min-w-0">
-                            <p class="text-xs text-slate-400" x-text="s.label + ' · ' + s.poin + ' poin'"></p>
+                            <p class="text-xs text-slate-400" x-text="s.label + ' Â· ' + s.poin + ' poin'"></p>
                             <p class="text-sm truncate" x-text="s.cuplik"></p>
                         </div>
                     </label>
@@ -85,7 +85,7 @@
 
     @if($ujian->status !== 'draft')
     <div class="card p-4 text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border-l-4 !border-l-amber-500">
-        Ujian ini sudah {{ $ujian->statusLabel() }} — soal tidak bisa diubah. Tutup ulang ke draf lewat admin bila perlu revisi.
+        Ujian ini sudah {{ $ujian->statusLabel() }} â€” soal tidak bisa diubah. Tutup ulang ke draf lewat admin bila perlu revisi.
     </div>
     @else
 
@@ -95,6 +95,7 @@
         <div class="card p-5" x-data="soalForm({
                 tipe: '{{ $soal->tipe }}',
                 poin: {{ $soal->poin }},
+                poin_salah: {{ isset($soal->meta['poin_salah']) ? $soal->meta['poin_salah'] : "''" }},
                 skor_mode: {{ Js::from($soal->skor_mode ?? 'all_or_nothing') }},
                 open: false,
                 fetchUrl: '{{ route('ujian.soal.data', [$ujian, $soal]) }}'
@@ -107,14 +108,14 @@
                         <template x-if="!loadingData"><span>{{ $i + 1 }}</span></template>
                     </span>
                     <div class="min-w-0">
-                        <p class="text-xs text-slate-400">{{ $soal->typeLabel() }} · {{ $soal->poinEfektif() }} poin</p>
+                        <p class="text-xs text-slate-400">{{ $soal->typeLabel() }} Â· {{ $soal->poinEfektif() }} poin</p>
                         <p class="text-sm font-medium truncate">{{ Str::limit(strip_tags($soal->teks_soal), 80) }}</p>
                     </div>
                 </div>
                 <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 flex-shrink-0 transition" :class="open && 'rotate-180'"></i>
             </div>
 
-            <form x-show="open" x-cloak x-transition method="POST" action="{{ route('ujian.soal.update', [$ujian, $soal]) }}" class="mt-4 space-y-3 border-t border-slate-100 dark:border-slate-700 pt-4">
+            <form @submit="encodeForm" x-show="open" x-cloak x-transition method="POST" action="{{ route('ujian.soal.update', [$ujian, $soal]) }}" class="mt-4 space-y-3 border-t border-slate-100 dark:border-slate-700 pt-4">
                 <template x-if="rendered">
                     <div>
                         @csrf
@@ -134,10 +135,10 @@
     </div>
 
     {{-- Tambah soal baru --}}
-    <div class="card p-5" x-data="soalForm({ tipe: 'mcq', teks_soal: '', poin: 1, penjelasan: '', opsi: [{teks:'',benar:true},{teks:'',benar:false}], pasangan: [{kiri:'',kanan:''},{kiri:'',kanan:''}], kunci_esai: '', skor_mode: 'all_or_nothing', open: true })"
+    <div class="card p-5" x-data="soalForm({ tipe: 'mcq', teks_soal: '', poin: 1, poin_salah: '', penjelasan: '', opsi: [{teks:'',benar:true},{teks:'',benar:false}], pasangan: [{kiri:'',kanan:''},{kiri:'',kanan:''}], kunci_esai: '', skor_mode: 'all_or_nothing', open: true })"
          x-init="_rootEl = $el; $nextTick(() => window.UjianEditor && window.UjianEditor.mountAll())">
         <h2 class="font-bold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 text-primary"></i> Tambah Soal</h2>
-        <form method="POST" action="{{ route('ujian.soal.store', $ujian) }}" class="space-y-3">
+        <form @submit="encodeForm" method="POST" action="{{ route('ujian.soal.store', $ujian) }}" class="space-y-3">
             @csrf
             @include('ujian.partials.soal-fields')
             <button type="submit" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold">Tambah Soal</button>
@@ -146,7 +147,7 @@
     @endif
 
     <div class="flex justify-end">
-        <a href="{{ route('ujian.show', $ujian) }}" class="text-sm text-primary hover:underline">Selesai, kembali ke ringkasan ujian →</a>
+        <a href="{{ route('ujian.show', $ujian) }}" class="text-sm text-primary hover:underline">Selesai, kembali ke ringkasan ujian â†’</a>
     </div>
 </div>
 @endsection
@@ -173,3 +174,4 @@ function bankSoalPicker(pilihUrl, submitUrl) {
 }
 </script>
 @endpush
+
