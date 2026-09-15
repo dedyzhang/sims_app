@@ -21,23 +21,23 @@ use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
- * Analisis Hasil Ujian satu kelas â€” meniru format Excel analisis yang sudah dipakai
+ * Analisis Hasil Ujian satu kelas — meniru format Excel analisis yang sudah dipakai
  * sekolah. 2 bagian:
- *  A. Analisis Nilai â€” 1 kolom per SOAL (bukan per-opsi/pasangan â€” breakdown per-item
+ *  A. Analisis Nilai — 1 kolom per SOAL (bukan per-opsi/pasangan — breakdown per-item
  *     SENGAJA HANYA di Bagian B, Bagian A dijaga ringkas utk rekap cepat). mcq/true_false
  *     tampil 1/0 (selalu semua-atau-tidak, tak ada skor parsial); mcq_complex/match TAMPIL
  *     SKOR yg didapat (float, bisa parsial di mode skor_mode='proporsional'), TAPI baris
  *     "Jumlah jawaban salah"/"Persentase Kesalahan(%)" tetap hitung berdasarkan is_benar
  *     (semua-atau-tidak) utk kolom itu, TERPISAH dari nilai yg ditampilkan; essay dapat
  *     kolom sendiri berisi skor MENTAH, dikecualikan dari kedua baris footer itu.
- *     Kolom akhir: Jumlah (sum skor MENTAH semua soal, dihitung ulang di sini â€” SELALU
+ *     Kolom akhir: Jumlah (sum skor MENTAH semua soal, dihitung ulang di sini — SELALU
  *     penjumlahan apa adanya, TAK terikat Pelajaran::mode_skor_ujian), Rata-rata
- *     (attempt->total_skor apa adanya â€” nilai INI yg dipakai baris L/TL vs KKM, tak
+ *     (attempt->total_skor apa adanya — nilai INI yg dipakai baris L/TL vs KKM, tak
  *     berubah), L, TL.
- *  B. Objektif (Jawaban) â€” SEMUA tipe objektif (mcq/true_false/mcq_complex/match) tampil;
+ *  B. Objektif (Jawaban) — SEMUA tipe objektif (mcq/true_false/mcq_complex/match) tampil;
  *     mcq_complex/match dipecah jadi N sub-kolom (N = jumlah opsi/pasangan benar, lihat
  *     UjianSoal::itemBenarList()), baris kunci = label item benar, baris siswa = label itu
- *     KALAU item itu spesifik didapat benar, kalau tidak â†’ '-'. Essay TETAP tak muncul di
+ *     KALAU item itu spesifik didapat benar, kalau tidak → '-'. Essay TETAP tak muncul di
  *     sini (tak ada representasi huruf yg masuk akal).
  * Halaman dipaksa landscape A4 dgn page break antara Bagian A & B (registerEvents()).
  * Huruf/label item diambil dari urutan KANONIK (opsi.urutan / meta['pairs'] apa adanya),
@@ -46,11 +46,11 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
  * PENTING #1: baris ditambahkan dengan APPEND SEKUENSIAL ($rows[] = ...), bukan lompat index
  * (mis. $rows[10] = ...). Maatwebsite\Excel\Helpers\ArrayHelper::ensureMultipleRows()
  * MEMBUANG baris array kosong `[]` (dan otomatis "mengempiskan" gap index yg tak pernah
- * di-assign) â€” jadi baris kosong spacer HARUS `[null]`, dan nomor baris "penting" (utk
+ * di-assign) — jadi baris kosong spacer HARUS `[null]`, dan nomor baris "penting" (utk
  * merge/styling di registerEvents) HARUS dicatat dari count($rows) tepat setelah append,
  * bukan dihitung lewat aritmatika, supaya tak pernah meleset lagi kalau urutan berubah.
  *
- * PENTING #2: class ini WAJIB implements WithStrictNullComparison â€” Maatwebsite/PhpSpreadsheet
+ * PENTING #2: class ini WAJIB implements WithStrictNullComparison — Maatwebsite/PhpSpreadsheet
  * defaultnya membandingkan tiap nilai sel dgn null pakai `==` (longgar), dan `0 == null` itu
  * TRUE di PHP, jadi angka 0 literal (skor 0, kolom "salah"/"TL"=0, dst) akan ikut DIANGGAP
  * kosong dan gagal ditulis kalau interface ini tak dipasang.
@@ -110,11 +110,11 @@ class UjianAnalisisExport implements FromArray, WithTitle, WithEvents, WithStric
     }
 
     /**
-     * Bangun peta kolom utk satu daftar soal â€” tiap entri: soal, kolom-mulai (0-based relatif
+     * Bangun peta kolom utk satu daftar soal — tiap entri: soal, kolom-mulai (0-based relatif
      * thd grup), lebar (span), & itemBenarList() (null kalau soal ini TIDAK dipecah per-item
-     * â€” span-nya selalu 1, dirender lewat jalur lama hurufKunci/letakOpsi/is_benar apa
+     * — span-nya selalu 1, dirender lewat jalur lama hurufKunci/letakOpsi/is_benar apa
      * adanya). $pecahPerItem=false dipakai Bagian A (Analisis Nilai tetap 1 kolom per soal,
-     * termasuk utk mcq_complex/match) â€” breakdown per-opsi/pasangan HANYA di Bagian B.
+     * termasuk utk mcq_complex/match) — breakdown per-opsi/pasangan HANYA di Bagian B.
      */
     private function bangunPetaKolom(Collection $daftarSoal, bool $pecahPerItem = true): array
     {
@@ -132,7 +132,7 @@ class UjianAnalisisExport implements FromArray, WithTitle, WithEvents, WithStric
     public function array(): array
     {
         $rows = [];
-        /** Append satu baris, kembalikan nomor barisnya (1-based) â€” SATU-SATUNYA cara menulis ke $rows. */
+        /** Append satu baris, kembalikan nomor barisnya (1-based) — SATU-SATUNYA cara menulis ke $rows. */
         $tambah = function (array $row) use (&$rows): int {
             $rows[] = $row;
             return count($rows);
@@ -173,7 +173,7 @@ class UjianAnalisisExport implements FromArray, WithTitle, WithEvents, WithStric
         };
 
         $this->rowJudul = $tambah(['ANALISIS HASIL UJIAN']);
-        $this->rowSub = $tambah([$namaSekolah . '  â€¢  Diekspor: ' . now()->isoFormat('D MMMM Y, HH:mm') . ' WIB']);
+        $this->rowSub = $tambah([$namaSekolah . '  •  Diekspor: ' . now()->isoFormat('D MMMM Y, HH:mm') . ' WIB']);
         $kosong();
         $rowMapel = $tambah($barisInfo('Mata Pelajaran : ' . $this->ujian->jenisLabel() . ' - ' . ($this->ujian->pelajaran?->nama ?? '-') . ' Kelas ' . $tingkat, 'KKM', $this->kkm));
         $rowKelas = $tambah($barisInfo('Kelas : ' . $kelasLabel, 'Tuntas :', null));
@@ -205,11 +205,11 @@ class UjianAnalisisExport implements FromArray, WithTitle, WithEvents, WithStric
             if ($attempt) $jumlahAttempt++;
 
             // Jumlah skor MENTAH (poin apa adanya, dijumlah langsung dari skor_diperoleh tiap
-            // jawaban) â€” SELALU dihitung fresh di sini, TAK pernah dari attempt->total_skor
+            // jawaban) — SELALU dihitung fresh di sini, TAK pernah dari attempt->total_skor
             // (yg nilainya tergantung Pelajaran::mode_skor_ujian, bisa sudah dinormalisasi ke
             // skala 100 utk mode 'rata_rata'). Kolom "Rata-rata" di bawah tetap pakai
             // attempt->total_skor apa adanya (dan itu jugalah yg dipakai baris L/TL vs KKM,
-            // TAK berubah dari sebelumnya) â€” "Jumlah" murni informasi tambahan.
+            // TAK berubah dari sebelumnya) — "Jumlah" murni informasi tambahan.
             $skorMentahSiswa = 0.0;
 
             $col = 0;
@@ -228,7 +228,7 @@ class UjianAnalisisExport implements FromArray, WithTitle, WithEvents, WithStric
                 $benar = $jw?->is_benar ? 1 : 0;
                 if (!$benar) $footerSalah[$col]++;
                 // mcq_complex/match: tampilkan SKOR yg didapat (bisa parsial di mode
-                // proporsional), bukan 1/0 â€” mcq/true_false tetap 1/0 apa adanya (memang
+                // proporsional), bukan 1/0 — mcq/true_false tetap 1/0 apa adanya (memang
                 // selalu semua-atau-tidak, tak ada skor parsial utk ditampilkan).
                 $row[] = in_array($soal->tipe, ['mcq_complex', 'match'], true) ? (float) ($jw?->skor_diperoleh ?? 0) : $benar;
                 $col++;
@@ -320,7 +320,7 @@ class UjianAnalisisExport implements FromArray, WithTitle, WithEvents, WithStric
 
         if ($this->soalSemua->where('tipe', 'essay')->count() > 0 || $this->soalSemua->whereIn('tipe', ['mcq_complex', 'match'])->count() > 0) {
             $kosong();
-            $tambah(['Ket: kolom soal esai di Analisis Nilai berisi skor mentah (bukan 1/0) dan tidak dihitung di baris Jumlah jawaban salah/Persentase Kesalahan; soal esai tidak muncul di Objektif (Jawaban). Soal pilihan ganda kompleks & mencocokkan di Analisis Nilai tetap 1 kolom (benar/salah keseluruhan) â€” breakdown per-opsi/pasangan benar HANYA muncul di Objektif (Jawaban).']);
+            $tambah(['Ket: kolom soal esai di Analisis Nilai berisi skor mentah (bukan 1/0) dan tidak dihitung di baris Jumlah jawaban salah/Persentase Kesalahan; soal esai tidak muncul di Objektif (Jawaban). Soal pilihan ganda kompleks & mencocokkan di Analisis Nilai tetap 1 kolom (benar/salah keseluruhan) — breakdown per-opsi/pasangan benar HANYA muncul di Objektif (Jawaban).']);
         }
 
         return $rows;

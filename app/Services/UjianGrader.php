@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Penilaian otomatis untuk tipe soal objektif (mcq/mcq_complex/true_false/match).
- * Esai TIDAK pernah dinilai di sini â€” selalu menunggu guru (lihat
+ * Esai TIDAK pernah dinilai di sini — selalu menunggu guru (lihat
  * UjianGradingController & selesaikanPenilaianEssai(), keduanya Fase 4).
  */
 class UjianGrader
@@ -43,13 +43,13 @@ class UjianGrader
 
     /**
      * is_benar SELALU berarti "100% benar" (dipakai pembahasan & Excel Analisis), TAK
-     * berubah walau skor_mode='proporsional' â€” yang berubah cuma skor_diperoleh.
+     * berubah walau skor_mode='proporsional' — yang berubah cuma skor_diperoleh.
      *
-     * skor_mode='proporsional': "Poin" berarti poin PER OPSI BENAR (bukan total soal) â€”
-     * perkalian langsung poin Ã— jumlah opsi benar yg dipilih (tanpa hukuman opsi salah
+     * skor_mode='proporsional': "Poin" berarti poin PER OPSI BENAR (bukan total soal) —
+     * perkalian langsung poin × jumlah opsi benar yg dipilih (tanpa hukuman opsi salah
      * yg ikut dipilih). skor_mode='all_or_nothing' (default): "Poin" adalah TOTAL soal
      * apa adanya (poinEfektif() mengembalikan poin mentah utk mode ini, TANPA dikali
-     * jumlah opsi) â€” semua-atau-tidak-sama-sekali tak punya konsep "per item".
+     * jumlah opsi) — semua-atau-tidak-sama-sekali tak punya konsep "per item".
      */
     private function scoreMultiSelect(UjianSoal $soal, UjianJawaban $jawaban): array
     {
@@ -79,7 +79,7 @@ class UjianGrader
         return ['is_benar' => $benar, 'skor' => $skor];
     }
 
-    /** Sama semantik poin dgn scoreMultiSelect() (lihat komentar di sana) â€” proporsional: poin PER PASANGAN; all_or_nothing: poin TOTAL apa adanya. */
+    /** Sama semantik poin dgn scoreMultiSelect() (lihat komentar di sana) — proporsional: poin PER PASANGAN; all_or_nothing: poin TOTAL apa adanya. */
     private function scoreMatch(UjianSoal $soal, UjianJawaban $jawaban): array
     {
         $pairs = $soal->meta['pairs'] ?? [];
@@ -179,7 +179,7 @@ class UjianGrader
     }
 
     /**
-     * Fallback sinkron kalau attempt lewat batas_waktu_pada â€” dipakai baik oleh
+     * Fallback sinkron kalau attempt lewat batas_waktu_pada — dipakai baik oleh
      * siswa sendiri (fallback saat render/poll, lihat UjianSiswaController) maupun
      * command sapuan `ujian:auto-submit` (Fase 4). selesai_pada dipatok ke
      * batas_waktu_pada (bukan now()) demi keadilan skor waktu.
@@ -221,11 +221,11 @@ class UjianGrader
 
     /**
      * Normalisasi skor mentah ke skala final sesuai setting per-mapel (Pelajaran::
-     * mode_skor_ujian): 'rata_rata' (default) menormalisasi ke skala 0-100 (skor Ã·
-     * totalPoin Ã— 100); 'jumlah' memakai total poin apa adanya (bisa >100 kalau total
+     * mode_skor_ujian): 'rata_rata' (default) menormalisasi ke skala 0-100 (skor ÷
+     * totalPoin × 100); 'jumlah' memakai total poin apa adanya (bisa >100 kalau total
      * poin soal ujian ini >100). Dipakai baik utk skor FINAL (finalisasi(), semua soal
      * termasuk esai) maupun skor SEMENTARA (UjianAttempt::skorSementara(), esai msh 0)
-     * â€” skala HARUS sama persis di keduanya, supaya angkanya "naik" begitu esai selesai
+     * — skala HARUS sama persis di keduanya, supaya angkanya "naik" begitu esai selesai
      * dinilai, bukan lompat skala.
      */
     public static function normalisasiSkor(float $skorMentah, int $totalPoin, string $modeSkor): float

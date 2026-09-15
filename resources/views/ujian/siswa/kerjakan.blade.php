@@ -31,14 +31,14 @@
      @copy.prevent @cut.prevent @paste.prevent @contextmenu.prevent
 >
     {{-- Overlay: wajib layar penuh sebelum mulai (gesture langsung dari klik). Disembunyikan
-         juga saat sudah terkunci ATAU sedang mengumpulkan ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â kalau tidak, overlay ini & overlay
+         juga saat sudah terkunci ATAU sedang mengumpulkan ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â kalau tidak, overlay ini & overlay
          "Ujian Terkunci"/"Mengumpulkan" di bawah bisa tampil bersamaan bertumpuk (semuanya
-         fixed inset-0, teks jadi bertabrakan) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â exitFullscreen() saat submit bikin fsActive
+         fixed inset-0, teks jadi bertabrakan) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â exitFullscreen() saat submit bikin fsActive
          balik false persis di titik ini. --}}
     <div x-show="!fsActive && !terkunci && !mengumpulkan" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
         <div class="max-w-sm space-y-4">
             <i data-lucide="maximize" class="w-14 h-14 text-primary mx-auto"></i>
-            <h2 class="text-white text-lg font-bold m-0">Mode Ujian ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Layar Penuh</h2>
+            <h2 class="text-white text-lg font-bold m-0">Mode Ujian ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Layar Penuh</h2>
             <p class="text-slate-300 text-sm m-0 leading-relaxed">Ketuk tombol di bawah untuk masuk layar penuh dan memulai pengerjaan. Waktu sudah berjalan.</p>
             <button type="button" @click="masukLayarPenuh()" class="btn-primary px-6 py-3 rounded-xl text-sm font-bold inline-flex items-center gap-2">
                 <i data-lucide="maximize" class="w-4 h-4"></i> Masuk Layar Penuh
@@ -79,7 +79,7 @@
     <template x-for="(s, i) in soal" :key="'panel-'+s.uuid">
         <div x-show="i === idx" x-cloak class="card p-5 space-y-4">
             <div class="flex items-center justify-between">
-                <p class="text-xs text-slate-400">Soal <span x-text="i+1"></span> dari <span x-text="soal.length"></span> ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· <span x-text="s.poin"></span> poin</p>
+                <p class="text-xs text-slate-400">Soal <span x-text="i+1"></span> dari <span x-text="soal.length"></span> Ãƒâ€šÃ‚Â· <span x-text="s.poin"></span> poin</p>
             </div>
             <div class="text-sm font-medium text-slate-800 dark:text-slate-100 ujian-rich-body" x-html="s.teks_soal"></div>
 
@@ -146,16 +146,16 @@
         </div>
     </template>
 
-    {{-- Overlay mengumpulkan (submit normal/otomatis) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â SENGAJA state TERPISAH dari
+    {{-- Overlay mengumpulkan (submit normal/otomatis) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â SENGAJA state TERPISAH dari
          "terkunci" (pelanggaran). Sebelumnya kumpulkan() reuse kunci() yg sama dgn
          pelanggaran fullscreen/tab, jadi siswa yg menekan "Kumpulkan Ujian" secara SAH
-         sempat melihat overlay "Ujian Terkunci ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Anda keluar dari layar penuh..." yg
+         sempat melihat overlay "Ujian Terkunci ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Anda keluar dari layar penuh..." yg
          menakutkan & salah konteks (makin kentara kalau fetch submit-nya agak lambat). --}}
     <div x-show="mengumpulkan" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
         <div class="max-w-sm space-y-4">
             <i data-lucide="loader-circle" class="w-14 h-14 text-primary mx-auto animate-spin"></i>
-            <h2 class="text-white text-lg font-bold m-0">Mengumpulkan UjianÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦</h2>
-            <p class="text-slate-300 text-sm m-0 leading-relaxed" x-text="mengumpulkanOtomatis ? 'Waktu ujian sudah habis ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â jawaban Anda sedang dikumpulkan otomatis.' : 'Mohon tunggu sebentar, jangan tutup halaman ini.'"></p>
+            <h2 class="text-white text-lg font-bold m-0">Mengumpulkan UjianÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦</h2>
+            <p class="text-slate-300 text-sm m-0 leading-relaxed" x-text="mengumpulkanOtomatis ? 'Waktu ujian sudah habis ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â jawaban Anda sedang dikumpulkan otomatis.' : 'Mohon tunggu sebentar, jangan tutup halaman ini.'"></p>
         </div>
     </div>
 
@@ -251,7 +251,7 @@ function ujianKerjakan(cfg) {
         },
 
         // Sebagian HP siswa gagal/menolak Fullscreen API (requestFullscreen() reject diam2,
-        // lihat catch() di atas) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â tanpa jalan keluar ini siswa tsb terjebak permanen di
+        // lihat catch() di atas) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â tanpa jalan keluar ini siswa tsb terjebak permanen di
         // overlay ini, tak pernah bisa mulai ujian sama sekali. `intentional` dipasang SEBELUM
         // fsActive=true supaya syncFs() (yg jalan lewat event fullscreenchange kalau memang
         // sempat browser sempat masuk fullscreen sebentar lalu gagal) tak salah lapor
@@ -399,8 +399,8 @@ function ujianKerjakan(cfg) {
                 await this._doSimpan(currentUuid);
             }
 
-            // SENGAJA tak pakai kunci() di sini ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â kunci() menyalakan `terkunci` yg
-            // menampilkan overlay "Ujian Terkunci ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Anda keluar dari layar penuh/berpindah
+            // SENGAJA tak pakai kunci() di sini ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â kunci() menyalakan `terkunci` yg
+            // menampilkan overlay "Ujian Terkunci ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Anda keluar dari layar penuh/berpindah
             // tab", pesan yg salah konteks (& menakutkan) utk submit yg SAH. `mengumpulkan`
             // adalah state terpisah dgn overlay netral sendiri (lihat kerjakan.blade.php).
             this.mengumpulkan = true;

@@ -1,5 +1,5 @@
 {{-- Dipakai bersama oleh ujian/edit.blade.php (susun soal ujian) DAN
-     bank-soal/show.blade.php (susun soal bank per-mapel) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â bentuk soal identik
+     bank-soal/show.blade.php (susun soal bank per-mapel) Ã¢â‚¬â€ bentuk soal identik
      (mcq/mcq_complex/true_false/match/essay), cuma beda induk. @once cegah
      duplikat kalau suatu saat ke-include dua kali di halaman yg sama. --}}
 @once
@@ -76,7 +76,7 @@ function soalForm(init) {
         },
         // _uid: id unik per KARTU soal (dipakai buat namespacing id textarea TinyMCE
         // supaya tak bentrok antar kartu di halaman yg sama). _key per baris opsi/pasangan:
-        // kunci STABIL yg tak berubah walau baris LAIN ditambah/dihapus ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â kalau pakai index
+        // kunci STABIL yg tak berubah walau baris LAIN ditambah/dihapus Ã¢â‚¬â€ kalau pakai index
         // biasa (:key="i"), Alpine akan mengira DOM node opsi pindah isi (bukan pindah index)
         // saat baris lain dihapus, dan textarea TinyMCE yg sudah ter-mount jadi salah kaitan.
         _uid: init._uid || ujianUid(),
@@ -84,7 +84,7 @@ function soalForm(init) {
         pasangan: (init.pasangan || []).map(p => ({ ...p, _key: p._key || ujianUid() })),
         resetTrueFalse() {
             // Lepas TinyMCE dari textarea opsi (kalau sempat ter-mount waktu tipe masih
-            // mcq/mcq_complex) SEBELUM x-if melepas elemennya dari DOM ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â cegah instance
+            // mcq/mcq_complex) SEBELUM x-if melepas elemennya dari DOM Ã¢â‚¬â€ cegah instance
             // TinyMCE menggantung tanpa elemen (juga cegah ia diam2 ikut nulis value='' ke
             // field bernama sama saat submit, lihat catatan di soal-fields.blade.php).
             this.opsi.forEach(o => window.UjianEditor && window.UjianEditor.unmount('opsi-editor-' + this._uid + '-' + o._key));
@@ -98,11 +98,11 @@ function soalForm(init) {
             // Jaring pengaman: ganti tipe soal ke Benar/Salah lewat kode (bukan klik user
             // langsung ke checkbox) terbukti kadang tak bikin binding x-model checkbox yg
             // SUDAH ter-mount ikut sinkron ulang ke DOM (opsi.benar di data Alpine sudah
-            // benar, tapi properti `checked` elemen tetap nyangkut di nilai lama) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â entah
+            // benar, tapi properti `checked` elemen tetap nyangkut di nilai lama) Ã¢â‚¬â€ entah
             // krn detail internal x-for/Alpine saat banyak mutasi ditumpuk sekaligus dlm satu
             // siklus reaktif. Paksa cocokkan langsung sbg jaring pengaman drpd berharap penuh
             // pada reaktivitas otomatis di titik SPESIFIK ini. Pakai `_rootEl` (ditangkap via
-            // x-init di elemen ROOT kartu), BUKAN `this.$el` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â `$el` di dalam method yg
+            // x-init di elemen ROOT kartu), BUKAN `this.$el` Ã¢â‚¬â€ `$el` di dalam method yg
             // dipanggil dari @change select ternyata resolve ke elemen <select> ITU SENDIRI
             // (elemen directive yg sedang dievaluasi), bukan root kartu, jadi querySelectorAll
             // via `this.$el` selalu 0 hasil (checkbox bukan descendant dari <select>).

@@ -19,8 +19,31 @@ class SoalValidator
      * Ruang Kelas (StoreClassroomMaterialRequest::rules(), max:200000) tapi lebih hemat krn
      * kolom DB di sini masih `text` (~64KB), bukan `longText`.
      */
-    public static function validate(Request $request): array
+        public static function validate(Request $request): array
     {
+        if ($request->has('_b64')) {
+            $merge = [];
+            if ($request->filled('teks_soal')) $merge['teks_soal'] = base64_decode($request->teks_soal);
+            if ($request->filled('penjelasan')) $merge['penjelasan'] = base64_decode($request->penjelasan);
+            if ($request->filled('kunci_esai')) $merge['kunci_esai'] = base64_decode($request->kunci_esai);
+            
+            if (is_array($request->opsi)) {
+                $opsi = $request->opsi;
+                foreach ($opsi as $k => $v) {
+                    if (isset($v['teks'])) $opsi[$k]['teks'] = base64_decode($v['teks']);
+                }
+                $merge['opsi'] = $opsi;
+            }
+            if (is_array($request->pasangan)) {
+                $pasangan = $request->pasangan;
+                foreach ($pasangan as $k => $v) {
+                    if (isset($v['kiri'])) $pasangan[$k]['kiri'] = base64_decode($v['kiri']);
+                    if (isset($v['kanan'])) $pasangan[$k]['kanan'] = base64_decode($v['kanan']);
+                }
+                $merge['pasangan'] = $pasangan;
+            }
+            $request->merge($merge);
+        }
         $data = $request->validate([
             'tipe'                  => 'required|in:mcq,mcq_complex,true_false,match,essay',
             'teks_soal'             => 'required|string|max:60000',
@@ -82,6 +105,7 @@ class SoalValidator
         return $data;
     }
 }
+
 
 
 

@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Bank Soal Ã¢â‚¬â€ ' . $pelajaran->nama)
+@section('title', 'Bank Soal â€” ' . $pelajaran->nama)
 
 @section('content')
 <div class="max-w-3xl mx-auto space-y-5">
@@ -7,7 +7,7 @@
         <nav class="text-xs text-slate-400 mb-1">
             <a href="{{ route('bank-soal.index') }}" class="hover:underline">Bank Soal</a> / {{ $pelajaran->nama }}
         </nav>
-        <h1 class="page-title">Bank Soal Ã¢â‚¬â€ {{ $pelajaran->nama }}</h1>
+        <h1 class="page-title">Bank Soal â€” {{ $pelajaran->nama }}</h1>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ $soal->count() }} soal tersimpan. Dikelola bersama semua guru yang mengajar {{ $pelajaran->nama }}.</p>
     </div>
 
@@ -38,7 +38,7 @@
                         <template x-if="!loadingData"><span>{{ $i + 1 }}</span></template>
                     </span>
                     <div class="min-w-0">
-                        <p class="text-xs text-slate-400">{{ $s->typeLabel() }} Ã‚Â· {{ $s->poinEfektif() }} poin</p>
+                        <p class="text-xs text-slate-400">{{ $s->typeLabel() }} Â· {{ $s->poinEfektif() }} poin</p>
                         <p class="text-sm font-medium truncate">{{ Str::limit(strip_tags($s->teks_soal), 80) }}</p>
                     </div>
                 </div>
@@ -74,7 +74,7 @@
     </div>
 
     <div class="flex justify-end">
-        <a href="{{ route('bank-soal.index') }}" class="text-sm text-primary hover:underline">Ã¢â€ Â Kembali ke daftar mapel</a>
+        <a href="{{ route('bank-soal.index') }}" class="text-sm text-primary hover:underline">â† Kembali ke daftar mapel</a>
     </div>
 </div>
 @endsection
