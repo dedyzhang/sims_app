@@ -4,7 +4,9 @@
 @once
 @push('styles')
 <style>
-    .ujian-rich-body { line-height: 1.6; }
+    .ujian-rich-body { line-height: 1.6; overflow-wrap: break-word; word-wrap: break-word; overflow-x: auto; }
+    .ujian-rich-body pre { white-space: pre-wrap; word-wrap: break-word; }
+    .ujian-rich-body p, .ujian-rich-body span { max-width: 100%; white-space: pre-wrap !important; }
     .ujian-rich-body p { margin: 0 0 .5em; }
     .ujian-rich-body p:last-child { margin-bottom: 0; }
     .ujian-rich-body ul, .ujian-rich-body ol { margin: 0 0 .5em 1.4em; }
@@ -15,3 +17,4 @@
 </style>
 @endpush
 @endonce
+

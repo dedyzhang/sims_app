@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 @section('title', 'Penilaian â€” ' . $assignment->title)
 
 @php $fmt = function ($b) { $u=['B','KB','MB','GB']; $i=0; $b=(int)$b; while($b>=1024 && $i<3){ $b/=1024; $i++; } return round($b,1).' '.$u[$i]; }; @endphp

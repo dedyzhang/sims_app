@@ -1,4 +1,4 @@
-﻿<div x-data="filePreviewModal()">
+<div x-data="filePreviewModal()">
 {{-- Blok pengumpulan siswa (status + form). Var: $assignment, $mySubmission --}}
 @php
     $warningTime = false; $timeLeftStr = '';

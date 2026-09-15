@@ -1,4 +1,4 @@
-﻿{{-- Modal preview file (gambar/PDF) sengaja TIDAK di-teleport ke <body> agar tampil saat Fullscreen API aktif. --}}
+{{-- Modal preview file (gambar/PDF) sengaja TIDAK di-teleport ke <body> agar tampil saat Fullscreen API aktif. --}}
 <div x-show="pvUrl" x-cloak class="modal-backdrop" x-transition style="z-index:70" @click.self="close()" @keydown.escape.window="close()">
     <div class="modal-box max-w-4xl w-full h-[88vh] flex flex-col" @click.stop>
         <div class="p-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2 flex-shrink-0 flex-wrap">

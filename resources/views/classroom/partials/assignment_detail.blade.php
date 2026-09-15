@@ -1,4 +1,4 @@
-﻿<div x-data="filePreviewModal()">
+<div x-data="filePreviewModal()">
 {{-- Detail tugas (header + instruksi + lampiran). Var: $assignment, $canManage --}}
 <div class="flex items-start gap-3">
     <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style="background:color-mix(in srgb, var(--cp) 14%, transparent)"><i data-lucide="clipboard-list" class="w-6 h-6" style="color:var(--cp)"></i></div>

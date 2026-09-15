@@ -1,4 +1,4 @@
-﻿{{-- Isi materi (dipakai di tampilan normal & mode terkunci). Var: $material, $canManage --}}
+{{-- Isi materi (dipakai di tampilan normal & mode terkunci). Var: $material, $canManage --}}
 @php $fmt = fn ($b) => ($b = (int) $b) >= 1048576 ? round($b / 1048576, 1) . ' MB' : ($b >= 1024 ? round($b / 1024) . ' KB' : $b . ' B'); @endphp
 <div x-data="filePreviewModal()">
 <div class="flex items-start gap-3">

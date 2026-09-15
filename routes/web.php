@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\Admin\ChatbotAdminController;
