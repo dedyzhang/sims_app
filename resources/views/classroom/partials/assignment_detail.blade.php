@@ -10,7 +10,7 @@
             @if($canManage && $assignment->hide_scores)<span class="text-[11px] px-2 py-0.5 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 flex items-center gap-1 font-semibold"><i data-lucide="eye-off" class="w-3.5 h-3.5"></i> Nilai Rahasia</span>@endif
             <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">{{ $assignment->title }}</h1>
         </div>
-        <p class="text-xs text-slate-400 mt-1">Nilai maks {{ $assignment->max_score }}@if($assignment->due_at) Â· Batas {{ $assignment->due_at->locale('id')->translatedFormat('d M Y H:i') }}@endif @if($assignment->allow_late) Â· boleh terlambat @endif</p>
+        <p class="text-xs text-slate-400 mt-1">Nilai maks {{ $assignment->max_score }}@if($assignment->due_at) &middot; Batas {{ $assignment->due_at->locale('id')->translatedFormat('d M Y H:i') }}@endif @if($assignment->allow_late) &middot; boleh terlambat @endif</p>
     </div>
     @if($canManage)
     <div class="flex items-center gap-1 flex-shrink-0">
@@ -38,4 +38,8 @@
 
 @include('classroom.partials.file_preview_modal')
 </div>
+
+
+
+
 

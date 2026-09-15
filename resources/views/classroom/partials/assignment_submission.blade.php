@@ -60,9 +60,9 @@
                     @foreach($mySubmission->files as $f)
 @php $canPreview = $f->isImage() || $f->mime === 'application/pdf'; @endphp
 @if($canPreview)
-<button type="button" @click="open('{{ route('classroom.submission.file.preview', $f) }}', '{{ route('classroom.submission.file', $f) }}', '{{ addslashes($f->original_name) }}', {{ $f->isImage() ? 'true' : 'false' }})" class=" text-left"><i data-lucide="{{ $f->isImage() ? 'image' : 'file-text' }}" class=""></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, ) }}</span></button>
+<button type="button" @click="open('{{ route('classroom.submission.file.preview', $f) }}', '{{ route('classroom.submission.file', $f) }}', '{{ addslashes($f->original_name) }}', {{ $f->isImage() ? 'true' : 'false' }})" class="text-xs inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 hover:border-primary"><i data-lucide="{{ $f->isImage() ? 'image' : 'file-text' }}" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::limit($f->original_name, 26) }}</button>
 @else
-<a href="{{ route('classroom.submission.file', $f) }}" class=""><i data-lucide="paperclip" class=""></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, ) }}</span></a>
+<a href="{{ route('classroom.submission.file', $f) }}" class="text-xs inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 hover:border-primary"><i data-lucide="paperclip" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::limit($f->original_name, 26) }}</a>
 @endif
 @endforeach
                 </div>
@@ -78,23 +78,30 @@
             @csrf
             <div>
                 <label class="form-label">Jawaban Anda</label>
-                <p class="text-[11px] text-slate-400 mb-2">Tulis jawaban (opsional jika melampirkan file). Bisa menggunakan editor matematika visual <b>âˆ‘ Rumus</b> &amp; <b>â–¶ YouTube</b>.</p>
+                <p class="text-[11px] text-slate-400 mb-2">Tulis jawaban (opsional jika melampirkan file). Bisa menggunakan editor matematika visual <b>&sum; Rumus</b> &amp; <b>&#9654; YouTube</b>.</p>
                 @include('classroom.partials.editor', ['name' => 'body', 'value' => $mySubmission->body ?? ''])
             </div>
             @if($mySubmission && $mySubmission->files->isNotEmpty())
-            <div>
-                <label class="form-label text-xs">Lampiran Saat Ini</label>
-                <div class="flex flex-wrap gap-2 mb-2">
-                    @foreach($mySubmission->files as $f)
-@php $canPreview = $f->isImage() || $f->mime === 'application/pdf'; @endphp
-@if($canPreview)
-<button type="button" @click="open('{{ route('classroom.submission.file.preview', $f) }}', '{{ route('classroom.submission.file', $f) }}', '{{ addslashes($f->original_name) }}', {{ $f->isImage() ? 'true' : 'false' }})" class=" text-left"><i data-lucide="{{ $f->isImage() ? 'image' : 'file-text' }}" class=""></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, ) }}</span></button>
-@else
-<a href="{{ route('classroom.submission.file', $f) }}" class=""><i data-lucide="paperclip" class=""></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, ) }}</span></a>
-@endif
-@endforeach
-                </div>
-            </div>
+              <div>
+                  <label class="form-label text-xs">Lampiran Saat Ini</label>
+                  <div class="flex flex-wrap gap-2 mb-2">
+                      @foreach($mySubmission->files as $f)
+                      @php $canPreview = $f->isImage() || $f->mime === 'application/pdf'; @endphp
+                      <div class="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden hover:border-primary">
+                          @if($canPreview)
+                          <button type="button" @click="open('{{ route('classroom.submission.file.preview', $f) }}', '{{ route('classroom.submission.file', $f) }}', '{{ addslashes($f->original_name) }}', {{ $f->isImage() ? 'true' : 'false' }})" class="text-xs inline-flex items-center gap-1 px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700">
+                              <i data-lucide="{{ $f->isImage() ? 'image' : 'file-text' }}" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::limit($f->original_name, 26) }}
+                          </button>
+                          @else
+                          <a href="{{ route('classroom.submission.file', $f) }}" class="text-xs inline-flex items-center gap-1 px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700">
+                              <i data-lucide="paperclip" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::limit($f->original_name, 26) }}
+                          </a>
+                          @endif
+                          <button type="button" onclick="if(confirm('Hapus lampiran ini?')) fetch('{{ route('classroom.submission.file.delete', $f) }}', {method: 'POST', headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/x-www-form-urlencoded'}, body: '_method=DELETE'}).then(()=>window.location.reload())" class="text-rose-500 hover:bg-rose-50 px-2 py-1.5 border-l border-slate-200 dark:border-slate-600" title="Hapus"><i data-lucide="x" class="w-3 h-3"></i></button>
+                      </div>
+                      @endforeach
+                  </div>
+              </div>
             @endif
             @include('classroom.partials.upload', ['label' => 'Tambah Lampiran (gambar/PDF)'])
             <div class="flex justify-end gap-2 pt-2">
@@ -106,4 +113,111 @@
 </div>
 
 @include('classroom.partials.file_preview_modal')
+
+
 </div>
+
+
+
+
+
+
+
+
+
+@push('scripts')
+<script>
+document.addEventListener('submit', async function(e) {
+    const form = e.target;
+    if (form.getAttribute('action') !== '{{ route('classroom.submission.store', $assignment) }}') return;
+
+    const fileInput = form.querySelector('input[type="file"][name="files[]"]');
+    if (!fileInput || fileInput.files.length <= 1) return;
+
+    e.preventDefault();
+    const btn = e.submitter;
+    const actionVal = btn ? btn.value : 'draft';
+    const bodyInput = form.querySelector('[name="body"]');
+    const csrf = form.querySelector('input[name="_token"]').value;
+
+    const files = Array.from(fileInput.files);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center transition-opacity';
+    overlay.innerHTML = `
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs w-full mx-4 text-center">
+            <svg class="animate-spin h-10 w-10 text-primary mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100 mb-1">Mengunggah Tugas...</h3>
+            <p id="upload-progress-text" class="text-sm text-slate-500 font-medium">File 1 dari ${files.length}</p>
+            <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 mt-4 overflow-hidden">
+                <div id="upload-progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const updateProgress = (i) => {
+        document.getElementById('upload-progress-text').innerText = 'File ' + i + ' dari ' + files.length;
+        document.getElementById('upload-progress-bar').style.width = ((i - 1) / files.length * 100) + '%';
+    };
+
+    // Upload files 0 to N-2
+    for (let i = 0; i < files.length - 1; i++) {
+        updateProgress(i + 1);
+        
+        const fd = new FormData();
+        fd.append('_token', csrf);
+        fd.append('submit_action', 'draft'); 
+        if (bodyInput && i === 0) fd.append('body', bodyInput.value);
+        fd.append('files[]', files[i]);
+
+        try {
+            const resp = await fetch(form.action, {
+                method: 'POST',
+                body: fd,
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!resp.ok) {
+                alert('Gagal mengunggah file ke-' + (i+1) + '. Status: ' + resp.status);
+                overlay.remove();
+                return;
+            }
+        } catch (err) {
+            alert('Terjadi kesalahan jaringan saat mengunggah file ke-' + (i+1));
+            overlay.remove();
+            return;
+        }
+    }
+
+    updateProgress(files.length);
+    document.getElementById('upload-progress-bar').style.width = '90%';
+    document.getElementById('upload-progress-text').innerText = 'Menyelesaikan pengumpulan...';
+    
+    try {
+        const dt = new DataTransfer();
+        dt.items.add(files[files.length - 1]);
+        fileInput.files = dt.files;
+    } catch(e) {
+        const fd = new FormData();
+        fd.append('_token', csrf);
+        fd.append('submit_action', actionVal);
+        if (bodyInput && files.length === 1) fd.append('body', bodyInput.value);
+        fd.append('files[]', files[files.length - 1]);
+        await fetch(form.action, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' }});
+        window.location.reload();
+        return;
+    }
+
+    let hiddenAction = form.querySelector('input[name="submit_action"][type="hidden"]');
+    if (!hiddenAction) {
+        hiddenAction = document.createElement('input');
+        hiddenAction.type = 'hidden';
+        hiddenAction.name = 'submit_action';
+        form.appendChild(hiddenAction);
+    }
+    hiddenAction.value = actionVal;
+
+    form.submit();
+});
+</script>
+@endpush

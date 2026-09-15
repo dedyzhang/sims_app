@@ -65,15 +65,15 @@ class ClassroomController extends Controller implements \Illuminate\Routing\Cont
         }
 
         // Buang baris Ngajar yg id_pelajaran-nya sudah TAK ADA lagi di master (mapel dihapus
-        // tanpa membersihkan penugasan guru yg masih memakainya, lihat PelajaranController —
+        // tanpa membersihkan penugasan guru yg masih memakainya, lihat PelajaranController Ã¢â‚¬â€
         // sekarang sudah dicegah di sana, tapi data lama yg terlanjur nyangkut tetap perlu
         // disaring di sini). whereNotNull('id_pelajaran') di atas cuma jamin kolomnya tak
-        // NULL, bukan jamin barisnya masih ada — relasi $n->pelajaran bisa tetap null.
+        // NULL, bukan jamin barisnya masih ada Ã¢â‚¬â€ relasi $n->pelajaran bisa tetap null.
         $ngajars = $query->get()
             ->filter(fn ($n) => $n->pelajaran !== null)
             ->sortBy(fn ($n) => [$n->pelajaran?->urutan ?? 99, $n->pelajaran?->nama])->values();
 
-        // Mapel yang diampu user (guru) di kelas ini → boleh mengelola.
+        // Mapel yang diampu user (guru) di kelas ini Ã¢â€ â€™ boleh mengelola.
         $myPelajaran = [];
         if ($user->guru) {
             $myPelajaran = Ngajar::where('id_guru', $user->guru->uuid)->where('id_kelas', $kelas->uuid)
@@ -107,7 +107,7 @@ class ClassroomController extends Controller implements \Illuminate\Routing\Cont
     {
         $this->authorize('view', $classroom);
 
-        // Bookmark lama ?tab=jagat → hub Arena tab Misi
+        // Bookmark lama ?tab=jagat Ã¢â€ â€™ hub Arena tab Misi
         if ($request->query('tab') === 'jagat') {
             return redirect()->route('classroom.arena.index', [
                 'classroom' => $classroom,
@@ -120,8 +120,8 @@ class ClassroomController extends Controller implements \Illuminate\Routing\Cont
         $classroom->load([
             'pelajaran', 'rombel', 'kelas', 'author', 'forumTopic',
             'members.user',
-            'materials' => fn ($q) => $q->orderBy('sort_order')->latest()->withCount('comments'),
-            'assignments' => fn ($q) => $q->latest()->withCount(['submissions', 'comments']),
+            'materials' => fn ($q) => $user->can('manage', $classroom) ? $q->orderBy('sort_order')->latest()->withCount('comments') : $q->where('is_published', true)->orderBy('sort_order')->latest()->withCount('comments'),
+            'assignments' => fn ($q) => $user->can('manage', $classroom) ? $q->latest()->withCount(['submissions', 'comments']) : $q->where('status', 'published')->latest()->withCount(['submissions', 'comments']),
         ]);
 
         $canManage = $user->can('manage', $classroom);
@@ -136,7 +136,7 @@ class ClassroomController extends Controller implements \Illuminate\Routing\Cont
         return view('classroom.show', compact('classroom', 'canManage', 'mySubmissions'));
     }
 
-    // ─── Helper lingkup ───
+    // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helper lingkup Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
     private function kelasForUser(User $user)
     {
@@ -185,3 +185,6 @@ class ClassroomController extends Controller implements \Illuminate\Routing\Cont
         return array_values(array_unique(array_filter(array_merge($ajar, $wali))));
     }
 }
+
+
+

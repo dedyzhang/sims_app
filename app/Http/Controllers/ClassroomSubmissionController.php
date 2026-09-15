@@ -31,11 +31,11 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
     /** Siswa mengumpulkan tugas (boleh banyak file). */
     public function store(StoreClassroomSubmissionRequest $request, ClassroomAssignment $assignment)
     {
-        // Satu tugas bisa ditaut ke BANYAK kelas (classroom_assignment_links) â€” resolveClassroom()
+        // Satu tugas bisa ditaut ke BANYAK kelas (classroom_assignment_links) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â resolveClassroom()
         // (dr HandlesContentLock, dipakai jg oleh show/download/lock) cari dulu kelas yg ditaut &
         // cocok dgn id_kelas siswa ini, baru fallback ke $assignment->classroom (kelas asal). Dulu
-        // di sini langsung pakai $assignment->classroom mentah2 â€” siswa yg akses tugas ini lewat
-        // kelasnya SENDIRI (bukan kelas asal tempat tugas dibuat) kena 403 walau keanggotaannya di
+        // di sini langsung pakai $assignment->classroom mentah2 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â siswa yg akses tugas ini lewat
+        // kelasnya SENDIRI (bukan kelas asal tempat tugas dibuat) kena 403 walau keanggotÂ·nnya di
         // kelasnya sendiri valid, krn authorize() ceknya ke classroom yg SALAH.
         $classroom = $this->resolveClassroom($request, $assignment);
         $this->authorize('submit', $classroom);
@@ -87,7 +87,7 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
     public function grade(GradeClassroomSubmissionRequest $request, ClassroomSubmission $submission)
     {
         // Pakai kelas TEMPAT SUBMISSION INI DIKUMPULKAN ($submission->classroom, terisi sejak
-        // store()), bukan kelas asal tugas â€” guru yg mengampu kelas lain yg ditaut jangan sampai
+        // store()), bukan kelas asal tugas ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â guru yg mengampu kelas lain yg ditaut jangan sampai
         // 403 gara2 ceknya ke kelas asal (pola sama dgn download(), lihat catatan di bawah).
         $this->authorize('manage', $submission->classroom ?? $submission->assignment->classroom);
 
@@ -123,6 +123,20 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
         return back()->with('success', 'Jawaban berhasil dibatalkan. Siswa sekarang dapat merevisi jawabannya.');
     }
 
+    public function deleteFile(Request $request, ClassroomSubmissionFile $file)
+    {
+        $submission = $file->submission;
+        abort_unless($submission->student_id === $request->user()->uuid, 403, 'Akses ditolak.');
+        abort_unless(in_array($submission->status, ['draft', 'returned']), 403, 'Tidak dapat menghapus file pada tugas yang sudah dikumpulkan.');
+
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($file->path)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($file->path);
+        }
+        $file->delete();
+
+        return back()->with('success', 'Lampiran berhasil dihapus.');
+    }
+
     public function download(ClassroomSubmissionFile $file)
     {
         $submission = $file->submission;
@@ -150,4 +164,7 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
         ]);
     }
 }
+
+
+
 

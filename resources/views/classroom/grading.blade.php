@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Penilaian â€” ' . $assignment->title)
+@section('title', 'Penilaian - ' . $assignment->title)
 
 @php $fmt = function ($b) { $u=['B','KB','MB','GB']; $i=0; $b=(int)$b; while($b>=1024 && $i<3){ $b/=1024; $i++; } return round($b,1).' '.$u[$i]; }; @endphp
 
@@ -9,7 +9,7 @@
         <a href="{{ route('classroom.show', $classroom) }}?tab=tugas" class="p-2 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"><i data-lucide="arrow-left" class="w-4 h-4"></i></a>
         <div>
             <h1 class="page-title">Penilaian: {{ $assignment->title }}</h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Nilai maks {{ $assignment->max_score }} Â· {{ $submissions->count() }} pengumpulan</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Nilai maks {{ $assignment->max_score }} &middot; {{ $submissions->count() }} pengumpulan</p>
         </div>
     </div>
 
@@ -23,7 +23,7 @@
                     <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:var(--cp)">{{ $s->student?->initial() ?? '?' }}</div>
                     <div>
                         <p class="font-semibold text-slate-800 dark:text-slate-100">{{ $s->student?->displayName() }}</p>
-                        <p class="text-[11px] text-slate-400">Dikumpulkan {{ $s->submitted_at?->locale('id')->diffForHumans() }} @if($s->is_late)<span class="text-rose-500">Â· terlambat</span>@endif</p>
+                        <p class="text-[11px] text-slate-400">Dikumpulkan {{ $s->submitted_at?->locale('id')->diffForHumans() }} @if($s->is_late)<span class="text-rose-500">Ãƒâ€šÃ‚Â· terlambat</span>@endif</p>
                     </div>
                 </div>
                 @if($s->body)<div class="text-sm text-slate-700 dark:text-slate-200 mt-2 leading-relaxed">@include('classroom.partials.richbody', ['html' => $s->body])</div>@endif
@@ -32,12 +32,16 @@
                     @foreach($s->files as $f)
                     @php $canPreview = $f->isImage() || $f->mime === 'application/pdf'; @endphp
 @if($canPreview)
-<button type="button" @click="open('{{ route('classroom.submission.file.preview', $f) }}', '{{ route('classroom.submission.file', $f) }}', '{{ addslashes($f->original_name) }}', {{ $f->isImage() ? 'true' : 'false' }})" class=" text-left">
-    <i data-lucide="{{ $f->isImage() ? 'image' : 'file-text' }}" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::limit($f->original_name, 26) }} <span class="text-slate-400">({{ $fmt($f->size_compressed ?? $f->size_original) }})</span>
+<button type="button" @click="open('{{ route('classroom.submission.file.preview', $f) }}', '{{ route('classroom.submission.file', $f) }}', '{{ addslashes($f->original_name) }}', {{ $f->isImage() ? 'true' : 'false' }})" class="hover:text-primary transition flex items-center gap-1.5 min-w-0 text-left">
+    <i data-lucide="{{ $f->isImage() ? 'image' : 'file-text' }}" class="w-4 h-4 flex-shrink-0"></i> 
+    <span class="truncate">{{ $f->original_name }}</span> 
+    <span class="text-slate-400 whitespace-nowrap">({{ $fmt($f->size_compressed ?? $f->size_original) }})</span>
 </button>
 @else
-<a href="{{ route('classroom.submission.file', $f) }}" class="">
-    <i data-lucide="{{ $f->isImage() ? 'image' : 'file-text' }}" class="w-3 h-3"></i> {{ \Illuminate\Support\Str::limit($f->original_name, 26) }} <span class="text-slate-400">({{ $fmt($f->size_compressed ?? $f->size_original) }})</span>
+<a href="{{ route('classroom.submission.file', $f) }}" class="hover:text-primary transition flex items-center gap-1.5 min-w-0">
+    <i data-lucide="paperclip" class="w-4 h-4 flex-shrink-0"></i> 
+    <span class="truncate">{{ $f->original_name }}</span> 
+    <span class="text-slate-400 whitespace-nowrap">({{ $fmt($f->size_compressed ?? $f->size_original) }})</span>
 </a>
 @endif
                     @endforeach
@@ -46,15 +50,13 @@
             </div>
             @if(in_array($s->status, ['submitted', 'graded']))
             <div class="flex items-end gap-2 flex-shrink-0">
-                <form method="POST" action="{{ route('classroom.submission.grade', $s) }}" class="flex items-end gap-2">
+                <form method="POST" action="{{ route('classroom.submission.grade', $s) }}" class="flex flex-wrap items-end gap-2">
                     @csrf
                     <div>
                         <label class="form-label text-xs">Nilai</label>
                         <input type="number" name="score" value="{{ $s->score }}" min="0" max="{{ $assignment->max_score }}" class="form-input w-24" required>
                     </div>
-                    <div>
-                        <label class="form-label text-xs">Feedback</label>
-                        <input type="text" name="feedback" value="{{ $s->feedback }}" class="form-input w-56" placeholder="Catatan (opsional)">
+                    <div class="flex-1 min-w-[150px]"><label class="form-label text-xs">Feedback</label><input type="text" name="feedback" value="{{ $s->feedback }}" class="form-input w-full" placeholder="Catatan (opsional)">
                     </div>
                     <button class="px-4 py-2.5 rounded-xl text-sm font-bold text-white shadow" style="background:var(--cp)">Simpan</button>
                 </form>
@@ -76,12 +78,17 @@
             </div>
             @endif
         </div>
-        @if($s->status==='graded')<p class="text-xs text-emerald-600 mt-2">âœ“ Dinilai: {{ $s->score }}/{{ $assignment->max_score }}</p>@endif
+        @if($s->status==='graded')<p class="text-xs text-emerald-600 mt-2">ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ Dinilai: {{ $s->score }}/{{ $assignment->max_score }}</p>@endif
     </div>
     @empty
     <div class="card p-10 text-center text-slate-400"><i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 opacity-30"></i><p>Belum ada pengumpulan.</p></div>
     @endforelse
-</div>
 @include('classroom.partials.file_preview_modal')
+</div>
 @endsection
+
+
+
+
+
 

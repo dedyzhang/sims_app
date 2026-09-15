@@ -106,6 +106,13 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
             ->orderBy('kelas')->get();
     }
 
+    public function publish(Request $request, ClassroomAssignment $assignment)
+    {
+        $this->authorize('manage', $this->resolveViewableClassroom($assignment, $request->user()));
+        $assignment->update(['status' => 'published']);
+        return back()->with('success', 'Tugas berhasil diterbitkan.');
+    }
+
     public function show(Request $request, ClassroomAssignment $assignment)
     {
         $classUuid = $request->query('class');
@@ -152,6 +159,7 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
             // Load all submissions for this assignment in the active classroom
             $submissions = ClassroomSubmission::where('assignment_id', $assignment->uuid)
                 ->whereIn('student_id', $studentUserUuids)
+                ->where('status', '!=', 'draft')
                 ->with(['student.siswa', 'files'])
                 ->get();
 
@@ -193,7 +201,7 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         ));
     }
 
-    // â”€â”€â”€ Kunci (token + layar penuh) â€” via HandlesContentLock â”€â”€â”€
+    // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Kunci (token + layar penuh) ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â via HandlesContentLock ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
     public function toggleLock(Request $request, ClassroomAssignment $assignment)
     {
         return $this->lockToggle($request, $assignment);
@@ -225,7 +233,7 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
             'id_materi' => 'nullable|required_if:type,sumatif|exists:materi,uuid',
         ]);
 
-        // Tentukan materi tujuan â†’ untuk tahu ngajar & semester-nya.
+        // Tentukan materi tujuan ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ untuk tahu ngajar & semester-nya.
         $targetMateri = $data['type'] === 'formatif'
             ? Materi::find(TujuanPembelajaran::where('uuid', $data['id_tupe'])->value('id_materi'))
             : Materi::find($data['id_materi']);
@@ -322,10 +330,32 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
     public function destroy(ClassroomAssignment $assignment)
     {
         $this->authorize('manage', $assignment->classroom);
+
+        foreach ($assignment->files as $file) {
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($file->path)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($file->path);
+            }
+        }
+
+        foreach ($assignment->submissions as $submission) {
+            foreach ($submission->files as $file) {
+                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($file->path)) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($file->path);
+                }
+            }
+        }
+
+        $assignment->comments()->delete();
+        
+        \Illuminate\Support\Facades\DB::table('tugas_kelas')
+            ->where('id_classroom_assignment', $assignment->uuid)
+            ->update(['id_classroom_assignment' => null]);
+
         $assignment->delete();
+        
         Audit::log('classroom_assignment_delete', $assignment);
 
-        return back()->with('success', 'Tugas dihapus.');
+        return back()->with('success', 'Tugas dan seluruh data lampiran berhasil dihapus.');
     }
 
     /** Halaman penilaian: daftar submission per tugas. */
@@ -347,6 +377,7 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         // Load only submissions for this assignment in the active classroom
         $submissions = ClassroomSubmission::where('assignment_id', $assignment->uuid)
             ->whereIn('student_id', $studentUserUuids)
+            ->where('status', '!=', 'draft')
             ->with(['student.siswa', 'files'])
             ->latest('submitted_at')
             ->get();
@@ -374,10 +405,10 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
     }
 
     /**
-     * Satu tugas bisa ditaut ke BANYAK kelas sekaligus (classroom_assignment_links) â€” kelas
+     * Satu tugas bisa ditaut ke BANYAK kelas sekaligus (classroom_assignment_links) ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â kelas
      * "asal" (`ClassroomAssignment::classroom()`) cuma satu, dipakai buat breadcrumb. Siswa/
      * guru yg mengakses tugas ini lewat kelas MEREKA SENDIRI (bukan kelas asal) harus tetap
-     * lolos â€” cari dulu kelas yg ditaut & relevan ke user ini, baru fallback ke kelas asal
+     * lolos ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â cari dulu kelas yg ditaut & relevan ke user ini, baru fallback ke kelas asal
      * kalau tak ketemu (mis. guru/admin pengelola yg bukan anggota kelas manapun).
      */
     private function resolveViewableClassroom(ClassroomAssignment $assignment, User $user): ?Classroom
@@ -399,4 +430,13 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         return $assignment->classroom;
     }
 }
+
+
+
+
+
+
+
+
+
 

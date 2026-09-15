@@ -5,7 +5,7 @@
     <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style="background:color-mix(in srgb, var(--cp) 14%, transparent)"><i data-lucide="book-open" class="w-6 h-6" style="color:var(--cp)"></i></div>
     <div class="min-w-0 flex-1">
         <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">{{ $material->title }} @if($material->is_locked)<i data-lucide="lock" class="w-4 h-4 text-amber-500"></i>@endif</h1>
-        <p class="text-xs text-slate-400 mt-0.5">{{ $material->uploader?->displayName() }} Â· {{ $material->created_at?->locale('id')->diffForHumans() }}</p>
+        <p class="text-xs text-slate-400 mt-0.5">{{ $material->uploader?->displayName() }} Ã‚Â· {{ $material->created_at?->locale('id')->diffForHumans() }}</p>
     </div>
     @if($canManage)
     <div class="flex items-center gap-1 flex-shrink-0">
@@ -26,7 +26,7 @@
 <div class="flex flex-wrap items-center gap-2 mt-4">
     <a href="{{ $material->meet_url }}" target="_blank" rel="noopener" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white shadow-sm hover:opacity-90 transition" style="background:#16a34a">
         <i data-lucide="video" class="w-4 h-4"></i> Gabung Google Meet
-        <span class="text-[11px] font-normal opacity-80 hidden sm:inline">Â· {{ \Illuminate\Support\Str::after($material->meet_url, 'meet.google.com/') }}</span>
+        <span class="text-[11px] font-normal opacity-80 hidden sm:inline">Ã‚Â· {{ \Illuminate\Support\Str::after($material->meet_url, 'meet.google.com/') }}</span>
     </a>
     @if($canManage)
     <form method="POST" action="{{ route('classroom.material.closemeet', $material) }}" onsubmit="return confirmAction(this, 'Tutup kelas online? Link Google Meet akan dihapus dari materi ini.', 'orange')">@csrf
@@ -68,3 +68,5 @@
 
 @include('classroom.partials.file_preview_modal')
 </div>
+
+
