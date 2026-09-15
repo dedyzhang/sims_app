@@ -1,3 +1,4 @@
+﻿<div x-data="filePreviewModal()">
 {{-- Blok pengumpulan siswa (status + form). Var: $assignment, $mySubmission --}}
 @php
     $warningTime = false; $timeLeftStr = '';
@@ -56,7 +57,14 @@
             <div>
                 <p class="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Lampiran:</p>
                 <div class="flex flex-wrap gap-2">
-                    @foreach($mySubmission->files as $f)<a href="{{ route('classroom.submission.file', $f) }}" class="text-xs inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-primary hover:text-primary transition shadow-sm"><i data-lucide="paperclip" class="w-3.5 h-3.5 text-slate-400"></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, 28) }}</span></a>@endforeach
+                    @foreach($mySubmission->files as $f)
+@php $canPreview = $f->isImage() || $f->mime === 'application/pdf'; @endphp
+@if($canPreview)
+<button type="button" @click="open('{{ route('classroom.submission.file.preview', $f) }}', '{{ route('classroom.submission.file', $f) }}', '{{ addslashes($f->original_name) }}', {{ $f->isImage() ? 'true' : 'false' }})" class=" text-left"><i data-lucide="{{ $f->isImage() ? 'image' : 'file-text' }}" class=""></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, ) }}</span></button>
+@else
+<a href="{{ route('classroom.submission.file', $f) }}" class=""><i data-lucide="paperclip" class=""></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, ) }}</span></a>
+@endif
+@endforeach
                 </div>
             </div>
             @endif
@@ -70,14 +78,21 @@
             @csrf
             <div>
                 <label class="form-label">Jawaban Anda</label>
-                <p class="text-[11px] text-slate-400 mb-2">Tulis jawaban (opsional jika melampirkan file). Bisa menggunakan editor matematika visual <b>∑ Rumus</b> &amp; <b>▶ YouTube</b>.</p>
+                <p class="text-[11px] text-slate-400 mb-2">Tulis jawaban (opsional jika melampirkan file). Bisa menggunakan editor matematika visual <b>âˆ‘ Rumus</b> &amp; <b>â–¶ YouTube</b>.</p>
                 @include('classroom.partials.editor', ['name' => 'body', 'value' => $mySubmission->body ?? ''])
             </div>
             @if($mySubmission && $mySubmission->files->isNotEmpty())
             <div>
                 <label class="form-label text-xs">Lampiran Saat Ini</label>
                 <div class="flex flex-wrap gap-2 mb-2">
-                    @foreach($mySubmission->files as $f)<a href="{{ route('classroom.submission.file', $f) }}" class="text-xs inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/40"><i data-lucide="paperclip" class="w-3 h-3 text-slate-400"></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, 20) }}</span></a>@endforeach
+                    @foreach($mySubmission->files as $f)
+@php $canPreview = $f->isImage() || $f->mime === 'application/pdf'; @endphp
+@if($canPreview)
+<button type="button" @click="open('{{ route('classroom.submission.file.preview', $f) }}', '{{ route('classroom.submission.file', $f) }}', '{{ addslashes($f->original_name) }}', {{ $f->isImage() ? 'true' : 'false' }})" class=" text-left"><i data-lucide="{{ $f->isImage() ? 'image' : 'file-text' }}" class=""></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, ) }}</span></button>
+@else
+<a href="{{ route('classroom.submission.file', $f) }}" class=""><i data-lucide="paperclip" class=""></i><span>{{ \Illuminate\Support\Str::limit($f->original_name, ) }}</span></a>
+@endif
+@endforeach
                 </div>
             </div>
             @endif
@@ -88,4 +103,7 @@
             </div>
         </form>
     @endif
+</div>
+
+@include('classroom.partials.file_preview_modal')
 </div>

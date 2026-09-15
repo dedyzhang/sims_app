@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Http\Controllers;
 
@@ -193,7 +193,7 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         ));
     }
 
-    // ─── Kunci (token + layar penuh) — via HandlesContentLock ───
+    // â”€â”€â”€ Kunci (token + layar penuh) â€” via HandlesContentLock â”€â”€â”€
     public function toggleLock(Request $request, ClassroomAssignment $assignment)
     {
         return $this->lockToggle($request, $assignment);
@@ -225,7 +225,7 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
             'id_materi' => 'nullable|required_if:type,sumatif|exists:materi,uuid',
         ]);
 
-        // Tentukan materi tujuan → untuk tahu ngajar & semester-nya.
+        // Tentukan materi tujuan â†’ untuk tahu ngajar & semester-nya.
         $targetMateri = $data['type'] === 'formatif'
             ? Materi::find(TujuanPembelajaran::where('uuid', $data['id_tupe'])->value('id_materi'))
             : Materi::find($data['id_materi']);
@@ -362,11 +362,22 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         return Storage::disk('public')->download($file->path, $file->original_name);
     }
 
+    public function preview(Request $request, ClassroomAssignmentFile $file)
+    {
+        $this->authorize('view', $this->resolveViewableClassroom($file->assignment, $request->user()));
+        abort_unless(Storage::disk('public')->exists($file->path), 404);
+
+        return response()->file(Storage::disk('public')->path($file->path), [
+            'Content-Type' => $file->mime,
+            'Content-Disposition' => 'inline; filename="' . $file->original_name . '"',
+        ]);
+    }
+
     /**
-     * Satu tugas bisa ditaut ke BANYAK kelas sekaligus (classroom_assignment_links) — kelas
+     * Satu tugas bisa ditaut ke BANYAK kelas sekaligus (classroom_assignment_links) â€” kelas
      * "asal" (`ClassroomAssignment::classroom()`) cuma satu, dipakai buat breadcrumb. Siswa/
      * guru yg mengakses tugas ini lewat kelas MEREKA SENDIRI (bukan kelas asal) harus tetap
-     * lolos — cari dulu kelas yg ditaut & relevan ke user ini, baru fallback ke kelas asal
+     * lolos â€” cari dulu kelas yg ditaut & relevan ke user ini, baru fallback ke kelas asal
      * kalau tak ketemu (mis. guru/admin pengelola yg bukan anggota kelas manapun).
      */
     private function resolveViewableClassroom(ClassroomAssignment $assignment, User $user): ?Classroom
@@ -388,3 +399,4 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         return $assignment->classroom;
     }
 }
+
