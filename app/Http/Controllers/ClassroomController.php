@@ -120,11 +120,12 @@ class ClassroomController extends Controller implements \Illuminate\Routing\Cont
         $classroom->load([
             'pelajaran', 'rombel', 'kelas', 'author', 'forumTopic',
             'members.user',
-            'materials' => fn ($q) => $user->can('manage', $classroom) ? $q->orderBy('sort_order')->latest()->withCount('comments') : $q->where('is_published', true)->orderBy('sort_order')->latest()->withCount('comments'),
-            'assignments' => fn ($q) => $user->can('manage', $classroom) ? $q->latest()->withCount(['submissions', 'comments']) : $q->where('status', 'published')->latest()->withCount(['submissions', 'comments']),
+            'materials' => fn ($q) => $user->can('monitor', $classroom) ? $q->orderBy('sort_order')->latest()->withCount('comments') : $q->where('is_published', true)->orderBy('sort_order')->latest()->withCount('comments'),
+            'assignments' => fn ($q) => $user->can('monitor', $classroom) ? $q->latest()->withCount(['submissions', 'comments']) : $q->where('status', 'published')->latest()->withCount(['submissions', 'comments']),
         ]);
 
         $canManage = $user->can('manage', $classroom);
+        $canMonitor = $user->can('monitor', $classroom);
 
         $mySubmissions = [];
         if ($user->access === 'siswa') {
@@ -133,7 +134,7 @@ class ClassroomController extends Controller implements \Illuminate\Routing\Cont
                 ->get()->keyBy('assignment_id');
         }
 
-        return view('classroom.show', compact('classroom', 'canManage', 'mySubmissions'));
+        return view('classroom.show', compact('classroom', 'canManage', 'canMonitor', 'mySubmissions'));
     }
 
     // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helper lingkup Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
@@ -181,8 +182,7 @@ class ClassroomController extends Controller implements \Illuminate\Routing\Cont
             return [];
         }
         $ajar = Ngajar::where('id_guru', $guru->uuid)->pluck('id_kelas')->all();
-        $wali = Walikelas::where('id_guru', $guru->uuid)->pluck('id_kelas')->all();
-        return array_values(array_unique(array_filter(array_merge($ajar, $wali))));
+        return array_values(array_unique(array_filter($ajar)));
     }
 }
 

@@ -23,7 +23,7 @@ class ClassroomPolicy
         if ($user->isAdmin() || in_array($user->access, ['kepala', 'kurikulum'], true)) {
             return true;
         }
-        if ($classroom->created_by === $user->uuid || $this->teachesSubject($user, $classroom)) {
+        if ($classroom->created_by === $user->uuid || $this->teachesSubject($user, $classroom) || $this->isWaliKelas($user, $classroom)) {
             return true;
         }
         // Siswa/ortu anggota hanya setelah terbit.
@@ -45,7 +45,13 @@ class ClassroomPolicy
         return $user->isAdmin() || $classroom->created_by === $user->uuid;
     }
 
-    /** Kelola materi/tugas/penilaian — hanya guru pengampu mapel ini (sesuai jam ngajar). */
+    /** Memantau kelas (lihat tugas, materi, dan submission siswa, tanpa ubah nilai). */
+    public function monitor(User $user, Classroom $classroom): bool
+    {
+        return $this->manage($user, $classroom) || $this->isWaliKelas($user, $classroom) || in_array($user->access, ['kepala', 'kurikulum'], true);
+    }
+
+    /** Kelola materi/tugas/penilaian - hanya guru pengampu mapel ini (sesuai jam ngajar). */
     public function manage(User $user, Classroom $classroom): bool
     {
         return $user->isAdmin() || $classroom->created_by === $user->uuid || $this->teachesSubject($user, $classroom);
@@ -86,6 +92,22 @@ class ClassroomPolicy
         }
 
         return isset(self::$teachingSubjectCache[$classroom->id_kelas . '_' . $classroom->id_pelajaran]);
+    }
+
+    private static ?array $waliKelasCache = null;
+
+    private function isWaliKelas(User $user, Classroom $classroom): bool
+    {
+        $guru = $user->guru;
+        if (!$guru || !$classroom->id_kelas) {
+            return false;
+        }
+
+        if (self::$waliKelasCache === null) {
+            self::$waliKelasCache = \App\Models\Walikelas::where('id_guru', $guru->uuid)->pluck('id_kelas')->flip()->toArray();
+        }
+
+        return isset(self::$waliKelasCache[$classroom->id_kelas]);
     }
 
     private static ?array $teachingKelasCache = null;

@@ -154,7 +154,7 @@
     <div x-show="mengumpulkan" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
         <div class="max-w-sm space-y-4">
             <i data-lucide="loader-circle" class="w-14 h-14 text-primary mx-auto animate-spin"></i>
-            <h2 class="text-white text-lg font-bold m-0">Mengumpulkan UjianÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦</h2>
+            <h2 class="text-white text-lg font-bold m-0">Mengumpulkan Ujian...</h2>
             <p class="text-slate-300 text-sm m-0 leading-relaxed" x-text="mengumpulkanOtomatis ? 'Waktu ujian sudah habis - jawaban Anda sedang dikumpulkan otomatis.' : 'Mohon tunggu sebentar, jangan tutup halaman ini.'"></p>
         </div>
     </div>

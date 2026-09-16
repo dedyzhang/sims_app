@@ -86,6 +86,7 @@ class ClassroomMaterialController extends Controller implements \Illuminate\Rout
         return back()->with('success', 'Materi berhasil diterbitkan.');
     }
 
+
     public function show(Request $request, ClassroomMaterial $material)
     {
         $classUuid = $request->query('class');
@@ -150,10 +151,13 @@ class ClassroomMaterialController extends Controller implements \Illuminate\Rout
         return redirect()->route('classroom.material.show', $material)->with('success', 'Materi diperbarui untuk semua kelas tertaut.');
     }
 
-    public function destroy(ClassroomMaterial $material)
+    public function destroy(Request $request, ClassroomMaterial $material)
     {
-        $this->authorize('manage', $material->classroom);
-        $classroom = $material->classroom;
+        $classUuid = $request->query('class');
+        $classroom = $classUuid ? $material->classrooms()->where('uuid', $classUuid)->first() : null;
+        $classroom ??= $this->resolveViewableClassroom($material, $request->user()) ?? $material->classroom;
+
+        $this->authorize('manage', $classroom);
 
         foreach ($material->files as $file) {
             if (\Illuminate\Support\Facades\Storage::disk('public')->exists($file->path)) {
@@ -205,10 +209,14 @@ class ClassroomMaterialController extends Controller implements \Illuminate\Rout
             }
         }
         if ($user->guru) {
-            $ids = Ngajar::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
-            $classroom = $material->classrooms()->whereIn('id_kelas', $ids)->first();
-            if ($classroom) {
-                return $classroom;
+            $ngajarIds = \App\Models\Ngajar::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
+            $waliIds = \App\Models\Walikelas::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
+            $ids = array_unique(array_merge($ngajarIds, $waliIds));
+            if (!empty($ids)) {
+                $classroom = $material->classrooms()->whereIn('id_kelas', $ids)->first();
+                if ($classroom) {
+                    return $classroom;
+                }
             }
         }
 
@@ -244,7 +252,7 @@ class ClassroomMaterialController extends Controller implements \Illuminate\Rout
         $material->update(['meet_url' => null]);
         Audit::log('classroom_meet_closed', $material);
 
-        return back()->with('success', 'Kelas online ditutup Ã¢â‚¬â€ link Google Meet dihapus.');
+        return back()->with('success', 'Kelas online ditutup - link Google Meet dihapus.');
     }
 
     /** Normalisasi input Google Meet (URL penuh atau kode xxx-xxxx-xxx) Ã¢â€ â€™ URL bersih. */

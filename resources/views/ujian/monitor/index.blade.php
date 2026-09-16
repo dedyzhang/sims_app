@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="max-w-4xl mx-auto space-y-5"
-     x-data="ujianMonitor({{ Js::from(route('ujian.monitor.poll', $ujian)) }}, {{ Js::from(route('ujian.monitor.unlock', [$ujian, '__ATTEMPT__'])) }}, {{ Js::from(route('ujian.monitor.resetAttempt', [$ujian, '__ATTEMPT__'])) }})"
+     x-data="ujianMonitor({{ Js::from(route('ujian.monitor.poll', $ujian)) }}, {{ Js::from(route('ujian.monitor.unlock', [$ujian, '__ATTEMPT__'])) }})"
      x-init="init()">
     <div>
         <nav class="text-xs text-slate-400 mb-1">
@@ -29,43 +29,46 @@
     </div>
 
     <div class="card overflow-hidden">
-        <table class="w-full text-sm">
-            <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs text-slate-500 dark:text-slate-400">
-                <tr>
-                    <th class="text-left px-4 py-2.5">Siswa</th>
-                    <th class="text-left px-4 py-2.5">Kelas</th>
-                    <th class="text-left px-4 py-2.5">Status</th>
-                    <th class="text-left px-4 py-2.5">Sisa Waktu</th>
-                    <th class="text-left px-4 py-2.5">Pelanggaran</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-                <template x-for="a in attempts" :key="a.attempt_uuid || a.nama">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
                     <tr>
-                        <td class="px-4 py-2.5 font-medium" x-text="a.nama"></td>
-                        <td class="px-4 py-2.5 text-slate-500" x-text="a.kelas"></td>
-                        <td class="px-4 py-2.5">
-                            <span class="badge"
-                                  :class="a.status==='belum_mulai' ? 'bg-slate-100 dark:bg-slate-700 text-slate-500' : (a.dikunci ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400' : (a.status==='in_progress' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'))"
-                                  x-text="a.dikunci ? 'Terkunci' : a.status_label"></span>
-                        </td>
-                        <td class="px-4 py-2.5 font-mono text-xs" x-text="a.status==='in_progress' ? formatSisa(a.batas_waktu_pada) : '—'"></td>
-                        <td class="px-4 py-2.5">
-                            <span x-show="a.pelanggaran > 0" class="badge bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400" x-text="a.pelanggaran"></span>
-                            <span x-show="a.pelanggaran === 0" class="text-slate-300">—</span>
-                        </td>
-                        <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
-                            <button type="button" x-show="a.dikunci" @click="bukaKunci(a)" class="text-xs text-primary hover:underline">Buka Kunci</button>
-                            <button type="button" x-show="a.attempt_uuid" @click="resetUlang(a)" class="text-xs text-rose-600 hover:underline">Reset Ulang</button>
-                        </td>
+                        <th class="text-left px-4 py-2.5">Siswa</th>
+                        <th class="text-left px-4 py-2.5">Kelas</th>
+                        <th class="text-left px-4 py-2.5">Status</th>
+                        <th class="text-left px-4 py-2.5">Sisa Waktu</th>
+                        <th class="text-left px-4 py-2.5">Pelanggaran</th>
+                        <th></th>
                     </tr>
-                </template>
-                <tr x-show="attempts.length === 0">
-                    <td colspan="6" class="px-4 py-8 text-center text-slate-400">Belum ada siswa yang mulai mengerjakan.</td>
-                </tr>
-            </tbody>
-        </table>
+                </thead>
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                    <template x-for="a in attempts" :key="a.attempt_uuid || a.nama">
+                        <tr>
+                            <td class="px-4 py-2.5 font-medium whitespace-nowrap" x-text="a.nama"></td>
+                            <td class="px-4 py-2.5 text-slate-500 whitespace-nowrap" x-text="a.kelas"></td>
+                            <td class="px-4 py-2.5 whitespace-nowrap">
+                                <span class="badge"
+                                      :class="a.status==='belum_mulai' ? 'bg-slate-100 dark:bg-slate-700 text-slate-500' : (a.dikunci ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400' : (a.status==='in_progress' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'))"
+                                      x-text="a.dikunci ? 'Terkunci' : a.status_label"></span>
+                            </td>
+                            <td class="px-4 py-2.5 font-mono text-xs whitespace-nowrap" x-text="a.status==='in_progress' ? formatSisa(a.batas_waktu_pada) : '—'"></td>
+                            <td class="px-4 py-2.5 whitespace-nowrap">
+                                <span x-show="a.pelanggaran > 0" class="badge bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400" x-text="a.pelanggaran"></span>
+                                <span x-show="a.pelanggaran === 0" class="text-slate-300">—</span>
+                            </td>
+                            <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
+                                <button type="button" x-show="a.dikunci" @click="bukaKunci(a)" title="Buka Kunci" class="inline-flex p-1.5 rounded-lg text-primary hover:bg-primary/10">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="attempts.length === 0">
+                        <td colspan="6" class="px-4 py-8 text-center text-slate-400">Belum ada siswa yang mulai mengerjakan.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 @endsection
@@ -106,25 +109,6 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
         async bukaKunci(a) {
             await this._post(urlUnlockTemplate.replace('__ATTEMPT__', a.attempt_uuid));
             this.muat();
-        },
-
-        resetUlang(a) {
-            const self = this;
-            $.confirm({
-                title: 'Reset Ulang Attempt?',
-                content: `Reset ulang attempt ${a.nama}? Siswa akan bisa memulai ujian dari nol dengan token yang sama.`,
-                type: 'orange',
-                buttons: {
-                    ya: {
-                        text: 'Ya, Reset', btnClass: 'btn-blue', keys: ['enter'],
-                        action: async function () {
-                            await self._post(urlResetTemplate.replace('__ATTEMPT__', a.attempt_uuid));
-                            self.muat();
-                        },
-                    },
-                    batal: { text: 'Batal' },
-                },
-            });
         },
 
         async _post(url) {
