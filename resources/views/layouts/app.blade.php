@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Dashboard') — {{ $namaSekolah ?? 'Edutive' }}</title>
+    @include('partials.pwa-head')
 
     @if($sekolahLogoUrl)
         <link rel="shortcut icon" href="{{ $sekolahLogoUrl }}" type="image/x-icon">
@@ -1097,11 +1098,10 @@
                 if ($modulOn('grup_chat') && $grupChatTampil) {
                     $registerNav('grup.index', ['grup.*'], 'users-round', 'Grup Chat');
                 }
-                $appDownloadOn = \App\Models\Setting::get('app_download_aktif') === '1'
-                    && (\App\Models\Setting::get('app_apk_path') || \App\Models\Setting::get('app_windows_path'));
-                if ($appDownloadOn) {
-                    $registerNav('app.download', ['app.download'], 'download', 'Unduh Aplikasi');
-                }
+                // Selalu tampil: halaman ini juga memuat panduan pasang PWA iOS yang
+                // tidak butuh file unggahan. Menyembunyikannya saat sekolah belum
+                // mengunggah APK berarti pengguna iPhone tak punya jalur in-app ke sana.
+                $registerNav('app.download', ['app.download'], 'download', 'Unduh Aplikasi');
                 if ($modulOn('chatbot') && $isAdmin) {
                     $registerNav('chatbot.admin.inbox', ['chatbot.admin.*'], 'message-circle', 'Chat / Inbox');
                 }
@@ -1270,13 +1270,12 @@
             </a>
             @endif
 
-            {{-- Unduh Aplikasi: tampil untuk semua pengguna bila diaktifkan admin & ada file --}}
-            @if($appDownloadOn)
+            {{-- Unduh Aplikasi: selalu tampil — halaman ini juga memuat panduan pasang
+                 PWA iOS yang tidak bergantung pada file APK/installer unggahan admin. --}}
             <a href="{{ route('app.download') }}" data-tip="Unduh Aplikasi" class="nav-link flex items-center px-3 py-2.5 {{ request()->routeIs('app.download') ? 'active' : '' }}" :class="mini ? 'justify-center' : 'gap-3'">
                 <i data-lucide="download" class="nav-icon w-[18px] h-[18px] flex-shrink-0"></i>
                 <span x-show="!mini" class="text-sm truncate">Unduh Aplikasi</span>
             </a>
-            @endif
 
 
             {{-- Asisten Sekolah: untuk pengguna non-admin dipakai lewat floating ball
@@ -1594,6 +1593,7 @@
         ])>
             @unless($isPanduanPage)
             @include('partials.langganan-banner')
+            @include('partials.demo-banner')
             @endunless
             <div @class([
                 'anim-fade flex-1',

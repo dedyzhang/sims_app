@@ -100,31 +100,53 @@ class GameLiveParticipantQueryTest extends TestCase
         return $siswaUser;
     }
 
-    public function test_jumlah_query_state_tidak_naik_seiring_jumlah_peserta_live(): void
+    /** Jumlah query satu panggilan state() sbg $viewer. */
+    private function hitungQueryState(User $viewer): int
     {
-        $viewer = $this->joinAsNewSiswa('viewer_live_q');
-
         DB::flushQueryLog();
         DB::enableQueryLog();
         $this->actingAs($viewer)->getJson(route('classroom.arena.live.state', [$this->classroom, $this->quiz]))->assertOk();
-        $baseline = count(DB::getQueryLog());
+        $n = count(DB::getQueryLog());
         DB::disableQueryLog();
 
+        return $n;
+    }
+
+    /**
+     * Toleransi ±2 query, BUKAN kesamaan persis.
+     *
+     * Sejak memo keanggotaan di ClassroomPolicy di-key per user (dulu satu static
+     * global yang dipakai bersama SEMUA user — jawaban otorisasi milik orang lain
+     * ikut terpakai, lihat ClassroomAutoEnrollTest), satu lookup classroom_members
+     * bisa muncul atau tidak tergantung urutan pemeriksaan di dalam request. Hasil
+     * pengukuran nyata: 1→19, 5→19, 10→20, 20→19, 40→19 query — jelas TIDAK tumbuh
+     * mengikuti jumlah peserta, hanya berayun satu query.
+     *
+     * Yang dijaga tes ini tetap utuh: N+1 sungguhan (lazy-load guru/siswa per peserta)
+     * akan menambah ~20 query antara dua titik ukur di bawah dan langsung tertangkap.
+     */
+    public function test_jumlah_query_state_tidak_naik_seiring_jumlah_peserta_live(): void
+    {
+        $viewer = $this->joinAsNewSiswa('viewer_live_q');
         for ($i = 0; $i < 9; $i++) {
             $this->joinAsNewSiswa('siswa_live_q_' . $i);
         }
 
-        DB::flushQueryLog();
-        DB::enableQueryLog();
-        $resp = $this->actingAs($viewer)->getJson(route('classroom.arena.live.state', [$this->classroom, $this->quiz]))->assertOk();
-        $afterTen = count(DB::getQueryLog());
-        DB::disableQueryLog();
+        $this->hitungQueryState($viewer); // pemanasan
+        $sepuluh = $this->hitungQueryState($viewer);
 
-        $this->assertCount(10, $resp->json('session.participants'));
-        $this->assertSame(
-            $baseline,
-            $afterTen,
-            "Query state() harus TETAP walau peserta live bertambah dr 1 ke 10 (skrg {$baseline} vs {$afterTen}) — indikasi lazy-load guru/siswa per peserta kembali muncul."
+        for ($i = 10; $i < 30; $i++) {
+            $this->joinAsNewSiswa('siswa_live_q_' . $i);
+        }
+
+        $tigaPuluh = $this->hitungQueryState($viewer);
+
+        $resp = $this->actingAs($viewer)->getJson(route('classroom.arena.live.state', [$this->classroom, $this->quiz]))->assertOk();
+        $this->assertCount(30, $resp->json('session.participants'));
+        $this->assertLessThanOrEqual(
+            $sepuluh + 2,
+            $tigaPuluh,
+            "Query state() harus TETAP walau peserta live bertambah dr 10 ke 30 (skrg {$sepuluh} vs {$tigaPuluh}) — indikasi lazy-load guru/siswa per peserta kembali muncul."
         );
     }
 }

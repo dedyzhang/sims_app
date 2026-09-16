@@ -228,12 +228,13 @@ class UjianGradingTest extends TestCase
     }
 
     /**
-     * Pelajaran::mode_skor_ujian='jumlah' — total_skor jadi total poin apa adanya
-     * (di sini 10+15=25), BUKAN dinormalisasi ke skala 100 spt default 'rata_rata'.
+     * ujians.mode_skor='akumulasi' — total_skor jadi total poin apa adanya (di sini
+     * 10+15=25), BUKAN dinormalisasi ke skala 100 spt default 'rata_rata'. Sumber
+     * setelan pindah dari Pelajaran::mode_skor_ujian ke kolom di ujian itu sendiri.
      */
     public function test_mode_skor_ujian_jumlah_pakai_total_poin_apa_adanya(): void
     {
-        $this->pelajaran->update(['mode_skor_ujian' => 'jumlah']);
+        $this->ujian->update(['mode_skor' => 'akumulasi']);
         $soal1 = UjianSoal::create(['id_ujian' => $this->ujian->uuid, 'tipe' => 'mcq', 'teks_soal' => '2+2=?', 'poin' => 10, 'urutan' => 1]);
         $benar1 = UjianSoalOpsi::create(['id_soal' => $soal1->uuid, 'teks_opsi' => '4', 'is_benar' => true, 'urutan' => 1]);
         UjianSoalOpsi::create(['id_soal' => $soal1->uuid, 'teks_opsi' => '5', 'is_benar' => false, 'urutan' => 2]);

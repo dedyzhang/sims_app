@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DemoAccess;
 use App\Models\Guru;
 use App\Models\Siswa;
 use App\Models\User;
+use App\Services\DemoCallbackClient;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -26,10 +28,10 @@ class LoginController extends Controller
     {
         $request->validate([
             'credential' => 'required|string',
-            'password'   => 'required|string',
+            'password' => 'required|string',
         ], [
             'credential.required' => 'Username / NIK / NIS wajib diisi.',
-            'password.required'   => 'Password wajib diisi.',
+            'password.required' => 'Password wajib diisi.',
         ]);
 
         $credential = trim($request->credential);
@@ -42,8 +44,12 @@ class LoginController extends Controller
             return back()->withErrors(['credential' => $this->dbBusyMessage()])->withInput(['credential' => $credential]);
         }
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             return back()->withErrors(['credential' => 'Username / NIK / NIS atau password salah.'])->withInput(['credential' => $credential]);
+        }
+
+        if ($this->demoAccessBlocked($user)) {
+            return redirect()->route('demo.berakhir');
         }
 
         try {
@@ -64,7 +70,7 @@ class LoginController extends Controller
     {
         $request->validate([
             'credential' => 'required|string',
-            'pin'        => 'required|digits:6',
+            'pin' => 'required|digits:6',
         ]);
 
         try {
@@ -75,8 +81,12 @@ class LoginController extends Controller
             return response()->json(['message' => $this->dbBusyMessage()], 503);
         }
 
-        if (!$user || !$user->pin || !Hash::check($request->pin, $user->pin)) {
+        if (! $user || ! $user->pin || ! Hash::check($request->pin, $user->pin)) {
             return response()->json(['message' => 'Kredensial atau PIN salah.'], 401);
+        }
+
+        if ($this->demoAccessBlocked($user)) {
+            return response()->json(['message' => 'Masa akses demo telah berakhir.'], 403);
         }
 
         try {
@@ -88,7 +98,7 @@ class LoginController extends Controller
         }
 
         return response()->json([
-            'message'  => 'Login berhasil.',
+            'message' => 'Login berhasil.',
             'redirect' => $this->getRedirectUrl($user),
         ]);
     }
@@ -121,7 +131,7 @@ class LoginController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->must_change_password && !$user->username_customized) {
+        if ($user->must_change_password && ! $user->username_customized) {
             return redirect()->route('ganti.password')->with('error', 'Silakan kustomisasi username Anda terlebih dahulu.');
         }
 
@@ -132,16 +142,16 @@ class LoginController extends Controller
         } else {
             $request->validate([
                 'current_password' => 'required',
-                'new_password'     => 'required|min:6|confirmed',
+                'new_password' => 'required|min:6|confirmed',
             ]);
 
-            if (!Hash::check($request->current_password, $user->password)) {
+            if (! Hash::check($request->current_password, $user->password)) {
                 return back()->withErrors(['current_password' => 'Password lama salah.']);
             }
         }
 
         $user->update([
-            'password'             => $request->new_password,
+            'password' => $request->new_password,
             'must_change_password' => false,
         ]);
 
@@ -161,13 +171,13 @@ class LoginController extends Controller
                 'string',
                 'min:4',
                 'max:50',
-                'unique:users,username,' . $user->uuid . ',uuid',
+                'unique:users,username,'.$user->uuid.',uuid',
                 'regex:/^[a-zA-Z0-9_.]+$/',
                 function ($attribute, $value, $fail) use ($user) {
                     if (strtolower(trim($value)) === strtolower($user->username)) {
                         $fail('Anda wajib mengganti username bawaan sistem dengan username kustom Anda sendiri.');
                     }
-                }
+                },
             ],
         ], [
             'username.required' => 'Username wajib diisi.',
@@ -193,16 +203,16 @@ class LoginController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->must_change_password && !$user->username_customized) {
+        if ($user->must_change_password && ! $user->username_customized) {
             return redirect()->route('ganti.password')->with('error', 'Silakan kustomisasi username Anda terlebih dahulu.');
         }
 
         $request->validate([
             'password' => 'required',
-            'pin'      => 'required|digits:6|confirmed',
+            'pin' => 'required|digits:6|confirmed',
         ]);
 
-        if (!Hash::check($request->password, $user->password)) {
+        if (! Hash::check($request->password, $user->password)) {
             return back()->withErrors(['password' => 'Password salah.']);
         }
 
@@ -223,7 +233,7 @@ class LoginController extends Controller
 
         $user = $this->resolveUserByCredential($request->credential);
 
-        if (!$user) {
+        if (! $user) {
             return back()->withErrors(['credential' => 'Akun tidak ditemukan.']);
         }
 
@@ -265,6 +275,7 @@ class LoginController extends Controller
 
         if (preg_match('/^p\.(.+)$/i', $credential, $m)) {
             $siswa = Siswa::where('nis', $m[1])->first();
+
             return $siswa?->orangtua?->user;
         }
 
@@ -288,6 +299,31 @@ class LoginController extends Controller
     private function loginResilient(User $user, bool $remember = false): void
     {
         retry(3, fn () => Auth::login($user, $remember), fn (int $attempt) => $attempt * 200);
+
+        if ($user->hasDemoAccess() && $user->demoAccess && $user->demoAccess->first_login_at === null) {
+            $user->demoAccess->forceFill(['first_login_at' => now()])->save();
+            app(DemoCallbackClient::class)->notify($user->demoAccess, 'access.first_login');
+        }
+    }
+
+    private function demoAccessBlocked(User $user): bool
+    {
+        if (! $user->hasDemoAccess()) {
+            return false;
+        }
+
+        $access = $user->demoAccess;
+        if ($access && $access->isCurrentlyActive()) {
+            return false;
+        }
+
+        if ($access && $access->status === DemoAccess::STATUS_ACTIVE) {
+            if ($access->markExpiredAndInvalidateSessions()) {
+                app(DemoCallbackClient::class)->notify($access->fresh() ?? $access, 'access.expired');
+            }
+        }
+
+        return true;
     }
 
     private function dbBusyMessage(): string
@@ -300,6 +336,7 @@ class LoginController extends Controller
         if ($user->must_change_password) {
             return redirect()->route('ganti.password')->with('warning', 'Demi keamanan, silakan ubah password bawaan atau password yang baru saja direset.');
         }
+
         return redirect($this->getRedirectUrl($user));
     }
 

@@ -228,9 +228,18 @@ class UjianGrader
      * — skala HARUS sama persis di keduanya, supaya angkanya "naik" begitu esai selesai
      * dinilai, bukan lompat skala.
      */
+    /*
+    | Mode skor tersimpan di ujians.mode_skor dengan kosakata 'rata_rata'|'akumulasi'
+    | (lihat validasi UjianController::store/update dan dropdown di create/pengaturan
+    | blade). Versi lama method ini hanya mengenali 'jumlah' — kosakata milik
+    | Pelajaran::mode_skor_ujian yang sudah ditinggalkan — sehingga setiap ujian yang
+    | disetel "Akumulasi Poin" DIAM-DIAM jatuh ke cabang rata_rata dan dinilai pada
+    | skala 0-100, bukan penjumlahan poin. 'jumlah' tetap diterima sebagai alias
+    | supaya data/konfigurasi lama tidak berubah arti.
+    */
     public static function normalisasiSkor(float $skorMentah, int $totalPoin, string $modeSkor): float
     {
-        return $modeSkor === 'jumlah'
+        return in_array($modeSkor, ['akumulasi', 'jumlah'], true)
             ? round($skorMentah, 2)
             : ($totalPoin > 0 ? round($skorMentah / $totalPoin * 100, 2) : 0);
     }

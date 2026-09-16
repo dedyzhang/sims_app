@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Setting;
+use App\Support\FaceEngine;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,7 +29,11 @@ class EnsureFaceRegistered
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        if (!$user) {
+        if (! $user) {
+            return $next($request);
+        }
+
+        if ($user->hasActiveDemoAccess()) {
             return $next($request);
         }
 
@@ -66,7 +71,7 @@ class EnsureFaceRegistered
         // face_descriptor_if (konsisten dgn kios scan — orang yg baru pernah daftar via Human.js
         // memang wajib daftar ulang sekali begitu mesin dipindah, sesuai yg sudah diberitahukan).
         $profile = $user->siswa ?: $user->guru;
-        if ($profile && empty($profile->{\App\Support\FaceEngine::kolomDescriptor()})) {
+        if ($profile && empty($profile->{FaceEngine::kolomDescriptor()})) {
             return redirect()->route('face.self');
         }
 

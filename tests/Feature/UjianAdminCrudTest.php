@@ -43,7 +43,7 @@ class UjianAdminCrudTest extends TestCase
     {
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $pembuat->uuid,
-            'judul' => 'PTS Ganjil Matematika', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Ganjil Matematika', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
         ]);
         foreach ($idKelas ?? [$this->kelas->uuid] as $id) {
             UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $id, 'token_masuk' => UjianKelas::generateToken()]);
@@ -60,7 +60,7 @@ class UjianAdminCrudTest extends TestCase
         $this->actingAs($user)->get(route('ujian.pengaturan.edit', $ujian))->assertOk();
 
         $res = $this->actingAs($user)->post(route('ujian.update', $ujian), [
-            'judul' => 'PTS Ganjil Matematika (Revisi)', 'jenis' => 'pts', 'durasi_menit' => 60,
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Ganjil Matematika (Revisi)', 'jenis' => 'pts', 'durasi_menit' => 60,
             'instruksi' => 'Kerjakan dengan teliti.',
         ]);
         $res->assertRedirect(route('ujian.show', $ujian));
@@ -82,7 +82,7 @@ class UjianAdminCrudTest extends TestCase
         $this->assertSame(1, $ujian->kelas()->count());
 
         $res = $this->actingAs($admin)->post(route('ujian.update', $ujian), [
-            'judul' => $ujian->judul, 'jenis' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => $ujian->judul, 'jenis' => 'pts', 'durasi_menit' => 90,
             'id_pelajaran' => $pelajaranBaru->uuid,
         ]);
         $res->assertRedirect();
@@ -106,7 +106,7 @@ class UjianAdminCrudTest extends TestCase
         $this->assertSame('pts', $ujian->target_nilai);
 
         $res = $this->actingAs($admin)->post(route('ujian.update', $ujian), [
-            'judul' => $ujian->judul, 'jenis' => 'pas', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => $ujian->judul, 'jenis' => 'pas', 'durasi_menit' => 90,
             'target_nilai' => 'pas',
         ]);
         $res->assertRedirect();
@@ -123,7 +123,7 @@ class UjianAdminCrudTest extends TestCase
         $ujian->update(['status' => 'published']);
 
         $this->actingAs($admin)->post(route('ujian.update', $ujian), [
-            'judul' => $ujian->judul, 'jenis' => 'pas', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => $ujian->judul, 'jenis' => 'pas', 'durasi_menit' => 90,
             'target_nilai' => 'pas',
         ])->assertRedirect();
 
@@ -141,11 +141,11 @@ class UjianAdminCrudTest extends TestCase
         $materi = \App\Models\Materi::create(['id_ngajar' => $ngajar->uuid, 'nama' => 'Bab 1']);
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'id_materi' => $materi->uuid, 'created_by' => $admin->uuid,
-            'judul' => 'Ulangan Harian Bab 1', 'jenis' => 'harian', 'target_nilai' => 'sumatif', 'durasi_menit' => 45,
+            'mode_skor' => 'rata_rata', 'judul' => 'Ulangan Harian Bab 1', 'jenis' => 'harian', 'target_nilai' => 'sumatif', 'durasi_menit' => 45,
         ]);
 
         $this->actingAs($admin)->post(route('ujian.update', $ujian), [
-            'judul' => $ujian->judul, 'jenis' => 'harian', 'durasi_menit' => 45,
+            'mode_skor' => 'rata_rata', 'judul' => $ujian->judul, 'jenis' => 'harian', 'durasi_menit' => 45,
             'target_nilai' => 'pas',
         ])->assertRedirect();
 
@@ -160,7 +160,7 @@ class UjianAdminCrudTest extends TestCase
         $ujian->update(['status' => 'published']);
 
         $this->actingAs($admin)->post(route('ujian.update', $ujian), [
-            'judul' => $ujian->judul, 'jenis' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => $ujian->judul, 'jenis' => 'pts', 'durasi_menit' => 90,
             'id_pelajaran' => $pelajaranLain->uuid,
         ])->assertRedirect();
 
@@ -177,7 +177,7 @@ class UjianAdminCrudTest extends TestCase
         $ujian->update(['status' => 'closed']);
 
         $this->actingAs($admin)->post(route('ujian.update', $ujian), [
-            'judul' => 'Coba Ubah', 'jenis' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'Coba Ubah', 'jenis' => 'pts', 'durasi_menit' => 90,
         ])->assertStatus(422);
 
         $this->assertSame('PTS Ganjil Matematika', $ujian->fresh()->judul);
@@ -191,7 +191,7 @@ class UjianAdminCrudTest extends TestCase
 
         $this->actingAs($user)->get(route('ujian.pengaturan.edit', $ujian))->assertForbidden();
         $this->actingAs($user)->post(route('ujian.update', $ujian), [
-            'judul' => 'Coba Ubah', 'jenis' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'Coba Ubah', 'jenis' => 'pts', 'durasi_menit' => 90,
         ])->assertForbidden();
     }
 
@@ -200,7 +200,7 @@ class UjianAdminCrudTest extends TestCase
         $admin = User::create(['username' => 'admin_hapus1', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
         $ujian = $this->buatUjian($admin);
 
-        $this->actingAs($admin)->delete(route('ujian.destroy', $ujian))->assertRedirect(route('ujian.index'));
+        $this->actingAs($admin)->delete(route('ujian.destroy', $ujian), ['password' => 'rahasia123'])->assertRedirect(route('ujian.index'));
         $this->assertSoftDeleted('ujians', ['uuid' => $ujian->uuid]);
     }
 
@@ -210,7 +210,7 @@ class UjianAdminCrudTest extends TestCase
         $ujian = $this->buatUjian($admin);
         $ujian->update(['status' => 'published']);
 
-        $this->actingAs($admin)->delete(route('ujian.destroy', $ujian))->assertStatus(422);
+        $this->actingAs($admin)->delete(route('ujian.destroy', $ujian), ['password' => 'rahasia123'])->assertStatus(422);
         $this->assertDatabaseHas('ujians', ['uuid' => $ujian->uuid, 'deleted_at' => null]);
     }
 
@@ -220,7 +220,7 @@ class UjianAdminCrudTest extends TestCase
         $pembuat = User::create(['username' => 'guru_hapus_pemilik', 'password' => Hash::make('rahasia123'), 'access' => 'guru']);
         $ujian = $this->buatUjian($pembuat);
 
-        $this->actingAs($user)->delete(route('ujian.destroy', $ujian))->assertForbidden();
+        $this->actingAs($user)->delete(route('ujian.destroy', $ujian), ['password' => 'rahasia123'])->assertForbidden();
         $this->assertDatabaseHas('ujians', ['uuid' => $ujian->uuid, 'deleted_at' => null]);
     }
 
@@ -235,7 +235,7 @@ class UjianAdminCrudTest extends TestCase
         $kelasTanpaNgajar = Kelas::create(['tingkat' => 8, 'kelas' => 'C']);
 
         $this->actingAs($admin)->post(route('ujian.store'), [
-            'judul' => 'PTS Nekat Kelas', 'jenis' => 'pts', 'target_nilai' => 'pts',
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Nekat Kelas', 'jenis' => 'pts', 'target_nilai' => 'pts',
             'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$kelasTanpaNgajar->uuid], 'durasi_menit' => 90,
         ])->assertStatus(422);
 
@@ -250,7 +250,7 @@ class UjianAdminCrudTest extends TestCase
         $kelasTanpaNgajar = Kelas::create(['tingkat' => 8, 'kelas' => 'C']);
 
         $res = $this->actingAs($admin)->post(route('ujian.store'), [
-            'judul' => 'PTS Kelas Campur', 'jenis' => 'pts', 'target_nilai' => 'pts',
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Kelas Campur', 'jenis' => 'pts', 'target_nilai' => 'pts',
             'id_pelajaran' => $this->pelajaran->uuid,
             'id_kelas' => [$this->kelas->uuid, $kelasTanpaNgajar->uuid],
             'durasi_menit' => 90,
@@ -297,7 +297,7 @@ class UjianAdminCrudTest extends TestCase
         $ujianDraf = $this->buatUjian($user);
         $ujianTerbit = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $user->uuid,
-            'judul' => 'PTS Terbit Aksi', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90, 'status' => 'published',
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Terbit Aksi', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90, 'status' => 'published',
         ]);
         UjianKelas::create(['id_ujian' => $ujianTerbit->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => UjianKelas::generateToken()]);
 

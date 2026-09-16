@@ -57,18 +57,46 @@ class ClassroomPolicy
         return $user->access === 'siswa' && $classroom->isPublished() && $this->isMember($user, $classroom);
     }
 
-    private static ?array $memberCache = null;
+    /*
+    | Memo per-request. WAJIB di-key per user: static ini hidup selama proses PHP,
+    | jadi tanpa key-nya pengecekan pertama akan "mengunci" jawaban untuk SEMUA user
+    | berikutnya di proses yang sama — di worker panjang-umur (Octane/queue) itu
+    | berarti user A memakai keanggotaan/jadwal ngajar user B.
+    |
+    | @var array<string, array<string, int>>
+    */
+    private static array $memberCache = [];
+
+    /**
+     * Buang memo keanggotaan (satu user, atau semuanya). Dipanggil dari model event
+     * ClassroomMember: enrolment bisa berubah DI TENGAH request/proses yang sama
+     * (auto-enroll saat pindah kelas, set kelas massal, perintah repair), dan memo
+     * basi membuat siswa yang baru didaftarkan tetap ditolak 403.
+     */
+    public static function forgetMemberMemo(?string $userId = null): void
+    {
+        if ($userId === null) {
+            self::$memberCache = [];
+
+            return;
+        }
+
+        unset(self::$memberCache[$userId]);
+    }
 
     private function isMember(User $user, Classroom $classroom): bool
     {
-        if (self::$memberCache === null) {
-            self::$memberCache = ClassroomMember::where('user_id', $user->uuid)->pluck('classroom_id')->flip()->toArray();
+        $key = (string) $user->uuid;
+        if (! isset(self::$memberCache[$key])) {
+            self::$memberCache[$key] = ClassroomMember::where('user_id', $user->uuid)->pluck('classroom_id')->flip()->toArray();
         }
-        return isset(self::$memberCache[$classroom->uuid]);
+
+        return isset(self::$memberCache[$key][$classroom->uuid]);
     }
 
     /** Guru pengampu mapel ini di kelas ini (id_guru + id_kelas + id_pelajaran). */
-    private static ?array $teachingSubjectCache = null;
+    /** @var array<string, array<string, int>> — lihat catatan di $memberCache. */
+    private static array $teachingSubjectCache = [];
 
     private function teachesSubject(User $user, Classroom $classroom): bool
     {
@@ -77,18 +105,20 @@ class ClassroomPolicy
             return false;
         }
 
-        if (self::$teachingSubjectCache === null) {
-            self::$teachingSubjectCache = Ngajar::where('id_guru', $guru->uuid)
+        $key = (string) $guru->uuid;
+        if (! isset(self::$teachingSubjectCache[$key])) {
+            self::$teachingSubjectCache[$key] = Ngajar::where('id_guru', $guru->uuid)
                 ->get(['id_kelas', 'id_pelajaran'])
                 ->map(fn($n) => $n->id_kelas . '_' . $n->id_pelajaran)
                 ->flip()
                 ->toArray();
         }
 
-        return isset(self::$teachingSubjectCache[$classroom->id_kelas . '_' . $classroom->id_pelajaran]);
+        return isset(self::$teachingSubjectCache[$key][$classroom->id_kelas . '_' . $classroom->id_pelajaran]);
     }
 
-    private static ?array $teachingKelasCache = null;
+    /** @var array<string, array<string, int>> — lihat catatan di $memberCache. */
+    private static array $teachingKelasCache = [];
 
     /** Guru yang mengajar kelas ini (mapel apa pun) atau wali kelasnya. */
     private function teachesKelas(User $user, Classroom $classroom): bool
@@ -98,12 +128,13 @@ class ClassroomPolicy
             return false;
         }
 
-        if (self::$teachingKelasCache === null) {
+        $key = (string) $guru->uuid;
+        if (! isset(self::$teachingKelasCache[$key])) {
             $ngajar = Ngajar::where('id_guru', $guru->uuid)->pluck('id_kelas');
             $wali = \App\Models\Walikelas::where('id_guru', $guru->uuid)->pluck('id_kelas');
-            self::$teachingKelasCache = $ngajar->concat($wali)->flip()->toArray();
+            self::$teachingKelasCache[$key] = $ngajar->concat($wali)->flip()->toArray();
         }
 
-        return isset(self::$teachingKelasCache[$classroom->id_kelas]);
+        return isset(self::$teachingKelasCache[$key][$classroom->id_kelas]);
     }
 }

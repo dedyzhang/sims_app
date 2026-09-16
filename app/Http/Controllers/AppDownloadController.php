@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Storage;
 | diunggah admin lewat SettingController::setAppDownload dan disimpan di disk
 | privat `local`. Unduhan hanya lewat route ber-auth ini — file tidak bisa
 | diakses langsung via URL publik. Fitur muncul hanya bila diaktifkan admin.
+|
+| iOS tidak punya file .ipa di sini: PWA (Safari → Tambahkan ke Layar Utama).
+| Route /unduh-aplikasi-tamu/ios selalu publik dan tidak bergantung Setting APK.
 */
 class AppDownloadController extends Controller
 {
@@ -19,12 +22,28 @@ class AppDownloadController extends Controller
         'windows' => ['path' => 'app_windows_path', 'name' => 'app_windows_name', 'version' => 'app_windows_version'],
     ];
 
-    /** Halaman daftar aplikasi yang tersedia diunduh. */
+    /** GET /unduh-aplikasi-tamu/ios — panduan pasang PWA, tanpa file unduhan. */
+    public function ios()
+    {
+        return response()
+            ->view('guest.ios')
+            ->header('Cache-Control', 'public, max-age=600');
+    }
+
+    /*
+    | Halaman daftar aplikasi. TIDAK lagi digerbangi app_download_aktif: kartu
+    | "iPhone / iPad" (panduan pasang PWA) selalu dirender oleh view dan tidak
+    | butuh file unggahan apa pun. Gerbang lama membuat sekolah tanpa APK 404 di
+    | satu-satunya jalur in-app menuju panduan iOS, padahal halaman login sudah
+    | menautkan guest.app.ios tanpa syarat. Flag hanya menentukan APK/Windows.
+    */
     public function page()
     {
-        abort_unless(Setting::get('app_download_aktif') === '1', 404);
-
         $apps = [];
+        if (Setting::get('app_download_aktif') !== '1') {
+            return view('app-download.index', compact('apps'));
+        }
+
         foreach (self::PLATFORMS as $key => $meta) {
             $path = Setting::get($meta['path']);
             if ($path && Storage::disk('local')->exists($path)) {

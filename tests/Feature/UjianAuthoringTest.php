@@ -56,7 +56,7 @@ class UjianAuthoringTest extends TestCase
         // tetap kirim jenis=pts & target_nilai=pts, server HARUS memaksanya jadi
         // harian/sumatif, bukan cuma mengandalkan form yg sudah dikunci di sisi UI.
         $res = $this->actingAs($user)->post(route('ujian.store'), [
-            'judul' => 'PTS Ganjil Matematika', 'jenis' => 'pts', 'target_nilai' => 'pts',
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Ganjil Matematika', 'jenis' => 'pts', 'target_nilai' => 'pts',
             'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$this->kelas->uuid],
             'id_materi' => $materi->uuid, 'durasi_menit' => 90,
         ]);
@@ -78,7 +78,7 @@ class UjianAuthoringTest extends TestCase
         $this->ngajarMilik($guruSiapapun);
 
         $res = $this->actingAs($admin)->post(route('ujian.store'), [
-            'judul' => 'PTS Admin', 'jenis' => 'pts', 'target_nilai' => 'pts',
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Admin', 'jenis' => 'pts', 'target_nilai' => 'pts',
             'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$this->kelas->uuid], 'durasi_menit' => 90,
         ]);
         $res->assertRedirect();
@@ -92,7 +92,7 @@ class UjianAuthoringTest extends TestCase
         [$user] = $this->buatGuru('guru_ujian2'); // sengaja TANPA Ngajar/Materi
 
         $this->actingAs($user)->post(route('ujian.store'), [
-            'judul' => 'PTS Nekat', 'jenis' => 'pts', 'target_nilai' => 'pts',
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Nekat', 'jenis' => 'pts', 'target_nilai' => 'pts',
             'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => [$this->kelas->uuid], 'durasi_menit' => 90,
         ])->assertStatus(422);
 
@@ -107,7 +107,7 @@ class UjianAuthoringTest extends TestCase
         $materiLain = Materi::create(['id_ngajar' => $ngajarLain->uuid, 'nama' => 'Bab 1', 'urutan' => 1]);
 
         $this->actingAs($user)->post(route('ujian.store'), [
-            'judul' => 'Ulangan Nekat', 'jenis' => 'harian', 'target_nilai' => 'sumatif',
+            'mode_skor' => 'rata_rata', 'judul' => 'Ulangan Nekat', 'jenis' => 'harian', 'target_nilai' => 'sumatif',
             'id_materi' => $materiLain->uuid, 'durasi_menit' => 90,
         ])->assertForbidden();
 
@@ -121,7 +121,7 @@ class UjianAuthoringTest extends TestCase
         $materi = Materi::create(['id_ngajar' => $ngajar->uuid, 'nama' => 'Bab 1 Bilangan', 'urutan' => 1]);
 
         $res = $this->actingAs($user)->post(route('ujian.store'), [
-            'judul' => 'Ulangan Harian Bab 1', 'jenis' => 'harian', 'target_nilai' => 'sumatif',
+            'mode_skor' => 'rata_rata', 'judul' => 'Ulangan Harian Bab 1', 'jenis' => 'harian', 'target_nilai' => 'sumatif',
             'id_materi' => $materi->uuid, 'durasi_menit' => 40,
         ]);
         $res->assertRedirect();
@@ -151,7 +151,7 @@ class UjianAuthoringTest extends TestCase
 
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $user->uuid,
-            'judul' => 'PTS Kosong', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Kosong', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
         ]);
 
         $this->actingAs($user)->post(route('ujian.publish', $ujian))
@@ -183,7 +183,7 @@ class UjianAuthoringTest extends TestCase
         $this->ngajarMilik($guru);
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $user->uuid,
-            'judul' => 'PTS Validasi', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Validasi', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
         ]);
 
         // Tanpa opsi benar sama sekali.
@@ -200,7 +200,7 @@ class UjianAuthoringTest extends TestCase
         $this->ngajarMilik($guru);
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $user->uuid,
-            'judul' => 'PTS Match', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Match', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
         ]);
 
         $this->actingAs($user)->post(route('ujian.soal.store', $ujian), [
@@ -219,7 +219,7 @@ class UjianAuthoringTest extends TestCase
         $this->ngajarMilik($guru);
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $user->uuid,
-            'judul' => 'PTS Match Rumus', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Match Rumus', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
         ]);
 
         $this->actingAs($user)->post(route('ujian.soal.store', $ujian), [
@@ -241,7 +241,7 @@ class UjianAuthoringTest extends TestCase
         $this->ngajarMilik($guru);
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $user->uuid,
-            'judul' => 'PTS Benar Salah', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Benar Salah', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
         ]);
 
         $this->actingAs($user)->post(route('ujian.soal.store', $ujian), [
@@ -263,7 +263,7 @@ class UjianAuthoringTest extends TestCase
         $this->ngajarMilik($guru);
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $user->uuid,
-            'judul' => 'PTS Terkunci', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90, 'status' => 'published',
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Terkunci', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90, 'status' => 'published',
         ]);
         UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => 'ABC123']);
 
@@ -291,7 +291,7 @@ class UjianAuthoringTest extends TestCase
 
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $pembuat->uuid,
-            'judul' => 'PTS Kolaborasi', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Kolaborasi', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
         ]);
         // Kelas 7A & 7B (tingkat sama) sama-sama ditetapkan ke ujian ini, tapi masing-masing
         // diampu guru BERBEDA — hanya guruPembuat yg mengajar 7A, hanya guruLain yg mengajar 7B.
@@ -329,7 +329,7 @@ class UjianAuthoringTest extends TestCase
         $this->ngajarMilik($guru);
         $ujian = Ujian::create([
             'id_pelajaran' => $this->pelajaran->uuid, 'created_by' => $user->uuid,
-            'judul' => 'PTS Field Tersembunyi', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Field Tersembunyi', 'jenis' => 'pts', 'target_nilai' => 'pts', 'durasi_menit' => 90,
         ]);
 
         $this->actingAs($user)->post(route('ujian.soal.store', $ujian), [

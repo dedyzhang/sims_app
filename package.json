@@ -16,5 +16,10 @@
     },
     "dependencies": {
         "ffmpeg-static": "^5.3.0"
+    },
+    "allowScripts": {
+        "esbuild@0.27.7": true,
+        "fsevents@2.3.3": true,
+        "ffmpeg-static@5.3.0": true
     }
 }

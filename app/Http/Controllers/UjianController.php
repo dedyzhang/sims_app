@@ -538,6 +538,10 @@ class UjianController extends Controller implements HasMiddleware
         }
 
         $ujian->update(['status' => 'published']);
+        // Pengaman terakhir sebelum siswa masuk: getCachedSoalDanOpsi() ber-TTL 6 jam,
+        // jadi satu saja jalur authoring yang lupa membuang cache berarti siswa
+        // mengerjakan soal versi lama. Membuangnya di sini menutup seluruh kelasnya.
+        $ujian->clearSoalCache();
 
         return back()->with('success', 'Ujian diterbitkan. Token masuk sudah bisa dibagikan ke siswa.');
     }

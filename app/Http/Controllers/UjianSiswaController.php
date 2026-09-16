@@ -145,21 +145,31 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 return back()->withErrors(['token' => 'Token salah. Minta token yang benar ke guru/panitia ujian.']);
             }
 
-            $existing = UjianAttempt::where('id_ujian_kelas', $ujianKelas->uuid)
-                ->where('id_siswa', $request->user()->uuid)
-                ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
-                ->latest()->first();
-            if ($existing) {
-                // Token sudah tervalidasi (hash_equals di atas) — kalau attempt ini sedang
-                // menunggu token-ulang (baru dibuka kembali guru), lepas syaratnya sekarang,
-                // TANPA membuat attempt baru/mengacak ulang urutan/menyentuh jawaban.
-                if ($existing->wajib_token_ulang) {
-                    $existing->update(['wajib_token_ulang' => false]);
-                }
-                return redirect()->route('ujian.siswa.kerjakan', [$ujian, $existing]);
-            }
-
+            // Cek-lalu-buat HARUS atomik. Tabel ujian_attempts sengaja tidak punya unique
+            // constraint (reset-ulang butuh baris baru setelah attempt lama dibatalkan),
+            // jadi "1 attempt aktif per siswa" cuma dijaga kode ini. Dua POST bersamaan
+            // (klik ganda / dua tab — throttle:10,1 masih mengizinkannya) sama-sama melihat
+            // "belum ada attempt" lalu sama-sama create: siswa berakhir dengan dua attempt,
+            // jawaban terbelah, dan Pemantauan Live/UjianRoster hanya menampilkan salah
+            // satunya (keyBy('id_siswa') menimpa diam-diam).
             $attempt = DB::transaction(function () use ($ujian, $ujianKelas, $request) {
+                $existing = UjianAttempt::where('id_ujian_kelas', $ujianKelas->uuid)
+                    ->where('id_siswa', $request->user()->uuid)
+                    ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
+                    ->lockForUpdate()
+                    ->latest()->first();
+
+                if ($existing) {
+                    // Token sudah tervalidasi (hash_equals di atas) — kalau attempt ini sedang
+                    // menunggu token-ulang (baru dibuka kembali guru), lepas syaratnya sekarang,
+                    // TANPA membuat attempt baru/mengacak ulang urutan/menyentuh jawaban.
+                    if ($existing->wajib_token_ulang) {
+                        $existing->update(['wajib_token_ulang' => false]);
+                    }
+
+                    return $existing;
+                }
+
                 $soal = $ujian->getCachedSoalDanOpsi();
 
                 $urutanSoal = $ujian->acak_soal ? $soal->pluck('uuid')->shuffle()->values()->all() : $soal->pluck('uuid')->all();
@@ -196,7 +206,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
         // Halaman utama mengerjakan ujian — dibuka semua siswa hampir bersamaan begitu
         // token/scan berhasil, jadi ikut rawan tembakan bersamaan.
         return $this->retryOnDbBusy(function () use ($request, $ujian, $attempt) {
-            $this->pastikanMilikSiswa($request, $attempt);
+            $this->pastikanMilikSiswa($request, $attempt, $ujian);
 
             if ($attempt->isLocked()) {
                 return view('ujian.siswa.terkunci', compact('ujian', 'attempt'));
@@ -248,7 +258,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
     public function status(Request $request, Ujian $ujian, UjianAttempt $attempt)
     {
-        $this->pastikanMilikSiswa($request, $attempt);
+        $this->pastikanMilikSiswa($request, $attempt, $ujian);
 
         if ($attempt->status === UjianAttempt::STATUS_IN_PROGRESS && !$attempt->isLocked() && $attempt->isExpired()) {
             app(\App\Services\UjianGrader::class)->autoSubmitKarenaWaktuHabis($attempt);
@@ -265,7 +275,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
     public function simpanJawaban(Request $request, Ujian $ujian, UjianAttempt $attempt)
     {
-        $this->pastikanMilikSiswa($request, $attempt);
+        $this->pastikanMilikSiswa($request, $attempt, $ujian);
         abort_if($attempt->isLocked(), 403, 'Ujian terkunci — hubungi guru/panitia untuk membuka kembali.');
         abort_unless($attempt->status === UjianAttempt::STATUS_IN_PROGRESS, 422, 'Ujian ini sudah dikumpulkan.');
         abort_if($attempt->isExpired(), 422, 'Waktu ujian sudah habis.');
@@ -282,23 +292,32 @@ class UjianSiswaController extends Controller implements HasMiddleware
         $soal = $ujian->getCachedSoalDanOpsi()->firstWhere('uuid', $data['id_soal']);
         abort_unless($soal, 404, 'Soal tidak ditemukan.');
 
-        UjianJawaban::updateOrCreate(
-            ['id_attempt' => $attempt->uuid, 'id_soal' => $soal->uuid],
-            [
-                'id_opsi_dipilih'    => in_array($soal->tipe, ['mcq', 'true_false'], true) ? ($data['id_opsi_dipilih'] ?? null) : null,
-                'opsi_dipilih_multi' => $soal->tipe === 'mcq_complex' ? ($data['opsi_dipilih_multi'] ?? []) : null,
-                'jawaban_pasangan'   => $soal->tipe === 'match' ? ($data['jawaban_pasangan'] ?? []) : null,
-                'jawaban_esai'       => $soal->tipe === 'essay' ? ($data['jawaban_esai'] ?? null) : null,
-                'dijawab_pada'       => now(),
-            ]
-        );
+        $nilai = [
+            'id_opsi_dipilih'    => in_array($soal->tipe, ['mcq', 'true_false'], true) ? ($data['id_opsi_dipilih'] ?? null) : null,
+            'opsi_dipilih_multi' => $soal->tipe === 'mcq_complex' ? ($data['opsi_dipilih_multi'] ?? []) : null,
+            'jawaban_pasangan'   => $soal->tipe === 'match' ? ($data['jawaban_pasangan'] ?? []) : null,
+            'jawaban_esai'       => $soal->tipe === 'essay' ? ($data['jawaban_esai'] ?? null) : null,
+            'dijawab_pada'       => now(),
+        ];
+        $kunci = ['id_attempt' => $attempt->uuid, 'id_soal' => $soal->uuid];
+
+        // updateOrCreate = SELECT lalu INSERT. Autosave bisa tumpang-tindih (klik cepat,
+        // flush saat kumpul, jaringan lambat lalu retry browser), dan dua request untuk
+        // soal yang sama sama-sama gagal menemukan baris lalu sama-sama INSERT — yang
+        // kalah kena unique(id_attempt, id_soal) dan siswa melihat 500 di tengah ujian.
+        // Balapan ini jinak: pemenangnya sudah menulis baris, jadi cukup update saja.
+        try {
+            UjianJawaban::updateOrCreate($kunci, $nilai);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            UjianJawaban::where($kunci)->update($nilai);
+        }
 
         return response()->json(['ok' => true]);
     }
 
     public function laporKeluar(Request $request, Ujian $ujian, UjianAttempt $attempt)
     {
-        $this->pastikanMilikSiswa($request, $attempt);
+        $this->pastikanMilikSiswa($request, $attempt, $ujian);
 
         $data = $request->validate(['tipe' => 'required|in:keluar_fullscreen,ganti_tab']);
 
@@ -313,7 +332,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
     public function submit(Request $request, Ujian $ujian, UjianAttempt $attempt)
     {
         return $this->retryOnDbBusy(function () use ($request, $ujian, $attempt) {
-            $this->pastikanMilikSiswa($request, $attempt);
+            $this->pastikanMilikSiswa($request, $attempt, $ujian);
             abort_if($attempt->isLocked(), 403, 'Ujian terkunci — hubungi guru/panitia untuk membuka kembali.');
             abort_unless($attempt->status === UjianAttempt::STATUS_IN_PROGRESS, 422, 'Ujian ini sudah dikumpulkan.');
 
@@ -338,14 +357,26 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
     public function hasil(Request $request, Ujian $ujian, UjianAttempt $attempt)
     {
-        $this->pastikanMilikSiswa($request, $attempt);
+        $this->pastikanMilikSiswa($request, $attempt, $ujian);
 
         return view('ujian.siswa.hasil', compact('ujian', 'attempt'));
     }
 
-    private function pastikanMilikSiswa(Request $request, UjianAttempt $attempt): void
+    /*
+    | Verifikasi DUA arah. Cek "milik siswa" saja tidak cukup: {ujian} dan {attempt}
+    | adalah dua parameter route yang tidak saling terikat, jadi siswa bisa memasang
+    | attempt-nya sendiri dari Ujian A pada URL Ujian B. Akibatnya simpanJawaban()
+    | memvalidasi id_soal terhadap bank soal Ujian B lalu menuliskannya ke attempt
+    | Ujian A — jawaban lintas-ujian masuk & merusak penilaian. Bandingkan dengan
+    | UjianMonitorController::resetLock/resetAttempt yang memang sudah mengecek ini.
+    */
+    private function pastikanMilikSiswa(Request $request, UjianAttempt $attempt, ?Ujian $ujian = null): void
     {
         abort_unless($attempt->id_siswa === $request->user()->uuid, 403);
+
+        if ($ujian !== null) {
+            abort_unless($attempt->ujianKelas?->id_ujian === $ujian->uuid, 404);
+        }
     }
 }
 

@@ -1,23 +1,38 @@
 <?php
 
 use App\Http\Middleware\CanUseChatbot;
+use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\CheckRole;
-use App\Http\Middleware\EnsureModulAktif;
+use App\Http\Middleware\EnforceDemoAccess;
 use App\Http\Middleware\EnforceLangganan;
+use App\Http\Middleware\EnsureModulAktif;
+use App\Http\Middleware\RestrictDemoMutations;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\UpdateLastSeen;
+use App\Http\Middleware\VerifyDemoHmac;
 use App\Support\DbBusy;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function () {
+            // throttle DULU, baru HMAC: endpoint ini tanpa auth & tanpa CSRF, dan
+            // VerifyDemoHmac menulis nonce ke cache sebelum signature diverifikasi —
+            // tanpa throttle, trafik tak bertanda tangan pun tetap menekan aplikasi
+            // di SEMUA deployment, termasuk sekolah yang tak memakai sandbox demo.
+            Route::middleware([
+                'throttle:60,1',
+                VerifyDemoHmac::class,
+            ])->prefix('internal/v1/demo')->group(base_path('routes/internal.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Percayai proxy (mis. tunnel cloudflared/ngrok) agar HTTPS terdeteksi benar
@@ -26,17 +41,23 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Presence Forum: catat last_seen_at tiap request web (auth saja, dithrottle 60 dtk)
         // EnforceLangganan: kunci app (non-superadmin) saat lisensi langganan kadaluarsa.
-        $middleware->web(append: [UpdateLastSeen::class, SecurityHeaders::class, EnforceLangganan::class]);
+        $middleware->web(append: [
+            UpdateLastSeen::class,
+            SecurityHeaders::class,
+            EnforceLangganan::class,
+            EnforceDemoAccess::class,
+            RestrictDemoMutations::class,
+        ]);
 
         // Alias middleware. Gating role memakai `role:a,b,c` (CheckRole) yang
         // parameterized — superadmin selalu diizinkan. Middleware IsX per-role
         // yang lama sudah dihapus karena otorisasi kini ada di controller/policy
         // (dan modul Sarpras memakai `can:`).
         $middleware->alias([
-            'role'         => CheckRole::class,
-            'permission'   => \App\Http\Middleware\CheckPermission::class,
+            'role' => CheckRole::class,
+            'permission' => CheckPermission::class,
             'chatbot.user' => CanUseChatbot::class,
-            'modul'        => EnsureModulAktif::class,
+            'modul' => EnsureModulAktif::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

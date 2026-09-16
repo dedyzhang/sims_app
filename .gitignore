@@ -33,3 +33,6 @@ Thumbs.db
 
 # Service account Firebase (FCM) — rahasia, jangan ikut ter-commit.
 /storage/app/firebase/*.json
+
+# Artefak sekali-pakai installer Composer — bukan sumber, jangan ikut di-commit.
+composer-setup.php

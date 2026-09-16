@@ -95,7 +95,7 @@ class UjianSoalController extends Controller
 
         $data = SoalValidator::validate($request);
 
-        DB::transaction(function () use ($soal, $data, $ujian) {
+        DB::transaction(function () use ($ujian, $soal, $data) {
             $soal->update([
                 'tipe'       => $data['tipe'],
                 'teks_soal'  => $data['teks_soal'],
@@ -200,6 +200,10 @@ class UjianSoalController extends Controller
         $jumlahDisisipkan = 0;
 
         DB::transaction(function () use ($ujian, $data, $bankSoal, &$jumlahDisisipkan) {
+            // Wajib dibuang di akhir blok ini: getCachedSoalDanOpsi() menyimpan soal
+            // selama 6 jam, jadi soal yang disisipkan setelah ujian pernah terbit
+            // (tutup → buka kembali → sisipkan → terbitkan ulang) tidak akan terlihat
+            // siswa sampai TTL habis.
             $urutan = (int) $ujian->soal()->max('urutan');
 
             foreach ($data['soal'] as $uuid) {
@@ -231,6 +235,8 @@ class UjianSoalController extends Controller
 
                 $jumlahDisisipkan++;
             }
+
+            $ujian->clearSoalCache();
         });
 
         return back()->with('success', $jumlahDisisipkan . ' soal disisipkan dari Bank Soal.');

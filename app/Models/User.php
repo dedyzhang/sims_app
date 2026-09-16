@@ -17,10 +17,12 @@ use Throwable;
 
 class User extends Authenticatable implements WebAuthnAuthenticatable
 {
-    use HasFactory, InteractsWithLudensa, Notifiable, HasUuids, WebAuthnAuthentication;
+    use HasFactory, HasUuids, InteractsWithLudensa, Notifiable, WebAuthnAuthentication;
 
     protected $primaryKey = 'uuid';
+
     protected $keyType = 'string';
+
     public $incrementing = false;
 
     protected static function booted(): void
@@ -135,7 +137,8 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         if ($this->isSuperAdmin()) {
             return true;
         }
-        return \App\Models\ForumRolePermission::granted((string) $this->access, $permission);
+
+        return ForumRolePermission::granted((string) $this->access, $permission);
     }
 
     /**
@@ -160,7 +163,8 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         if (in_array($permission, self::DEFAULT_ROLE_PERMISSIONS[$this->access] ?? [], true)) {
             return true;
         }
-        return \App\Models\RolePermission::granted((string) $this->access, $permission);
+
+        return RolePermission::granted((string) $this->access, $permission);
     }
 
     // ─────────────── Forum: relasi orang tua → kelas anak ───────────────
@@ -179,6 +183,7 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         if ($this->access !== 'orangtua') {
             return [];
         }
+
         return Orangtua::where('id_login', $this->uuid)
             ->with('siswa:uuid,id_kelas')
             ->get()
@@ -204,7 +209,7 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     /** 'online' (<3 mnt) | 'recent' (3-15 mnt) | 'offline' (>15 mnt / null). */
     public function presenceStatus(): string
     {
-        if (!$this->last_seen_at) {
+        if (! $this->last_seen_at) {
             return 'offline';
         }
         if ($this->last_seen_at->gte(now()->subMinutes(3))) {
@@ -213,17 +218,19 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         if ($this->last_seen_at->gte(now()->subMinutes(15))) {
             return 'recent';
         }
+
         return 'offline';
     }
 
     public function presenceLabel(): string
     {
-        if (!$this->last_seen_at) {
+        if (! $this->last_seen_at) {
             return 'Tidak aktif';
         }
         if ($this->isOnline()) {
             return 'Online';
         }
+
         return $this->last_seen_at->locale('id')->diffForHumans();
     }
 
@@ -233,8 +240,10 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     {
         if ($this->access === 'orangtua') {
             $anak = Orangtua::where('id_login', $this->uuid)->with('siswa:uuid,nama')->first()?->siswa?->nama;
-            return $anak ? 'Ortu ' . $anak : ($this->username ?? 'Ortu');
+
+            return $anak ? 'Ortu '.$anak : ($this->username ?? 'Ortu');
         }
+
         return $this->guru?->nama ?? $this->siswa?->nama ?? $this->username ?? '-';
     }
 
@@ -270,6 +279,21 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         return in_array($this->access, ['superadmin', 'admin']);
     }
 
+    public function demoAccess()
+    {
+        return $this->belongsTo(DemoAccess::class, 'demo_access_id');
+    }
+
+    public function hasDemoAccess(): bool
+    {
+        return filled($this->demo_access_id);
+    }
+
+    public function hasActiveDemoAccess(): bool
+    {
+        return $this->hasDemoAccess() && ($this->demoAccess?->isCurrentlyActive() ?? false);
+    }
+
     public function guru()
     {
         return $this->hasOne(Guru::class, 'id_login', 'uuid');
@@ -288,12 +312,12 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
     /** Memo per-instance: preferensi tampilan (tema/motif/sidebar) diakses 3x per render
      *  (DashboardController, dashboard.blade, layouts/app.blade) — dulu 3 query firstOrCreate
      *  identik tiap halaman. Panggil prefTampilan() di ketiganya → cuma 1 query, sisanya reuse. */
-    protected ?\App\Models\UserPreference $prefTampilanCache = null;
+    protected ?UserPreference $prefTampilanCache = null;
 
-    public function prefTampilan(): \App\Models\UserPreference
+    public function prefTampilan(): UserPreference
     {
         return $this->prefTampilanCache ??= $this->preference()
-            ->firstOrCreate(['user_uuid' => $this->uuid], \App\Models\UserPreference::defaults());
+            ->firstOrCreate(['user_uuid' => $this->uuid], UserPreference::defaults());
     }
 
     /** Token FCM perangkat (multi-device) untuk push notification. */

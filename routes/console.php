@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Langganan;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -44,7 +45,23 @@ Schedule::command('grupchat:kirim-notif')->everyFifteenMinutes()->withoutOverlap
 Schedule::command('ujian:auto-submit')->everyMinute()->withoutOverlapping();
 
 // Langganan: sinkronkan status tersimpan setelah tanggal berakhir terlewati.
-Schedule::call(static fn () => \App\Models\Langganan::sinkronkanStatusKadaluarsa())
+Schedule::call(static fn () => Langganan::sinkronkanStatusKadaluarsa())
     ->dailyAt('00:05')
     ->name('langganan.sinkronkan-status')
     ->withoutOverlapping();
+
+// Sandbox demo. Didaftarkan HANYA saat DEMO_SANDBOX_ENABLED=true: di sekolah
+// produksi demo:reset-sandbox selalu gagal (DemoResetService melempar
+// DEMO_TEMPORARILY_UNAVAILABLE) sehingga scheduled task tampak merah permanen,
+// dan demo:expire-accesses memukul demo_accesses tiap 5 menit tanpa guna.
+if (filter_var(config('demo.enabled'), FILTER_VALIDATE_BOOLEAN)) {
+    Schedule::command('demo:expire-accesses')
+        ->timezone('Asia/Jakarta')
+        ->everyFiveMinutes()
+        ->withoutOverlapping();
+
+    Schedule::command('demo:reset-sandbox')
+        ->timezone('Asia/Jakarta')
+        ->dailyAt('02:00')
+        ->withoutOverlapping(30);
+}

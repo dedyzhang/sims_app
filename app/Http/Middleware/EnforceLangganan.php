@@ -42,7 +42,7 @@ class EnforceLangganan
             return $next($request);
         }
 
-        if (auth()->user()?->access === 'superadmin') {
+        if (auth()->user()?->access === 'superadmin' || auth()->user()?->hasDemoAccess()) {
             return $next($request);
         }
 

@@ -96,12 +96,21 @@ class AppDownloadTest extends TestCase
             ->assertDownload('sims.apk');
     }
 
-    public function test_halaman_404_saat_nonaktif(): void
+    /**
+     * Saat fitur unduhan nonaktif, FILE tetap 404 — tapi halamannya tidak, karena
+     * kartu "iPhone / iPad" (panduan pasang PWA) tak bergantung file unggahan dan
+     * halaman ini satu-satunya jalur in-app menuju panduan itu.
+     */
+    public function test_halaman_tetap_terbuka_saat_nonaktif_tanpa_kartu_unduhan(): void
     {
         Setting::set('app_download_aktif', '0');
         $siswa = $this->user('siswa', 'appdl_siswa2');
 
-        $this->actingAs($siswa)->get(route('app.download'))->assertNotFound();
+        $this->actingAs($siswa)->get(route('app.download'))
+            ->assertOk()
+            ->assertSee('Aplikasi iPhone / iPad')
+            ->assertDontSee('Aplikasi Android');
+
         $this->actingAs($siswa)->get(route('app.download.file', 'apk'))->assertNotFound();
     }
 
@@ -144,5 +153,47 @@ class AppDownloadTest extends TestCase
         Setting::set('app_download_aktif', '0');
 
         $this->get(route('guest.app.download.file', 'apk'))->assertNotFound();
+    }
+
+    /**
+     * Manifest PWA dirender dari Pengaturan sekolah, bukan file statis milik satu
+     * sekolah: satu basis kode dipakai banyak sekolah, dan manifest statis membuat
+     * semuanya terpasang di layar utama dengan nama + ikon sekolah yang sama.
+     */
+    public function test_manifest_pwa_memakai_identitas_sekolah_dari_pengaturan(): void
+    {
+        Setting::set('nama_sekolah', 'SMP Uji Coba Manifest');
+
+        $res = $this->get(route('pwa.manifest'))->assertOk();
+
+        $this->assertSame('SMP Uji Coba Manifest', $res->json('name'));
+        $this->assertStringNotContainsString('Maitreyawira', $res->getContent());
+        $this->assertSame('/', $res->json('scope'));
+    }
+
+    /** Halaman mana pun menautkan manifest dinamis itu, bukan JSON statis sekolah tertentu. */
+    public function test_halaman_login_menautkan_manifest_dinamis(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('manifest.webmanifest', false)
+            ->assertDontSee('WebVIEW_SMP_MW_TPI.json', false);
+    }
+
+    public function test_tamu_bisa_buka_panduan_ios_tanpa_login(): void
+    {
+        Setting::set('app_download_aktif', '0');
+
+        $this->get(route('guest.app.ios'))
+            ->assertOk()
+            ->assertSee('Safari')
+            ->assertSee('Tambahkan ke Layar Utama')
+            ->assertSee('service-worker.js', false);
+    }
+
+    public function test_ios_tidak_dianggap_platform_file_unduh(): void
+    {
+        $this->get('/unduh-aplikasi-tamu/ios')->assertOk();
+        $this->get('/unduh-aplikasi-tamu/mac')->assertNotFound();
     }
 }

@@ -47,7 +47,7 @@ class UjianModuleGatingTest extends TestCase
         $this->actingAs($guruUser)->get(route('ujian.index'))->assertForbidden();
         $this->actingAs($guruUser)->get(route('ujian.create'))->assertForbidden();
         $this->actingAs($guruUser)->post(route('ujian.store'), [
-            'judul' => 'Nekat', 'jenis' => 'pts', 'target_nilai' => 'pts',
+            'mode_skor' => 'rata_rata', 'judul' => 'Nekat', 'jenis' => 'pts', 'target_nilai' => 'pts',
             'id_pelajaran' => $pelajaran->uuid, 'durasi_menit' => 60,
         ])->assertForbidden();
         $this->assertDatabaseMissing('ujians', ['judul' => 'Nekat']);
@@ -64,7 +64,7 @@ class UjianModuleGatingTest extends TestCase
 
         $ujian = Ujian::create([
             'id_pelajaran' => $pelajaran->uuid, 'created_by' => $guruUser->uuid,
-            'judul' => 'PTS Gating', 'jenis' => 'pts', 'target_nilai' => 'pts',
+            'mode_skor' => 'rata_rata', 'judul' => 'PTS Gating', 'jenis' => 'pts', 'target_nilai' => 'pts',
             'durasi_menit' => 60, 'status' => 'published',
         ]);
         UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $kelas->uuid, 'token_masuk' => 'GATINGTOK']);

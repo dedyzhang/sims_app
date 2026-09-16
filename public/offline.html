@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Tidak Ada Koneksi — SMP Maitreyawira TPI</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh;
+    display: grid; place-items: center; text-align: center;
+    padding: 24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(160deg, #1e3a8a 0%, #1e1b4b 100%);
+    color: #fff;
+  }
+  .card {
+    max-width: 360px; width: 100%;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.18);
+    backdrop-filter: blur(12px);
+    border-radius: 24px; padding: 32px 24px;
+  }
+  .logo { width: 84px; height: 84px; border-radius: 20px; background:#fff; padding:10px; margin: 0 auto 20px; display:block; object-fit: contain; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { margin: 0 0 24px; opacity: .85; font-size: 15px; }
+  button {
+    font: inherit; font-weight: 600; color: #1e1b4b; background: #fff;
+    border: 0; border-radius: 14px; padding: 14px 28px; width: 100%; cursor: pointer;
+  }
+  button:active { transform: scale(.98); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="/icons/icon-192.png" alt="Logo SMP Maitreyawira" />
+    <h1>Tidak ada koneksi internet</h1>
+    <p>Aplikasi butuh internet untuk memuat data sekolah. Periksa jaringan Wi‑Fi atau data seluler Anda, lalu coba lagi.</p>
+    <button onclick="location.reload()">Coba Lagi</button>
+  </div>
+</body>
+</html>

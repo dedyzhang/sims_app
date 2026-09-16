@@ -1,0 +1,72 @@
+{
+  "id": "/?app=smp-mw-tpi",
+  "name": "SMP Maitreyawira TPI",
+  "short_name": "SMP MW TPI",
+  "description": "Aplikasi resmi SMPS Maitreyawira Tanjungpinang — Sistem Informasi Manajemen Sekolah (SIMS): absensi, akademik, nilai, dan informasi sekolah.",
+  "lang": "id",
+  "dir": "ltr",
+  "start_url": "/?source=pwa-ios",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "theme_color": "#1e1b4b",
+  "background_color": "#ffffff",
+  "categories": ["education"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/favicon-16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Masuk / Login",
+      "short_name": "Masuk",
+      "url": "/?source=pwa-shortcut-login",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Panduan Pasang iPhone",
+      "short_name": "Pasang iOS",
+      "url": "/unduh-aplikasi-tamu/ios?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

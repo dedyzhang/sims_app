@@ -119,11 +119,19 @@ Route::get('/logout', [LoginController::class, 'logoutFallback']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 Route::post('/password/request', [LoginController::class, 'requestResetPassword'])->middleware('throttle:6,1')->name('password.request');
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Unduh Aplikasi dari halaman login Ã¢â‚¬â€ SEBELUM login, jadi tanpa 'auth'. Controller
-//     yang sama dgn menu sidebar (app.download.*) Ã¢â‚¬â€ download()/page() di sana murni baca
-//     Setting/Storage, tak pernah menyentuh auth()->user(), aman diekspos publik juga. Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ─── Unduh Aplikasi dari halaman login — SEBELUM login, jadi tanpa 'auth'. Controller
+//     yang sama dgn menu sidebar (app.download.*) — download()/page() di sana murni baca
+//     Setting/Storage, tak pernah menyentuh auth()->user(), aman diekspos publik juga. ───
+// Manifest PWA dirender dari Pengaturan sekolah (nama + logo), bukan file statis —
+// satu basis kode dipakai banyak sekolah, manifest statis membuat semuanya terpasang
+// dengan identitas sekolah yang sama. Publik: dibaca browser sebelum login.
+Route::get('/manifest.webmanifest', \App\Http\Controllers\PwaManifestController::class)->name('pwa.manifest');
+
 Route::controller(AppDownloadController::class)->group(function () {
-    Route::get('/unduh-aplikasi-tamu/{platform}', 'download')->name('guest.app.download.file');
+    Route::get('/unduh-aplikasi-tamu/ios', 'ios')->name('guest.app.ios');
+    Route::get('/unduh-aplikasi-tamu/{platform}', 'download')
+        ->whereIn('platform', ['apk', 'windows'])
+        ->name('guest.app.download.file');
 });
 
 // WebAuthn (Fingerprint / Face ID)
@@ -181,6 +189,7 @@ Route::middleware(['modul:akademik', 'modul:arena_belajar'])
 // Halaman "Langganan berakhir" Ã¢â‚¬â€ PUBLIK (tanpa auth) supaya siapa pun yang terkunci
 // oleh middleware EnforceLangganan tetap bisa melihat penjelasannya.
 Route::get('/langganan-berakhir', fn () => response()->view('langganan.berakhir'))->name('langganan.berakhir');
+Route::get('/demo-berakhir', fn () => response()->view('demo.berakhir'))->name('demo.berakhir');
 
 // Panduan SIMS: sengaja hanya auth, tidak melewati gate wajah, agar user baru tetap bisa membaca tutorial awal.
 Route::middleware('auth')->group(function () {
@@ -1093,7 +1102,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Unduh Aplikasi: halaman & unduhan untuk SEMUA pengguna login Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     Route::controller(AppDownloadController::class)->group(function () {
         Route::get('/unduh-aplikasi', 'page')->name('app.download');
-        Route::get('/unduh-aplikasi/{platform}', 'download')->name('app.download.file');
+        Route::get('/unduh-aplikasi/{platform}', 'download')
+            ->whereIn('platform', ['apk', 'windows'])
+            ->name('app.download.file');
     });
 
     // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Popup "Apa yang Baru": lihat riwayat & dismiss untuk SEMUA pengguna login Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬

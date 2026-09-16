@@ -79,7 +79,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // Bagikan nama & identitas sekolah ke layout & login (dari Pengaturan)
-        View::composer(['layouts.app', 'auth.login'], function ($view) {
+        View::composer(['layouts.app', 'auth.login', 'guest.ios'], function ($view) {
             $nama = 'Edutive';
             $alamat = null;
             $logoUrl = null;
