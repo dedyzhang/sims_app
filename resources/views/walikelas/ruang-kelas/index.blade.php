@@ -17,7 +17,7 @@
     @else
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach($classrooms as $room)
-                <a href="{{ route('walikelas.ruang_kelas.show', $room) }}" class="card p-0 hover:-translate-y-1 hover:shadow-lg transition overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col">
+                <a href="{{ route('classroom.show', $room) }}" class="card p-0 hover:-translate-y-1 hover:shadow-lg transition overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col">
                     <div class="h-24 p-5 flex flex-col justify-between" style="background-color: {{ $room->cover_color ?? '#3b82f6' }};">
                         <div class="flex items-start justify-between">
                             <h2 class="font-bold text-white text-lg leading-tight line-clamp-1" title="{{ $room->title }}">{{ $room->title }}</h2>

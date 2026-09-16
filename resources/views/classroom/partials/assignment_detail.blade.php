@@ -12,11 +12,21 @@
         </div>
         <p class="text-xs text-slate-400 mt-1">Nilai maks {{ $assignment->max_score }}@if($assignment->due_at) &middot; Batas {{ $assignment->due_at->locale('id')->translatedFormat('d M Y H:i') }}@endif @if($assignment->allow_late) &middot; boleh terlambat @endif</p>
     </div>
-    @if($canManage)
+    @php $canMonitor = $canManage || auth()->user()->can('monitor', $classroom); @endphp
+    @if($canMonitor)
     <div class="flex items-center gap-1 flex-shrink-0">
         <a href="{{ route('classroom.assignment.grading', [$assignment, 'class' => $classroom->uuid]) }}" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 hover:border-primary whitespace-nowrap">Penilaian</a>
+        @if($canManage)
+        @if($assignment->status==='draft')<button type="button" @click.prevent.stop="fetch('{{ route('classroom.assignment.publish', $assignment) }}', {method: 'POST', headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}'}}).then(()=>window.location.reload())" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30" title="Terbitkan Tugas"><i data-lucide="send" class="w-4 h-4"></i></button>@endif
         <a href="{{ route('classroom.assignment.edit', $assignment) }}" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-primary"><i data-lucide="pencil" class="w-4 h-4"></i></a>
-        <form method="POST" action="{{ route('classroom.assignment.destroy', $assignment) }}" onsubmit="return confirmDelete(this)">@csrf @method('DELETE')<button class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-rose-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></form>
+        <form class="inline" method="POST" action="{{ route('classroom.assignment.destroy', ['assignment' => $assignment->uuid, 'class' => $classroom->uuid]) }}" onsubmit="return confirmAction(this, 'Hapus tugas ini beserta seluruh file lampirannya?', 'red')">
+            @csrf
+            @method('DELETE')
+            <button class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-rose-600" title="Hapus Tugas">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+        </form>
+        @endif
     </div>
     @endif
 </div>

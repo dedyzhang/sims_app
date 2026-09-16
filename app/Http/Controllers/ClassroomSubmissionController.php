@@ -10,6 +10,7 @@ use App\Models\ClassroomAssignment;
 use App\Models\ClassroomSubmission;
 use App\Models\ClassroomSubmissionFile;
 use App\Support\Audit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class ClassroomSubmissionController extends Controller implements \Illuminate\Routing\Controllers\HasMiddleware
@@ -141,7 +142,7 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
     {
         $submission = $file->submission;
         abort_unless(
-            auth()->user()->can('manage', $submission->classroom ?? $submission->assignment->classroom) || $submission->student_id === auth()->id(),
+            auth()->user()->can('monitor', $submission->classroom ?? $submission->assignment->classroom) || $submission->student_id === auth()->id(),
             403
         );
 
@@ -153,7 +154,7 @@ class ClassroomSubmissionController extends Controller implements \Illuminate\Ro
     {
         $submission = $file->submission;
         abort_unless(
-            auth()->user()->can('manage', $submission->classroom ?? $submission->assignment->classroom) || $submission->student_id === auth()->id(),
+            auth()->user()->can('monitor', $submission->classroom ?? $submission->assignment->classroom) || $submission->student_id === auth()->id(),
             403
         );
 

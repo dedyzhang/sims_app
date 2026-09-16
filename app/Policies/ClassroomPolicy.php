@@ -23,7 +23,7 @@ class ClassroomPolicy
         if ($user->isAdmin() || in_array($user->access, ['kepala', 'kurikulum'], true)) {
             return true;
         }
-        if ($classroom->created_by === $user->uuid || $this->teachesSubject($user, $classroom)) {
+        if ($classroom->created_by === $user->uuid || $this->teachesSubject($user, $classroom) || $this->isWaliKelas($user, $classroom)) {
             return true;
         }
         // Siswa/ortu anggota hanya setelah terbit.
@@ -45,7 +45,13 @@ class ClassroomPolicy
         return $user->isAdmin() || $classroom->created_by === $user->uuid;
     }
 
-    /** Kelola materi/tugas/penilaian — hanya guru pengampu mapel ini (sesuai jam ngajar). */
+    /** Memantau kelas (lihat tugas, materi, dan submission siswa, tanpa ubah nilai). */
+    public function monitor(User $user, Classroom $classroom): bool
+    {
+        return $this->manage($user, $classroom) || $this->isWaliKelas($user, $classroom) || in_array($user->access, ['kepala', 'kurikulum'], true);
+    }
+
+    /** Kelola materi/tugas/penilaian - hanya guru pengampu mapel ini (sesuai jam ngajar). */
     public function manage(User $user, Classroom $classroom): bool
     {
         return $user->isAdmin() || $classroom->created_by === $user->uuid || $this->teachesSubject($user, $classroom);
@@ -115,6 +121,24 @@ class ClassroomPolicy
         }
 
         return isset(self::$teachingSubjectCache[$key][$classroom->id_kelas . '_' . $classroom->id_pelajaran]);
+    }
+
+    /** @var array<string, array<string, int>> — lihat catatan di $memberCache. */
+    private static array $waliKelasCache = [];
+
+    private function isWaliKelas(User $user, Classroom $classroom): bool
+    {
+        $guru = $user->guru;
+        if (!$guru || !$classroom->id_kelas) {
+            return false;
+        }
+
+        $key = (string) $guru->uuid;
+        if (! isset(self::$waliKelasCache[$key])) {
+            self::$waliKelasCache[$key] = \App\Models\Walikelas::where('id_guru', $guru->uuid)->pluck('id_kelas')->flip()->toArray();
+        }
+
+        return isset(self::$waliKelasCache[$key][$classroom->id_kelas]);
     }
 
     /** @var array<string, array<string, int>> — lihat catatan di $memberCache. */

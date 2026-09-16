@@ -12,7 +12,7 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Target nilai: {{ strtoupper($ujian->target_nilai) }} — nilai ditransfer otomatis begitu attempt selesai dinilai. Semua siswa kelas ter-assign ditampilkan, termasuk yang belum mengerjakan.</p>
     </div>
 
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between flex-wrap gap-4 mb-4">
         @if($ujianKelasList->count() > 1)
         <form method="GET" action="{{ route('ujian.hasil.index', $ujian) }}" class="flex items-center gap-2">
             <label class="text-xs font-semibold text-slate-500">Kelas:</label>
@@ -27,7 +27,7 @@
         <div></div>
         @endif
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center flex-wrap gap-2">
             <form method="POST" action="{{ route('ujian.hasil.paksaSelesaiSemua', $ujian) }}" onsubmit="return confirmAction(this, 'Kumpulkan secara paksa SEMUA siswa yang berstatus Sedang Mengerjakan? Mereka akan dinilai secara otomatis saat ini juga.', 'red')">
                 @csrf
                 <button type="submit" class="btn-primary bg-rose-500 hover:bg-rose-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
@@ -52,7 +52,7 @@
     <div class="card overflow-hidden">
         <div class="overflow-x-auto">
         <table class="w-full text-sm">
-            <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs text-slate-500 dark:text-slate-400">
+            <thead class="bg-slate-50 dark:bg-slate-700/40 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
                 <tr>
                     <th class="text-left px-4 py-2.5">Siswa</th>
                     <th class="text-left px-4 py-2.5">Kelas</th>
@@ -125,6 +125,15 @@
                             @csrf
                             <button type="submit" title="Buka Kembali Akses" aria-label="Buka Kembali Akses" class="inline-flex p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30">
                                 <i data-lucide="lock-open" class="w-4 h-4"></i>
+                            </button>
+                        </form>
+                        @endif
+                        @if($attempt && $attempt->status !== 'dibatalkan')
+                        <form method="POST" action="{{ route('ujian.monitor.resetAttempt', [$ujian, $attempt]) }}" class="inline"
+                              onsubmit="return confirmAction(this, 'Reset ulang ujian {{ $siswa->nama }}? Jawaban akan dihapus dan siswa bisa mengulang dari awal.', 'red')">
+                            @csrf
+                            <button type="submit" title="Reset Ulang" aria-label="Reset Ulang" class="inline-flex p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30">
+                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
                             </button>
                         </form>
                         @endif

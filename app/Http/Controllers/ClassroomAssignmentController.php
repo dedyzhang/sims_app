@@ -327,9 +327,13 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         return redirect()->route('classroom.assignment.show', $assignment)->with('success', 'Tugas diperbarui untuk semua kelas tertaut.');
     }
 
-    public function destroy(ClassroomAssignment $assignment)
+    public function destroy(Request $request, ClassroomAssignment $assignment)
     {
-        $this->authorize('manage', $assignment->classroom);
+        $classUuid = $request->query('class');
+        $classroom = $classUuid ? $assignment->classrooms()->where('uuid', $classUuid)->first() : null;
+        $classroom ??= $this->resolveViewableClassroom($assignment, $request->user()) ?? $assignment->classroom;
+
+        $this->authorize('manage', $classroom);
 
         foreach ($assignment->files as $file) {
             if (\Illuminate\Support\Facades\Storage::disk('public')->exists($file->path)) {
@@ -355,7 +359,7 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         
         Audit::log('classroom_assignment_delete', $assignment);
 
-        return back()->with('success', 'Tugas dan seluruh data lampiran berhasil dihapus.');
+        return redirect()->route('classroom.show', $classroom)->with('success', 'Tugas dan seluruh data lampiran berhasil dihapus.');
     }
 
     /** Halaman penilaian: daftar submission per tugas. */
@@ -365,7 +369,7 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
         $classroom = $classUuid ? $assignment->classrooms()->where('uuid', $classUuid)->first() : null;
         $classroom ??= $this->resolveViewableClassroom($assignment, $request->user());
 
-        $this->authorize('manage', $classroom);
+        $this->authorize('monitor', $classroom);
 
         // Get student UUIDs for the active classroom
         $studentUserUuids = [];
@@ -420,10 +424,14 @@ class ClassroomAssignmentController extends Controller implements \Illuminate\Ro
             }
         }
         if ($user->guru) {
-            $ids = Ngajar::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
-            $classroom = $assignment->classrooms()->whereIn('id_kelas', $ids)->first();
-            if ($classroom) {
-                return $classroom;
+            $ngajarIds = \App\Models\Ngajar::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
+            $waliIds = \App\Models\Walikelas::where('id_guru', $user->guru->uuid)->pluck('id_kelas')->all();
+            $ids = array_unique(array_merge($ngajarIds, $waliIds));
+            if (!empty($ids)) {
+                $classroom = $assignment->classrooms()->whereIn('id_kelas', $ids)->first();
+                if ($classroom) {
+                    return $classroom;
+                }
             }
         }
 
