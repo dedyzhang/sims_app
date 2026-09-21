@@ -1144,6 +1144,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/paket/{paket}', [UjianPaketController::class, 'show'])->name('paket.show');
         Route::post('/paket/{paket}/update', [UjianPaketController::class, 'update'])->name('paket.update');
         Route::delete('/paket/{paket}', [UjianPaketController::class, 'destroy'])->name('paket.destroy');
+        Route::post('/paket/{paket}/terbitkan-semua', [UjianPaketController::class, 'publishAll'])->name('paket.publishAll');
+        Route::post('/paket/{paket}/tambah-ujian', [UjianPaketController::class, 'tambahUjian'])->name('paket.tambahUjian');
+        Route::post('/paket/{paket}/lepas-ujian/{ujian}', [UjianPaketController::class, 'lepasUjian'])->name('paket.lepasUjian');
         
         // Rekap Harian Berita Acara (seluruh ruangan)
         Route::get('/rekap', [\App\Http\Controllers\UjianRekapController::class, 'index'])->name('rekap.index');
@@ -1189,6 +1192,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{ujian}/backup', [\App\Http\Controllers\UjianBackupController::class, 'backup'])->name('backup');
         Route::post('/{ujian}/reset-total', [UjianController::class, 'resetTotal'])->name('resetTotal');
         Route::get('/{ujian}', [UjianController::class, 'show'])->name('show');
+        Route::get('/{ujian}/susulan', [\App\Http\Controllers\UjianSusulanController::class, 'index'])->name('susulan.index');
+        Route::post('/{ujian}/susulan', [\App\Http\Controllers\UjianSusulanController::class, 'store'])->name('susulan.store');
+        Route::delete('/susulan/{susulan}', [\App\Http\Controllers\UjianSusulanController::class, 'destroy'])->name('susulan.destroy');
         Route::get('/{ujian}/edit', [UjianController::class, 'edit'])->name('edit');
         Route::get('/{ujian}/pratinjau', [UjianController::class, 'pratinjau'])->name('pratinjau');
         Route::get('/{ujian}/pengaturan', [UjianController::class, 'editPengaturan'])->name('pengaturan.edit');

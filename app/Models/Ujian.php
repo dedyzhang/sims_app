@@ -68,6 +68,11 @@ class Ujian extends Model
         return $this->hasMany(UjianKelas::class, 'id_ujian', 'uuid');
     }
 
+    public function susulans()
+    {
+        return $this->hasMany(UjianSusulan::class, 'id_ujian', 'uuid');
+    }
+
     /** Paket (folder periode ujian, mis. "PAS Semester 1") — opsional, ujian standalone tetap sah tanpa ini. */
     public function paket()
     {

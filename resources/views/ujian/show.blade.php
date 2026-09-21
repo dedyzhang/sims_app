@@ -27,6 +27,9 @@
         <a href="{{ route('ujian.pengaturan.edit', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
             <i data-lucide="settings" class="w-4 h-4 inline"></i> Pengaturan
         </a>
+        <a href="{{ route('ujian.susulan.index', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400 dark:hover:bg-indigo-900/30">
+            <i data-lucide="calendar-clock" class="w-4 h-4 inline"></i> Susulan
+        </a>
         <div x-data="{ openBackup: false }" class="inline-block">
             <button type="button" @click="openBackup = true" class="px-4 py-2 rounded-xl text-sm font-semibold border border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30">
                 <i data-lucide="download-cloud" class="w-4 h-4 inline"></i> Backup Data

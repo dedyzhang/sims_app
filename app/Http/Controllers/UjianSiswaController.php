@@ -50,7 +50,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
         return $this->retryOnDbBusy(function () use ($request) {
             $siswa = $this->siswaAtauGagal($request);
 
-            $ujianKelasList = UjianKelas::with('ujian.pelajaran')
+            $ujianKelasList = UjianKelas::with(['ujian.pelajaran', 'ujian.paket'])
                 ->where('id_kelas', $siswa->id_kelas)
                 ->whereHas('ujian', fn ($q) => $q->whereIn('status', ['published', 'closed']))
                 ->get();
@@ -66,7 +66,46 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 ->orderBy('created_at')
                 ->get()->keyBy('id_ujian_kelas');
 
-            return view('ujian.siswa.index', compact('ujianKelasList', 'attempts'));
+            $susulanIds = \App\Models\UjianSusulan::whereIn('id_ujian', $ujianKelasList->pluck('id_ujian'))
+                ->where('id_siswa', $siswa->uuid)
+                ->whereDate('tanggal', now()->toDateString())
+                ->pluck('id_ujian')
+                ->toArray();
+
+            $ujianKelasList = $ujianKelasList->filter(function($uk) use ($siswa, $susulanIds) {
+                $ujian = $uk->ujian;
+                if ($ujian && $ujian->id_ujian_paket) {
+                    $paket = $ujian->paket;
+                    
+                    if (in_array($ujian->uuid, $susulanIds)) {
+                        return true; // Susulan meng-override syarat jadwal & QR
+                    }
+
+                    // Kalau bukan susulan, terapkan aturan standar Paket
+                    if ($uk->dibuka_mulai && now()->startOfDay()->lt($uk->dibuka_mulai->startOfDay())) {
+                        return false;
+                    }
+
+                    if ($paket && $paket->wajib_scan_qr) {
+                        if (!$paket->sudahDicekSiswa($siswa)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            });
+
+            $groupedUjianKelas = $ujianKelasList->groupBy(function ($uk) use ($susulanIds) {
+                if (in_array($uk->id_ujian, $susulanIds)) {
+                    return 'Ujian Susulan';
+                }
+                if ($uk->ujian->id_ujian_paket && $uk->ujian->paket) {
+                    return 'Paket: ' . $uk->ujian->paket->nama;
+                }
+                return 'Tidak Dalam Paket';
+            });
+
+            return view('ujian.siswa.index', compact('groupedUjianKelas', 'attempts', 'susulanIds'));
         });
     }
 
@@ -116,7 +155,20 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
     private function butuhScanQr(Ujian $ujian, Siswa $siswa): bool
     {
-        return $ujian->wajibScanQr() && !$ujian->paket->sudahDicekSiswa($siswa);
+        if ($ujian->wajibScanQr()) {
+            $isSusulanHariIni = \App\Models\UjianSusulan::where('id_ujian', $ujian->uuid)
+                ->where('id_siswa', $siswa->uuid)
+                ->whereDate('tanggal', now()->toDateString())
+                ->exists();
+
+            if ($isSusulanHariIni) {
+                return false;
+            }
+
+            return !$ujian->paket->sudahDicekSiswa($siswa);
+        }
+
+        return false;
     }
 
     private function viewWajibScan(Ujian $ujian, Siswa $siswa)

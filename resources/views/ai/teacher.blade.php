@@ -2467,6 +2467,15 @@
                             <i :data-lucide="sendingArena ? 'loader-circle' : 'gamepad-2'" class="w-4 h-4" :class="sendingArena ? 'animate-spin' : ''"></i>
                             <span x-text="sendingArena ? 'Mengirim…' : 'Kirim ke Arena'"></span>
                         </button>
+                        {{-- Sebelumnya tombol "Kirim ke Arena" DIAM-DIAM hilang total kalau arenaClassrooms
+                             kosong (guru login tak terdaftar pengampu/pembuat kelas manapun yg Published) —
+                             tak ada petunjuk apa pun kenapa. Pesan ini gantikan kekosongan itu dgn alasan
+                             eksplisit, supaya tak perlu tebak-tebak lagi lain kali. --}}
+                        <p x-show="tab === 'quiz' && resultSource !== 'ocr' && arenaBelajarAktif && !arenaClassrooms.length" x-cloak
+                           class="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5 py-1">
+                            <i data-lucide="info" class="w-3.5 h-3.5 flex-shrink-0"></i>
+                            Tombol "Kirim ke Arena" belum tersedia — akun ini belum terdaftar sebagai pengampu/pembuat di Ruang Kelas manapun yang berstatus Published.
+                        </p>
                         <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr'"
                                 @click="useResultForBlueprint()"
                                 class="ai-toolbar-btn ai-toolbar-btn--accent">

@@ -24,7 +24,13 @@
                     @if($paket->tanggal_mulai){{ $paket->tanggal_mulai->translatedFormat('d M Y') }}@if($paket->tanggal_selesai) – {{ $paket->tanggal_selesai->translatedFormat('d M Y') }}@endif @endif
                 </p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <form method="POST" action="{{ route('ujian.paket.publishAll', $paket) }}" onsubmit="return confirmAction(this, 'Terbitkan SEMUA ujian draf dalam paket ini (yang sudah punya soal & kelas)?')">
+                    @csrf
+                    <button type="submit" class="px-4 py-2 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm">
+                        <i data-lucide="send" class="w-4 h-4 inline mr-1"></i> Terbitkan Semua
+                    </button>
+                </form>
                 <button @click="editOpen = true" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
                     <i data-lucide="pencil" class="w-4 h-4 inline"></i> Edit
                 </button>

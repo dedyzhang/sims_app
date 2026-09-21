@@ -40,11 +40,14 @@ class UjianController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         $user = $request->user();
-        $query = Ujian::withCount('soal')->with('pelajaran', 'kelas.kelas')->latest();
+        $query = Ujian::withCount('soal')
+            ->with(['pelajaran', 'kelas.kelas', 'paket'])
+            ->withExists('susulans')
+            ->latest();
 
         if (!$user->isAdmin() && !$user->canAccess('manage_ujian')) {
             $guru = $user->guru;
-            $pairs = Ngajar::where('id_guru', $guru?->uuid ?? '-')->get(['id_pelajaran', 'id_kelas']);
+            $pairs = \App\Models\Ngajar::where('id_guru', $guru?->uuid ?? '-')->get(['id_pelajaran', 'id_kelas']);
 
             $query->where(function ($q) use ($user, $pairs) {
                 $q->where('created_by', $user->uuid);
@@ -58,8 +61,18 @@ class UjianController extends Controller implements HasMiddleware
         }
 
         $ujians = $query->get();
+        
+        $groupedUjians = $ujians->groupBy(function ($ujian) {
+            if ($ujian->susulans_exists) {
+                return 'Jadwal Susulan Aktif';
+            }
+            if ($ujian->id_ujian_paket && $ujian->paket) {
+                return 'Paket: ' . $ujian->paket->nama;
+            }
+            return 'Tidak Dalam Paket';
+        });
 
-        return view('ujian.index', compact('ujians'));
+        return view('ujian.index', compact('groupedUjians'));
     }
 
     public function create(Request $request)
@@ -171,6 +184,7 @@ class UjianController extends Controller implements HasMiddleware
                 'acak_soal'             => $request->boolean('acak_soal', true),
                 'acak_opsi'             => $request->boolean('acak_opsi', true),
                 'tampilkan_pembahasan'  => $request->boolean('tampilkan_pembahasan', false),
+                'status'                => 'draft',
             ]);
 
             if (!empty($idKelas)) {
@@ -400,11 +414,16 @@ class UjianController extends Controller implements HasMiddleware
 
             // Kalau cuma SATU guru yg beneran cocok (Ngajar) utk mapel+kelas ini, langsung
             // jadikan pengampu — tak ada ambiguitas jadi tak perlu dipilih manual admin.
-            // Kalau ada 2+, dibiarkan null, dipilih lewat panel "Guru Pengampu" di bawah.
             $guruMatch = Ngajar::where('id_pelajaran', $ujian->id_pelajaran)->where('id_kelas', $id)->pluck('id_guru');
             $pengampu = $guruMatch->unique()->count() === 1 ? $guruMatch->first() : null;
 
-            UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $id, 'token_masuk' => $token, 'id_guru_pengampu' => $pengampu]);
+            UjianKelas::create([
+                'id_ujian' => $ujian->uuid, 
+                'id_kelas' => $id, 
+                'token_masuk' => $token, 
+                'id_guru_pengampu' => $pengampu,
+                'status' => 'standby'
+            ]);
         }
         // Kelas yg tidak lagi dipilih dilepas — aman selama belum ada attempt (FK cascade
         // akan ikut menghapus attempt jika ada; UI harus memperingatkan sebelum submit).
