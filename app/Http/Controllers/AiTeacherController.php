@@ -82,18 +82,39 @@ class AiTeacherController extends Controller
         $user = auth()->user();
 
         $arenaClassrooms = collect();
+        $arenaClassroomsDiag = null;
         if (ModulAktif::aktif('arena_belajar')) {
-            $arenaClassrooms = Classroom::query()
+            $publishedClassrooms = Classroom::query()
                 ->where('status', 'published')
                 ->latest()
                 ->limit(80)
-                ->get()
+                ->get();
+
+            $arenaClassrooms = $publishedClassrooms
                 ->filter(fn (Classroom $c) => $user->can('manage', $c))
                 ->values()
                 ->map(fn (Classroom $c) => [
                     'uuid' => $c->uuid,
                     'title' => $c->title,
                 ]);
+
+            // Diagnostik: guru mengaku sudah pengampu tapi tombol tetap tak muncul (dilaporkan
+            // FL) — biar tak nebak2 lewat DB produksi lagi, tampilkan LANGSUNG apa yg tercatat
+            // vs apa yg dibutuhkan tiap kelas published, supaya selisihnya kelihatan sendiri.
+            // Cuma dihitung kalau memang kosong (guru) — tak nambah query di jalur normal.
+            if ($arenaClassrooms->isEmpty() && $user->access === 'guru' && $user->guru) {
+                $arenaClassroomsDiag = [
+                    'ngajarSaya' => \App\Models\Ngajar::where('id_guru', $user->guru->uuid)
+                        ->with(['kelas:uuid,tingkat,kelas', 'pelajaran:uuid,nama'])
+                        ->get()
+                        ->map(fn ($n) => trim(($n->kelas ? $n->kelas->tingkat.$n->kelas->kelas : '(kelas terhapus)').' — '.($n->pelajaran->nama ?? '(mapel terhapus)')))
+                        ->values(),
+                    'kelasPublished' => $publishedClassrooms
+                        ->load(['rombel:uuid,tingkat,kelas', 'pelajaran:uuid,nama'])
+                        ->map(fn (Classroom $c) => $c->title.' ('.($c->rombel ? $c->rombel->tingkat.$c->rombel->kelas : '(kelas terhapus)').' — '.($c->pelajaran->nama ?? '(mapel terhapus)').')')
+                        ->values(),
+                ];
+            }
         }
 
         $hasApiKey = $user->hasGeminiApiKey();
@@ -104,6 +125,7 @@ class AiTeacherController extends Controller
             'quotaUsage' => $this->aiPublicQuotaUsage(true, $user->uuid),
             'canViewQuotaUsage' => false,
             'arenaClassrooms' => $arenaClassrooms,
+            'arenaClassroomsDiag' => $arenaClassroomsDiag,
             'arenaBelajarAktif' => ModulAktif::aktif('arena_belajar'),
             'launcherAktif' => (Setting::get('tp_launcher_aktif', '1') ?? '1') === '1',
             'needsApiKeySetup' => ! $hasApiKey,

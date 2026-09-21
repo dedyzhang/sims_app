@@ -18,6 +18,17 @@ class ClassroomMember extends Model
         return ['joined_at' => 'datetime'];
     }
 
+    /**
+     * ClassroomPolicy::isMember() memo per-user statis (mirip pola Setting::memo()) — kalau
+     * baris keanggotaan berubah, lupakan cache user itu supaya cek akses berikutnya dalam
+     * proses/request yang sama membaca data terbaru, bukan snapshot dari cek sebelumnya.
+     */
+    protected static function booted(): void
+    {
+        static::created(fn (self $m) => \App\Policies\ClassroomPolicy::lupakanCacheAnggota($m->user_id));
+        static::deleted(fn (self $m) => \App\Policies\ClassroomPolicy::lupakanCacheAnggota($m->user_id));
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id', 'uuid');

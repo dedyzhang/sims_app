@@ -374,7 +374,7 @@ class GameLiveController extends Controller implements HasMiddleware
             ]);
 
             return [$graded, $quiz->instant_feedback, $quiz->hide_scores && !auth()->user()->can('manage', $quiz), false];
-        });
+        }, 3);
 
         [$graded, $instantFeedback, $hideScores, $alreadyLocked] = $result;
 
@@ -517,7 +517,7 @@ class GameLiveController extends Controller implements HasMiddleware
             }
 
             return $this->transitionState($locked, $questions, $quiz, $classroom, $grader);
-        });
+        }, 3);
     }
 
     /** Cek murah TANPA lock: apakah sesi ini kemungkinan perlu diperiksa utk auto-advance? */

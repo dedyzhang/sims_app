@@ -1153,8 +1153,6 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/rekap/cetak', [\App\Http\Controllers\UjianRekapController::class, 'cetak'])->name('rekap.cetak');
         Route::get('/rekap/cetak-bulk-ba', [\App\Http\Controllers\UjianRekapController::class, 'cetakBulkBa'])->name('rekap.cetakBulkBa');
         Route::get('/rekap/cetak-bulk-dh', [\App\Http\Controllers\UjianRekapController::class, 'cetakBulkDh'])->name('rekap.cetakBulkDh');
-        Route::post('/paket/{paket}/tambah-ujian', [UjianPaketController::class, 'tambahUjian'])->name('paket.tambahUjian');
-        Route::post('/paket/{paket}/lepas-ujian/{ujian}', [UjianPaketController::class, 'lepasUjian'])->name('paket.lepasUjian');
 
         Route::post('/paket/{paket}/ruangan', [UjianRuanganController::class, 'store'])->name('paket.ruangan.store');
         Route::post('/paket/{paket}/ruangan/{ruangan}/update', [UjianRuanganController::class, 'update'])->name('paket.ruangan.update');

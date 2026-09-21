@@ -16,7 +16,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('id_ujian')->references('uuid')->on('ujians')->cascadeOnDelete();
-            $table->foreign('id_siswa')->references('uuid')->on('siswas')->cascadeOnDelete();
+            $table->foreign('id_siswa')->references('uuid')->on('siswa')->cascadeOnDelete();
         });
     }
 

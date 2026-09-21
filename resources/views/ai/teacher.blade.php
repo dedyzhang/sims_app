@@ -1703,7 +1703,7 @@
                                 <span x-text="copiedMessageKey === geminiMessageKey(m) ? 'Tersalin' : 'Salin'"></span>
                             </button>
                             <button type="button"
-                                    x-show="arenaBelajarAktif && arenaClassrooms.length && looksLikeQuizDocument(m.text)"
+                                    x-show="arenaBelajarAktif && looksLikeQuizDocument(m.text)"
                                     @click="sendGeminiToArena(m)"
                                     :disabled="sendingArena"
                                     class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 disabled:opacity-50">
@@ -2461,21 +2461,12 @@
                         </button>
                         </div>
                         <div class="ai-toolbar-row" aria-label="Aksi lanjutan hasil">
-                        <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr' && arenaBelajarAktif && arenaClassrooms.length"
+                        <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr' && arenaBelajarAktif"
                                 @click="openSendToArena()" :disabled="sendingArena"
                                 class="ai-toolbar-btn ai-toolbar-btn--arena">
                             <i :data-lucide="sendingArena ? 'loader-circle' : 'gamepad-2'" class="w-4 h-4" :class="sendingArena ? 'animate-spin' : ''"></i>
                             <span x-text="sendingArena ? 'Mengirim…' : 'Kirim ke Arena'"></span>
                         </button>
-                        {{-- Sebelumnya tombol "Kirim ke Arena" DIAM-DIAM hilang total kalau arenaClassrooms
-                             kosong (guru login tak terdaftar pengampu/pembuat kelas manapun yg Published) —
-                             tak ada petunjuk apa pun kenapa. Pesan ini gantikan kekosongan itu dgn alasan
-                             eksplisit, supaya tak perlu tebak-tebak lagi lain kali. --}}
-                        <p x-show="tab === 'quiz' && resultSource !== 'ocr' && arenaBelajarAktif && !arenaClassrooms.length" x-cloak
-                           class="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5 py-1">
-                            <i data-lucide="info" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                            Tombol "Kirim ke Arena" belum tersedia — akun ini belum terdaftar sebagai pengampu/pembuat di Ruang Kelas manapun yang berstatus Published.
-                        </p>
                         <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr'"
                                 @click="useResultForBlueprint()"
                                 class="ai-toolbar-btn ai-toolbar-btn--accent">
@@ -2968,6 +2959,7 @@
             quotaTimer: null,
             arenaBelajarAktif: @js((bool) ($arenaBelajarAktif ?? false)),
             arenaClassrooms: @js($arenaClassrooms ?? []),
+            arenaClassroomsDiag: @js($arenaClassroomsDiag ?? null),
             arenaClassroomId: '',
             showArenaModal: false,
             sendingArena: false,
@@ -4475,9 +4467,17 @@
             },
 
             sendGeminiToArena(msg) {
-                if (!msg?.text || !this.arenaBelajarAktif || !this.arenaClassrooms.length || this.sendingArena) return;
+                if (!msg?.text || !this.arenaBelajarAktif || this.sendingArena) return;
+                
+                if (!this.arenaClassrooms || !this.arenaClassrooms.length) {
+                    this.error = 'Tidak ada Ruang Kelas aktif (Published) yang bisa Anda kelola untuk mengirim kuis ini.';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                }
+
                 if (!this.looksLikeQuizDocument(msg.text)) {
                     this.error = 'Jawaban ini belum berbentuk soal. Minta Nalar membuat soal (SOAL EVALUASI), atau buka di Generator Soal dulu.';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                     return;
                 }
                 this.result = msg.text;
@@ -4492,7 +4492,14 @@
             },
 
             openSendToArena(opts = {}) {
-                if (!this.result || !this.arenaBelajarAktif || !this.arenaClassrooms.length) return;
+                if (!this.result || !this.arenaBelajarAktif) return;
+                
+                if (!this.arenaClassrooms || !this.arenaClassrooms.length) {
+                    this.error = 'Tidak ada Ruang Kelas aktif (Published) yang bisa Anda kelola untuk mengirim kuis ini.';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                }
+
                 if (!this.looksLikeQuizDocument(this.result)) {
                     this.error = 'Teks hasil belum berbentuk soal yang bisa diimpor ke Arena.';
                     return;
