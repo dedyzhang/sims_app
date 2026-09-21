@@ -4470,7 +4470,7 @@
                 if (!msg?.text || !this.arenaBelajarAktif || this.sendingArena) return;
                 
                 if (!this.arenaClassrooms || !this.arenaClassrooms.length) {
-                    this.error = 'Tidak ada Ruang Kelas aktif (Published) yang bisa Anda kelola untuk mengirim kuis ini.';
+                    this.error = 'Tidak ada Ruang Kelas yang bisa Anda kelola (berdasarkan setelan Jadwal Mengajar) untuk menerima kuis ini.';
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     return;
                 }
@@ -4495,7 +4495,7 @@
                 if (!this.result || !this.arenaBelajarAktif) return;
                 
                 if (!this.arenaClassrooms || !this.arenaClassrooms.length) {
-                    this.error = 'Tidak ada Ruang Kelas aktif (Published) yang bisa Anda kelola untuk mengirim kuis ini.';
+                    this.error = 'Tidak ada Ruang Kelas yang bisa Anda kelola (berdasarkan setelan Jadwal Mengajar) untuk menerima kuis ini.';
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     return;
                 }
@@ -4505,8 +4505,10 @@
                     return;
                 }
                 if (this.tab === 'quiz' && this.resultSource !== 'ocr' && !this.qualityBatchCurrent()) {
+                    this.error = 'Silakan "Cek kualitas semua soal" terlebih dahulu sebelum mengirim ke Arena. Tombol cek ada di panel di bawah hasil ujian.';
                     this.qualityBatch.error = 'Cek kualitas semua soal terlebih dahulu. Pengiriman ke Arena baru dibuka setelah pemeriksaan selesai untuk hasil terbaru.';
                     this.qualityBatch.message = '';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                     return;
                 }
                 this._arenaFromNalar = !!opts.fromNalar || this.tab === 'gemini';
@@ -4523,8 +4525,10 @@
             sendToArena() {
                 if (!this.result || !this.arenaClassroomId || this.sendingArena) return;
                 if (this.tab === 'quiz' && this.resultSource !== 'ocr' && !this.qualityBatchCurrent()) {
+                    this.error = 'Silakan "Cek kualitas semua soal" terlebih dahulu sebelum mengirim ke Arena. Tombol cek ada di panel di bawah hasil ujian.';
                     this.qualityBatch.error = 'Cek kualitas semua soal terlebih dahulu sebelum mengirim ke Arena.';
                     this.showArenaModal = false;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                     return;
                 }
                 this.sendingArena = true;
