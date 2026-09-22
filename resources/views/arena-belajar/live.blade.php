@@ -395,7 +395,18 @@ function arenaLive(cfg) {
             // (mis. guru pindah ke layar lain sebentar), langsung poll lagi begitu kembali
             // terlihat — konsisten dgn pola polling lain di app ini, kurangi beban server
             // dari tab yg dibiarkan terbuka di background.
-            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'arena_live'); // bisa dimatikan lewat Performa Server
+                        if (!window.simsPollingNonaktif('arena_live')) {
+                if (window.simsFirebase) {
+                    window.simsFirebase.onReady(fb => {
+                        const triggerRef = fb.getRef(rena/{{ ->id }}/sync_trigger);
+                        fb.onValue(triggerRef, (snapshot) => {
+                            if (snapshot.exists()) {
+                                this.poll();
+                            }
+                        });
+                    });
+                }
+            }
             this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
@@ -496,7 +507,18 @@ function arenaLive(cfg) {
             this.pollBackoffMs = ms;
             if (this.timer) clearInterval(this.timer);
             this.timer = setTimeout(() => {
-                this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'arena_live'); // bisa dimatikan lewat Performa Server
+                            if (!window.simsPollingNonaktif('arena_live')) {
+                if (window.simsFirebase) {
+                    window.simsFirebase.onReady(fb => {
+                        const triggerRef = fb.getRef(rena/{{ ->id }}/sync_trigger);
+                        fb.onValue(triggerRef, (snapshot) => {
+                            if (snapshot.exists()) {
+                                this.poll();
+                            }
+                        });
+                    });
+                }
+            }
                 this.poll();
             }, ms);
         },

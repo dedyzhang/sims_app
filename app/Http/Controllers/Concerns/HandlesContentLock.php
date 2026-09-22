@@ -65,6 +65,10 @@ trait HandlesContentLock
             'lockable_type' => $model::class, 'lockable_id' => $model->uuid,
             'student_id' => $request->user()->uuid, 'type' => 'masuk',
         ]);
+        
+        try {
+            app(\App\Services\FirebaseRtdbService::class)->pingLockMonitor($model->uuid);
+        } catch (\Exception $e) {}
 
         return redirect()->route($showRoute, [$model, 'class' => $classroom->uuid]);
     }
@@ -84,6 +88,10 @@ trait HandlesContentLock
             ]);
             unset($u[$model->uuid]);
             session(['lock_unlock' => $u]);
+            
+            try {
+                app(\App\Services\FirebaseRtdbService::class)->pingLockMonitor($model->uuid);
+            } catch (\Exception $e) {}
         }
         return response()->noContent();
     }

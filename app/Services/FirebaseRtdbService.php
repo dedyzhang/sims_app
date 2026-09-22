@@ -224,4 +224,9 @@ class FirebaseRtdbService
     {
         $this->set("arena_practice/{$sessionId}/sync_trigger", now()->timestamp);
     }
+
+    public function pingLockMonitor(string $uuid): void
+    {
+        $this->set("lock_monitor/{$uuid}/sync_trigger", now()->timestamp);
+    }
 }

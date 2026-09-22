@@ -2182,7 +2182,18 @@
                 // Polling 45s (was 15s — endpoint ini request TERBANYAK di seluruh app, ~8.2rb/jam
                 // pas beban tinggi; notifikasi tak butuh sampai se-real-time itu, tunda beberapa
                 // puluh detik tak masalah) — pause saat tab hidden (simsPollInterval)
-                window.simsPollInterval(() => this.fetchNotifications(), 45000, 'notifikasi');
+                                if (!window.simsPollingNonaktif('notifikasi')) {
+                    if (window.simsFirebase) {
+                        window.simsFirebase.onReady(fb => {
+                            const triggerRef = fb.getRef(users/{{ auth()->user()->uuid ?? '' }}/sync_trigger);
+                            fb.onValue(triggerRef, (snapshot) => {
+                                if (snapshot.exists()) {
+                                    this.fetchNotifications();
+                                }
+                            });
+                        });
+                    }
+                }
             },
             async fetchNotifications() {
                 if (document.hidden) return;

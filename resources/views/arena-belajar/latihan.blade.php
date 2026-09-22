@@ -204,7 +204,18 @@ function arenaLatihanGuru(cfg) {
         },
         boot() {
             this.poll();
-            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'arena_latihan'); // bisa dimatikan lewat Performa Server
+            if (!window.simsPollingNonaktif('arena_latihan')) {
+                if (window.simsFirebase) {
+                    window.simsFirebase.onReady(fb => {
+                        const triggerRef = fb.getRef(`arena_practice/{{ $session->id }}/sync_trigger`);
+                        fb.onValue(triggerRef, (snapshot) => {
+                            if (snapshot.exists()) {
+                                this.poll();
+                            }
+                        });
+                    });
+                }
+            }
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
         async poll() {

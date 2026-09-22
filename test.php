@@ -1,1 +1,0 @@
-<?php require " vendor/autoload.php\; \ = require_once \bootstrap/app.php\; \->make(\Illuminate\Contracts\Console\Kernel\)->bootstrap(); print_r(\App\Models\ClassroomAssignment::withTrashed()->orderBy(\deleted_at\, \desc\)->first()->toArray());

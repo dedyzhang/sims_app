@@ -356,7 +356,18 @@ function grupChat(cfg) {
         // ── Polling ────────────────────────────────────────────────────────
         arm() {
             if (this.timer) clearInterval(this.timer);
-            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'pesan_grup'); // bisa dimatikan lewat Performa Server
+                        if (!window.simsPollingNonaktif('pesan_grup')) {
+                if (window.simsFirebase) {
+                    window.simsFirebase.onReady(fb => {
+                        const triggerRef = fb.getRef(`groups/{{ $grup->uuid }}/sync_trigger`);
+                        fb.onValue(triggerRef, (snapshot) => {
+                            if (snapshot.exists()) {
+                                this.poll();
+                            }
+                        });
+                    });
+                }
+            }
         },
         backoff(ms) {
             if (this.timer) clearInterval(this.timer);
