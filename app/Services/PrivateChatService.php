@@ -15,6 +15,8 @@ class PrivateChatService
 {
     public const MAX_BODY = 4000;
 
+    public function __construct(private \App\Services\FirebaseRtdbService $firebase) {}
+
     public function open(User $user, User $target, GrupChat $context): PrivateChatConversation
     {
         Gate::forUser($user)->authorize('privateChat', [$context, $target]);
@@ -63,6 +65,8 @@ class PrivateChatService
         if ($recipient) {
             $recipient->notify(new PrivateChatMessageReceived($conversation->fresh(), $message));
         }
+        
+        $this->firebase->pingConversation($conversation->uuid);
 
         return $message;
     }

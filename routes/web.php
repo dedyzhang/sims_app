@@ -1346,6 +1346,9 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/{pembayaran}', [TagihanController::class, 'show'])->name('show');
         Route::post('/{pembayaran}/bukti', [TagihanController::class, 'upload'])->name('upload');
     });
+
+    // Endpoint token Custom Firebase (WebSockets)
+    Route::post('/firebase/custom-token', [\App\Http\Controllers\FirebaseController::class, 'getToken'])->name('firebase.token');
 });
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Chatbot Asisten Sekolah Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬

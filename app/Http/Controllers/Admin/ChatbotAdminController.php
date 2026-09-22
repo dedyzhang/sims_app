@@ -142,13 +142,15 @@ class ChatbotAdminController extends Controller
     }
 
     /** Admin membalas sebagai manusia. */
-    public function reply(Request $request, ChatbotConversation $conversation): JsonResponse
+    public function reply(Request $request, ChatbotConversation $conversation, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $data = $request->validate([
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
         $message = $this->chatbot->replyAsAdmin($conversation, $request->user(), $data['body']);
+
+        $firebase->pingUser($conversation->user->uuid);
 
         return response()->json([
             'message' => $this->chatbot->serializeMessage($message),
@@ -157,7 +159,7 @@ class ChatbotAdminController extends Controller
     }
 
     /** Admin membalas dengan gambar (sudah dikompres di sisi klien). */
-    public function replyImage(Request $request, ChatbotConversation $conversation): JsonResponse
+    public function replyImage(Request $request, ChatbotConversation $conversation, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $data = $request->validate([
             'image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
@@ -174,6 +176,8 @@ class ChatbotAdminController extends Controller
             $path,
         );
 
+        $firebase->pingUser($conversation->user->uuid);
+
         return response()->json([
             'message' => $this->chatbot->serializeMessage($message),
             'status' => $conversation->refresh()->status,
@@ -181,7 +185,7 @@ class ChatbotAdminController extends Controller
     }
 
     /** Admin membalas dengan lampiran file/dokumen (tanpa kompresi, dibatasi ukuran). */
-    public function replyFile(Request $request, ChatbotConversation $conversation): JsonResponse
+    public function replyFile(Request $request, ChatbotConversation $conversation, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv', 'max:5120'],
@@ -198,6 +202,8 @@ class ChatbotAdminController extends Controller
             $path,
         );
 
+        $firebase->pingUser($conversation->user->uuid);
+
         return response()->json([
             'message' => $this->chatbot->serializeMessage($message),
             'status' => $conversation->refresh()->status,
@@ -205,9 +211,11 @@ class ChatbotAdminController extends Controller
     }
 
     /** Admin mengembalikan percakapan ke bot. */
-    public function backToBot(Request $request, ChatbotConversation $conversation): JsonResponse
+    public function backToBot(Request $request, ChatbotConversation $conversation, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $conversation = $this->chatbot->backToBot($conversation);
+
+        $firebase->pingUser($conversation->user->uuid);
 
         return response()->json([
             'mode' => $conversation->mode,
@@ -216,9 +224,11 @@ class ChatbotAdminController extends Controller
     }
 
     /** Admin menutup/menyelesaikan percakapan (pesan tetap tersimpan sebagai histori). */
-    public function close(Request $request, ChatbotConversation $conversation): JsonResponse
+    public function close(Request $request, ChatbotConversation $conversation, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $conversation = $this->chatbot->closeConversation($conversation, $request->user());
+
+        $firebase->pingUser($conversation->user->uuid);
 
         return response()->json([
             'status' => $conversation->status,

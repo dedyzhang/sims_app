@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 
 class ForumCommentController extends Controller
 {
-    public function store(StoreForumCommentRequest $request, ForumTopic $topic)
+    public function store(StoreForumCommentRequest $request, ForumTopic $topic, \App\Services\FirebaseRtdbService $firebase)
     {
         $this->authorize('reply', $topic);
 
@@ -38,6 +38,8 @@ class ForumCommentController extends Controller
         ]);
 
         $this->notifyParticipants($topic, $comment, $parentId);
+        
+        $firebase->pingForumComment($topic->uuid);
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -50,12 +52,14 @@ class ForumCommentController extends Controller
             ->with('success', 'Komentar terkirim.');
     }
 
-    public function update(Request $request, ForumComment $comment)
+    public function update(Request $request, ForumComment $comment, \App\Services\FirebaseRtdbService $firebase)
     {
         $this->authorize('update', $comment);
         $data = $request->validate(['body' => ['required', 'string', 'max:10000']]);
 
         $comment->update(['body' => Forum::sanitize($data['body']), 'edited_at' => now()]);
+        
+        $firebase->pingForumComment($comment->topic_id);
 
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);
@@ -64,14 +68,17 @@ class ForumCommentController extends Controller
         return back()->with('success', 'Komentar diperbarui.');
     }
 
-    public function destroy(ForumComment $comment)
+    public function destroy(ForumComment $comment, \App\Services\FirebaseRtdbService $firebase)
     {
         $this->authorize('delete', $comment);
         $topic = $comment->topic;
+        $topicId = $comment->topic_id;
         $comment->delete();
 
         $topic?->update(['replies_count' => ForumComment::where('topic_id', $topic->uuid)->count()]);
         Forum::audit('delete_comment', $comment);
+        
+        $firebase->pingForumComment($topicId);
 
         if (request()->expectsJson()) {
             return response()->json(['ok' => true]);
@@ -80,7 +87,7 @@ class ForumCommentController extends Controller
         return back()->with('success', 'Komentar dihapus.');
     }
 
-    public function best(ForumComment $comment)
+    public function best(ForumComment $comment, \App\Services\FirebaseRtdbService $firebase)
     {
         $topic = $comment->topic;
         $this->authorize('markBestAnswer', $topic);
@@ -91,6 +98,8 @@ class ForumCommentController extends Controller
         $comment->update(['is_best_answer' => true]);
 
         Forum::audit('best_answer', $comment, ['topic' => $topic->title]);
+        
+        $firebase->pingForumComment($topic->uuid);
 
         if (request()->expectsJson()) {
             return response()->json(['ok' => true]);

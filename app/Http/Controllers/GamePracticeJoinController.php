@@ -130,7 +130,7 @@ class GamePracticeJoinController extends Controller
         ]);
     }
 
-    public function answer(Request $request, string $joinToken, GameAnswerGrader $grader)
+    public function answer(Request $request, string $joinToken, GameAnswerGrader $grader, \App\Services\FirebaseRtdbService $firebase)
     {
         $session = $this->findSession($joinToken);
         $participant = $this->findParticipant($session, $request->input('g'));
@@ -151,6 +151,8 @@ class GamePracticeJoinController extends Controller
             $data['answer_text'] ?? null,
             $grader
         );
+        
+        $firebase->pingArenaPractice($session->uuid);
 
         if (!$result['ok']) {
             return response()->json($result, $result['status'] === 'locked' ? 409 : 422);

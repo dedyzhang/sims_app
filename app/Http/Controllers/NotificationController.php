@@ -94,27 +94,30 @@ class NotificationController extends Controller
     }
 
     /** Mark single notification as read */
-    public function markAsRead(Request $request, $id)
+    public function markAsRead(Request $request, $id, \App\Services\FirebaseRtdbService $firebase)
     {
         $user = $request->user();
         $notification = $user->notifications()->find($id);
         if ($notification && NotificationGate::userCanView($user, (array) ($notification->data ?? []))) {
             $notification->markAsRead();
+            $firebase->pingUser($user->uuid);
         }
 
         return response()->json(['ok' => true]);
     }
 
     /** Mark all notifications as read */
-    public function markAllAsRead(Request $request)
+    public function markAllAsRead(Request $request, \App\Services\FirebaseRtdbService $firebase)
     {
         $user = $request->user();
 
         // Sampah yang gagal gate ikut ditandai dibaca supaya tidak mengunci badge/feed.
         $this->purgeInaccessibleUnread($user);
 
-        // Setelah purge, sisa unread adalah yang boleh dilihat — tandai semua.
+        // Setelah purge, sisa unread adalah yang boleh dilihat ?" tandai semua.
         $user->unreadNotifications()->update(['read_at' => now()]);
+
+        $firebase->pingUser($user->uuid);
 
         return response()->json(['ok' => true]);
     }

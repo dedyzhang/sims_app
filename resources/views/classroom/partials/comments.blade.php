@@ -96,8 +96,17 @@
                 // Polling 45s (was 15s — salah satu endpoint request terbanyak, ~3.3rb/jam
                 // pas beban tinggi; komentar tak butuh real-time, telat beberapa puluh detik
                 // tak masalah); pause saat tab hidden
-                if (window.simsPollInterval) {
-                    window.simsPollInterval(() => this.fetchComments(), 45000, 'komentar_kelas');
+                                if (!window.simsPollingNonaktif('komentar_kelas')) {
+                    if (window.simsFirebase) {
+                        window.simsFirebase.onReady(fb => {
+                            const triggerRef = fb.getRef(classroom_comments//sync_trigger);
+                            fb.onValue(triggerRef, (snapshot) => {
+                                if (snapshot.exists()) {
+                                    this.fetchComments();
+                                }
+                            });
+                        });
+                    }
                 } else {
                     setInterval(() => { if (!document.hidden) this.fetchComments(); }, 45000);
                 }

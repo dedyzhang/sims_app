@@ -133,5 +133,10 @@ class AppServiceProvider extends ServiceProvider
         // Popup "Apa yang Baru" kini dievaluasi langsung di view layout (via whats-new-modal)
         // memanfaatkan Cache yang jauh lebih ringan daripada mengandalkan flash session
         // yang sering "termakan" oleh middleware redirect.
+
+        Event::listen(
+            \Illuminate\Notifications\Events\NotificationSent::class,
+            \App\Listeners\PushFirebaseNotificationListener::class
+        );
     }
 }

@@ -1461,8 +1461,21 @@
 
     // ---------- Polling ----------
     function tick() { loadQueue(); if (activeId) loadMessages(); }
-    function start() { if (!pollTimer && !window.simsPollingNonaktif('chatbot_admin_inbox')) pollTimer = setInterval(tick, pollEvery); } // Performa Server
-    function stop()  { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+    function start() { 
+        if (!window.simsPollingNonaktif('chatbot_admin_inbox')) {
+            if (window.simsFirebase) {
+                window.simsFirebase.onReady(fb => {
+                    const triggerRef = fb.getRef('global/chatbot_admin/sync_trigger');
+                    fb.onValue(triggerRef, (snapshot) => {
+                        if (snapshot.exists()) {
+                            tick();
+                        }
+                    });
+                });
+            }
+        }
+    } 
+    function stop() { }
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') { tick(); start(); } else stop();
     });

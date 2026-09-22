@@ -39,6 +39,19 @@ return [
         // Path ke service account JSON Firebase (TIDAK di-commit). Bila file tidak
         // ada, FcmService->enabled() = false dan push FCM dilewati diam-diam.
         'credentials' => env('FIREBASE_CREDENTIALS', storage_path('app/firebase/service-account.json')),
+        
+        // Path ke service account KEDUA (opsional) khusus untuk Realtime Database Web
+        // jika menggunakan project Firebase yang berbeda dengan FCM Android.
+        'rtdb_credentials' => env('FIREBASE_RTDB_CREDENTIALS', env('FIREBASE_CREDENTIALS', storage_path('app/firebase/service-account.json'))),
+
+        // URL Realtime Database dari Firebase Console (berakhiran .firebaseio.com)
+        'database_url' => env('FIREBASE_DATABASE_URL'),
+
+        // Konfigurasi Web SDK (diambil dari Firebase Console -> Project Settings -> General -> Web Apps)
+        'api_key' => env('FIREBASE_API_KEY'),
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+        'app_id' => env('FIREBASE_APP_ID'),
+
         // Default sync agar push real-time tetap jalan walau queue worker database
         // belum aktif. Bisa diubah ke database/redis jika worker produksi sudah siap.
         'queue_connection' => env('FCM_QUEUE_CONNECTION', 'sync'),

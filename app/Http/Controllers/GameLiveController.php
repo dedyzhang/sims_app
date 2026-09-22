@@ -92,7 +92,7 @@ class GameLiveController extends Controller implements HasMiddleware
         ));
     }
 
-    public function start(Request $request, Classroom $classroom, GameQuiz $quiz)
+    public function start(Request $request, Classroom $classroom, GameQuiz $quiz, \App\Services\FirebaseRtdbService $firebase)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('manage', $quiz);
@@ -124,6 +124,8 @@ class GameLiveController extends Controller implements HasMiddleware
             ]);
         });
 
+        $firebase->pingArena($session->uuid);
+
         Audit::log('arena_live_start', $quiz, ['session' => $session->uuid]);
 
         try {
@@ -140,7 +142,7 @@ class GameLiveController extends Controller implements HasMiddleware
             ->with('success', 'Sesi live dimulai. Siswa bisa bergabung.');
     }
 
-    public function advance(Classroom $classroom, GameQuiz $quiz, GameAnswerGrader $grader)
+    public function advance(Classroom $classroom, GameQuiz $quiz, GameAnswerGrader $grader, \App\Services\FirebaseRtdbService $firebase)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('manage', $quiz);
@@ -162,14 +164,20 @@ class GameLiveController extends Controller implements HasMiddleware
 
         Audit::log('arena_live_advance', $quiz, [
             'session' => $session->uuid,
-            'status'  => $session->status,
-            'index'   => $session->question_index,
+            'status' => $session->status,
+            'phase' => $session->phase,
+            'seq' => $session->current_question_seq,
         ]);
+        
+        $firebase->pingArena($session->uuid);
 
-        return response()->json(['ok' => true, 'session' => $this->sessionPayload($session, $quiz)]);
+        if (request()->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+        return back();
     }
 
-    public function end(Classroom $classroom, GameQuiz $quiz, GameAnswerGrader $grader)
+    public function end(Classroom $classroom, GameQuiz $quiz, GameAnswerGrader $grader, \App\Services\FirebaseRtdbService $firebase)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('manage', $quiz);
@@ -184,6 +192,7 @@ class GameLiveController extends Controller implements HasMiddleware
             $session->update(['status' => 'ended', 'ended_at' => now()]);
             $this->finalizeLiveAttempts($quiz, $classroom, $grader);
             Audit::log('arena_live_end', $quiz, ['session' => $session->uuid]);
+            $firebase->pingArena($session->uuid);
         }
 
         return redirect()->route('classroom.arena.results', [$classroom, $quiz])
@@ -288,7 +297,7 @@ class GameLiveController extends Controller implements HasMiddleware
         ]);
     }
 
-    public function answer(Request $request, Classroom $classroom, GameQuiz $quiz, GameAnswerGrader $grader)
+    public function answer(Request $request, Classroom $classroom, GameQuiz $quiz, GameAnswerGrader $grader, \App\Services\FirebaseRtdbService $firebase)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('play', [$quiz, $classroom]);
@@ -390,6 +399,7 @@ class GameLiveController extends Controller implements HasMiddleware
             ->first();
         if ($session) {
             $this->autoAdvanceIfNeeded($session, $quiz, $classroom, $grader);
+            $firebase->pingArena($session->uuid);
         }
 
         $payload = ['ok' => true];

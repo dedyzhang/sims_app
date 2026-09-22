@@ -26,24 +26,29 @@ class ClassroomCommentController extends Controller implements \Illuminate\Routi
         ];
     }
 
-    public function storeMaterial(Request $request, ClassroomMaterial $material)
+    public function storeMaterial(Request $request, ClassroomMaterial $material, \App\Services\FirebaseRtdbService $firebase)
     {
-        return $this->create($request, $material);
+        return $this->create($request, $material, $firebase);
     }
 
-    public function storeAssignment(Request $request, ClassroomAssignment $assignment)
+    public function storeAssignment(Request $request, ClassroomAssignment $assignment, \App\Services\FirebaseRtdbService $firebase)
     {
-        return $this->create($request, $assignment);
+        return $this->create($request, $assignment, $firebase);
     }
 
-    public function destroy(ClassroomComment $comment)
+    public function destroy(ClassroomComment $comment, \App\Services\FirebaseRtdbService $firebase)
     {
         $classroom = $comment->commentable?->classroom;
         abort_unless($classroom, 404);
         // Pemilik komentar atau yang mengelola ruang.
         abort_unless($comment->user_id === auth()->id() || auth()->user()->can('manage', $classroom), 403);
 
+        $commentableId = $comment->commentable_id;
         $comment->delete();
+        
+        if ($commentableId) {
+            $firebase->pingClassroomComment($commentableId);
+        }
 
         if (request()->expectsJson()) {
             return response()->json(['ok' => true]);
@@ -52,7 +57,7 @@ class ClassroomCommentController extends Controller implements \Illuminate\Routi
         return back()->with('success', 'Komentar dihapus.');
     }
 
-    private function create(Request $request, Model $commentable)
+    private function create(Request $request, Model $commentable, \App\Services\FirebaseRtdbService $firebase)
     {
         $classUuid = $request->input('class') ?: $request->query('class');
         $classroom = null;
@@ -99,6 +104,8 @@ class ClassroomCommentController extends Controller implements \Illuminate\Routi
         ]);
 
         $this->notifyParticipants($commentable, $comment, $parentId);
+        
+        $firebase->pingClassroomComment($commentable->uuid);
 
         if ($request->expectsJson()) {
             return response()->json([

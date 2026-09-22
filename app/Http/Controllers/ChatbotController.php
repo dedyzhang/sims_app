@@ -50,19 +50,21 @@ class ChatbotController extends Controller
     }
 
     /** Terima pesan user (JSON), balas JSON. Lapis A. */
-    public function send(Request $request): JsonResponse
+    public function send(Request $request, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $data = $request->validate([
             'message' => ['required', 'string', 'max:1000'],
         ]);
 
         $result = $this->chatbot->handle($request->user(), $data['message']);
+        
+        $firebase->pingChatbotAdmin();
 
         return response()->json($result);
     }
 
     /** Terima gambar (sudah dikompres di sisi klien), simpan, kembalikan pesan JSON. */
-    public function upload(Request $request): JsonResponse
+    public function upload(Request $request, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $data = $request->validate([
             'image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'], // maks 5 MB
@@ -78,6 +80,8 @@ class ChatbotController extends Controller
             $data['caption'] ?? '',
         );
 
+        $firebase->pingChatbotAdmin();
+
         return response()->json($result);
     }
 
@@ -86,7 +90,7 @@ class ChatbotController extends Controller
      * yang dikompres (di sisi klien). File dibatasi 5 MB & disimpan dengan nama asli yang
      * dirapikan di dalam folder unik agar tidak bentrok.
      */
-    public function uploadFile(Request $request): JsonResponse
+    public function uploadFile(Request $request, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $data = $request->validate([
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv', 'max:5120'], // maks 5 MB
@@ -102,14 +106,18 @@ class ChatbotController extends Controller
             $data['caption'] ?? '',
         );
 
+        $firebase->pingChatbotAdmin();
+
         return response()->json($result);
     }
 
     /** User minta dihubungkan ke admin (bot -> human). */
-    public function requestHuman(Request $request, ChatbotConversation $conversation): JsonResponse
+    public function requestHuman(Request $request, ChatbotConversation $conversation, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $this->ensureOwner($request, $conversation);
         $conversation = $this->chatbot->requestHuman($conversation);
+
+        $firebase->pingChatbotAdmin();
 
         return response()->json([
             'mode' => $conversation->mode,
@@ -118,10 +126,12 @@ class ChatbotController extends Controller
     }
 
     /** User kembali ke bot (human -> bot). */
-    public function backToBot(Request $request, ChatbotConversation $conversation): JsonResponse
+    public function backToBot(Request $request, ChatbotConversation $conversation, \App\Services\FirebaseRtdbService $firebase): JsonResponse
     {
         $this->ensureOwner($request, $conversation);
         $conversation = $this->chatbot->backToBot($conversation);
+
+        $firebase->pingChatbotAdmin();
 
         return response()->json([
             'mode' => $conversation->mode,

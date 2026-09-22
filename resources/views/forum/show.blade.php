@@ -212,10 +212,17 @@
         if (document.hidden) return;
         return refreshForumComments();
     }
-    if (window.simsPollInterval) {
-        window.simsPollInterval(refreshForumCommentsVisible, 15000, 'forum_komentar');
-    } else {
-        setInterval(refreshForumCommentsVisible, 15000);
+    if (!window.simsPollingNonaktif('forum_komentar')) {
+        if (window.simsFirebase) {
+            window.simsFirebase.onReady(fb => {
+                const triggerRef = fb.getRef(`forum_comments/{{ $topic->uuid }}/sync_trigger`);
+                fb.onValue(triggerRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        refreshForumCommentsVisible();
+                    }
+                });
+            });
+        }
     }
 
     // Intersepsi submit form untuk kirim komentar & balasan agar AJAX + spinner

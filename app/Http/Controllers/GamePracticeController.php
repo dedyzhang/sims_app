@@ -44,20 +44,22 @@ class GamePracticeController extends Controller
         return view('arena-belajar.latihan', compact('classroom', 'quiz', 'session', 'joinUrl', 'joinQrSvg', 'joinBarcodePayload'));
     }
 
-    public function start(Request $request, Classroom $classroom, GameQuiz $quiz)
+    public function start(Request $request, Classroom $classroom, GameQuiz $quiz, \App\Services\FirebaseRtdbService $firebase)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('manage', $quiz);
         abort_unless($quiz->questions()->exists(), 422, 'Kuis harus punya soal.');
         abort_unless($quiz->allowsLive(), 422, 'Kuis ini disetel "Solo saja" — mode live/latihan tidak tersedia.');
 
-        $this->service->startSession($quiz, $classroom, $request->user());
+        $session = $this->service->startSession($quiz, $classroom, $request->user());
+        
+        $firebase->pingArenaPractice($session->uuid);
 
         return redirect()->route('classroom.arena.latihan.show', [$classroom, $quiz])
             ->with('success', 'Sesi latihan dimulai. Bagikan QR/kode ke peserta uji coba.');
     }
 
-    public function advance(Classroom $classroom, GameQuiz $quiz)
+    public function advance(Classroom $classroom, GameQuiz $quiz, \App\Services\FirebaseRtdbService $firebase)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('manage', $quiz);
@@ -66,11 +68,13 @@ class GamePracticeController extends Controller
         abort_unless($session && $session->isActive(), 404, 'Tidak ada sesi latihan aktif.');
 
         $session = $this->service->advance($session, $quiz);
+        
+        $firebase->pingArenaPractice($session->uuid);
 
         return response()->json(['ok' => true, 'session' => $this->service->sessionPayload($session, $quiz)]);
     }
 
-    public function end(Classroom $classroom, GameQuiz $quiz)
+    public function end(Classroom $classroom, GameQuiz $quiz, \App\Services\FirebaseRtdbService $firebase)
     {
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('manage', $quiz);
@@ -78,6 +82,7 @@ class GamePracticeController extends Controller
         $session = $this->latestSession($classroom, $quiz);
         if ($session) {
             $this->service->end($session);
+            $firebase->pingArenaPractice($session->uuid);
         }
 
         return redirect()->route('classroom.arena.latihan.show', [$classroom, $quiz])

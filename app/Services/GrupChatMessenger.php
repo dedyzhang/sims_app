@@ -26,6 +26,8 @@ class GrupChatMessenger
     /** Batas panjang pesan — cukup untuk paragraf pengumuman, mencegah abuse. */
     public const MAX_BODY = 4000;
 
+    public function __construct(private \App\Services\FirebaseRtdbService $firebase) {}
+
     /**
      * Tulis satu pesan. Counter `seq` diambil di bawah lockForUpdate supaya dua
      * pengirim bersamaan tidak pernah menghasilkan seq kembar (unique grup_id+seq
@@ -51,7 +53,7 @@ class GrupChatMessenger
 
         $nama = $user->displayName();
 
-        return DB::transaction(function () use ($grup, $user, $peran, $body, $replyTo, $attachment, $nama) {
+        $message = DB::transaction(function () use ($grup, $user, $peran, $body, $replyTo, $attachment, $nama) {
             $locked = GrupChat::whereKey($grup->uuid)->lockForUpdate()->first();
             $seq = ((int) $locked->last_seq) + 1;
 
@@ -92,6 +94,9 @@ class GrupChatMessenger
 
             return $pesan;
         });
+
+        $this->firebase->pingGroup($grup->uuid);
+        return $message;
     }
 
     /**
@@ -153,6 +158,7 @@ class GrupChatMessenger
             ChatAttachments::delete($pathLama);
         }
 
+        $this->firebase->pingGroup($grup->uuid);
         return $locked;
     }
 
