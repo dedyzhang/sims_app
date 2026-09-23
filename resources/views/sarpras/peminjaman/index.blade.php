@@ -316,19 +316,106 @@
         @endforeach
     </div>
 
+    <div class="card p-5 mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+                <h3 class="font-bold text-slate-800 dark:text-slate-100">Timeline Peminjaman Ruangan</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Jadwal hari ini ({{ \Carbon\Carbon::parse($tanggalTimeline)->translatedFormat('l, d F Y') }}). Semua guru dapat melihat.</p>
+            </div>
+            <form method="GET" class="flex gap-2 w-full sm:w-auto">
+                <input type="hidden" name="tab" value="ruangan">
+                <input type="date" name="tanggal_timeline" value="{{ $tanggalTimeline }}" class="form-input text-sm py-1.5 px-3 rounded-lg w-full sm:w-auto" onchange="this.form.submit()">
+            </form>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700 pb-1">
+            <div class="min-w-[700px]">
+                <!-- Header Jam (07:00 - 18:00) -->
+                <div class="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                    <div class="w-32 sm:w-48 shrink-0 p-3 text-xs font-bold text-slate-600 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 sticky left-0 bg-slate-50 dark:bg-slate-800 z-10">Ruangan</div>
+                    <div class="flex-1 flex relative">
+                        @for($i=7; $i<=17; $i++)
+                            <div class="flex-1 border-r border-slate-200 dark:border-slate-700 p-1.5 text-[10px] font-bold text-center text-slate-500">{{ sprintf('%02d:00', $i) }}</div>
+                        @endfor
+                    </div>
+                </div>
+
+                <!-- Baris Ruangan -->
+                @foreach($rooms as $room)
+                    <div class="flex border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                        <div class="w-32 sm:w-48 shrink-0 p-3 text-xs font-semibold text-slate-700 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 sticky left-0 bg-white dark:bg-slate-900 z-10 break-words flex flex-col justify-center shadow-[1px_0_3px_rgba(0,0,0,0.05)]">
+                            {{ $room->kode }}
+                            <span class="text-[10px] font-normal text-slate-500 mt-0.5 leading-tight">{{ $room->nama }}</span>
+                        </div>
+                        <div class="flex-1 relative min-h-[56px] bg-white dark:bg-slate-900/50">
+                            <!-- Grid background -->
+                            <div class="absolute inset-0 flex">
+                                @for($i=7; $i<=17; $i++)
+                                    <div class="flex-1 border-r border-slate-100 dark:border-slate-800/60 pointer-events-none"></div>
+                                @endfor
+                            </div>
+                            
+                            <!-- Blok Timeline -->
+                            @php
+                                $jadwalRuanganIni = $jadwalTimeline->where('ruangan_id', $room->id);
+                            @endphp
+                            @foreach($jadwalRuanganIni as $jadwal)
+                                @php
+                                    $mulai = \Carbon\Carbon::parse($jadwal->mulai);
+                                    $selesai = \Carbon\Carbon::parse($jadwal->selesai);
+                                    
+                                    // Hitung posisi (jam operasional 07:00 - 18:00 = 11 jam)
+                                    $startHour = max(7, $mulai->hour + ($mulai->minute / 60));
+                                    $endHour = min(18, $selesai->hour + ($selesai->minute / 60));
+                                    
+                                    if ($endHour <= 7 || $startHour >= 18) continue; // di luar jam operasional yang ditampilkan
+                                    
+                                    $leftPercent = (($startHour - 7) / 11) * 100;
+                                    $widthPercent = (($endHour - $startHour) / 11) * 100;
+                                    
+                                    $colorClass = $jadwal->status === 'dipinjam' 
+                                        ? 'bg-sky-100 border-sky-300 text-sky-800 dark:bg-sky-900/50 dark:border-sky-700 dark:text-sky-200' 
+                                        : 'bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-900/50 dark:border-amber-700 dark:text-amber-200';
+                                @endphp
+                                <div class="absolute top-1 bottom-1 rounded border px-1.5 py-1 shadow-sm hover:shadow-md transition-shadow cursor-default flex flex-col justify-center overflow-hidden {{ $colorClass }}" 
+                                     style="left: {{ $leftPercent }}%; width: {{ $widthPercent }}%; min-width: 20px;"
+                                     title="Peminjam: {{ $jadwal->peminjam?->name ?? $jadwal->peminjam?->username }}&#10;Waktu: {{ $mulai->format('H:i') }} - {{ $selesai->format('H:i') }}&#10;Status: {{ ucfirst($jadwal->status) }}&#10;Keperluan: {{ $jadwal->keperluan }}">
+                                    <div class="text-[9px] font-bold truncate opacity-80">{{ $mulai->format('H:i') }} - {{ $selesai->format('H:i') }}</div>
+                                    <div class="text-[10px] font-semibold truncate">{{ $jadwal->peminjam?->name ?? $jadwal->peminjam?->username }}</div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+                @if($rooms->isEmpty())
+                    <div class="p-6 text-center text-sm text-slate-500 border-b border-slate-200 dark:border-slate-700">Belum ada ruangan yang didaftarkan.</div>
+                @endif
+            </div>
+        </div>
+    </div>
+
     <div class="card p-5">
         <h3 class="font-bold mb-3">Riwayat Jadwal Ruangan</h3>
         <div class="hidden md:block overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-700">
-            <table class="w-full min-w-[680px] table-fixed text-sm">
+            <table class="w-full min-w-[800px] table-fixed text-sm datatable" data-order='[[ 3, "desc" ]]'>
                 <colgroup>
-                    <col class="w-[18%]">
+                    <col class="w-[12%]">
+                    <col class="w-[20%]">
                     <col>
-                    <col class="w-[24%]">
-                    <col class="w-[16%]">
+                    <col class="w-[20%]">
+                    <col class="w-[10%]">
+                    <col class="w-[12%]">
                 </colgroup>
-                <thead><tr class="text-left text-sky-700 bg-gradient-to-r from-sky-50 to-emerald-50 dark:from-sky-950/30 dark:to-emerald-950/20 dark:text-sky-200"><th class="py-3 px-4">Ruangan</th><th class="py-3 pr-4">Kegiatan</th><th class="py-3 pr-4">Waktu</th><th class="py-3">Status</th></tr></thead>
+                <thead><tr class="text-left text-sky-700 bg-gradient-to-r from-sky-50 to-emerald-50 dark:from-sky-950/30 dark:to-emerald-950/20 dark:text-sky-200">
+                    <th class="py-3 px-4">Ruangan</th>
+                    <th class="py-3 pr-4">Peminjam</th>
+                    <th class="py-3 pr-4">Kegiatan</th>
+                    <th class="py-3 pr-4">Waktu</th>
+                    <th class="py-3 pr-4">Status</th>
+                    <th class="py-3 px-4 text-center">Aksi</th>
+                </tr></thead>
                 <tbody>
-                @forelse($peminjaman->whereNotNull('ruangan_id') as $b)
+                @forelse($riwayatRuangan->sortByDesc('mulai') as $b)
                     @php
                         [$bl, $bc] = $bStatus[$b->status] ?? ['—','bg-slate-100'];
                         $rowTone = match ($b->status) {
@@ -340,19 +427,41 @@
                     @endphp
                     <tr class="border-b border-white/70 transition last:border-b-0 dark:border-slate-700/50 {{ $rowTone }}">
                         <td class="py-3 pl-4 pr-4 align-top font-semibold text-slate-700 dark:text-slate-200 break-words">{{ $b->ruangan?->kode }}</td>
+                        <td class="py-3 pr-4 align-top text-slate-700 dark:text-slate-200 break-words">{{ $b->peminjam?->name ?? '—' }}</td>
                         <td class="py-3 pr-4 align-top text-slate-700 dark:text-slate-200 leading-snug break-words whitespace-normal">{{ $b->keperluan }}</td>
-                        <td class="py-3 pr-4 align-top text-slate-600 dark:text-slate-300 whitespace-normal">{{ $b->mulai?->format('d/m/Y H:i') }}</td>
-                        <td class="py-3 align-top"><span class="badge inline-flex whitespace-nowrap {{ $bc }}">{{ $bl }}</span></td>
+                        <td class="py-3 pr-4 align-top text-slate-600 dark:text-slate-300 whitespace-normal" data-sort="{{ $b->mulai?->format('Y-m-d H:i') }}">{{ $b->mulai?->format('d/m/Y H:i') }}</td>
+                        <td class="py-3 pr-4 align-top"><span class="badge inline-flex whitespace-nowrap {{ $bc }}">{{ $bl }}</span></td>
+                        <td class="py-3 px-4 align-top text-center flex flex-wrap justify-center gap-1">
+                            <a href="{{ route('sarpras.peminjaman.show', $b) }}" class="inline-flex items-center justify-center w-7 h-7 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition" title="Detail">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </a>
+                            
+                            @if (auth()->user()->can('sarpras.peminjaman.kelola') || $b->peminjam_id === auth()->user()->getKey())
+                                @if (in_array($b->status, ['dipinjam','terlambat']))
+                                    <form method="POST" action="{{ route('sarpras.peminjaman.kembalikan', $b) }}" class="inline-block">@csrf
+                                        <button class="inline-flex items-center justify-center w-7 h-7 rounded bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:hover:bg-emerald-500/30 transition" title="Selesaikan">
+                                            <i data-lucide="check" class="w-4 h-4"></i>
+                                        </button>
+                                    </form>
+                                @else
+                                    <form method="POST" action="{{ route('sarpras.peminjaman.destroy', $b) }}" class="inline-block" onsubmit="return confirmAction(this, 'Yakin ingin menghapus riwayat peminjaman ini?', 'red');">@csrf @method('DELETE')
+                                        <button class="inline-flex items-center justify-center w-7 h-7 rounded bg-rose-100 text-rose-600 hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-300 dark:hover:bg-rose-500/30 transition" title="Hapus">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </form>
+                                @endif
+                            @endif
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="py-8 text-center text-slate-500">Belum ada jadwal ruangan.</td></tr>
+                    <tr><td colspan="6" class="py-8 text-center text-slate-500">Belum ada jadwal ruangan.</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
 
         <div class="md:hidden space-y-3">
-            @forelse($peminjaman->whereNotNull('ruangan_id') as $b)
+            @forelse($riwayatRuangan->sortByDesc('mulai') as $b)
                 @php [$bl, $bc] = $bStatus[$b->status] ?? ['—','bg-slate-100']; @endphp
                 <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/40">
                     <div class="flex items-start justify-between gap-3">
@@ -363,10 +472,35 @@
                         <span class="badge inline-flex shrink-0 whitespace-nowrap {{ $bc }}">{{ $bl }}</span>
                     </div>
                     <div class="mt-3">
+                        <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Peminjam</p>
+                        <p class="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100 break-words">{{ $b->peminjam?->name ?? '—' }}</p>
+                    </div>
+                    <div class="mt-3">
                         <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Kegiatan</p>
                         <p class="mt-1 text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100 break-words">{{ $b->keperluan }}</p>
                     </div>
                     <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">{{ $b->mulai?->format('d/m/Y H:i') }}</p>
+                    <div class="mt-4 flex flex-wrap gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <a href="{{ route('sarpras.peminjaman.show', $b) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 transition">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i> Detail
+                        </a>
+                        
+                        @if (auth()->user()->can('sarpras.peminjaman.kelola') || $b->peminjam_id === auth()->user()->getKey())
+                            @if (in_array($b->status, ['dipinjam','terlambat']))
+                                <form method="POST" action="{{ route('sarpras.peminjaman.kembalikan', $b) }}" class="inline-block">@csrf
+                                    <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 transition">
+                                        <i data-lucide="check" class="w-3.5 h-3.5"></i> Selesaikan
+                                    </button>
+                                </form>
+                            @else
+                                <form method="POST" action="{{ route('sarpras.peminjaman.destroy', $b) }}" class="inline-block" onsubmit="return confirmAction(this, 'Yakin ingin menghapus riwayat peminjaman ini?', 'red');">@csrf @method('DELETE')
+                                    <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-100 text-rose-700 text-xs font-bold hover:bg-rose-200 dark:bg-rose-500/20 dark:text-rose-300 transition">
+                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus
+                                    </button>
+                                </form>
+                            @endif
+                        @endif
+                    </div>
                 </article>
             @empty
                 <div class="py-8 text-center text-slate-500">Belum ada jadwal ruangan.</div>

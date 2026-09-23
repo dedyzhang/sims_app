@@ -398,7 +398,7 @@ function arenaLive(cfg) {
                         if (!window.simsPollingNonaktif('arena_live')) {
                 if (window.simsFirebase) {
                     window.simsFirebase.onReady(fb => {
-                        const triggerRef = fb.getRef(rena/{{ ->id }}/sync_trigger);
+                        const triggerRef = fb.getRef(`arena/{{ $session->id }}/sync_trigger`);
                         fb.onValue(triggerRef, (snapshot) => {
                             if (snapshot.exists()) {
                                 this.poll();
@@ -510,7 +510,7 @@ function arenaLive(cfg) {
                             if (!window.simsPollingNonaktif('arena_live')) {
                 if (window.simsFirebase) {
                     window.simsFirebase.onReady(fb => {
-                        const triggerRef = fb.getRef(rena/{{ ->id }}/sync_trigger);
+                        const triggerRef = fb.getRef(`arena/{{ $session->id }}/sync_trigger`);
                         fb.onValue(triggerRef, (snapshot) => {
                             if (snapshot.exists()) {
                                 this.poll();

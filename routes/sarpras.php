@@ -132,8 +132,8 @@ Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sa
         ->middleware('can:sarpras.peminjaman.setujui')->name('peminjaman.setujui');
     Route::post('peminjaman/{peminjaman}/tolak', [PeminjamanController::class, 'tolak'])
         ->middleware('can:sarpras.peminjaman.setujui')->name('peminjaman.tolak');
-    Route::post('peminjaman/{peminjaman}/kembalikan', [PeminjamanController::class, 'kembalikan'])
-        ->middleware('can:sarpras.peminjaman.kelola')->name('peminjaman.kembalikan');
+    Route::post('peminjaman/{peminjaman}/kembalikan', [PeminjamanController::class, 'kembalikan'])->name('peminjaman.kembalikan');
+    Route::delete('peminjaman/{peminjaman}', [PeminjamanController::class, 'destroy'])->name('peminjaman.destroy');
 
     /* 6. PERBAIKAN + TEKNISI + JADWAL */
     Route::middleware('can:sarpras.perbaikan.lihat')->group(function () {

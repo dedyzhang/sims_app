@@ -107,18 +107,18 @@
                 </form>
             @endif
         @endcan
-        @can('sarpras.peminjaman.kelola')
+        @if (auth()->user()->can('sarpras.peminjaman.kelola') || $peminjaman->peminjam_id === auth()->user()->getKey())
             @if (in_array($peminjaman->status, ['dipinjam','terlambat']))
                 <form method="POST" action="{{ route('sarpras.peminjaman.kembalikan', $peminjaman) }}">@csrf
                     <button class="sarpras-google-btn-primary w-full px-4 py-2.5 text-sm">
-                        <i data-lucide="undo-2" class="w-4 h-4"></i> Tandai Dikembalikan
+                        <i data-lucide="check-circle" class="w-4 h-4"></i> Selesaikan Peminjaman
                     </button>
                 </form>
             @endif
-        @endcan
+        @endif
         @if (
             ! auth()->user()->can('sarpras.peminjaman.setujui')
-            && ! (auth()->user()->can('sarpras.peminjaman.kelola') && in_array($peminjaman->status, ['dipinjam','terlambat']))
+            && ! ((auth()->user()->can('sarpras.peminjaman.kelola') || $peminjaman->peminjam_id === auth()->user()->getKey()) && in_array($peminjaman->status, ['dipinjam','terlambat']))
         )
             <p class="text-sm text-slate-500 dark:text-slate-400">Pantau status peminjaman Anda di sini. Peminjaman baru diproses otomatis berdasarkan jadwal dan ketersediaan.</p>
         @endif

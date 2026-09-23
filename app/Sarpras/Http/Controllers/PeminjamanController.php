@@ -36,6 +36,14 @@ class PeminjamanController extends Controller
             ->latest()
             ->get();
 
+        $riwayatRuangan = $tab === 'ruangan'
+            ? Peminjaman::with(['peminjam:uuid,username', 'peminjam.guru:uuid,id_login,nama', 'ruangan:id,kode'])
+                ->whereNotNull('ruangan_id')
+                ->when($request->status, fn ($q, $s) => $q->where('status', $s))
+                ->latest()
+                ->get()
+            : collect();
+
         $pending = $canKelola
             ? Peminjaman::with(['peminjam:uuid,username', 'ruangan:id,kode,nama'])
                 ->where('status', 'diajukan')
@@ -43,6 +51,15 @@ class PeminjamanController extends Controller
                 ->orderBy('mulai')
                 ->get()
             : collect();
+
+        // Ambil semua peminjaman ruangan hari ini agar semua guru bisa melihat timeline
+        $tanggalTimeline = $request->query('tanggal_timeline', now()->toDateString());
+        $jadwalTimeline = Peminjaman::with(['peminjam:uuid,username', 'peminjam.guru:uuid,id_login,nama', 'ruangan:id,kode'])
+            ->whereNotNull('ruangan_id')
+            ->whereIn('status', ['diajukan', 'dipinjam'])
+            ->whereDate('mulai', '<=', $tanggalTimeline)
+            ->whereDate('selesai', '>=', $tanggalTimeline)
+            ->get();
 
         $summary = collect(DenahRuangan::STATUS)->mapWithKeys(fn ($l, $k) => [
             $k => DenahRuangan::where('status', $k)->count(),
@@ -73,6 +90,9 @@ class PeminjamanController extends Controller
             'rooms' => $rooms,
             'allRooms' => DenahRuangan::orderBy('kode')->get(['id', 'kode', 'nama']),
             'statusFilter' => (string) $request->status_ruangan,
+            'jadwalTimeline' => $jadwalTimeline,
+            'tanggalTimeline' => $tanggalTimeline,
+            'riwayatRuangan' => $riwayatRuangan,
         ]);
     }
 
@@ -264,6 +284,10 @@ class PeminjamanController extends Controller
 
     public function kembalikan(Request $request, Peminjaman $peminjaman): RedirectResponse
     {
+        if (! $request->user()->can('sarpras.peminjaman.kelola') && $peminjaman->peminjam_id !== $request->user()->getKey()) {
+            abort(403, 'Anda tidak berhak menyelesaikan peminjaman ini.');
+        }
+
         if (! in_array($peminjaman->status, ['dipinjam', 'terlambat'])) {
             return back()->with('gagal', 'Status peminjaman tidak bisa dikembalikan.');
         }
@@ -280,6 +304,26 @@ class PeminjamanController extends Controller
         SarprasActivityLogger::log('peminjaman.dikembalikan', $peminjaman);
 
         return back()->with('sukses', 'Peminjaman selesai / aset dikembalikan.');
+    }
+
+    public function destroy(Request $request, Peminjaman $peminjaman): RedirectResponse
+    {
+        if (! $request->user()->can('sarpras.peminjaman.kelola') && $peminjaman->peminjam_id !== $request->user()->getKey()) {
+            abort(403, 'Anda tidak berhak menghapus peminjaman ini.');
+        }
+
+        if (in_array($peminjaman->status, ['dipinjam', 'terlambat'])) {
+            return back()->with('gagal', 'Peminjaman yang sedang aktif tidak bisa dihapus. Silakan selesaikan terlebih dahulu.');
+        }
+
+        DB::transaction(function () use ($peminjaman) {
+            $peminjaman->items()->delete();
+            $peminjaman->delete();
+        });
+
+        SarprasActivityLogger::log('peminjaman.dihapus', $peminjaman);
+
+        return back()->with('sukses', 'Riwayat jadwal ruangan berhasil dihapus.');
     }
 
     /**

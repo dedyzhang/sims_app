@@ -99,7 +99,7 @@
                                 if (!window.simsPollingNonaktif('komentar_kelas')) {
                     if (window.simsFirebase) {
                         window.simsFirebase.onReady(fb => {
-                            const triggerRef = fb.getRef(classroom_comments//sync_trigger);
+                            const triggerRef = fb.getRef(`classroom_comments/{{ $commentable->uuid }}/sync_trigger`);
                             fb.onValue(triggerRef, (snapshot) => {
                                 if (snapshot.exists()) {
                                     this.fetchComments();

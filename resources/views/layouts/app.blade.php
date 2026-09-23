@@ -2185,7 +2185,7 @@
                                 if (!window.simsPollingNonaktif('notifikasi')) {
                     if (window.simsFirebase) {
                         window.simsFirebase.onReady(fb => {
-                            const triggerRef = fb.getRef(users/{{ auth()->user()->uuid ?? '' }}/sync_trigger);
+                            const triggerRef = fb.getRef(`users/{{ auth()->user()->uuid ?? '' }}/sync_trigger`);
                             fb.onValue(triggerRef, (snapshot) => {
                                 if (snapshot.exists()) {
                                     this.fetchNotifications();
