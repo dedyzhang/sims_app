@@ -54,6 +54,7 @@ class GamePracticeController extends Controller
         $session = $this->service->startSession($quiz, $classroom, $request->user());
         
         $firebase->pingArenaPractice($session->uuid);
+        $firebase->pingArenaPracticeQuiz($quiz->uuid);
 
         return redirect()->route('classroom.arena.latihan.show', [$classroom, $quiz])
             ->with('success', 'Sesi latihan dimulai. Bagikan QR/kode ke peserta uji coba.');

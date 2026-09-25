@@ -189,6 +189,7 @@ function arenaLatihanGuru(cfg) {
         session: null,
         leaderboard: [],
         timer: null,
+        fbAttached: false,
         pollSeq: 0,
         pollMs: 4000,
         lastBoardFetch: 0,
@@ -203,18 +204,16 @@ function arenaLatihanGuru(cfg) {
             return 'Maju';
         },
         boot() {
-            this.poll();
-            if (!window.simsPollingNonaktif('arena_latihan')) {
-                if (window.simsFirebase) {
-                    window.simsFirebase.onReady(fb => {
-                        const triggerRef = fb.getRef(`arena_practice/{{ $session->id }}/sync_trigger`);
-                        fb.onValue(triggerRef, (snapshot) => {
-                            if (snapshot.exists()) {
-                                this.poll();
-                            }
-                        });
+            this.poll(); // single initial fetch
+            if (window.simsFirebase) {
+                window.simsFirebase.onReady(fb => {
+                    const lobbyRef = fb.getRef(`arena_practice_quiz/{{ $quiz->uuid }}/sync_trigger`);
+                    fb.onValue(lobbyRef, (snapshot) => {
+                        if (snapshot.exists()) {
+                            this.poll();
+                        }
                     });
-                }
+                });
             }
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
@@ -227,6 +226,7 @@ function arenaLatihanGuru(cfg) {
                 const sData = await sRes.json();
                 if (seq !== this.pollSeq) return;
                 this.session = sData.session;
+                this.setupFirebase();
                 if (this.session?.status === 'ended') {
                     if (this.timer) {
                         clearInterval(this.timer);
@@ -253,6 +253,22 @@ function arenaLatihanGuru(cfg) {
                     this.lastBoardFetch = now;
                 }
             } catch (e) {}
+        },
+        setupFirebase() {
+            if (this.fbAttached) return;
+            if (!this.session || !this.session.id) return;
+            if (window.simsFirebase && !window.simsPollingNonaktif('arena_latihan')) {
+                window.simsFirebase.onReady(fb => {
+                    if (this.fbAttached) return;
+                    const triggerRef = fb.getRef(`arena_practice/${this.session.id}/sync_trigger`);
+                    fb.onValue(triggerRef, (snapshot) => {
+                        if (snapshot.exists()) {
+                            this.poll();
+                        }
+                    });
+                    this.fbAttached = true;
+                });
+            }
         },
         async advance() {
             await fetch(this.advanceUrl, {

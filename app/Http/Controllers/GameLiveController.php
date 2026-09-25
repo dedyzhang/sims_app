@@ -125,6 +125,7 @@ class GameLiveController extends Controller implements HasMiddleware
         });
 
         $firebase->pingArena($session->uuid);
+        $firebase->pingArenaQuiz($quiz->uuid);
 
         Audit::log('arena_live_start', $quiz, ['session' => $session->uuid]);
 

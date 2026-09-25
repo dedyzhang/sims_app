@@ -24,12 +24,12 @@ class LanggananController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'durasi_bulan' => ['required', 'integer', 'in:3,6,12'],
+            'durasi_bulan' => ['required', 'integer', 'min:1'],
             'mulai_pada' => ['required', 'date'],
             'paket' => ['nullable', 'in:dasar,pro,enterprise'],
             'catatan' => ['nullable', 'string', 'max:2000'],
         ], [
-            'durasi_bulan.in' => 'Durasi hanya boleh 3, 6, atau 12 bulan.',
+            'durasi_bulan.min' => 'Durasi minimal 1 bulan.',
         ]);
 
         $mulai = Carbon::parse($data['mulai_pada'])->startOfDay();
@@ -67,10 +67,10 @@ class LanggananController extends Controller
     public function perpanjang(Request $request)
     {
         $data = $request->validate([
-            'durasi_bulan' => ['required', 'integer', 'in:3,6,12'],
+            'durasi_bulan' => ['required', 'integer', 'min:1'],
             'catatan' => ['nullable', 'string', 'max:2000'],
         ], [
-            'durasi_bulan.in' => 'Durasi hanya boleh 3, 6, atau 12 bulan.',
+            'durasi_bulan.min' => 'Durasi minimal 1 bulan.',
         ]);
 
         $langganan = Langganan::current();

@@ -220,9 +220,19 @@ class FirebaseRtdbService
         $this->set("arena/{$sessionId}/sync_trigger", now()->timestamp);
     }
 
+    public function pingArenaQuiz(string $quizId): void
+    {
+        $this->set("arena_quiz/{$quizId}/sync_trigger", now()->timestamp);
+    }
+
     public function pingArenaPractice(string $sessionId): void
     {
         $this->set("arena_practice/{$sessionId}/sync_trigger", now()->timestamp);
+    }
+
+    public function pingArenaPracticeQuiz(string $quizId): void
+    {
+        $this->set("arena_practice_quiz/{$quizId}/sync_trigger", now()->timestamp);
     }
 
     public function pingLockMonitor(string $uuid): void

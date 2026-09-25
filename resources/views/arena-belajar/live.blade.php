@@ -368,6 +368,7 @@ function arenaLive(cfg) {
         timer: null,
         countdownTimer: null,
         countdown: null,
+        fbAttached: false,
         pollSeq: 0,
         pollMs: 4000,
         pollBackoffMs: 0,
@@ -390,23 +391,20 @@ function arenaLive(cfg) {
         boot() {
             this.initFs();
             if (!this.tokenReady) return;
-            this.poll();
-            // simsPollInterval (bukan setInterval polos): jeda polling saat tab disembunyikan
-            // (mis. guru pindah ke layar lain sebentar), langsung poll lagi begitu kembali
-            // terlihat — konsisten dgn pola polling lain di app ini, kurangi beban server
-            // dari tab yg dibiarkan terbuka di background.
-                        if (!window.simsPollingNonaktif('arena_live')) {
-                if (window.simsFirebase) {
-                    window.simsFirebase.onReady(fb => {
-                        const triggerRef = fb.getRef(`arena/{{ $session->id }}/sync_trigger`);
-                        fb.onValue(triggerRef, (snapshot) => {
-                            if (snapshot.exists()) {
-                                this.poll();
-                            }
-                        });
+            this.poll(); // single initial fetch
+
+            // Pasang Firebase Listener untuk level Kuis (Lobby / menunggu session dibuat)
+            if (window.simsFirebase) {
+                window.simsFirebase.onReady(fb => {
+                    const lobbyRef = fb.getRef(`arena_quiz/{{ $quiz->uuid }}/sync_trigger`);
+                    fb.onValue(lobbyRef, (snapshot) => {
+                        if (snapshot.exists()) {
+                            this.poll();
+                        }
                     });
-                }
+                });
             }
+
             this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
@@ -458,6 +456,7 @@ function arenaLive(cfg) {
                 if (seq !== this.pollSeq) return;
                 const prevQ = this.session?.current_question_id;
                 this.session = sData.session;
+                this.setupFirebase();
                 if (this.session?.status === 'ended') {
                     if (this.timer) {
                         clearInterval(this.timer);
@@ -503,22 +502,26 @@ function arenaLive(cfg) {
                 }
             } catch (e) {}
         },
+        setupFirebase() {
+            if (this.fbAttached) return;
+            if (!this.session || !this.session.id) return;
+            if (window.simsFirebase && !window.simsPollingNonaktif('arena_live')) {
+                window.simsFirebase.onReady(fb => {
+                    if (this.fbAttached) return;
+                    const triggerRef = fb.getRef(`arena/${this.session.id}/sync_trigger`);
+                    fb.onValue(triggerRef, (snapshot) => {
+                        if (snapshot.exists()) {
+                            this.poll();
+                        }
+                    });
+                    this.fbAttached = true;
+                });
+            }
+        },
         scheduleBackoff(ms) {
             this.pollBackoffMs = ms;
             if (this.timer) clearInterval(this.timer);
             this.timer = setTimeout(() => {
-                            if (!window.simsPollingNonaktif('arena_live')) {
-                if (window.simsFirebase) {
-                    window.simsFirebase.onReady(fb => {
-                        const triggerRef = fb.getRef(`arena/{{ $session->id }}/sync_trigger`);
-                        fb.onValue(triggerRef, (snapshot) => {
-                            if (snapshot.exists()) {
-                                this.poll();
-                            }
-                        });
-                    });
-                }
-            }
                 this.poll();
             }, ms);
         },

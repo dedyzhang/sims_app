@@ -1,5 +1,5 @@
-{{-- Banner sisa masa langganan — HANYA superadmin (titik integrasi 2, lihat PRD §10). --}}
-@if(auth()->user()?->access === 'superadmin')
+{{-- Banner sisa masa langganan — superadmin dan admin --}}
+@if(in_array(auth()->user()?->access, ['superadmin', 'admin']))
     @php
         $lgn = \App\Models\Langganan::current();
         $lgnTingkat = $lgn?->tingkatPeringatan();
@@ -27,9 +27,11 @@
                     ({{ $lgn->berakhir_pada->translatedFormat('d F Y') }}).
                 @endif
             </span>
-            <a href="{{ route('langganan.index') }}" class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white/70 dark:bg-slate-800/70 px-3 py-1.5 text-xs font-bold hover:opacity-80">
-                <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>Perpanjang
-            </a>
+            @if(auth()->user()?->access === 'superadmin')
+                <a href="{{ route('langganan.index') }}" class="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white/70 dark:bg-slate-800/70 px-3 py-1.5 text-xs font-bold hover:opacity-80">
+                    <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>Perpanjang
+                </a>
+            @endif
         </div>
     @endif
 @endif

@@ -2,14 +2,7 @@
 @section('title', 'Langganan')
 
 @section('content')
-@php
-    $basisHariOpsi = ($langganan && ! $langganan->kadaluarsa())
-        ? $langganan->berakhir_pada->toDateString()
-        : now()->toDateString();
-    $hariOpsi = collect(config('langganan.durasi'))->mapWithKeys(
-        fn ($b) => [$b => \App\Models\Langganan::hariUntukDurasi($b, $basisHariOpsi)]
-    );
-@endphp
+
 <div class="max-w-4xl mx-auto space-y-6">
     <div>
         <h1 class="page-title">Langganan SIMS</h1>
@@ -61,16 +54,14 @@
 
                 {{-- Perpanjang cepat --}}
                 <form method="POST" action="{{ route('langganan.perpanjang') }}" class="flex items-end gap-2"
-                      x-data="{ durasi: 12, hari: {{ json_encode($hariOpsi) }} }">
+                      x-data="{ durasi: 12 }">
                     @csrf
                     <div>
                         <label class="form-label" for="perpanjang_durasi">Perpanjang</label>
-                        <select id="perpanjang_durasi" name="durasi_bulan" class="form-select" x-model.number="durasi">
-                            @foreach(config('langganan.durasi') as $bulan)
-                                <option value="{{ $bulan }}" @selected($bulan === 12)>{{ $bulan }} bulan ({{ $hariOpsi[$bulan] }} hari)</option>
-                            @endforeach
-                        </select>
-                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">+<span x-text="hari[durasi]"></span> hari dari tanggal berakhir</p>
+                        <div class="relative">
+                            <input type="number" id="perpanjang_durasi" name="durasi_bulan" class="form-input pr-16 w-40" x-model.number="durasi" min="1" required>
+                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-medium">bulan</span>
+                        </div>
                     </div>
                     <button type="submit" class="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold">
                         <i data-lucide="calendar-plus" class="w-4 h-4"></i>Perpanjang
@@ -136,13 +127,10 @@
             @csrf
             <div>
                 <label class="form-label" for="durasi_bulan">Durasi <span class="text-rose-500">*</span></label>
-                <select id="durasi_bulan" name="durasi_bulan" class="form-select" required x-model.number="durasi">
-                    @foreach(config('langganan.durasi') as $bulan)
-                        <option value="{{ $bulan }}" @selected((int) old('durasi_bulan', 12) === $bulan)>
-                            {{ $bulan }} bulan
-                        </option>
-                    @endforeach
-                </select>
+                <div class="relative">
+                    <input type="number" id="durasi_bulan" name="durasi_bulan" class="form-input pr-16 w-full" x-model.number="durasi" min="1" required>
+                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500 font-medium">bulan</span>
+                </div>
             </div>
             <div>
                 <label class="form-label" for="mulai_pada">Tanggal mulai <span class="text-rose-500">*</span></label>
