@@ -740,6 +740,9 @@
                     if (auth()->user()?->guru || $isAdmin || auth()->user()?->canAccess('manage_rapat') || in_array($access, ['kesiswaan','sarpras','kurikulum','kepala'])) {
                         $agendaItems[] = ['rapat.index', ['rapat.*'], 'users-round', 'Agenda Rapat'];
                     }
+                    if ($isAdmin) {
+                        $agendaItems[] = ['kegiatan.index', ['kegiatan.*'], 'calendar-check', 'Absensi Kegiatan'];
+                    }
                     if (!empty($agendaItems)) {
                         $groups['agenda'] = ['Agenda', 'notebook-pen', $agendaItems];
                     }
@@ -1252,6 +1255,8 @@
                       class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
             </a>
             @endif
+
+
 
             {{-- Grup Chat: tampil hanya bila user benar-benar anggota sebuah grup (atau pengelola).
                  JANGAN mendefinisikan variabel PHP di dalam blok @if($modulOn(...)) ini — variabel

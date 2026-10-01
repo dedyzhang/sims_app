@@ -340,3 +340,16 @@ Ref: `docs/sarpras/PRD.md`, `docs/sarpras/features/01-refactor-simplify.md`
 - [x] Export KIB/KIR, stok opname ATK, activity log ringan
 - [x] Tes `php artisan test --filter=Sarpras`
 - [x] Panduan: `docs/PANDUAN_PENGGUNAAN_SIMS_APP.md` §17 + `resources/panduan/visual.html` kartu Sarpras (6 menu, tanpa booking/kanvas).
+
+ # # #   F a s e   4 :   A b s e n s i   K e g i a t a n 
+ -   [ x ]   T a s k   1 - 5 :   U I   T i r u a n   H a l a m a n   K e g i a t a n ,   D a f t a r ,   S c a n   H a d i r 
+ -   [   ]   T a s k   6 :   M i g r a t i o n   &   M o d e l 
+ -   [   ]   T a s k   7 - 1 0 :   C o n t r o l l e r   &   R o u t e   ( P r o s e s   B i s n i s ) 
+ -   [   ]   T a s k   1 1 :   A u t h o r i z a t i o n   &   L a p o r a n   P D F  
+ 
+ # # #   F a s e   4 :   A b s e n s i   K e g i a t a n 
+ -   [ x ]   T a s k   1 - 5 :   U I   T i r u a n 
+ -   [ x ]   T a s k   6 :   M i g r a t i o n   &   M o d e l 
+ -   [ x ]   T a s k   7 - 1 0 :   C o n t r o l l e r   &   R o u t e   ( P r o s e s   B i s n i s ) 
+ -   [ x ]   T a s k   1 2 :   S e e d e r  
+ 

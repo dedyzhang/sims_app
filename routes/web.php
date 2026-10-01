@@ -149,6 +149,26 @@ Route::middleware([EnsureKioskOrPermission::class, 'modul:absensi'])->group(func
     Route::get('/qr-absensi', [QrAbsensiController::class, 'show'])->name('qr.absensi');
 });
 
+// ABSENSI KEGIATAN
+// Route Publik (Tanpa Login)
+Route::get('/kegiatan/{kegiatan}/daftar', [App\Http\Controllers\EventPesertaController::class, 'create'])->name('kegiatan.daftar');
+Route::post('/kegiatan/{kegiatan}/daftar', [App\Http\Controllers\EventPesertaController::class, 'store'])->name('kegiatan.daftar.store');
+Route::get('/kegiatan/hadir/{qr_token}', [App\Http\Controllers\EventAbsensiController::class, 'show'])->name('kegiatan.hadir');
+Route::post('/kegiatan/hadir/{qr_token}', [App\Http\Controllers\EventAbsensiController::class, 'mark'])->name('kegiatan.hadir.mark');
+
+// Route Admin (Dengan Login)
+Route::middleware(['auth'])->prefix('admin/kegiatan')->name('kegiatan.')->group(function () {
+    Route::get('/', [App\Http\Controllers\EventKegiatanController::class, 'index'])->name('index');
+    Route::get('/create', [App\Http\Controllers\EventKegiatanController::class, 'create'])->name('create');
+    Route::post('/', [App\Http\Controllers\EventKegiatanController::class, 'store'])->name('store');
+    Route::get('/{kegiatan}', [App\Http\Controllers\EventKegiatanController::class, 'show'])->name('show');
+    Route::get('/{kegiatan}/edit', [App\Http\Controllers\EventKegiatanController::class, 'edit'])->name('edit');
+    Route::put('/{kegiatan}', [App\Http\Controllers\EventKegiatanController::class, 'update'])->name('update');
+    Route::delete('/{kegiatan}', [App\Http\Controllers\EventKegiatanController::class, 'destroy'])->name('destroy');
+    Route::get('/{kegiatan}/qr', [App\Http\Controllers\EventKegiatanController::class, 'printQr'])->name('qr');
+    Route::get('/{kegiatan}/pdf', [App\Http\Controllers\EventKegiatanController::class, 'printPdf'])->name('pdf');
+});
+
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Pemilihan OSIS: link publik via QR Ã¢â‚¬â€ TANPA login sama sekali. Token per-ORANG
 //     (beda dgn kiosk_token yg satu token dipakai bersama semua orang), jadi tidak
 //     lewat EnsureKioskOrPermission Ã¢â‚¬â€ validasi murni lookup token di controller,
