@@ -4,29 +4,29 @@
     <title>Cetak QR - {{ $kegiatan->nama_kegiatan }}</title>
     @if(isset($sekolahLogoUrl) && $sekolahLogoUrl)<link rel="icon" href="{{ $sekolahLogoUrl }}" type="image/png">@endif
     <style>
-        @page { size: A4 portrait; margin: 10mm; }
+        @page { size: A4 portrait; margin: 5mm; }
         * { box-sizing: border-box; }
         body { font-family: "Times New Roman", Georgia, serif; margin: 0; }
-        .kop { display: flex; align-items: center; gap: 12px; border-bottom: 4px double #000; padding-bottom: 6px; margin-bottom: 15px; }
+        .kop { display: flex; align-items: center; gap: 10px; border-bottom: 4px double #000; padding-bottom: 4px; margin-bottom: 10px; }
         .kop .logo { width: 65px; height: 65px; object-fit: contain; flex: 0 0 auto; }
         .kop .ident { flex: 1; text-align: center; }
-        .kop .ident .nm { font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin: 0; }
-        .kop .ident .ad { font-size: 12px; margin: 2px 0 0; }
-        .kop .ident p, .kop .ident h1, .kop .ident h2, .kop .ident h3, .kop .ident h4, .kop .ident h5, .kop .ident h6 { margin: 2px 0; line-height: 1.25; }
-        .judul-kegiatan { text-align: center; margin-bottom: 15px; }
-        .judul-kegiatan h3 { margin: 0 0 4px 0; font-size: 16px; text-transform: uppercase; }
-        .judul-kegiatan p { margin: 0; font-size: 13px; }
-        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; font-family: sans-serif; }
+        .kop .ident .nm { font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin: 0; }
+        .kop .ident .ad { font-size: 11px; margin: 2px 0 0; }
+        .kop .ident p, .kop .ident h1, .kop .ident h2, .kop .ident h3, .kop .ident h4, .kop .ident h5, .kop .ident h6 { margin: 2px 0; line-height: 1.15; }
+        .judul-kegiatan { text-align: center; margin-bottom: 10px; }
+        .judul-kegiatan h3 { margin: 0 0 2px 0; font-size: 14px; text-transform: uppercase; }
+        .judul-kegiatan p { margin: 0; font-size: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-family: sans-serif; }
         .card { 
-            border: 1px dashed #000; padding: 15px; text-align: center; page-break-inside: avoid; 
-            display: flex; flex-direction: column; justify-content: space-between; min-height: 255px;
+            border: 1px dashed #000; padding: 10px; text-align: center; page-break-inside: avoid; 
+            display: flex; flex-direction: column; justify-content: space-between; height: 235px;
         }
-        .card-header { margin-bottom: 10px; }
-        .card h4 { margin: 0 0 4px 0; font-size: 14px; line-height: 1.25; }
-        .card .instansi { font-size: 12px; color: #555; margin: 0; line-height: 1.2; }
-        .card-body { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-        .card img { width: 140px; height: 140px; margin-bottom: 5px; }
-        .card .token { font-size: 11px; margin: 0; font-family: monospace; font-weight: bold; letter-spacing: 1px; }
+        .card-header { margin-bottom: 5px; }
+        .card h4 { margin: 0 0 2px 0; font-size: 13px; line-height: 1.15; }
+        .card .instansi { font-size: 11px; color: #555; margin: 0; line-height: 1.1; }
+        .card-body { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; }
+        .card img { width: 130px; height: 130px; margin-bottom: 3px; }
+        .card .token { font-size: 10px; margin: 0; font-family: monospace; font-weight: bold; letter-spacing: 1px; }
         .page { page-break-after: always; padding-bottom: 1px; }
         .page:last-child { page-break-after: auto; }
     </style>

@@ -53,20 +53,25 @@
                         @endif
                     </td>
                     <td class="px-6 py-4">{{ $peserta->waktu_hadir ? $peserta->waktu_hadir->format('H:i:s') : '-' }}</td>
-                    <td class="px-6 py-4 text-right flex justify-end gap-3 items-center">
+                    <td class="px-6 py-4 text-right flex justify-end gap-2 items-center">
                         @if($peserta->status_kehadiran == 'hadir')
-                        <form action="{{ route('kegiatan.peserta.reset', $peserta) }}" method="POST" onsubmit="return confirm('Batalkan kehadiran peserta ini?');">
+                        <form action="{{ route('kegiatan.peserta.reset', $peserta) }}" method="POST" onsubmit="return confirmAction(this, 'Batalkan kehadiran peserta ini?', 'orange');">
                             @csrf
                             @method('PUT')
-                            <button type="submit" class="text-orange-600 hover:text-orange-900 text-sm font-medium">Batal Hadir</button>
+                            <button type="submit" class="text-orange-500 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 p-2 rounded-lg transition-colors" title="Batal Hadir">
+                                <i data-lucide="x-circle" class="w-4 h-4"></i>
+                            </button>
                         </form>
-                        <span class="text-gray-300">|</span>
                         @endif
-                        <a href="{{ route('kegiatan.peserta.edit', $peserta) }}" class="text-blue-600 hover:text-blue-900 text-sm font-medium">Edit</a>
-                        <form action="{{ route('kegiatan.peserta.destroy', $peserta) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus peserta ini?');">
+                        <a href="{{ route('kegiatan.peserta.edit', $peserta) }}" class="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-2 rounded-lg transition-colors" title="Edit">
+                            <i data-lucide="pencil" class="w-4 h-4"></i>
+                        </a>
+                        <form action="{{ route('kegiatan.peserta.destroy', $peserta) }}" method="POST" onsubmit="return confirmDelete(this);">
                             @csrf
                             @method('DELETE')
-                            <button type="submit" class="text-red-600 hover:text-red-900 text-sm font-medium">Hapus</button>
+                            <button type="submit" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded-lg transition-colors" title="Hapus">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
                         </form>
                     </td>
                 </tr>
