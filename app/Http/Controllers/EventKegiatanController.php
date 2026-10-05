@@ -53,7 +53,7 @@ class EventKegiatanController extends Controller
 
     public function show(EventKegiatan $kegiatan)
     {
-        $kegiatan->load('pesertas');
+        $kegiatan->load(['pesertas' => function($q) { $q->orderBy('biodata->instansi', 'asc')->orderBy('biodata->nama', 'asc'); }]);
         return view('kegiatan.show', compact('kegiatan'));
     }
 
@@ -91,7 +91,7 @@ class EventKegiatanController extends Controller
 
     public function printQr(EventKegiatan $kegiatan)
     {
-        $kegiatan->load('pesertas');
+        $kegiatan->load(['pesertas' => function($q) { $q->orderBy('biodata->instansi', 'asc')->orderBy('biodata->nama', 'asc'); }]);
         
         $getImg = function(string $key, string $default) {
             $v = \App\Models\Setting::get($key);
@@ -125,7 +125,7 @@ class EventKegiatanController extends Controller
     public function printPdf(EventKegiatan $kegiatan)
     {
         $kegiatan->load(['pesertas' => function($q) {
-            $q->orderBy('waktu_hadir', 'asc');
+            $q->orderBy('biodata->instansi', 'asc')->orderBy('biodata->nama', 'asc');
         }]);
         
         $getImg = function(string $key, string $default) {

@@ -46,4 +46,45 @@ class EventPesertaController extends Controller
         $pesan = $kegiatan->pesan_pendaftaran ?: 'Pendaftaran berhasil. Silakan hadir pada waktu yang ditentukan untuk scan QR Code.';
         return back()->with('success', $pesan);
     }
+
+    public function edit(EventPeserta $peserta)
+    {
+        $kegiatan = $peserta->kegiatan;
+        return view('kegiatan.peserta_edit', compact('peserta', 'kegiatan'));
+    }
+
+    public function update(Request $request, EventPeserta $peserta)
+    {
+        $kegiatan = $peserta->kegiatan;
+        $fields = collect($kegiatan->form_fields);
+        $rules = [];
+        foreach ($fields as $f) {
+            $rules[$f['name']] = $f['required'] ? 'required' : 'nullable';
+        }
+
+        $validated = $request->validate($rules);
+
+        $peserta->update([
+            'biodata' => $validated,
+        ]);
+
+        return redirect()->route('kegiatan.show', $kegiatan)->with('success', 'Data peserta berhasil diperbarui.');
+    }
+
+    public function destroy(EventPeserta $peserta)
+    {
+        $kegiatan = $peserta->kegiatan;
+        $peserta->delete();
+        return redirect()->route('kegiatan.show', $kegiatan)->with('success', 'Peserta berhasil dihapus.');
+    }
+
+    public function resetAbsensi(EventPeserta $peserta)
+    {
+        $kegiatan = $peserta->kegiatan;
+        $peserta->update([
+            'status_kehadiran' => 'belum',
+            'waktu_hadir' => null,
+        ]);
+        return redirect()->route('kegiatan.show', $kegiatan)->with('success', 'Kehadiran peserta berhasil dibatalkan.');
+    }
 }

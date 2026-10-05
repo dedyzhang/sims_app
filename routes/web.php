@@ -167,6 +167,12 @@ Route::middleware(['auth'])->prefix('admin/kegiatan')->name('kegiatan.')->group(
     Route::delete('/{kegiatan}', [App\Http\Controllers\EventKegiatanController::class, 'destroy'])->name('destroy');
     Route::get('/{kegiatan}/qr', [App\Http\Controllers\EventKegiatanController::class, 'printQr'])->name('qr');
     Route::get('/{kegiatan}/pdf', [App\Http\Controllers\EventKegiatanController::class, 'printPdf'])->name('pdf');
+    
+    // Kelola Peserta
+    Route::get('/peserta/{peserta}/edit', [App\Http\Controllers\EventPesertaController::class, 'edit'])->name('peserta.edit');
+    Route::put('/peserta/{peserta}', [App\Http\Controllers\EventPesertaController::class, 'update'])->name('peserta.update');
+    Route::delete('/peserta/{peserta}', [App\Http\Controllers\EventPesertaController::class, 'destroy'])->name('peserta.destroy');
+    Route::put('/peserta/{peserta}/reset', [App\Http\Controllers\EventPesertaController::class, 'resetAbsensi'])->name('peserta.reset');
 });
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Pemilihan OSIS: link publik via QR Ã¢â‚¬â€ TANPA login sama sekali. Token per-ORANG

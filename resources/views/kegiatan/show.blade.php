@@ -10,12 +10,18 @@
         </div>
     </div>
     
-    <div class="bg-white p-6 rounded-lg shadow mb-6">
-        <p><strong>Link Pendaftaran Publik:</strong> 
-            <a href="{{ route('kegiatan.daftar', $kegiatan) }}" target="_blank" class="text-blue-600 underline">
-                {{ route('kegiatan.daftar', $kegiatan) }}
-            </a>
-        </p>
+    <div class="bg-white p-6 rounded-lg shadow mb-6 flex flex-col sm:flex-row justify-between gap-4">
+        <div>
+            <p><strong>Link Pendaftaran Publik:</strong> 
+                <a href="{{ route('kegiatan.daftar', $kegiatan) }}" target="_blank" class="text-blue-600 underline">
+                    {{ route('kegiatan.daftar', $kegiatan) }}
+                </a>
+            </p>
+        </div>
+        <div class="bg-blue-50 border border-blue-100 rounded p-3 text-sm text-blue-900 shrink-0">
+            <p>Total Pendaftar: <strong>{{ $kegiatan->pesertas->count() }}</strong></p>
+            <p>Total Hadir: <strong>{{ $kegiatan->pesertas->where('status_kehadiran', 'hadir')->count() }}</strong></p>
+        </div>
     </div>
 
     <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -29,6 +35,7 @@
                     <th class="px-6 py-3 text-left">Token QR</th>
                     <th class="px-6 py-3 text-left">Status</th>
                     <th class="px-6 py-3 text-left">Waktu Hadir</th>
+                    <th class="px-6 py-3 text-right">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -46,6 +53,22 @@
                         @endif
                     </td>
                     <td class="px-6 py-4">{{ $peserta->waktu_hadir ? $peserta->waktu_hadir->format('H:i:s') : '-' }}</td>
+                    <td class="px-6 py-4 text-right flex justify-end gap-3 items-center">
+                        @if($peserta->status_kehadiran == 'hadir')
+                        <form action="{{ route('kegiatan.peserta.reset', $peserta) }}" method="POST" onsubmit="return confirm('Batalkan kehadiran peserta ini?');">
+                            @csrf
+                            @method('PUT')
+                            <button type="submit" class="text-orange-600 hover:text-orange-900 text-sm font-medium">Batal Hadir</button>
+                        </form>
+                        <span class="text-gray-300">|</span>
+                        @endif
+                        <a href="{{ route('kegiatan.peserta.edit', $peserta) }}" class="text-blue-600 hover:text-blue-900 text-sm font-medium">Edit</a>
+                        <form action="{{ route('kegiatan.peserta.destroy', $peserta) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus peserta ini?');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="text-red-600 hover:text-red-900 text-sm font-medium">Hapus</button>
+                        </form>
+                    </td>
                 </tr>
                 @endforeach
             </tbody>
