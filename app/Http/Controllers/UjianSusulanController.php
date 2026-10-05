@@ -34,7 +34,7 @@ class UjianSusulanController extends Controller
         $this->authorize('manage', $ujian);
 
         $request->validate([
-            'id_siswa' => 'required|exists:siswas,uuid',
+            'id_siswa' => 'required|exists:siswa,uuid',
             'tanggal' => 'required|date',
         ]);
 
