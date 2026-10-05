@@ -24,7 +24,7 @@
                         <select name="id_siswa" required class="form-input w-full p-2 text-sm select2-siswa">
                             <option value="">-- Pilih Siswa --</option>
                             @foreach($siswas as $siswa)
-                                <option value="{{ $siswa->uuid }}">{{ $siswa->nama }} ({{ $siswa->kelas->nama }})</option>
+                                <option value="{{ $siswa->uuid }}">{{ $siswa->nama }} ({{ $siswa->kelas->nama_lengkap ?? '-' }})</option>
                             @endforeach
                         </select>
                     </div>
@@ -57,7 +57,7 @@
                             @foreach($susulans as $susulan)
                             <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/20">
                                 <td class="p-4 font-medium text-slate-800 dark:text-slate-200">{{ $susulan->siswa->nama }}</td>
-                                <td class="p-4 text-slate-600 dark:text-slate-400">{{ $susulan->siswa->kelas->nama }}</td>
+                                <td class="p-4 text-slate-600 dark:text-slate-400">{{ $susulan->siswa->kelas->nama_lengkap ?? '-' }}</td>
                                 <td class="p-4">
                                     @if($susulan->tanggal->isToday())
                                         <span class="badge bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">Hari ini</span>
