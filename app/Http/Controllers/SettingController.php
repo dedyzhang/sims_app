@@ -558,6 +558,8 @@ class SettingController extends Controller
             'kop_logo_kanan' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
             'kop_backdrop' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
             'kop_teks' => 'nullable|string|max:20000',
+            'judul_rapor' => 'nullable|string|max:255',
+            'subjudul_penjabaran' => 'nullable|string|max:255',
         ]);
 
         foreach (['kop_logo_kiri', 'kop_logo_kanan', 'kop_backdrop'] as $field) {
@@ -580,8 +582,10 @@ class SettingController extends Controller
         }
 
         Setting::set('kop_teks', $request->input('kop_teks', ''));
+        Setting::set('judul_rapor', trim((string) $request->input('judul_rapor', '')));
+        Setting::set('subjudul_penjabaran', trim((string) $request->input('subjudul_penjabaran', '')));
 
-        return back()->with('success', 'Pengaturan kop surat rapor disimpan.');
+        return back()->with('success', 'Pengaturan kop surat dan judul rapor disimpan.');
     }
 
     /**

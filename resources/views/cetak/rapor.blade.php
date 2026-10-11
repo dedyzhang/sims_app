@@ -258,7 +258,7 @@
             <div class="page-body">
                 @if($ci === 0)
                     {!! $kop() !!}
-                    <div class="judul">PENCAPAIAN KOMPETENSI PESERTA DIDIK</div>
+                    <div class="judul">{{ $judulRapor ?? 'PENCAPAIAN KOMPETENSI PESERTA DIDIK' }}</div>
                     {!! $identitas($siswa, true) !!}
                 @endif
                 <div class="{{ $appendEkskul ? 'fill-half' : 'fill' }}" style="display:flex; flex-direction:column;">
@@ -293,7 +293,7 @@
         <div class="page-body">
             @if($chunks->isEmpty())
                 {!! $kop() !!}
-                <div class="judul">PENCAPAIAN KOMPETENSI PESERTA DIDIK</div>
+                <div class="judul">{{ $judulRapor ?? 'PENCAPAIAN KOMPETENSI PESERTA DIDIK' }}</div>
                 {!! $identitas($siswa, true) !!}
             @endif
             {!! $blokEkskulTtd($siswa) !!}
@@ -307,7 +307,7 @@
     <div class="page page-penjabaran" style="{{ $wmStyle('center') }}">
         <div class="page-body">
             {!! $kop() !!}
-            <div class="judul">PENCAPAIAN KOMPETENSI PESERTA DIDIK <small>PENJABARAN NILAI</small></div>
+            <div class="judul">{{ $judulRapor ?? 'PENCAPAIAN KOMPETENSI PESERTA DIDIK' }} <small>{{ $subjudulPenjabaran ?? 'PENJABARAN NILAI' }}</small></div>
             {!! $identitas($siswa, false) !!}
             <div class="fill">
                 @php $huruf = ['A','B','C','D','E','F','G','H']; $bi = 0; @endphp

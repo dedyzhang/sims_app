@@ -157,6 +157,8 @@ class CetakRaporController extends Controller
             'kopLogoKanan' => $this->kopImg('kop_logo_kanan', 'img/maitreyawira_square.png'),
             'kopBackdrop'  => $this->kopImg('kop_backdrop', 'img/logo.png'),
             'kopTeks'      => Setting::get('kop_teks'),
+            'judulRapor'   => Setting::get('judul_rapor') ?: 'PENCAPAIAN KOMPETENSI PESERTA DIDIK',
+            'subjudulPenjabaran' => Setting::get('subjudul_penjabaran') ?: 'PENJABARAN NILAI',
         ]);
     }
 

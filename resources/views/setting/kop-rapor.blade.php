@@ -18,8 +18,8 @@
     <div class="flex items-center gap-3">
         <a href="{{ route('setting.index') }}" class="p-2 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"><i data-lucide="arrow-left" class="w-4 h-4"></i></a>
         <div>
-            <h1 class="page-title">Kop Surat Rapor</h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Atur logo, teks kepala surat, dan gambar latar (backdrop) pada halaman cetak rapor.</p>
+            <h1 class="page-title">Kop Surat &amp; Judul Rapor</h1>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Atur logo, teks kepala surat, gambar latar (backdrop), dan judul laporan pada halaman cetak rapor.</p>
         </div>
     </div>
 
@@ -78,8 +78,26 @@
             <textarea id="kop_teks" name="kop_teks">{{ $settings['kop_teks'] ?? '' }}</textarea>
         </div>
 
+        {{-- Judul Rapor --}}
+        <div>
+            <h2 class="font-bold text-slate-800 dark:text-slate-100 mb-1 flex items-center gap-2"><i data-lucide="heading" class="w-[18px] h-[18px] text-primary"></i> Judul Rapor</h2>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">Judul laporan yang dicetak di bawah kop surat pada lembar rapor semua siswa. Cukup ubah sekali di sini, seluruh rapor siswa di semua kelas otomatis berubah. Kosongkan untuk memakai teks bawaan.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="form-label">Judul Utama</label>
+                    <input type="text" name="judul_rapor" value="{{ old('judul_rapor', $settings['judul_rapor'] ?? '') }}" placeholder="PENCAPAIAN KOMPETENSI PESERTA DIDIK" class="form-input">
+                    <p class="text-xs text-slate-400 mt-1">Default: <code>PENCAPAIAN KOMPETENSI PESERTA DIDIK</code></p>
+                </div>
+                <div>
+                    <label class="form-label">Subjudul Penjabaran Nilai</label>
+                    <input type="text" name="subjudul_penjabaran" value="{{ old('subjudul_penjabaran', $settings['subjudul_penjabaran'] ?? '') }}" placeholder="PENJABARAN NILAI" class="form-input">
+                    <p class="text-xs text-slate-400 mt-1">Default: <code>PENJABARAN NILAI</code></p>
+                </div>
+            </div>
+        </div>
+
         <div class="flex justify-end pt-2">
-            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan Kop Surat</button>
+            <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan Pengaturan Rapor</button>
         </div>
     </form>
 </div>
