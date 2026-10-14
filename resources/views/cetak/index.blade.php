@@ -11,12 +11,19 @@
                 @if($sem) &bull; <span class="font-semibold text-slate-600 dark:text-slate-300">Semester {{ $sem->semester }} &middot; {{ $sem->tahun }}</span> @endif
             </p>
         </div>
-        @if($siswas->isNotEmpty())
-        <a href="{{ route('cetak.rapor', ['kelas' => $selKelas]) }}" target="_blank"
-           class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-white hover:opacity-90 transition" style="background:var(--cp)">
-            <i data-lucide="printer" class="w-4 h-4"></i> Cetak Satu Kelas
-        </a>
-        @endif
+        <div class="flex items-center gap-2">
+            @if(auth()->user()->canAccess('manage_settings'))
+            <a href="{{ route('setting.kopRapor') }}" class="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-medium border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition">
+                <i data-lucide="pen-tool" class="w-4 h-4 text-primary"></i> Atur Kop &amp; Tanda Tangan
+            </a>
+            @endif
+            @if($siswas->isNotEmpty())
+            <a href="{{ route('cetak.rapor', ['kelas' => $selKelas]) }}" target="_blank"
+               class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-white hover:opacity-90 transition" style="background:var(--cp)">
+                <i data-lucide="printer" class="w-4 h-4"></i> Cetak Satu Kelas
+            </a>
+            @endif
+        </div>
     </div>
 
     @if($bolehSemua)

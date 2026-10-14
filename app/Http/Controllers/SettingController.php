@@ -541,13 +541,15 @@ class SettingController extends Controller
         return back()->with('success', 'Konfigurasi nilai penjabaran disimpan.');
     }
 
-    /** Halaman pengaturan Kop Surat rapor (admin: logo, teks, backdrop). */
+    /** Halaman pengaturan Kop Surat rapor (admin: logo, teks, backdrop, judul, tanda tangan). */
     public function kopRapor()
     {
         abort_unless(auth()->user()->canAccess('manage_settings'), 403);
         $settings = Setting::pluck('value', 'key');
+        $kelasList = Kelas::with('walikelas.guru')->orderBy('tingkat')->orderBy('kelas')->get();
+        $kepalaGuru = Guru::whereHas('user', fn ($q) => $q->where('access', 'kepala'))->first();
 
-        return view('setting.kop-rapor', compact('settings'));
+        return view('setting.kop-rapor', compact('settings', 'kelasList', 'kepalaGuru'));
     }
 
     public function kopRaporSave(Request $request)
@@ -560,9 +562,12 @@ class SettingController extends Controller
             'kop_teks' => 'nullable|string|max:20000',
             'judul_rapor' => 'nullable|string|max:255',
             'subjudul_penjabaran' => 'nullable|string|max:255',
+            'ttd_kepala_sekolah' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
+            'ttd_walikelas' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
+            'cap_sekolah' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
         ]);
 
-        foreach (['kop_logo_kiri', 'kop_logo_kanan', 'kop_backdrop'] as $field) {
+        foreach (['kop_logo_kiri', 'kop_logo_kanan', 'kop_backdrop', 'ttd_kepala_sekolah', 'ttd_walikelas', 'cap_sekolah'] as $field) {
             if ($request->hasFile($field)) {
                 // hapus file lama bila ada
                 $old = Setting::get($field);
@@ -570,7 +575,8 @@ class SettingController extends Controller
                     Storage::disk('public')->delete($old);
                 }
                 $ext = Uploads::safeExtension($request->file($field), ['png', 'jpg', 'jpeg', 'webp'], 'png');
-                $path = $request->file($field)->storeAs('kop', $field.'_'.now()->format('YmdHis').'.'.$ext, 'public');
+                $folder = (str_starts_with($field, 'ttd_') || $field === 'cap_sekolah') ? 'ttd' : 'kop';
+                $path = $request->file($field)->storeAs($folder, $field.'_'.now()->format('YmdHis').'.'.$ext, 'public');
                 Setting::set($field, $path);
             } elseif ($request->boolean('hapus_'.$field)) {
                 $old = Setting::get($field);
@@ -578,6 +584,49 @@ class SettingController extends Controller
                     Storage::disk('public')->delete($old);
                 }
                 Setting::set($field, '');
+            }
+        }
+
+        // Sinkronkan ke guru kepala jika ada
+        $kepalaGuru = Guru::whereHas('user', fn ($q) => $q->where('access', 'kepala'))->first();
+        if ($kepalaGuru) {
+            if ($request->hasFile('ttd_kepala_sekolah')) {
+                $kepalaGuru->update(['tanda_tangan' => Setting::get('ttd_kepala_sekolah')]);
+            } elseif ($request->boolean('hapus_ttd_kepala_sekolah')) {
+                $kepalaGuru->update(['tanda_tangan' => null]);
+            }
+        }
+
+        // Tanda tangan per-kelas (wali kelas)
+        $kelasList = Kelas::with('walikelas.guru')->get();
+        foreach ($kelasList as $k) {
+            $field = 'ttd_kelas_' . $k->uuid;
+            $settingKey = 'ttd_walikelas_' . $k->uuid;
+
+            if ($request->hasFile($field)) {
+                $request->validate([
+                    $field => 'image|mimes:png,jpg,jpeg,webp|max:2048',
+                ]);
+                $old = Setting::get($settingKey);
+                if ($old && Storage::disk('public')->exists($old)) {
+                    Storage::disk('public')->delete($old);
+                }
+                $ext = Uploads::safeExtension($request->file($field), ['png', 'jpg', 'jpeg', 'webp'], 'png');
+                $path = $request->file($field)->storeAs('ttd', 'ttd_wk_'.$k->uuid.'_'.now()->format('YmdHis').'.'.$ext, 'public');
+                Setting::set($settingKey, $path);
+
+                if ($k->walikelas?->guru) {
+                    $k->walikelas->guru->update(['tanda_tangan' => $path]);
+                }
+            } elseif ($request->boolean('hapus_ttd_kelas_' . $k->uuid)) {
+                $old = Setting::get($settingKey);
+                if ($old && Storage::disk('public')->exists($old)) {
+                    Storage::disk('public')->delete($old);
+                }
+                Setting::set($settingKey, '');
+                if ($k->walikelas?->guru) {
+                    $k->walikelas->guru->update(['tanda_tangan' => null]);
+                }
             }
         }
 

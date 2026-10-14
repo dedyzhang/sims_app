@@ -8,8 +8,10 @@ use App\Models\Kelas;
 use App\Models\Ngajar;
 use App\Models\Pelajaran;
 use App\Models\User;
+use App\Support\Uploads;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class GuruController extends Controller
@@ -103,13 +105,29 @@ class GuruController extends Controller
             'tmt_ngajar'    => 'nullable|date',
             'tmt_smp'       => 'nullable|date',
             'no_telp'       => 'nullable|string|max:20',
-            // 'sapras' tetap diterima: form lama yang masih terbuka bisa mengirim alias
-            // itu; User model mengkanonikalisasinya jadi 'sarpras' saat disimpan.
             'access'        => 'nullable|in:' . implode(',', array_keys(self::ROLES)) . ',sapras',
+            'tanda_tangan'  => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
+            'hapus_tanda_tangan' => 'nullable|boolean',
         ]);
 
         $access = $data['access'] ?? null;
-        unset($data['access']); // bukan kolom guru
+        unset($data['access'], $data['hapus_tanda_tangan']);
+
+        if ($request->hasFile('tanda_tangan')) {
+            $old = $guru->tanda_tangan;
+            if ($old && Storage::disk('public')->exists($old)) {
+                Storage::disk('public')->delete($old);
+            }
+            $ext = Uploads::safeExtension($request->file('tanda_tangan'), ['png', 'jpg', 'jpeg', 'webp'], 'png');
+            $data['tanda_tangan'] = $request->file('tanda_tangan')->storeAs('ttd', 'ttd_guru_'.$guru->uuid.'_'.now()->format('YmdHis').'.'.$ext, 'public');
+        } elseif ($request->boolean('hapus_tanda_tangan')) {
+            $old = $guru->tanda_tangan;
+            if ($old && Storage::disk('public')->exists($old)) {
+                Storage::disk('public')->delete($old);
+            }
+            $data['tanda_tangan'] = null;
+        }
+
         $guru->update($data);
 
         // Sync identifier + role/akses login (hanya admin yang bisa, route sudah IsAdmin)

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\UserPreference;
+use App\Support\Uploads;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -43,6 +45,8 @@ class ProfileController extends Controller
                 'program_studi' => 'nullable|string|max:100',
                 'universitas'   => 'nullable|string|max:100',
                 'tahun_tamat'   => 'nullable|string|max:10',
+                'tanda_tangan'  => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
+                'hapus_tanda_tangan' => 'nullable|boolean',
             ];
         }
 
@@ -62,6 +66,22 @@ class ProfileController extends Controller
                 'agama', 'alamat', 'no_telp', 'tingkat_studi', 'program_studi',
                 'universitas', 'tahun_tamat',
             ])->toArray();
+
+            if ($request->hasFile('tanda_tangan')) {
+                $old = $user->guru->tanda_tangan;
+                if ($old && Storage::disk('public')->exists($old)) {
+                    Storage::disk('public')->delete($old);
+                }
+                $ext = Uploads::safeExtension($request->file('tanda_tangan'), ['png', 'jpg', 'jpeg', 'webp'], 'png');
+                $guruData['tanda_tangan'] = $request->file('tanda_tangan')->storeAs('ttd', 'ttd_guru_'.$user->guru->uuid.'_'.now()->format('YmdHis').'.'.$ext, 'public');
+            } elseif ($request->boolean('hapus_tanda_tangan')) {
+                $old = $user->guru->tanda_tangan;
+                if ($old && Storage::disk('public')->exists($old)) {
+                    Storage::disk('public')->delete($old);
+                }
+                $guruData['tanda_tangan'] = null;
+            }
+
             $user->guru->update($guruData);
 
             // sinkronkan identifier login dengan NIK/NIP

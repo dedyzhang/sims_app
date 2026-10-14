@@ -49,6 +49,17 @@
             </div>
             @endforeach
         </div>
+        @if($user->guru->tanda_tangan_url)
+        <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between">
+            <div>
+                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Tanda Tangan Digital</p>
+                <p class="text-xs text-slate-400">Digunakan pada rapor online dan berkas digital.</p>
+            </div>
+            <div class="h-12 w-28 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 flex items-center justify-center">
+                <img src="{{ $user->guru->tanda_tangan_url }}" class="max-h-full max-w-full object-contain" alt="Tanda Tangan">
+            </div>
+        </div>
+        @endif
         @elseif($user->siswa)
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
             @foreach([

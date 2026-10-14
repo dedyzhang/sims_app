@@ -15,7 +15,7 @@
         </div>
     </div>
 
-    <form method="POST" action="{{ route('guru.update', $guru->uuid) }}" class="space-y-5">
+    <form method="POST" action="{{ route('guru.update', $guru->uuid) }}" enctype="multipart/form-data" class="space-y-5">
         @csrf @method('PUT')
         <div class="card p-6">
             <div class="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100 dark:border-slate-700">
@@ -95,6 +95,35 @@
                 <p class="text-xs text-amber-600 mt-1.5">Guru ini belum punya akun login.</p>
                 @elseif($guru->user->access === 'superadmin')
                 <p class="text-xs text-amber-600 mt-1.5">Akun superadmin — role tidak dapat diubah.</p>
+                @endif
+            </div>
+        </div>
+
+        {{-- Tanda Tangan Digital --}}
+        <div class="card p-6">
+            <div class="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100 dark:border-slate-700">
+                <span class="grid place-items-center w-8 h-8 rounded-lg bg-primary-50 text-primary"><i data-lucide="pen-tool" class="w-4 h-4"></i></span>
+                <div>
+                    <h2 class="font-bold text-slate-800 dark:text-slate-100">Tanda Tangan Digital</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Digunakan pada cetak rapor online jika guru ini menjabat sebagai wali kelas atau kepala sekolah.</p>
+                </div>
+            </div>
+            <div class="space-y-3">
+                <div class="flex items-center gap-4">
+                    <div class="w-32 h-16 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/40 flex items-center justify-center overflow-hidden p-1">
+                        @if($guru->tanda_tangan_url)
+                            <img src="{{ $guru->tanda_tangan_url }}" class="max-w-full max-h-full object-contain" alt="Tanda Tangan">
+                        @else
+                            <span class="text-xs text-slate-400 italic">Belum ada TTD</span>
+                        @endif
+                    </div>
+                    <span class="text-xs text-slate-400">PNG/JPG/WEBP transparan disarankan, maks 2MB</span>
+                </div>
+                <input type="file" name="tanda_tangan" accept="image/*" class="block w-full sm:max-w-md text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
+                @if($guru->tanda_tangan)
+                <label class="flex items-center gap-2 text-xs text-rose-500">
+                    <input type="checkbox" name="hapus_tanda_tangan" value="1" class="rounded"> Hapus tanda tangan saat ini
+                </label>
                 @endif
             </div>
         </div>

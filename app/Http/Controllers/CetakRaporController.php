@@ -137,6 +137,16 @@ class CetakRaporController extends Controller
             'npsn'     => Setting::get('npsn', ''),
         ];
 
+        // Tanda tangan digital & cap sekolah untuk distribusi online rapor
+        $ttdKepala = $this->signatureUrl(Setting::get('ttd_kepala_sekolah'))
+            ?: ($kepalaGuru?->tanda_tangan ? $this->signatureUrl($kepalaGuru->tanda_tangan) : null);
+        $capSekolah = $this->signatureUrl(Setting::get('cap_sekolah'));
+
+        $walikelasGuru = $kelas->walikelas?->guru;
+        $ttdWalikelas = ($walikelasGuru?->tanda_tangan ? $this->signatureUrl($walikelasGuru->tanda_tangan) : null)
+            ?: $this->signatureUrl(Setting::get('ttd_walikelas_' . $kelas->uuid))
+            ?: $this->signatureUrl(Setting::get('ttd_walikelas'));
+
         return view('cetak.rapor', [
             'kelas'       => $kelas,
             'siswas'      => $siswas,
@@ -151,6 +161,9 @@ class CetakRaporController extends Controller
             'walikelas'   => $kelas->walikelas?->guru,
             'kepala'      => $kepalaGuru?->nama ?: Setting::get('kepala_sekolah', ''),
             'nikKepala'   => $kepalaGuru?->nik ?: Setting::get('nip_kepala', ''),
+            'ttdKepala'   => $ttdKepala,
+            'capSekolah'  => $capSekolah,
+            'ttdWalikelas' => $ttdWalikelas,
             'tanggal'     => Carbon::now()->locale('id')->translatedFormat('d F Y'),
             // Kop surat dapat diatur admin (upload logo, teks, backdrop)
             'kopLogoKiri'  => $this->kopImg('kop_logo_kiri', 'img/tutwuri.png'),
@@ -160,6 +173,19 @@ class CetakRaporController extends Controller
             'judulRapor'   => Setting::get('judul_rapor') ?: 'PENCAPAIAN KOMPETENSI PESERTA DIDIK',
             'subjudulPenjabaran' => Setting::get('subjudul_penjabaran') ?: 'PENJABARAN NILAI',
         ]);
+    }
+
+    /** URL gambar tanda tangan: periksa file di storage public. */
+    private function signatureUrl(?string $path): ?string
+    {
+        if (!$path) return null;
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        }
+        if (file_exists(public_path($path))) {
+            return asset($path);
+        }
+        return null;
     }
 
     /** URL gambar kop: pakai upload admin bila ada, selain itu default di public/img. */

@@ -64,6 +64,14 @@
                     <span class="text-slate-700 dark:text-slate-200 font-medium">{{ $val }}</span>
                 </div>
                 @endforeach
+                @if($guru->tanda_tangan_url)
+                <div class="flex gap-3 text-sm py-2 items-center border-t border-slate-100 dark:border-slate-700/60 mt-2">
+                    <span class="text-slate-400 w-32 flex-shrink-0">Tanda Tangan</span>
+                    <div class="h-12 w-28 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 flex items-center justify-center">
+                        <img src="{{ $guru->tanda_tangan_url }}" class="max-h-full max-w-full object-contain" alt="Tanda Tangan">
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
 

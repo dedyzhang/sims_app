@@ -12,7 +12,7 @@
         <h1 class="page-title">Edit Profil</h1>
     </div>
 
-    <form method="POST" action="{{ route('profile.update') }}" class="card p-6 space-y-5">
+    <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="card p-6 space-y-5">
         @csrf @method('PUT')
 
         {{-- Akun --}}
@@ -94,6 +94,28 @@
                     <input type="text" name="tahun_tamat" value="{{ old('tahun_tamat', $g->tahun_tamat) }}" class="form-input" placeholder="mis. 2015">
                 </div>
             </div>
+        </div>
+
+        {{-- Tanda Tangan Digital Guru/Walikelas --}}
+        <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-400 mb-1">Tanda Tangan Digital</p>
+            <p class="text-xs text-slate-400 mb-3">Tanda tangan ini otomatis dicantumkan pada rapor kelas binaan Anda (jika Anda bertugas sebagai wali kelas) saat didistribusikan secara online.</p>
+            <div class="flex items-center gap-4 mb-3">
+                <div class="w-32 h-16 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/40 flex items-center justify-center overflow-hidden p-1">
+                    @if($g->tanda_tangan_url)
+                        <img src="{{ $g->tanda_tangan_url }}" class="max-w-full max-h-full object-contain" alt="Tanda Tangan">
+                    @else
+                        <span class="text-xs text-slate-400 italic">Belum ada TTD</span>
+                    @endif
+                </div>
+                <span class="text-xs text-slate-400">PNG/JPG/WEBP transparan disarankan, maks 2MB</span>
+            </div>
+            <input type="file" name="tanda_tangan" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20">
+            @if($g->tanda_tangan)
+            <label class="flex items-center gap-2 mt-2 text-xs text-rose-500">
+                <input type="checkbox" name="hapus_tanda_tangan" value="1" class="rounded"> Hapus tanda tangan saat ini
+            </label>
+            @endif
         </div>
         @endif
 

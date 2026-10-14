@@ -14,7 +14,7 @@ class Guru extends Model
     protected $fillable = [
         'id_login', 'nama', 'nik', 'nip', 'jk', 'tempat_lahir',
         'tanggal_lahir', 'agama', 'alamat', 'tingkat_studi', 'program_studi',
-        'universitas', 'tahun_tamat', 'tmt_ngajar', 'tmt_smp', 'no_telp', 'foto',
+        'universitas', 'tahun_tamat', 'tmt_ngajar', 'tmt_smp', 'no_telp', 'foto', 'tanda_tangan',
         'face_descriptor', 'face_descriptor_if', 'face_registered_at', 'face_photo', 'sekretaris_rapat',
         'jam_pulang_wajib',
     ];
@@ -25,6 +25,14 @@ class Guru extends Model
         'face_registered_at' => 'datetime',
         'sekretaris_rapat'   => 'boolean',
     ];
+
+    public function getTandaTanganUrlAttribute(): ?string
+    {
+        if ($this->tanda_tangan && \Illuminate\Support\Facades\Storage::disk('public')->exists($this->tanda_tangan)) {
+            return asset('storage/' . $this->tanda_tangan);
+        }
+        return null;
+    }
 
     public function getFacePhotoUrlAttribute(): ?string
     {

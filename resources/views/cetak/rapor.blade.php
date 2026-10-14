@@ -63,11 +63,55 @@
         table.penj .sum td { background: #cfe1ff !important; }
 
         /* ── Tanda tangan ── */
-        .ttd { display: flex; justify-content: space-between; margin-top: 16px; font-size: 15px; }
+        .ttd { display: flex; justify-content: space-between; margin-top: 14px; font-size: 15px; }
         .ttd .b { text-align: center; width: 46%; }
         .ttd .b .nm { font-weight: 700; margin-top: 48px; margin-bottom: 0; }
-        .ttd-kepala { text-align: center; font-size: 15px; margin-top: 14px; }
+        .ttd-img-wrap { height: 46px; display: flex; align-items: center; justify-content: center; margin-top: 2px; margin-bottom: 0; }
+        .ttd-img { max-height: 46px; max-width: 140px; object-fit: contain; }
+
+        /* ── Tanda tangan & Cap Kepala Sekolah ── */
+        .ttd-kepala { text-align: center; font-size: 15px; margin-top: 10px; }
         .ttd-kepala .nm { font-weight: 700; margin-top: 48px; margin-bottom: 0; }
+        .ttd-kepala-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; height: 68px; min-width: 180px; margin-top: 2px; margin-bottom: 0; }
+        .ttd-kepala-wrap .ttd-kepala-img { position: relative; z-index: 1; max-height: 64px; max-width: 145px; object-fit: contain; }
+
+        /* Cap & TTD bersamaan: Cap lebih besar (105px) dan menimpa TTD di sebelah kiri */
+        .ttd-kepala-wrap.has-cap-and-ttd { height: 80px; min-width: 210px; }
+        .ttd-kepala-wrap.has-cap-and-ttd .ttd-kepala-img { position: relative; z-index: 1; margin-left: 28px; max-height: 64px; max-width: 140px; object-fit: contain; }
+        .ttd-kepala-wrap.has-cap-and-ttd .cap-sekolah-img {
+            position: absolute;
+            left: calc(50% - 85px);
+            top: 50%;
+            transform: translateY(-50%);
+            width: 105px;
+            height: 105px;
+            max-width: 105px;
+            max-height: 105px;
+            object-fit: contain;
+            z-index: 2;
+            opacity: 0.92;
+            mix-blend-mode: multiply;
+            pointer-events: none;
+        }
+
+        /* Hanya Cap tanpa TTD */
+        .ttd-kepala-wrap.has-cap-only { height: 80px; min-width: 160px; }
+        .ttd-kepala-wrap.has-cap-only .cap-sekolah-img {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: contain;
+            opacity: 0.92;
+            mix-blend-mode: multiply;
+        }
+
+        /* Hanya TTD tanpa Cap */
+        .ttd-kepala-wrap.has-ttd-only { height: 64px; }
+        .ttd-kepala-wrap.has-ttd-only .ttd-kepala-img { max-height: 62px; max-width: 145px; object-fit: contain; }
+
+        .cap-sekolah-img { max-height: 105px; max-width: 105px; object-fit: contain; }
 
         /* ── Penjabaran Page Compact Overrides ── */
         .page-penjabaran .kop { padding-bottom: 4px; }
@@ -78,6 +122,8 @@
         .page-penjabaran table.penj td { padding: 2px 5px; }
         .page-penjabaran .ttd { margin-top: 10px; font-size: 13.5px; }
         .page-penjabaran .ttd .b .nm { margin-top: 36px; }
+        .page-penjabaran .ttd-img-wrap { height: 34px; margin-top: 2px; margin-bottom: 0; }
+        .page-penjabaran .ttd-img { max-height: 34px; max-width: 120px; object-fit: contain; }
 
         .keputusan { border: 1px solid #3f3f3f; padding: 8px 12px; font-size: 14px; width: 62%; margin-top: 12px; }
         .keputusan .ln { border-bottom: 1px dotted #000; display: inline-block; min-width: 220px; }
@@ -103,6 +149,7 @@
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             table.tbl thead td, table.penj .hd td { background: #95b1ff !important; }
             table.penj .sum td, .page-foot .sw2 { background: #cfe1ff !important; }
+            .ttd-img, .ttd-kepala-img, .cap-sekolah-img { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -182,7 +229,7 @@
         };
 
         // Blok Ekstrakurikuler + Ketidakhadiran + Keputusan + Tanda tangan.
-        $blokEkskulTtd = function ($siswa) use ($ekskulRows, $absensi, $sem, $kota, $tanggal, $walikelas, $kepala, $nikKepala, $sekolah) {
+        $blokEkskulTtd = function ($siswa) use ($ekskulRows, $absensi, $sem, $kota, $tanggal, $walikelas, $kepala, $nikKepala, $sekolah, $ttdWalikelas, $ttdKepala, $capSekolah) {
             $eksS = $ekskulRows[$siswa->uuid] ?? [];
             $absS = $absensi[$siswa->uuid] ?? [];
             ob_start(); ?>
@@ -222,14 +269,31 @@
                 <div class="b">
                     <p class="m-0"><?= e($kota) ?>, <?= e($tanggal) ?></p>
                     <p class="m-0">Wali Kelas</p>
-                    <p class="nm"><?= e($walikelas?->nama ?? '......................................') ?></p>
+                    <?php if ($ttdWalikelas): ?>
+                        <div class="ttd-img-wrap"><img src="<?= $ttdWalikelas ?>" class="ttd-img" alt="Tanda Tangan Wali Kelas"></div>
+                        <p class="nm" style="margin-top:2px;"><?= e($walikelas?->nama ?? '......................................') ?></p>
+                    <?php else: ?>
+                        <p class="nm"><?= e($walikelas?->nama ?? '......................................') ?></p>
+                    <?php endif; ?>
                     <p class="m-0">NIK. <?= e($walikelas?->nik ?: '-') ?></p>
                 </div>
             </div>
             <div class="ttd-kepala">
                 <p class="m-0">Mengetahui,</p>
                 <p class="m-0">Kepala <?= e($sekolah['nama']) ?></p>
-                <p class="nm"><?= e($kepala ?: '......................................') ?></p>
+                <?php if ($ttdKepala || $capSekolah): ?>
+                    <div class="ttd-kepala-wrap<?= ($ttdKepala && $capSekolah) ? ' has-cap-and-ttd' : ($capSekolah ? ' has-cap-only' : ' has-ttd-only') ?>">
+                        <?php if ($ttdKepala): ?>
+                            <img src="<?= $ttdKepala ?>" class="ttd-img ttd-kepala-img" alt="Tanda Tangan Kepala Sekolah">
+                        <?php endif; ?>
+                        <?php if ($capSekolah): ?>
+                            <img src="<?= $capSekolah ?>" class="cap-sekolah-img" alt="Cap Sekolah">
+                        <?php endif; ?>
+                    </div>
+                    <p class="nm" style="margin-top:2px;"><?= e($kepala ?: '......................................') ?></p>
+                <?php else: ?>
+                    <p class="nm"><?= e($kepala ?: '......................................') ?></p>
+                <?php endif; ?>
                 <p class="m-0">NIK. <?= e($nikKepala ?: '-') ?></p>
             </div>
             <?php return ob_get_clean();
@@ -349,7 +413,12 @@
                 <div class="b">
                     <p class="m-0">{{ $kota }}, {{ $tanggal }}</p>
                     <p class="m-0">Wali Kelas</p>
-                    <p class="nm">{{ $walikelas?->nama ?? '......................................' }}</p>
+                    @if($ttdWalikelas)
+                        <div class="ttd-img-wrap"><img src="{{ $ttdWalikelas }}" class="ttd-img" alt="Tanda Tangan Wali Kelas"></div>
+                        <p class="nm" style="margin-top:2px;">{{ $walikelas?->nama ?? '......................................' }}</p>
+                    @else
+                        <p class="nm">{{ $walikelas?->nama ?? '......................................' }}</p>
+                    @endif
                     <p class="m-0">NIK. {{ $walikelas?->nik ?: '-' }}</p>
                 </div>
             </div>

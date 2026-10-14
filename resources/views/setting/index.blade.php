@@ -510,8 +510,8 @@
 
         <a href="{{ route('setting.kopRapor') }}" class="card p-6 flex items-center justify-between gap-3 hover:border-primary transition">
             <div>
-                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="stamp" class="w-[18px] h-[18px] text-primary"></i> Kop Surat &amp; Judul Rapor</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Upload logo (kiri &amp; kanan), ubah teks kepala surat, gambar latar (backdrop), dan judul laporan rapor siswa.</p>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i data-lucide="stamp" class="w-[18px] h-[18px] text-primary"></i> Kop Surat, Judul &amp; Tanda Tangan Rapor</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Upload logo (kiri &amp; kanan), ubah teks kop, backdrop, judul rapor, serta tanda tangan kepala sekolah &amp; wali kelas untuk distribusi online.</p>
             </div>
             <i data-lucide="chevron-right" class="w-5 h-5 text-slate-400 flex-shrink-0"></i>
         </a>
