@@ -64,6 +64,14 @@
         <a href="{{ route('sarpras.stok-opname.index') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold">Stok Opname</a>
         <a href="{{ route('sarpras.laporan.aktivitas') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold">Log Aktivitas</a>
         <a href="{{ route('sarpras.kategori.index') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold">Kategori & Supplier</a>
+        @can('sarpras.laporan.export')
+            <a href="{{ route('sarpras.laporan.peminjaman-ruangan.excel') }}" class="px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold inline-flex items-center gap-1.5 hover:bg-emerald-100 transition">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Arsip Peminjaman Ruangan
+            </a>
+            <a href="{{ route('sarpras.laporan.peminjaman-barang.excel') }}" class="px-3 py-2 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold inline-flex items-center gap-1.5 hover:bg-emerald-100 transition">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Arsip Peminjaman Barang
+            </a>
+        @endcan
     </div>
 </div>
 @endsection

@@ -20,6 +20,8 @@ class LudensaSchool
         return hash('sha256', $nama);
     }
 
+    public const DEFAULT_SCHOOL_ID = '00000000-0000-0000-0000-000000000001';
+
     public static function id(): string
     {
         $scopeKey = self::scopeKey();
@@ -28,6 +30,10 @@ class LudensaSchool
 
         if (filled($cachedId) && $cachedScope === $scopeKey) {
             return (string) $cachedId;
+        }
+
+        if (! class_exists(School::class)) {
+            return (string) ($cachedId ?: self::DEFAULT_SCHOOL_ID);
         }
 
         $nama = Setting::get('nama_sekolah', 'Sekolah') ?: 'Sekolah';
@@ -41,6 +47,10 @@ class LudensaSchool
 
     public static function ensureMapelsFromPelajaran(): void
     {
+        if (! class_exists(Mapel::class)) {
+            return;
+        }
+
         $schoolId = self::id();
 
         foreach (Pelajaran::query()->orderBy('urutan')->orderBy('nama')->get() as $pelajaran) {

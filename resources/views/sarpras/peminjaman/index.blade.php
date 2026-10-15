@@ -9,6 +9,9 @@
 @endsection
 
 @section('sarpras_actions')
+    <a href="{{ route('sarpras.peminjaman.export.' . ($tab === 'ruangan' ? 'ruangan' : 'barang'), request()->query()) }}" class="sarpras-google-btn-ghost px-4 py-2 text-xs sm:text-sm">
+        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i> Ekspor Excel {{ $tab === 'ruangan' ? 'Ruangan' : 'Barang' }}
+    </a>
     @can('sarpras.peminjaman.ajukan')
         <a href="{{ route('sarpras.peminjaman.create') }}" class="sarpras-google-btn-primary px-5 py-2.5 text-xs sm:text-sm">
             <i data-lucide="calendar-check" class="w-4 h-4"></i> Ajukan Peminjaman
@@ -123,6 +126,16 @@
 @endcan
 
 <div class="card p-4 sm:p-5">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+            <h3 class="font-bold text-slate-800 dark:text-slate-100">Daftar Peminjaman Barang</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ ($hanyaMilikSaya ?? false) ? 'Riwayat peminjaman barang inventaris milik Anda.' : 'Riwayat pengajuan dan peminjaman barang inventaris sekolah.' }}</p>
+        </div>
+        <a href="{{ route('sarpras.peminjaman.export.barang', request()->query()) }}" class="sarpras-google-btn-success justify-center px-4 py-2 text-xs font-bold shrink-0">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Ekspor Excel
+        </a>
+    </div>
+
     <div class="hidden md:block overflow-x-auto">
         <table class="w-full min-w-[760px] table-fixed text-sm">
             <colgroup>
@@ -395,7 +408,15 @@
     </div>
 
     <div class="card p-5">
-        <h3 class="font-bold mb-3">Riwayat Jadwal Ruangan</h3>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+                <h3 class="font-bold text-slate-800 dark:text-slate-100">Riwayat Jadwal Ruangan</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Daftar seluruh riwayat pemakaian dan jadwal ruangan sekolah untuk arsip.</p>
+            </div>
+            <a href="{{ route('sarpras.peminjaman.export.ruangan', request()->query()) }}" class="sarpras-google-btn-success justify-center px-4 py-2 text-xs font-bold shrink-0">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Ekspor Excel
+            </a>
+        </div>
         <div class="hidden md:block overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-700">
             <table class="w-full min-w-[800px] table-fixed text-sm datatable" data-order='[[ 3, "desc" ]]'>
                 <colgroup>

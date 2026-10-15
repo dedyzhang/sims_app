@@ -1340,7 +1340,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::get('/wawasan', 'wawasan')->name('wawasan');
             Route::post('/wawasan/narasi', 'wawasanNarasi')->name('wawasan.narasi')->middleware('throttle:10,1');
             Route::get('/export-paket', 'exportPaket')->name('export-paket');
-            Route::get('/log', 'log')->name('log');
+            Route::get('/log', [BendaharaAiController::class, 'log'])->name('log');
             Route::post('/ocr/{pembayaran}', 'ocrSuggest')->name('ocr')->middleware('throttle:10,1');
         });
     });

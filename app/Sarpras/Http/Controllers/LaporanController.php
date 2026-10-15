@@ -7,6 +7,8 @@ use App\Sarpras\Exports\AsetExport;
 use App\Sarpras\Exports\KibExport;
 use App\Sarpras\Exports\KirExport;
 use App\Sarpras\Exports\MutasiExport;
+use App\Sarpras\Exports\PeminjamanBarangExport;
+use App\Sarpras\Exports\PeminjamanRuanganExport;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\DenahRuangan;
 use App\Sarpras\Models\SarprasActivityLog;
@@ -82,5 +84,38 @@ class LaporanController extends Controller
     public function exportKir(DenahRuangan $ruangan)
     {
         return Excel::download(new KirExport($ruangan), 'KIR-' . $ruangan->kode . '.xlsx');
+    }
+
+    public function exportPeminjamanRuanganExcel(Request $request)
+    {
+        $filename = 'arsip-peminjaman-ruangan-' . now()->format('Ymd') . '.xlsx';
+
+        return Excel::download(
+            new PeminjamanRuanganExport(
+                $request->query('dari'),
+                $request->query('sampai'),
+                $request->query('status'),
+                $request->query('ruangan_id')
+            ),
+            $filename
+        );
+    }
+
+    public function exportPeminjamanBarangExcel(Request $request)
+    {
+        $user = auth()->user();
+        $canKelola = $user->can('sarpras.peminjaman.setujui') || $user->can('sarpras.peminjaman.kelola');
+        $filename = 'arsip-peminjaman-barang-' . now()->format('Ymd') . '.xlsx';
+
+        return Excel::download(
+            new PeminjamanBarangExport(
+                $request->query('dari'),
+                $request->query('sampai'),
+                $request->query('status'),
+                $user->uuid,
+                $canKelola
+            ),
+            $filename
+        );
     }
 }

@@ -116,11 +116,19 @@ trait InteractsWithLudensa
 
     public function pakaiFotoAvatar(): bool
     {
+        if (! class_exists(\Ludensa\Support\AvatarPemain::class)) {
+            return false;
+        }
+
         return \Ludensa\Support\AvatarPemain::pakaiFoto($this);
     }
 
     public function urlFotoAvatar(): ?string
     {
+        if (! class_exists(\Ludensa\Support\AvatarPemain::class)) {
+            return null;
+        }
+
         return \Ludensa\Support\AvatarPemain::urlFoto($this);
     }
 

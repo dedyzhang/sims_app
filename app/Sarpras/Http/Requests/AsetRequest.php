@@ -2,6 +2,7 @@
 
 namespace App\Sarpras\Http\Requests;
 
+use App\Sarpras\Models\SarprasModel;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +16,7 @@ class AsetRequest extends FormRequest
     public function rules(): array
     {
         $asetId = $this->route('aset')?->id;
-        $schoolId = $this->user()?->school_id;
+        $schoolId = SarprasModel::SCHOOL_ID;
 
         return [
             'kode' => [

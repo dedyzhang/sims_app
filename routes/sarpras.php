@@ -119,6 +119,8 @@ Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sa
     Route::redirect('booking', 'sarpras/peminjaman?tab=ruangan')->name('booking.index');
     Route::post('booking', fn () => redirect()->route('sarpras.peminjaman.index', ['tab' => 'ruangan']));
     Route::middleware('can:sarpras.peminjaman.lihat')->group(function () {
+        Route::get('peminjaman/export/ruangan', [PeminjamanController::class, 'exportRuanganExcel'])->name('peminjaman.export.ruangan');
+        Route::get('peminjaman/export/barang', [PeminjamanController::class, 'exportBarangExcel'])->name('peminjaman.export.barang');
         Route::get('peminjaman', [PeminjamanController::class, 'index'])->name('peminjaman.index');
         Route::get('peminjaman/{peminjaman}', [PeminjamanController::class, 'show'])->name('peminjaman.show');
     });
@@ -186,6 +188,8 @@ Route::middleware(['web', 'auth', 'modul:sarpras'])->prefix('sarpras')->name('sa
         Route::get('laporan/mutasi/excel', [LaporanController::class, 'exportMutasiExcel'])->name('laporan.mutasi.excel');
         Route::get('laporan/kib/{aset}', [LaporanController::class, 'exportKib'])->name('laporan.kib');
         Route::get('laporan/kir/{ruangan}', [LaporanController::class, 'exportKir'])->name('laporan.kir');
+        Route::get('laporan/peminjaman-ruangan/excel', [LaporanController::class, 'exportPeminjamanRuanganExcel'])->name('laporan.peminjaman-ruangan.excel');
+        Route::get('laporan/peminjaman-barang/excel', [LaporanController::class, 'exportPeminjamanBarangExcel'])->name('laporan.peminjaman-barang.excel');
     });
     Route::middleware('can:sarpras.pengaturan.kelola')->group(function () {
         Route::post('stok-opname', [StokOpnameController::class, 'store'])->name('stok-opname.store');

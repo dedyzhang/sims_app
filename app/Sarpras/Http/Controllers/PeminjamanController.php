@@ -3,6 +3,8 @@
 namespace App\Sarpras\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Sarpras\Exports\PeminjamanBarangExport;
+use App\Sarpras\Exports\PeminjamanRuanganExport;
 use App\Sarpras\Http\Requests\PeminjamanRequest;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\DenahRuangan;
@@ -16,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PeminjamanController extends Controller
 {
@@ -375,5 +378,38 @@ class PeminjamanController extends Controller
         $label = $aset->kode ?? $aset->id;
 
         return "Aset {$label} sudah digunakan atau tidak tersedia.";
+    }
+
+    public function exportRuanganExcel(Request $request)
+    {
+        $filename = 'arsip-peminjaman-ruangan-' . now()->format('Ymd') . '.xlsx';
+
+        return Excel::download(
+            new PeminjamanRuanganExport(
+                $request->query('dari'),
+                $request->query('sampai'),
+                $request->query('status'),
+                $request->query('ruangan_id')
+            ),
+            $filename
+        );
+    }
+
+    public function exportBarangExcel(Request $request)
+    {
+        $user = auth()->user();
+        $canKelola = $user->can('sarpras.peminjaman.setujui') || $user->can('sarpras.peminjaman.kelola');
+        $filename = 'arsip-peminjaman-barang-' . now()->format('Ymd') . '.xlsx';
+
+        return Excel::download(
+            new PeminjamanBarangExport(
+                $request->query('dari'),
+                $request->query('sampai'),
+                $request->query('status'),
+                $user->uuid,
+                $canKelola
+            ),
+            $filename
+        );
     }
 }

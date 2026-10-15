@@ -11,6 +11,10 @@ class SimsLudensaSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! class_exists(School::class) || ! class_exists(LudensaSeeder::class)) {
+            return;
+        }
+
         LudensaSchool::ensureMapelsFromPelajaran();
 
         $school = School::query()->findOrFail(LudensaSchool::id());
