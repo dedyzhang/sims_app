@@ -42,7 +42,7 @@
 
         @if (!empty($aset->spesifikasi))
             <h3 class="font-semibold text-gray-700 mt-5 mb-2 text-sm">Spesifikasi</h3>
-            <table class="text-sm w-full">
+            <table class="text-sm w-full no-dt">
                 @foreach ($aset->spesifikasi as $k => $v)
                     <tr class="border-b"><td class="py-1 text-gray-500 w-1/3">{{ $k }}</td><td>{{ $v }}</td></tr>
                 @endforeach

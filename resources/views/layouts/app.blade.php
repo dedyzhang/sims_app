@@ -224,12 +224,21 @@
         .dataTables_wrapper .dataTables_length select, .dataTables_wrapper .dataTables_filter input {
             border: 1px solid #e2e8f0; border-radius: 0.375rem; padding: 0.25rem 0.5rem; outline: none;
         }
+        .dataTables_wrapper .dataTables_length select {
+            min-width: 4.75rem; padding-right: 1.5rem;
+        }
         .dark .dataTables_wrapper .dataTables_length select, .dark .dataTables_wrapper .dataTables_filter input {
             background-color: #1e293b; border-color: #334155; color: #f8fafc;
         }
         .dark .dataTables_wrapper .dataTables_length, .dark .dataTables_wrapper .dataTables_filter, .dark .dataTables_wrapper .dataTables_info {
             color: #94a3b8 !important;
         }
+        table.dataTable, .dataTables_scrollHead table.dataTable, .dataTables_scrollBody table.dataTable {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+        .dataTables_scrollHead { overflow: hidden !important; }
+        .dataTables_scrollBody { overflow-x: auto !important; }
         table.dataTable.dtr-inline.collapsed>tbody>tr>td.dtr-control:before, table.dataTable.dtr-inline.collapsed>tbody>tr>th.dtr-control:before {
             display: none;
         }
@@ -246,7 +255,9 @@
     <script>
         $(document).ready(function() {
             if (window.location.pathname.includes('/sarpras') && typeof $.fn.DataTable === 'function') {
-                var $tables = $('table:not(.ttd, .no-dt)');
+                var $tables = $('table:not(.ttd, .no-dt)').filter(function() {
+                    return $(this).find('thead th').length > 0;
+                });
                 // Beberapa view Sarpras merender baris placeholder "Belum ada data" sbg satu
                 // <td colspan> penuh saat koleksinya kosong. DataTable salah hitung jumlah kolom
                 // baris itu (makin ketat krn scrollX:true) -> muncul alert "Incorrect column
@@ -271,7 +282,16 @@
                         zeroRecords: "Data tidak ditemukan",
                         emptyTable: "Belum ada data",
                         paginate: { first: "Awal", last: "Akhir", next: "Selanjutnya", previous: "Sebelumnya" }
+                    },
+                    initComplete: function() {
+                        var api = this.api();
+                        setTimeout(function() {
+                            api.columns.adjust();
+                        }, 50);
                     }
+                });
+                $(window).on('resize.dtSarpras', function () {
+                    $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
                 });
             }
         });

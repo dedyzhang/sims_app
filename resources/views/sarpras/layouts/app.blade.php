@@ -118,6 +118,11 @@
     font-size:.8rem;
     max-width:100%;
 }
+.sarpras-scope .dataTables_length select {
+    min-width:4.75rem !important;
+    padding-right:1.75rem !important;
+    cursor:pointer;
+}
 .dark .sarpras-scope .dataTables_length select,
 .dark .sarpras-scope .dataTables_filter input {
     background:#0f172a !important;
@@ -127,10 +132,29 @@
 .sarpras-scope .dataTables_filter input {
     width:min(220px, 55vw) !important;
 }
-.sarpras-scope .dataTables_scroll,
-.sarpras-scope .dataTables_scrollHead,
+.sarpras-scope .dataTables_scroll {
+    overflow:visible !important;
+}
+.sarpras-scope .dataTables_scrollHead {
+    overflow:hidden !important;
+}
 .sarpras-scope .dataTables_scrollBody {
-    overflow-x:auto;
+    overflow-x:auto !important;
+}
+.sarpras-scope table.dataTable,
+.sarpras-scope .dataTables_scrollHead table.dataTable,
+.sarpras-scope .dataTables_scrollBody table.dataTable {
+    margin-left:0 !important;
+    margin-right:0 !important;
+    width:100% !important;
+}
+.sarpras-scope .dataTables_scrollHeadInner {
+    box-sizing:border-box !important;
+    width:100% !important;
+}
+.sarpras-scope .dataTables_scrollHeadInner > table.dataTable {
+    margin-left:0 !important;
+    margin-right:0 !important;
 }
 /* Tabel BUKAN DataTables: batasi max-width spy tak keluar kartu (word-break di th+td-nya). */
 .sarpras-scope table:not(.ttd):not(.dataTable) { max-width:100%; }
