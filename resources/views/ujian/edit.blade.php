@@ -13,14 +13,36 @@
                 <h1 class="page-title">Susun Soal</h1>
                 <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Total poin: {{ $ujian->soal->sum(fn($s) => $s->poinEfektif()) }} · {{ $ujian->soal->count() }} soal</p>
             </div>
-            <div class="flex items-center gap-2 flex-shrink-0">
+            <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
                 <a href="{{ route('ujian.pratinjau', $ujian) }}" target="_blank" rel="noopener"
-                   class="px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-1.5">
-                    <i data-lucide="smartphone" class="w-4 h-4"></i> Pratinjau Tampilan Siswa
+                   class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-1.5">
+                    <i data-lucide="smartphone" class="w-4 h-4"></i> Pratinjau
                 </a>
+
+                {{-- Dropdown Ekspor Soal --}}
+                <div x-data="{ openEkspor: false }" class="relative inline-block">
+                    <button type="button" @click="openEkspor = !openEkspor" class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-1.5">
+                        <i data-lucide="download" class="w-4 h-4"></i> Ekspor Soal
+                        <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+                    </button>
+                    <div x-show="openEkspor" @click.outside="openEkspor = false" x-cloak class="absolute right-0 mt-1 w-48 rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-30">
+                        <a href="{{ route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'xlsx']) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i> Unduh Excel (.xlsx)
+                        </a>
+                        <a href="{{ route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'json']) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                            <i data-lucide="code" class="w-4 h-4 text-blue-600"></i> Unduh JSON (.json)
+                        </a>
+                    </div>
+                </div>
+
                 @if($ujian->status === 'draft')
-                <button type="button" @click="$dispatch('buka-bank-soal')" class="px-4 py-2 rounded-xl text-xs font-semibold border border-primary text-primary hover:bg-primary/5 flex items-center gap-1.5">
-                    <i data-lucide="library" class="w-4 h-4"></i> Sisipkan dari Bank Soal
+                {{-- Tombol Impor / Salin Soal --}}
+                <button type="button" @click="$dispatch('buka-modal-import')" class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 flex items-center gap-1.5">
+                    <i data-lucide="upload" class="w-4 h-4"></i> Impor / Salin
+                </button>
+
+                <button type="button" @click="$dispatch('buka-bank-soal')" class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-primary text-primary hover:bg-primary/5 flex items-center gap-1.5">
+                    <i data-lucide="library" class="w-4 h-4"></i> Bank Soal
                 </button>
                 @endif
             </div>
@@ -32,6 +54,162 @@
         <ul class="list-disc list-inside space-y-0.5">
             @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
         </ul>
+    </div>
+    @endif
+
+    {{-- Modal Impor / Salin Soal --}}
+    @if($ujian->status === 'draft')
+    <div x-data="modalImportSoal({{ Js::from(route('ujian.soal.sumber', $ujian)) }})"
+         x-show="open" x-cloak
+         @buka-modal-import.window="buka()"
+         @keydown.escape.window="open = false"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+         @click.self="open = false">
+        <div class="card w-full max-w-xl max-h-[88vh] flex flex-col p-6 shadow-2xl relative" x-show="open" x-transition>
+            <div class="flex items-center justify-between mb-3 border-b border-slate-100 dark:border-slate-700 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 grid place-items-center">
+                        <i data-lucide="import" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-slate-800 dark:text-slate-100 text-base">Impor & Salin Soal</h2>
+                        <p class="text-xs text-slate-400">Target Ujian: {{ $ujian->judul }} ({{ $ujian->pelajaran?->nama }})</p>
+                    </div>
+                </div>
+                <button type="button" @click="open = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            {{-- Tabs --}}
+            <div class="flex border-b border-slate-200 dark:border-slate-700 mb-4">
+                <button type="button" @click="tab = 'upload'"
+                        :class="tab === 'upload' ? 'border-b-2 border-emerald-600 text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-700'"
+                        class="pb-2.5 px-3 text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="file-up" class="w-4 h-4"></i> Upload Berkas (Excel / JSON)
+                </button>
+                <button type="button" @click="tab = 'salin'; if(daftarSumber.length === 0) muatSumber();"
+                        :class="tab === 'salin' ? 'border-b-2 border-emerald-600 text-emerald-600 font-bold' : 'text-slate-500 hover:text-slate-700'"
+                        class="pb-2.5 px-3 text-xs flex items-center gap-1.5 transition">
+                    <i data-lucide="copy" class="w-4 h-4"></i> Salin dari Ujian Lain
+                </button>
+            </div>
+
+            {{-- Tab 1: Upload File --}}
+            <div x-show="tab === 'upload'" class="space-y-4 overflow-y-auto pr-1">
+                <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">Belum punya format berkas?</p>
+                        <p class="text-xs text-slate-400">Unduh template Excel resmi lengkap dengan panduan & contoh soal.</p>
+                    </div>
+                    <a href="{{ route('ujian.soal.template') }}" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 flex-shrink-0">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> Unduh Template Excel
+                    </a>
+                </div>
+
+                <form method="POST" action="{{ route('ujian.soal.import', $ujian) }}" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Pilih Berkas Soal</label>
+                        <input type="file" name="file" required accept=".xlsx,.xls,.csv,.json"
+                               class="form-input w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 dark:file:bg-emerald-950/40 dark:file:text-emerald-300">
+                        <p class="text-[11px] text-slate-400 mt-1">Format yang didukung: Excel (.xlsx, .xls), CSV (.csv), atau JSON (.json). Maks. 10 MB.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">Mode Penyimpanan</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <label class="flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition"
+                                   :class="modeUpload === 'append' ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-700'">
+                                <input type="radio" name="mode" value="append" x-model="modeUpload" class="text-emerald-600 focus:ring-emerald-500 mt-0.5">
+                                <div>
+                                    <span class="text-xs font-bold block text-slate-800 dark:text-slate-200">Tambahkan (Append)</span>
+                                    <span class="text-[11px] text-slate-400">Soal baru ditambahkan ke akhir daftar soal yang sudah ada.</span>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition"
+                                   :class="modeUpload === 'replace' ? 'border-rose-500 bg-rose-50/40 dark:bg-rose-950/20' : 'border-slate-200 dark:border-slate-700'">
+                                <input type="radio" name="mode" value="replace" x-model="modeUpload" class="text-rose-600 focus:ring-rose-500 mt-0.5">
+                                <div>
+                                    <span class="text-xs font-bold block text-rose-700 dark:text-rose-400">Ganti Semua (Replace)</span>
+                                    <span class="text-[11px] text-slate-400">Hapus seluruh soal yang ada saat ini dan ganti dengan berkas ini.</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-2">
+                        <button type="button" @click="open = false" class="btn-secondary px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>
+                        <button type="submit" class="btn-primary px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                            <i data-lucide="upload-cloud" class="w-4 h-4"></i> Impor Berkas
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {{-- Tab 2: Salin dari Ujian Lain --}}
+            <div x-show="tab === 'salin'" class="space-y-4 overflow-y-auto pr-1">
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    Salin seluruh soal secara instan dari ujian lain di sistem (bisa dari mata pelajaran yang sama maupun mata pelajaran berbeda).
+                </p>
+
+                <template x-if="loadingSumber">
+                    <div class="py-8 text-center text-slate-400">
+                        <i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto mb-2 text-primary"></i>
+                        <p class="text-xs">Memuat daftar ujian...</p>
+                    </div>
+                </template>
+
+                <template x-if="!loadingSumber && daftarSumber.length === 0">
+                    <div class="py-8 text-center text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-xl p-4">
+                        <i data-lucide="file-question" class="w-6 h-6 mx-auto mb-1 text-slate-400"></i>
+                        <p class="text-xs">Tidak ada ujian lain yang tersedia untuk disalin.</p>
+                    </div>
+                </template>
+
+                <form x-show="!loadingSumber && daftarSumber.length > 0" method="POST" action="{{ route('ujian.soal.salin', $ujian) }}" class="space-y-4">
+                    @csrf
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Pilih Ujian Sumber</label>
+                        <select name="id_ujian_sumber" required x-model="sumberTerpilih" class="form-select w-full text-xs">
+                            <option value="">-- Pilih Ujian Sumber --</option>
+                            <template x-for="u in daftarSumber" :key="u.uuid">
+                                <option :value="u.uuid" x-text="u.judul + ' (' + u.pelajaran + ') — ' + u.jumlah_soal + ' Soal'"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-2">Mode Penyalinan</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <label class="flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition"
+                                   :class="modeSalin === 'append' ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20' : 'border-slate-200 dark:border-slate-700'">
+                                <input type="radio" name="mode" value="append" x-model="modeSalin" class="text-emerald-600 focus:ring-emerald-500 mt-0.5">
+                                <div>
+                                    <span class="text-xs font-bold block text-slate-800 dark:text-slate-200">Tambahkan (Append)</span>
+                                    <span class="text-[11px] text-slate-400">Soal disalin ke akhir daftar soal saat ini.</span>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition"
+                                   :class="modeSalin === 'replace' ? 'border-rose-500 bg-rose-50/40 dark:bg-rose-950/20' : 'border-slate-200 dark:border-slate-700'">
+                                <input type="radio" name="mode" value="replace" x-model="modeSalin" class="text-rose-600 focus:ring-rose-500 mt-0.5">
+                                <div>
+                                    <span class="text-xs font-bold block text-rose-700 dark:text-rose-400">Ganti Semua (Replace)</span>
+                                    <span class="text-[11px] text-slate-400">Hapus seluruh soal ujian saat ini dan ganti dengan soal dari ujian sumber.</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-2">
+                        <button type="button" @click="open = false" class="btn-secondary px-4 py-2 rounded-xl text-xs font-semibold">Batal</button>
+                        <button type="submit" :disabled="!sumberTerpilih" class="btn-primary px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40">
+                            <i data-lucide="copy-check" class="w-4 h-4"></i> Salin Soal Sekarang
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
     @endif
 
@@ -170,6 +348,38 @@ function bankSoalPicker(pilihUrl, submitUrl) {
                 .then(json => { this.daftar = json; })
                 .finally(() => { this.loading = false; });
         },
+    }
+}
+
+function modalImportSoal(sumberUrl) {
+    return {
+        open: false,
+        tab: 'upload',
+        loadingSumber: false,
+        daftarSumber: [],
+        sumberTerpilih: '',
+        modeUpload: 'append',
+        modeSalin: 'append',
+        buka() {
+            this.open = true;
+            if (this.daftarSumber.length === 0) this.muatSumber();
+            this.$nextTick(() => {
+                if (window.lucide) window.lucide.createIcons();
+            });
+        },
+        muatSumber() {
+            this.loadingSumber = true;
+            fetch(sumberUrl, { headers: { 'Accept': 'application/json' } })
+                .then(r => r.json())
+                .then(json => {
+                    this.daftarSumber = json;
+                    this.$nextTick(() => {
+                        if (window.lucide) window.lucide.createIcons();
+                    });
+                })
+                .catch(err => console.error(err))
+                .finally(() => { this.loadingSumber = false; });
+        }
     }
 }
 </script>

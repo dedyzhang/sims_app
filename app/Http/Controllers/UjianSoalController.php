@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\Ujian\UjianSoalExport;
+use App\Exports\Ujian\UjianSoalTemplateExport;
 use App\Models\BankSoal;
 use App\Models\BankSoalOpsi;
 use App\Models\Ujian;
 use App\Models\UjianSoal;
 use App\Models\UjianSoalOpsi;
+use App\Services\UjianSoalImportService;
 use App\Support\SoalValidator;
 use App\Support\Uploads;
 use Illuminate\Http\Request;
@@ -15,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
+use Maatwebsite\Excel\Facades\Excel;
 
 class UjianSoalController extends Controller
 {
@@ -269,5 +273,163 @@ class UjianSoalController extends Controller
         });
 
         return back()->with('success', 'Soal disimpan ke Bank Soal.');
+    }
+
+    /**
+     * Unduh berkas ekspor soal (Excel .xlsx atau JSON .json).
+     */
+    public function export(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+
+        $format = strtolower($request->query('format', 'xlsx'));
+        $slug = Str::slug($ujian->judul) ?: 'ujian';
+
+        if ($format === 'json') {
+            $soalList = $ujian->soal()->with('opsi')->orderBy('urutan')->get()->map(function ($soal) {
+                $item = [
+                    'tipe'       => $soal->tipe,
+                    'teks_soal'  => $soal->teks_soal,
+                    'poin'       => $soal->poin,
+                    'skor_mode'  => $soal->skor_mode,
+                    'penjelasan' => $soal->penjelasan,
+                    'meta'       => $soal->meta,
+                ];
+
+                if ($soal->butuhOpsi()) {
+                    $item['opsi'] = $soal->opsi->map(fn ($o) => [
+                        'teks'  => $o->teks_opsi,
+                        'benar' => (bool) $o->is_benar,
+                    ])->all();
+                }
+
+                return $item;
+            });
+
+            $exportData = [
+                'app'          => 'SIMS Ujian',
+                'versi'        => '1.0',
+                'id_ujian'     => $ujian->uuid,
+                'judul_sumber' => $ujian->judul,
+                'pelajaran'    => $ujian->pelajaran?->nama,
+                'total_soal'   => $soalList->count(),
+                'exported_at'  => now()->toIso8601String(),
+                'soal'         => $soalList,
+            ];
+
+            return response()->streamDownload(function () use ($exportData) {
+                echo json_encode($exportData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }, "soal-{$slug}.json", ['Content-Type' => 'application/json']);
+        }
+
+        return Excel::download(new UjianSoalExport($ujian), "soal-{$slug}.xlsx");
+    }
+
+    /**
+     * Unduh template file Excel kosong yang dilengkapi contoh dan panduan pengisian.
+     */
+    public function template()
+    {
+        return Excel::download(new UjianSoalTemplateExport(), 'template-soal-ujian.xlsx');
+    }
+
+    /**
+     * Impor soal dari berkas Excel (.xlsx/.xls/.csv) atau JSON (.json).
+     */
+    public function import(Request $request, Ujian $ujian, UjianSoalImportService $service)
+    {
+        $this->authorize('manage', $ujian);
+        abort_if($ujian->isPublished() || $ujian->isClosed(), 422, 'Ujian yang sudah terbit/ditutup tidak bisa diubah soalnya.');
+
+        $request->validate([
+            'file' => 'required|file|max:10240', // Maks 10MB
+            'mode' => 'required|in:append,replace',
+        ], [
+            'file.required' => 'Silakan pilih berkas soal yang akan diimpor.',
+            'file.max'      => 'Ukuran berkas maksimal 10 MB.',
+            'mode.required' => 'Pilih mode impor (tambah atau ganti).',
+        ]);
+
+        $file = $request->file('file');
+        $ext = strtolower($file->getClientOriginalExtension());
+
+        if (!in_array($ext, ['xlsx', 'xls', 'csv', 'json'], true)) {
+            return back()->withErrors(['file' => 'Format berkas harus berupa Excel (.xlsx, .xls), CSV (.csv), atau JSON (.json).']);
+        }
+
+        try {
+            $jumlah = $service->importFile($ujian, $file, $request->input('mode', 'append'));
+            return back()->with('success', "Berhasil mengimpor {$jumlah} soal ke ujian ini.");
+        } catch (\Throwable $e) {
+            return back()->withErrors(['file' => 'Gagal mengimpor berkas: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Ambil daftar ujian yang tersedia untuk disalin soalnya (bisa lintas mapel).
+     */
+    public function daftarSumberUjian(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+        $user = $request->user();
+
+        $query = Ujian::withCount('soal')
+            ->with('pelajaran')
+            ->where('uuid', '!=', $ujian->uuid)
+            ->latest();
+
+        if (!$user->isAdmin() && !$user->canAccess('manage_ujian')) {
+            $guru = $user->guru;
+            $pairs = \App\Models\Ngajar::where('id_guru', $guru?->uuid ?? '-')->get(['id_pelajaran', 'id_kelas']);
+
+            $query->where(function ($q) use ($user, $pairs) {
+                $q->where('created_by', $user->uuid);
+                foreach ($pairs as $p) {
+                    $q->orWhere(function ($qq) use ($p) {
+                        $qq->where('id_pelajaran', $p->id_pelajaran)
+                           ->whereHas('kelas', fn ($k) => $k->where('id_kelas', $p->id_kelas));
+                    });
+                }
+            });
+        }
+
+        $daftar = $query->get()->map(fn ($u) => [
+            'uuid'         => $u->uuid,
+            'judul'        => $u->judul,
+            'pelajaran'    => $u->pelajaran?->nama ?? 'Tanpa Mapel',
+            'jumlah_soal'  => $u->soal_count,
+            'status'       => $u->status,
+            'status_label' => $u->statusLabel(),
+        ]);
+
+        return response()->json($daftar);
+    }
+
+    /**
+     * Salin seluruh soal langsung dari ujian lain (bisa beda mata pelajaran) ke ujian ini.
+     */
+    public function salinDariUjian(Request $request, Ujian $ujian, UjianSoalImportService $service)
+    {
+        $this->authorize('manage', $ujian);
+        abort_if($ujian->isPublished() || $ujian->isClosed(), 422, 'Ujian yang sudah terbit/ditutup tidak bisa diubah soalnya.');
+
+        $request->validate([
+            'id_ujian_sumber' => 'required|uuid|different:' . $ujian->uuid,
+            'mode'            => 'required|in:append,replace',
+        ], [
+            'id_ujian_sumber.required' => 'Pilih ujian sumber yang ingin disalin soalnya.',
+            'id_ujian_sumber.different'=> 'Ujian sumber tidak boleh sama dengan ujian target saat ini.',
+            'mode.required'            => 'Pilih mode salin (tambah atau ganti).',
+        ]);
+
+        $sumber = Ujian::findOrFail($request->input('id_ujian_sumber'));
+        $this->authorize('view', $sumber);
+
+        try {
+            $jumlah = $service->salinDariUjian($ujian, $sumber, $request->input('mode', 'append'));
+            return back()->with('success', "Berhasil menyalin {$jumlah} soal dari ujian \"{$sumber->judul}\".");
+        } catch (\Throwable $e) {
+            return back()->withErrors(['id_ujian_sumber' => 'Gagal menyalin soal: ' . $e->getMessage()]);
+        }
     }
 }

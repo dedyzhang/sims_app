@@ -1233,7 +1233,12 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{ujian}/token-baru', [UjianController::class, 'regenerateSemuaToken'])->name('token.reset');
         Route::delete('/{ujian}', [UjianController::class, 'destroy'])->name('destroy');
 
+        Route::get('/soal/template', [UjianSoalController::class, 'template'])->name('soal.template');
         Route::post('/unggah-gambar', [UjianSoalController::class, 'uploadGambar'])->middleware('throttle:30,1')->name('soal.unggah-gambar');
+        Route::get('/{ujian}/soal/export', [UjianSoalController::class, 'export'])->name('soal.export');
+        Route::post('/{ujian}/soal/import', [UjianSoalController::class, 'import'])->name('soal.import');
+        Route::get('/{ujian}/soal/sumber', [UjianSoalController::class, 'daftarSumberUjian'])->name('soal.sumber');
+        Route::post('/{ujian}/soal/salin', [UjianSoalController::class, 'salinDariUjian'])->name('soal.salin');
         Route::post('/{ujian}/soal', [UjianSoalController::class, 'store'])->name('soal.store');
         Route::post('/{ujian}/soal/{soal}/update', [UjianSoalController::class, 'update'])->name('soal.update');
         Route::delete('/{ujian}/soal/{soal}', [UjianSoalController::class, 'destroy'])->name('soal.destroy');

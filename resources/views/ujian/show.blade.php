@@ -24,6 +24,20 @@
         <a href="{{ route('ujian.edit', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
             <i data-lucide="list-checks" class="w-4 h-4 inline"></i> Susun Soal ({{ $ujian->soal->count() }})
         </a>
+        <div x-data="{ openEkspor: false }" class="relative inline-block">
+            <button type="button" @click="openEkspor = !openEkspor" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-1.5">
+                <i data-lucide="download" class="w-4 h-4"></i> Ekspor Soal
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+            </button>
+            <div x-show="openEkspor" @click.outside="openEkspor = false" x-cloak class="absolute left-0 mt-1 w-48 rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-20">
+                <a href="{{ route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'xlsx']) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i> Unduh Excel (.xlsx)
+                </a>
+                <a href="{{ route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'json']) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                    <i data-lucide="code" class="w-4 h-4 text-blue-600"></i> Unduh JSON (.json)
+                </a>
+            </div>
+        </div>
         <a href="{{ route('ujian.pengaturan.edit', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
             <i data-lucide="settings" class="w-4 h-4 inline"></i> Pengaturan
         </a>
