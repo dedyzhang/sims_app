@@ -46,6 +46,7 @@ class GamePracticeController extends Controller
 
     public function start(Request $request, Classroom $classroom, GameQuiz $quiz, \App\Services\FirebaseRtdbService $firebase)
     {
+        abort_if(\App\Support\ModeUjian::aktif(), 403, 'Sesi latihan Arena Belajar dinonaktifkan sementara selama Mode Ujian aktif demi stabilitas server.');
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('manage', $quiz);
         abort_unless($quiz->questions()->exists(), 422, 'Kuis harus punya soal.');

@@ -84,6 +84,10 @@ class PollingWidget
 
     public static function aktif(string $kode): bool
     {
+        if (ModeUjian::aktif()) {
+            return false;
+        }
+
         return Setting::get(self::settingKey($kode), '1') === '1';
     }
 
@@ -95,6 +99,10 @@ class PollingWidget
     /** @return array<int, string> kode yang saat ini nonaktif — dikirim ke JS sbg window.SIMS_POLLING_NONAKTIF */
     public static function daftarNonaktif(): array
     {
+        if (ModeUjian::aktif()) {
+            return self::kodeValid();
+        }
+
         return array_values(array_filter(self::kodeValid(), fn (string $kode) => self::nonaktif($kode)));
     }
 }

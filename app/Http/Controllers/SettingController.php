@@ -416,6 +416,17 @@ class SettingController extends Controller
         return back()->with('success', 'Pengaturan agenda sebelum pulang disimpan.');
     }
 
+    /** Sakelar Mode Ujian (Exam Lockdown Mode). */
+    public function toggleModeUjian(Request $request)
+    {
+        $status = \App\Support\ModeUjian::toggle();
+        $pesan = $status
+            ? 'Mode Ujian DIAKTIFKAN. Seluruh polling, ticker SIMS-NET, dan notifikasi dinonaktifkan. Siswa dikunci hanya di ruang ujian.'
+            : 'Mode Ujian DINONAKTIFKAN. Seluruh sistem kembali beroperasi normal.';
+
+        return back()->with('success', $pesan);
+    }
+
     /**
      * Performa Server: nonaktifkan polling widget SATU-PER-SATU (bukan satu tombol besar)
      * — daftar kanonik & kelompoknya ada di App\Support\PollingWidget. Ujian yang sedang

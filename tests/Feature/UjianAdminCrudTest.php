@@ -301,16 +301,25 @@ class UjianAdminCrudTest extends TestCase
         ]);
         UjianKelas::create(['id_ujian' => $ujianTerbit->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => UjianKelas::generateToken()]);
 
-        $html = $this->actingAs($user)->get(route('ujian.index'))->assertOk()->getContent();
-        $this->assertStringContainsString('Reset Token', $html);
-        $this->assertStringContainsString('Tutup', $html);
+        $htmlGuru = $this->actingAs($user)->get(route('ujian.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('Reset Token', $htmlGuru);
+        // Guru biasa tak punya form/tombol Tutup (hanya admin yang boleh menutup ujian)
+        $this->assertStringNotContainsString(route('ujian.close', $ujianTerbit), $htmlGuru);
 
-        // Reset token & tutup langsung dari /ujian (tanpa buka detail) — masih boleh guru.
+        // Reset token masih boleh oleh guru pengampu
         $tokenLama = $ujianTerbit->kelas()->value('token_masuk');
         $this->actingAs($user)->post(route('ujian.token.reset', $ujianTerbit))->assertRedirect();
         $this->assertNotSame($tokenLama, $ujianTerbit->kelas()->first()->fresh()->token_masuk);
 
-        $this->actingAs($user)->post(route('ujian.close', $ujianTerbit))->assertRedirect();
+        // Guru ditolak menutup ujian (403 Forbidden)
+        $this->actingAs($user)->post(route('ujian.close', $ujianTerbit))->assertForbidden();
+
+        // Admin memiliki tombol Tutup dan berwenang menutup ujian
+        $admin = User::create(['username' => 'admin_tutup_ujian', 'password' => Hash::make('rahasia123'), 'access' => 'admin']);
+        $htmlAdmin = $this->actingAs($admin)->get(route('ujian.index'))->assertOk()->getContent();
+        $this->assertStringContainsString(route('ujian.close', $ujianTerbit), $htmlAdmin);
+
+        $this->actingAs($admin)->post(route('ujian.close', $ujianTerbit))->assertRedirect();
         $this->assertSame('closed', $ujianTerbit->fresh()->status);
     }
 }

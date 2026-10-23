@@ -575,6 +575,26 @@
      (dynamic viewport height) mengikuti tinggi layar sebenarnya; h-screen jadi fallback
      utk browser lama yang belum dukung dvh. --}}
 <div class="h-screen h-[100dvh] flex flex-col relative z-10 min-h-0" :class="{ 'mob-open': mobileOpen }">
+@if(\App\Support\ModeUjian::aktif() && in_array(auth()->user()?->access, ['superadmin', 'admin', 'kepala', 'kurikulum']))
+    <div class="bg-amber-500 text-slate-900 px-4 py-2 text-xs sm:text-sm font-bold flex items-center justify-between shadow-md z-[100] flex-shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span class="truncate">MODE UJIAN AKTIF: Siswa terkunci hanya di ruang ujian. Seluruh polling, ticker SIMS-NET, dan notifikasi dinonaktifkan.</span>
+        </div>
+        <form method="POST" action="{{ route('setting.mode-ujian.toggle') }}" class="m-0 flex-shrink-0">
+            @csrf
+            <button type="submit" class="bg-slate-900 hover:bg-black text-white px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer">
+                Matikan Mode Ujian
+            </button>
+        </form>
+    </div>
+@endif
+
+@if(\App\Support\ModeUjian::aktif() && auth()->user()?->access === 'siswa')
+    <div class="bg-emerald-600 text-white px-4 py-1.5 text-xs font-bold text-center flex-shrink-0 shadow-sm">
+        🛡️ Mode Ujian Aktif — Siswa berada di ruang ujian terisolasi.
+    </div>
+@endif
     <div class="flex-1 flex relative overflow-hidden min-h-0">
         <div class="sidebar-overlay lg:hidden" @click="mobileOpen=false"></div>
 
@@ -598,6 +618,17 @@
         </div>
 
         <nav class="flex-1 overflow-y-auto px-3 py-2 pb-6 space-y-0.5">
+            @if(\App\Support\ModeUjian::aktif() && auth()->user()?->access === 'siswa')
+                <div class="px-2 py-4 space-y-2">
+                    <div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Mode Ujian Aktif
+                    </div>
+                    <a href="{{ route('ujian.siswa.index') }}" class="nav-link active flex items-center px-3 py-2.5 gap-3 rounded-xl bg-primary text-white font-bold shadow-sm">
+                        <i data-lucide="file-text" class="w-5 h-5 flex-shrink-0"></i>
+                        <span x-show="!mini" class="text-sm">Ujian Saya</span>
+                    </a>
+                </div>
+            @else
             @php
                 // $access/$isAdmin sudah dihitung di atas (dekat $kioskChrome), dipakai lagi di sini.
                 // Grup menu: key => [label, ikon, items[]]; item = [route, [pattern...], ikon, label]
@@ -1458,6 +1489,7 @@
                 </a>
             </div>
             </div>
+            @endif
         </nav>
 
         <button type="button"
@@ -1479,10 +1511,12 @@
                 <button @click="mobileOpen=!mobileOpen" class="lg:hidden grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 flex-shrink-0"><i data-lucide="menu" class="w-5 h-5"></i></button>
                 <button @click="toggleCollapse()" class="hidden lg:grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-400 flex-shrink-0"><i data-lucide="panel-left" class="w-[18px] h-[18px]"></i></button>
                 {{-- Search --}}
+                @if(!(\App\Support\ModeUjian::aktif() && auth()->user()?->access === 'siswa'))
                 <div class="relative max-w-xs w-full hidden sm:block">
                     <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
                     <input type="text" placeholder="Cari..." class="w-full bg-white/70 dark:bg-slate-800 border border-transparent focus:border-primary/40 rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none transition">
                 </div>
+                @endif
             </div>
 
             <div class="flex items-center gap-1.5 flex-shrink-0">
@@ -1497,6 +1531,7 @@
                 </button>
 
                 {{-- Dropdown Notifikasi --}}
+                @if(!(\App\Support\ModeUjian::aktif() && auth()->user()?->access === 'siswa'))
                 <div class="relative" x-data="notificationDropdown()" x-init="init()" @keydown.escape.window="nOpen=false">
                     <button type="button" @click="nOpen=!nOpen" class="relative grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 dark:text-slate-400 transition" title="Notifikasi">
                         <i data-lucide="bell" class="w-[18px] h-[18px]"></i>
@@ -1546,6 +1581,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
                 <div class="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1.5"></div>
                 @php
@@ -1635,7 +1671,7 @@
 </div>
 
         {{-- SIMS-NET System Ticker Bar (Integrated for all roles, displaying real dashboard statistics) — disembunyikan di mode kiosk --}}
-        @unless($kioskChrome)
+        @unless($kioskChrome || \App\Support\ModeUjian::aktif())
         @php
             // Angka ticker diambil dari cache (App\Support\TickerStats) — menghindari
             // ~15 query agregat di setiap load halaman. Penyaringan per-role di bawah
@@ -2558,7 +2594,7 @@
 </script>
 
 
-@if(config('services.firebase.api_key') && config('services.firebase.database_url'))
+@if(!\App\Support\ModeUjian::aktif() && config('services.firebase.api_key') && config('services.firebase.database_url'))
 {{-- Firebase JS SDK & Realtime Database Initialization --}}
 <script>
     // Sediakan helper global secara sinkron agar Alpine.js bisa mendaftar callback lebih awal

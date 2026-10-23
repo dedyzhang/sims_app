@@ -96,17 +96,21 @@
             <button type="submit" class="btn-primary px-4 py-2 rounded-xl text-sm font-bold"><i data-lucide="send" class="w-4 h-4 inline"></i> Terbitkan</button>
         </form>
         @elseif($ujian->status === 'published')
+        @can('close', $ujian)
         <form method="POST" action="{{ route('ujian.close', $ujian) }}" onsubmit="return confirmAction(this, 'Tutup ujian ini? Siswa tidak bisa lagi memulai/melanjutkan.', 'red')">
             @csrf
             <button type="submit" class="px-4 py-2 rounded-xl text-sm font-bold bg-rose-600 text-white hover:bg-rose-700">Tutup Ujian</button>
         </form>
+        @endcan
         @elseif($ujian->status === 'closed')
+        @can('reopen', $ujian)
         <form method="POST" action="{{ route('ujian.reopen', $ujian) }}" onsubmit="return confirmAction(this, 'Buka kembali ujian ini? Statusnya balik jadi draf — soal bisa diedit lagi, siswa belum bisa mulai sampai diterbitkan ulang.', 'orange')">
             @csrf
             <button type="submit" class="px-4 py-2 rounded-xl text-sm font-bold border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20">
                 <i data-lucide="rotate-ccw" class="w-4 h-4 inline"></i> Buka Kembali
             </button>
         </form>
+        @endcan
         @endif
     </div>
 

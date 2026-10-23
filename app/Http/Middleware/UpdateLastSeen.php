@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\ModeUjian;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,11 +12,16 @@ use Symfony\Component\HttpFoundation\Response;
  * Memperbarui users.last_seen_at untuk presence Forum.
  * Dithrottle: hanya menulis bila > 60 detik dari update terakhir. Hanya user login.
  * Update via query (tanpa event / tanpa menyentuh updated_at) agar ringan.
+ * Dinonaktifkan otomatis saat Mode Ujian aktif agar menghemat penulisan database.
  */
 class UpdateLastSeen
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if (ModeUjian::aktif()) {
+            return $next($request);
+        }
+
         $user = $request->user();
 
         if ($user && (!$user->last_seen_at || $user->last_seen_at->lt(now()->subSeconds(60)))) {

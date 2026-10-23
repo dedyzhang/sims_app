@@ -887,6 +887,73 @@
 
     {{-- Performa Server: aktif/nonaktifkan widget polling satu-per-satu --}}
     <div x-show="tab==='performa'" x-transition class="space-y-4">
+        {{-- Card Mode Ujian --}}
+        @php $modeUjianAktif = \App\Support\ModeUjian::aktif(); @endphp
+        <div class="card p-6 border-2 {{ $modeUjianAktif ? 'border-rose-500 bg-rose-50/40 dark:bg-rose-950/20' : 'border-slate-200 dark:border-slate-700' }}">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                        <span class="p-2 rounded-xl {{ $modeUjianAktif ? 'bg-rose-500 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300' }}">
+                            <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                        </span>
+                        <div>
+                            <h2 class="font-bold text-base text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                Mode Ujian (Exam Lockdown Mode)
+                                @if($modeUjianAktif)
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 animate-pulse">
+                                        <span class="w-2 h-2 rounded-full bg-rose-500"></span> AKTIF
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                                        Nonaktif
+                                    </span>
+                                @endif
+                            </h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                Optimasi beban server untuk simulasi &amp; ujian massal ratusan hingga ribuan siswa.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <form method="POST" action="{{ route('setting.mode-ujian.toggle') }}" onsubmit="return confirm('{{ $modeUjianAktif ? 'Nonaktifkan Mode Ujian? Semua sistem dan halaman siswa akan kembali ke operasional normal.' : 'AKTIFKAN Mode Ujian?\n\n- Seluruh siswa langsung dikunci HANYA ke Ruang Ujian.\n- Semua polling background & SIMS-NET dinonaktifkan.\n- Game Arena Belajar & Firebase dihentikan.\n- Submit ujian berjalan instan (Fast-Submit).' }}')">
+                        @csrf
+                        @if($modeUjianAktif)
+                            <button type="submit" class="px-5 py-2.5 rounded-xl text-sm font-bold bg-white dark:bg-slate-800 border-2 border-rose-500 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 shadow-sm flex items-center gap-2 transition">
+                                <i data-lucide="power-off" class="w-4 h-4"></i>
+                                Nonaktifkan Mode Ujian
+                            </button>
+                        @else
+                            <button type="submit" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-sm flex items-center gap-2 transition">
+                                <i data-lucide="zap" class="w-4 h-4"></i>
+                                Aktifkan Mode Ujian
+                            </button>
+                        @endif
+                    </form>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-slate-200/80 dark:border-slate-700/80 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div class="flex items-start gap-2 text-slate-600 dark:text-slate-300">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5"></i>
+                    <span><strong>Kunci Akses Siswa:</strong> Siswa hanya bisa membuka halaman pengerjaan soal. Semua navigasi ke Dashboard, Forum, Presensi, SPP, dan Arena Belajar otomatis dialihkan ke <code class="font-mono bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded">/ujian/saya</code>.</span>
+                </div>
+                <div class="flex items-start gap-2 text-slate-600 dark:text-slate-300">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5"></i>
+                    <span><strong>Nol Polling Background:</strong> Seluruh polling background (absensi, saldo kas, SIMS-NET ticker, notifikasi) dimatikan total sehingga tidak membanjiri CPU server.</span>
+                </div>
+                <div class="flex items-start gap-2 text-slate-600 dark:text-slate-300">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5"></i>
+                    <span><strong>Fast-Submit Instan:</strong> Waktu respons tombol "Kumpulkan Ujian" dipangkas dari 15-30 detik menjadi &lt; 50 milidetik (grading kalkulasi ditunda ke menu Analisis/Hasil).</span>
+                </div>
+                <div class="flex items-start gap-2 text-slate-600 dark:text-slate-300">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5"></i>
+                    <span><strong>Nonaktifkan Update Last Seen:</strong> Mencegah write query massal ke database setiap kali ada request dari siswa saat ujian berlangsung.</span>
+                </div>
+            </div>
+        </div>
+
         <form method="POST" action="{{ route('setting.pollingNonaktif') }}" class="card p-6 space-y-5" x-data>
             @csrf
             <div>

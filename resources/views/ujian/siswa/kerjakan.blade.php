@@ -336,10 +336,15 @@ function ujianKerjakan(cfg) {
                 if (res.status === 403) { 
                     const isJson = res.headers.get('content-type')?.includes('application/json');
                     if (isJson) {
-                        this.kunci(); 
-                        return; 
+                        try {
+                            const errData = await res.clone().json();
+                            if (errData && errData.message && errData.message.toLowerCase().includes('terkunci')) {
+                                this.kunci(); 
+                                return; 
+                            }
+                        } catch (err) {}
                     }
-                    throw new Error('WAF block (403 HTML)');
+                    throw new Error('Gagal simpan sementara');
                 }
                 
                 if (!res.ok) throw new Error('gagal simpan');
@@ -416,11 +421,10 @@ function ujianKerjakan(cfg) {
                 if (res.status === 503 || isWafBlock) {
                     this.mengumpulkan = false;
                     $.alert({
-                        title: 'Server Sibuk / Terblokir',
-                        content: 'Koneksi Anda sempat ditolak oleh keamanan server (terlalu banyak siswa menekan bersamaan). Mohon klik Kumpulkan Ujian sekali lagi.',
-                        type: 'red'
+                        title: 'Server Sedang Sibuk',
+                        content: 'Koneksi ke server sedang padat. Jawaban Anda tetap aman. Silakan klik tombol Kumpulkan Ujian sekali lagi.',
+                        type: 'orange'
                     });
-                    // Nyalakan ulang timer jika tadinya berjalan
                     this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
                     return;
                 }
@@ -442,11 +446,25 @@ function ujianKerjakan(cfg) {
                             return;
                         }
                     } catch (err) {}
+                    window.location.href = cfg.urlTerkunci;
+                    return;
                 }
                 
-                window.location.href = cfg.urlTerkunci;
+                this.mengumpulkan = false;
+                $.alert({
+                    title: 'Pengumpulan Tertunda',
+                    content: 'Koneksi ke server sempat terganggu. Jawaban Anda aman tersimpan. Silakan klik tombol Kumpulkan Ujian sekali lagi.',
+                    type: 'orange'
+                });
+                this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
             } catch (e) {
-                window.location.href = cfg.urlTerkunci;
+                this.mengumpulkan = false;
+                $.alert({
+                    title: 'Koneksi Terputus',
+                    content: 'Gagal menghubungi server. Periksa koneksi internet Anda lalu klik tombol Kumpulkan Ujian sekali lagi.',
+                    type: 'red'
+                });
+                this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
             }
         },
     };

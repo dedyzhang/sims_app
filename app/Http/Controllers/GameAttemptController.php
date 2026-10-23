@@ -34,6 +34,7 @@ class GameAttemptController extends Controller implements HasMiddleware
 
     public function start(Request $request, Classroom $classroom, GameQuiz $quiz)
     {
+        abort_if(\App\Support\ModeUjian::aktif(), 403, 'Arena Belajar dinonaktifkan sementara selama Mode Ujian aktif demi stabilitas server.');
         abort_unless($quiz->classroom_id === $classroom->uuid, 404);
         $this->authorize('play', [$quiz, $classroom]);
         abort_unless($quiz->allowsSolo(), 403, 'Kuis ini disetel "Live saja" — main solo tidak tersedia.');

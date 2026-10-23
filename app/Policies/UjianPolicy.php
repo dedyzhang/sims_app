@@ -163,4 +163,21 @@ class UjianPolicy
 
         return $ujian ? $this->manage($user, $ujian) : false;
     }
+
+    /**
+     * Menutup ujian berstatus published. Hanya admin/pengelola yang berwenang
+     * menutup ujian agar guru tidak sengaja menutup ujian di tengah pengerjaan siswa.
+     */
+    public function close(User $user, Ujian $ujian): bool
+    {
+        return $user->isAdmin() || $user->canAccess('manage_ujian');
+    }
+
+    /**
+     * Membuka kembali ujian yang sudah ditutup. Hanya admin/pengelola yang berwenang.
+     */
+    public function reopen(User $user, Ujian $ujian): bool
+    {
+        return $user->isAdmin() || $user->canAccess('manage_ujian');
+    }
 }

@@ -1082,6 +1082,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/face-reset-all', 'resetAllFaceVerification')->name('setting.faceResetAll');
             Route::post('/kiosk-token/regenerate', 'regenerateKioskToken')->name('setting.kioskToken.regenerate');
             Route::post('/agenda-wajib-pulang', 'setAgendaWajibPulang')->name('setting.agendaWajibPulang');
+            Route::post('/mode-ujian/toggle', 'toggleModeUjian')->name('setting.mode-ujian.toggle');
             Route::post('/polling-nonaktif', 'setPollingNonaktif')->name('setting.pollingNonaktif');
             Route::post('/jenis-aturan', 'setJenisAturan')->name('setting.jenisAturan');
             Route::post('/poin-terlambat-aturan', 'setPoinTerlambatAturan')->name('setting.poinTerlambatAturan');
@@ -1143,6 +1144,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     Route::middleware('modul:ujian')->prefix('ujian')->name('ujian.')->group(function () {
         // Authoring (guru/admin/kurikulum)
         Route::get('/', [UjianController::class, 'index'])->name('index');
+        Route::post('/mode-ujian/toggle', [\App\Http\Controllers\SettingController::class, 'toggleModeUjian'])->name('mode-ujian.toggle');
         Route::get('/buat', [UjianController::class, 'create'])->name('create');
         Route::post('/', [UjianController::class, 'store'])->middleware('throttle:30,1')->name('store');
 

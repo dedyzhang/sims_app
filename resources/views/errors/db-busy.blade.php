@@ -24,18 +24,12 @@
         </div>
         <h1 class="text-lg font-bold text-slate-800">Server Sedang Sibuk</h1>
         <p class="text-sm text-slate-500 mt-2 leading-relaxed">
-            Banyak yang sedang mengakses bersamaan. Ini gangguan sementara — halaman akan dicoba lagi otomatis.
+            Banyak yang sedang mengakses bersamaan. Ini gangguan sementara — silakan tunggu beberapa saat lalu klik tombol di bawah.
         </p>
-        <p class="text-sm text-slate-400 mt-4" x-data="{ detik: 5 }" x-init="setInterval(() => { if (detik > 0) detik--; }, 1000)">
-            Mencoba lagi dalam <span class="font-bold text-slate-600" x-text="detik"></span> detik…
-        </p>
-        <button onclick="window.location.reload()" class="mt-5 w-full py-3 rounded-xl text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 transition">
-            Coba Sekarang
+        <button onclick="window.location.reload()" class="mt-5 w-full py-3 rounded-xl text-sm font-bold text-white bg-slate-800 hover:bg-slate-900 transition flex items-center justify-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+            Muat Ulang Halaman
         </button>
     </div>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script>
-        setTimeout(() => window.location.reload(), 5000);
-    </script>
 </body>
 </html>

@@ -18,6 +18,7 @@ class UjianAnalisisController extends Controller
     public function index(Request $request, Ujian $ujian)
     {
         $this->authorize('gradeEssay', $ujian);
+        app(\App\Services\UjianGrader::class)->finalisasiObjektifSemua($ujian);
         $ujian->load('kelas.kelas', 'kelas.guruPengampu');
 
         $kelasBisaDiunduh = $ujian->kelas
@@ -32,6 +33,8 @@ class UjianAnalisisController extends Controller
     {
         abort_unless($ujianKelas->id_ujian === $ujian->uuid, 404);
         $this->authorize('mengampuiKelas', $ujianKelas);
+
+        app(\App\Services\UjianGrader::class)->finalisasiObjektifSemua($ujian);
 
         $ujianKelas->load('kelas');
         $kelasLabel = trim(($ujianKelas->kelas?->tingkat ?? '') . ($ujianKelas->kelas?->kelas ?? ''));

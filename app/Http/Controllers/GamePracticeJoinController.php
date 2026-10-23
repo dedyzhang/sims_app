@@ -44,6 +44,7 @@ class GamePracticeJoinController extends Controller
 
     public function show(Request $request, string $joinToken)
     {
+        abort_if(\App\Support\ModeUjian::aktif(), 503, 'Sesi latihan ditutup sementara karena server sedang dalam Mode Ujian.');
         $session = $this->findSession($joinToken);
         $participant = $this->findParticipant($session, $request->query('g'));
 

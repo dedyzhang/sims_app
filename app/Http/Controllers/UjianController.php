@@ -563,7 +563,7 @@ class UjianController extends Controller implements HasMiddleware
 
     public function close(Request $request, Ujian $ujian)
     {
-        $this->authorize('manage', $ujian);
+        $this->authorize('close', $ujian);
         $ujian->update(['status' => 'closed']);
 
         return back()->with('success', 'Ujian ditutup — siswa tidak bisa lagi memulai/melanjutkan.');
@@ -578,7 +578,7 @@ class UjianController extends Controller implements HasMiddleware
      */
     public function reopen(Request $request, Ujian $ujian)
     {
-        $this->authorize('manage', $ujian);
+        $this->authorize('reopen', $ujian);
         abort_unless($ujian->isClosed(), 422, 'Hanya ujian yang sudah ditutup yang bisa dibuka kembali.');
 
         $ujian->update(['status' => 'draft']);
@@ -649,6 +649,9 @@ class UjianController extends Controller implements HasMiddleware
     public function hasil(Request $request, Ujian $ujian, UjianRoster $rosterService)
     {
         $this->authorize('manage', $ujian);
+
+        // Deferred Grading: Kalkulasi nilai otomatis untuk attempt yang berstatus submitted
+        app(\App\Services\UjianGrader::class)->finalisasiObjektifSemua($ujian);
 
         $ujianKelasList = $ujian->kelas()->with('kelas')->get();
         $kelasFilter = $request->string('kelas')->toString();

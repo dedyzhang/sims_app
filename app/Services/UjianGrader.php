@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Ujian;
 use App\Models\UjianAttempt;
 use App\Models\UjianJawaban;
 use App\Models\UjianSoal;
@@ -35,7 +36,8 @@ class UjianGrader
         if ($benar) {
             $skor = $soal->poin;
         } elseif ($dijawab) {
-            $skor = (float) ($soal->meta['poin_salah'] ?? 0);
+            $poinSalah = $soal->meta['poin_salah'] ?? 0;
+            $skor = $poinSalah != 0 ? (float) $poinSalah : 0;
         }
 
         return ['is_benar' => $benar, 'skor' => $skor];
@@ -74,7 +76,8 @@ class UjianGrader
         if ($benar) {
             $skor = $soal->poinEfektif();
         } elseif ($dijawab) {
-            $skor = (float) ($soal->meta['poin_salah'] ?? 0);
+            $poinSalah = $soal->meta['poin_salah'] ?? 0;
+            $skor = $poinSalah != 0 ? (float) $poinSalah : 0;
         }
         return ['is_benar' => $benar, 'skor' => $skor];
     }
@@ -103,7 +106,8 @@ class UjianGrader
             if ($benar) {
                 $skor = $soal->poinEfektif();
             } elseif ($dijawab) {
-                $skor = (float) ($soal->meta['poin_salah'] ?? 0);
+                $poinSalah = $soal->meta['poin_salah'] ?? 0;
+                $skor = $poinSalah != 0 ? (float) $poinSalah : 0;
             }
             return ['is_benar' => $benar, 'skor' => $skor];
         }
@@ -124,7 +128,9 @@ class UjianGrader
      */
     public function finalisasiObjektif(UjianAttempt $attempt): void
     {
-        $soalById = UjianSoal::where('id_ujian', $attempt->ujianKelas->ujian->uuid)->with('opsi')->get()->keyBy('uuid');
+        $ujian = $attempt->ujianKelas?->ujian;
+        $soalById = $ujian?->getCachedSoalDanOpsi()?->keyBy('uuid')
+            ?? UjianSoal::where('id_ujian', $attempt->ujianKelas->ujian->uuid)->with('opsi')->get()->keyBy('uuid');
         $jawabanList = UjianJawaban::where('id_attempt', $attempt->uuid)->get();
 
         $skorObjektif = 0;
@@ -151,6 +157,26 @@ class UjianGrader
         }
 
         $attempt->update($update);
+    }
+
+    /**
+     * Hitung nilai massal untuk semua siswa yang berstatus 'submitted' pada ujian ini.
+     * Dipanggil on-demand saat Guru/Admin membuka menu Hasil atau Analisis.
+     */
+    public function finalisasiObjektifSemua(Ujian $ujian): int
+    {
+        $idUjianKelas = $ujian->kelas()->pluck('uuid');
+        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelas)
+            ->where('status', UjianAttempt::STATUS_SUBMITTED)
+            ->get();
+
+        $count = 0;
+        foreach ($attempts as $attempt) {
+            $this->finalisasiObjektif($attempt);
+            $count++;
+        }
+
+        return $count;
     }
 
     /**
@@ -230,7 +256,7 @@ class UjianGrader
      */
     public static function normalisasiSkor(float $skorMentah, int $totalPoin, string $modeSkor): float
     {
-        return $modeSkor === 'jumlah'
+        return in_array($modeSkor, ['jumlah', 'akumulasi'], true)
             ? round($skorMentah, 2)
             : ($totalPoin > 0 ? round($skorMentah / $totalPoin * 100, 2) : 0);
     }
@@ -244,6 +270,9 @@ class UjianGrader
         $skorTotal = $jawabanList->sum(fn ($j) => (float) $j->skor_diperoleh);
         $totalPoin = (int) $soalById->sum(fn (UjianSoal $s) => $s->poinEfektif());
         $modeSkor = $attempt->ujianKelas->ujian->mode_skor ?? 'rata_rata';
+        if ($modeSkor === 'rata_rata' && ($pelajaranMode = $attempt->ujianKelas->ujian->pelajaran?->mode_skor_ujian)) {
+            $modeSkor = $pelajaranMode;
+        }
 
         $totalSkorFinal = self::normalisasiSkor($skorTotal, $totalPoin, $modeSkor);
 

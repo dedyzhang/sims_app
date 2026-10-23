@@ -9,7 +9,14 @@
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Ujian formal (Harian/PTS/PAS/UAS) — bank soal, anti-kecurangan, transfer nilai otomatis.</p>
         </div>
         @can('create', \App\Models\Ujian::class)
-        <div class="flex gap-2" x-data="{ openRestore: false }">
+        <div class="flex flex-wrap gap-2" x-data="{ openRestore: false }">
+            <form method="POST" action="{{ route('ujian.mode-ujian.toggle') }}" class="m-0">
+                @csrf
+                <button type="submit" class="px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 border transition {{ \App\Support\ModeUjian::aktif() ? 'bg-amber-500 hover:bg-amber-600 text-slate-900 border-amber-600' : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600' }}" title="Sakelar Mode Ujian Massal (Kunci Siswa & Matikan Polling)">
+                    <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                    <span>Mode Ujian: {{ \App\Support\ModeUjian::aktif() ? 'AKTIF' : 'NONAKTIF' }}</span>
+                </button>
+            </form>
             <button type="button" @click="openRestore = true" class="btn-secondary px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
                 <i data-lucide="upload-cloud" class="w-4 h-4"></i> Restore Backup
             </button>
@@ -82,10 +89,12 @@
                                         <button type="submit" class="px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">Reset Token</button>
                                     </form>
                                     @endif
+                                    @can('close', $ujian)
                                     <form method="POST" action="{{ route('ujian.close', $ujian) }}" onsubmit="return confirmAction(this, 'Tutup ujian ini? Siswa tidak bisa lagi memulai/melanjutkan.', 'red')">
                                         @csrf
                                         <button type="submit" class="px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-rose-600 text-white hover:bg-rose-700">Tutup</button>
                                     </form>
+                                    @endcan
                                 @endif
                             @endcan
                         </div>

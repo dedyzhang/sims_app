@@ -43,12 +43,17 @@ class EnsureFaceRegistered
             return $next($request);
         }
 
-        // Wajib selesaikan ganti password dulu — JANGAN dilewatkan begitu saja
-        // (kalau dilewatkan, user bisa menerobos ke dashboard tanpa daftar wajah).
-        // Rute ganti password sudah di-whitelist di atas, jadi tidak loop. Ini TIDAK
-        // ikut dimatikan oleh toggle wajib_daftar_wajah — dua hal yg beda.
+        // Wajib selesaikan ganti password dulu — jika akun direset/bawaan,
+        // tetap wajib ganti password baru boleh lanjut ke ujian atau dashboard.
+        // Rute ganti password sudah di-whitelist di atas, jadi tidak loop.
         if ($user->must_change_password) {
             return redirect()->route('ganti.password');
+        }
+
+        // Mode Ujian: Siswa tidak diblokir oleh pemindaian wajah (face recognition)
+        // agar ratusan siswa tidak membebani browser/server saat ujian serentak.
+        if (\App\Support\ModeUjian::aktif() && $user->access === 'siswa') {
+            return $next($request);
         }
 
         // Admin bisa matikan kewajiban daftar wajah lewat Pengaturan → Absensi (default:

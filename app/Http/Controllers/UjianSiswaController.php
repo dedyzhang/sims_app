@@ -29,6 +29,9 @@ class UjianSiswaController extends Controller implements HasMiddleware
     {
         return [
             new Middleware(function ($request, $next) {
+                if (!auth()->check()) {
+                    return redirect()->guest(route('login'));
+                }
                 abort_unless($request->user()?->access === 'siswa', 403, 'Halaman ini khusus siswa.');
                 return $next($request);
             }),
@@ -374,10 +377,15 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 if ($attempt->status !== UjianAttempt::STATUS_IN_PROGRESS) {
                     return;
                 }
-                // Penilaian objektif otomatis + transfer nilai (Fase 4) dipasang di sini
-                // lewat UjianGrader::finalisasiObjektif() — utk saat ini cukup tutup attempt-nya.
+                // Simpan sederhana (Fast-Submit): Cukup ubah status ke SUBMITTED & catat selesai_pada.
+                // Jika Mode Ujian AKTIF: lewati kalkulasi grading sinkron untuk memangkas CPU & RAM server.
+                // Grading lengkap akan dihitung on-demand saat Guru/Admin membuka menu Hasil atau Analisis.
+                // Jika Mode Ujian NONAKTIF (harian): hitung langsung seperti biasa.
                 $attempt->update(['status' => UjianAttempt::STATUS_SUBMITTED, 'selesai_pada' => now()]);
-                app(\App\Services\UjianGrader::class)->finalisasiObjektif($attempt->fresh());
+
+                if (!\App\Support\ModeUjian::aktif()) {
+                    app(\App\Services\UjianGrader::class)->finalisasiObjektif($attempt->fresh());
+                }
             });
 
             if ($request->wantsJson()) {
