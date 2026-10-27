@@ -5,6 +5,7 @@ use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\EnsureModulAktif;
 use App\Http\Middleware\EnforceLangganan;
 use App\Http\Middleware\EnforceModeUjian;
+use App\Http\Middleware\RetryOnDatabaseException;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\UpdateLastSeen;
 use App\Support\DbBusy;
@@ -25,10 +26,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // → URL form jadi https, tak ada peringatan "not secure".
         $middleware->trustProxies(at: '*');
 
+        // RetryOnDatabaseException: lindungi request dari micro-spike / max_user_connections database.
         // Presence Forum: catat last_seen_at tiap request web (auth saja, dithrottle 60 dtk)
         // EnforceLangganan: kunci app (non-superadmin) saat lisensi langganan kadaluarsa.
         // EnforceModeUjian: kunci siswa ke halaman ujian saat mode ujian aktif.
-        $middleware->web(append: [UpdateLastSeen::class, SecurityHeaders::class, EnforceLangganan::class, EnforceModeUjian::class]);
+        $middleware->web(
+            prepend: [RetryOnDatabaseException::class],
+            append: [UpdateLastSeen::class, SecurityHeaders::class, EnforceLangganan::class, EnforceModeUjian::class]
+        );
 
         // Alias middleware. Gating role memakai `role:a,b,c` (CheckRole) yang
         // parameterized — superadmin selalu diizinkan. Middleware IsX per-role

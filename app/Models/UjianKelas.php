@@ -43,6 +43,12 @@ class UjianKelas extends Model
         return $this->hasMany(UjianAttempt::class, 'id_ujian_kelas', 'uuid');
     }
 
+    protected static function booted(): void
+    {
+        static::saved(fn (self $uk) => \Illuminate\Support\Facades\Cache::forget('ujian_' . $uk->id_ujian . '_kelas_all'));
+        static::deleted(fn (self $uk) => \Illuminate\Support\Facades\Cache::forget('ujian_' . $uk->id_ujian . '_kelas_all'));
+    }
+
     public static function generateToken(): string
     {
         return str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);

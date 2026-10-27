@@ -1335,9 +1335,14 @@
                     <i data-lucide="external-link" class="w-4 h-4"></i> Buka Google AI Studio
                 </a>
                 <div>
-                    <label class="form-label">Tempel API key <span class="text-rose-500">*</span></label>
-                    <input type="password" x-model="apiKeyInput" x-ref="apiKeyGateInput"
-                           class="form-input font-mono text-sm" placeholder="AIza…" autocomplete="off"
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="form-label mb-0">Tempel API key <span class="text-rose-500">*</span></label>
+                        <button type="button" @click="showKeyPlain = !showKeyPlain" class="text-xs text-primary font-medium hover:underline inline-flex items-center gap-1">
+                            <span x-text="showKeyPlain ? 'Sembunyikan' : 'Lihat key'"></span>
+                        </button>
+                    </div>
+                    <input :type="showKeyPlain ? 'text' : 'password'" x-model="apiKeyInput" x-ref="apiKeyGateInput"
+                           class="form-input font-mono text-sm" placeholder="AIza… / AQ…" autocomplete="off"
                            @keydown.enter.prevent="saveGeminiApiKey()">
                 </div>
                 <p class="text-xs text-rose-500 font-semibold" x-show="apiKeyError" x-cloak x-text="apiKeyError"></p>
@@ -1530,9 +1535,14 @@
 
             <div x-show="showReplaceKey" x-cloak class="ai-console__keyform">
                 <div class="min-w-0 space-y-1.5">
-                    <label class="ai-tile__label" for="ai-key-input">Tempel API key baru</label>
-                    <input id="ai-key-input" type="password" x-model="apiKeyInput" class="ai-input"
-                           placeholder="AIza…" autocomplete="off"
+                    <div class="flex items-center justify-between">
+                        <label class="ai-tile__label" for="ai-key-input">Tempel API key baru</label>
+                        <button type="button" @click="showKeyPlain = !showKeyPlain" class="text-xs text-primary font-medium hover:underline inline-flex items-center gap-1">
+                            <span x-text="showKeyPlain ? 'Sembunyikan' : 'Lihat key'"></span>
+                        </button>
+                    </div>
+                    <input id="ai-key-input" :type="showKeyPlain ? 'text' : 'password'" x-model="apiKeyInput" class="ai-input"
+                           placeholder="AIza… / AQ…" autocomplete="off"
                            @keydown.enter.prevent="saveGeminiApiKey()">
                     <p class="ai-console__msg-err" x-show="apiKeyError" x-cloak x-text="apiKeyError"></p>
                 </div>
@@ -2989,6 +2999,7 @@
             apiKeyInput: '',
             apiKeySaving: false,
             apiKeyError: '',
+            showKeyPlain: false,
             showReplaceKey: false,
             externalSaved: false,
             externalMessage: '',

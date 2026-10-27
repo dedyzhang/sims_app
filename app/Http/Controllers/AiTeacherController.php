@@ -513,7 +513,7 @@ class AiTeacherController extends Controller
             'gemini_api_key.min' => 'API key terlalu pendek. Salin ulang dari Google AI Studio.',
         ]);
 
-        $plain = trim($data['gemini_api_key']);
+        $plain = trim(trim($data['gemini_api_key']), "\"'`");
 
         try {
             $this->gemini->probeApiKey($plain);

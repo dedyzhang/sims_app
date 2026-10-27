@@ -40,8 +40,34 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
     private function siswaAtauGagal(Request $request): Siswa
     {
-        $siswa = Siswa::where('id_login', $request->user()->uuid)->first();
+        $user = $request->user();
+        abort_unless($user, 401);
+
+        $memoKey = 'profil_siswa_' . $user->uuid;
+
+        // 1. Cek Request attributes memoization (dalam siklus request yang sama)
+        if ($siswa = $request->attributes->get($memoKey)) {
+            return $siswa;
+        }
+
+        // 2. Cek Session memoization (antar request siswa)
+        if ($request->hasSession() && $request->session()->has($memoKey)) {
+            $siswa = $request->session()->get($memoKey);
+            if ($siswa instanceof Siswa) {
+                $request->attributes->set($memoKey, $siswa);
+                return $siswa;
+            }
+        }
+
+        // 3. Fallback query ke database jika belum ada di session/request
+        $siswa = Siswa::where('id_login', $user->uuid)->first();
         abort_unless($siswa, 404, 'Profil siswa tidak ditemukan.');
+
+        if ($request->hasSession()) {
+            $request->session()->put($memoKey, $siswa);
+        }
+        $request->attributes->set($memoKey, $siswa);
+
         return $siswa;
     }
 
@@ -120,7 +146,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
         // sini) — kalau itu yg gagal, ditangani penangan global (bootstrap/app.php).
         return $this->retryOnDbBusy(function () use ($request, $ujian) {
             $siswa = $this->siswaAtauGagal($request);
-            $ujianKelas = $ujian->kelas()->where('id_kelas', $siswa->id_kelas)->first();
+            $ujianKelas = $ujian->getCachedKelas()->firstWhere('id_kelas', $siswa->id_kelas);
             abort_unless($ujianKelas, 404, 'Ujian ini tidak ditetapkan untuk kelas Anda.');
             abort_unless($ujian->isPublished() || $ujian->isClosed(), 404);
 
@@ -191,12 +217,20 @@ class UjianSiswaController extends Controller implements HasMiddleware
         // SEBELUM query manapun terkirim, jadi tak pernah ada tulis-separuh yg keulang.
         return $this->retryOnDbBusy(function () use ($request, $ujian) {
             $siswa = $this->siswaAtauGagal($request);
-            $ujianKelas = $ujian->kelas()->where('id_kelas', $siswa->id_kelas)->first();
+            $ujianKelas = $ujian->getCachedKelas()->firstWhere('id_kelas', $siswa->id_kelas);
             abort_unless($ujianKelas, 404);
             $this->authorize('take', $ujianKelas);
 
             $data = $request->validate(['token' => 'required|string']);
-            if (!hash_equals((string) $ujianKelas->token_masuk, (string) $data['token'])) {
+            $inputToken = trim($data['token']);
+            if (!hash_equals((string) $ujianKelas->token_masuk, $inputToken)) {
+                if ($request->wantsJson()) {
+                    return response()->json([
+                        'ok' => false,
+                        'message' => 'Token salah. Minta token yang benar ke guru/panitia ujian.',
+                        'errors' => ['token' => ['Token salah. Minta token yang benar ke guru/panitia ujian.']]
+                    ], 422);
+                }
                 return back()->withErrors(['token' => 'Token salah. Minta token yang benar ke guru/panitia ujian.']);
             }
 
@@ -211,36 +245,44 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 if ($existing->wajib_token_ulang) {
                     $existing->update(['wajib_token_ulang' => false]);
                 }
+                $redirectUrl = route('ujian.siswa.kerjakan', [$ujian, $existing]);
+                if ($request->wantsJson()) {
+                    return response()->json(['ok' => true, 'redirect' => $redirectUrl]);
+                }
                 return redirect()->route('ujian.siswa.kerjakan', [$ujian, $existing]);
             }
 
-            $attempt = DB::transaction(function () use ($ujian, $ujianKelas, $request) {
-                $soal = $ujian->getCachedSoalDanOpsi();
+            $soal = $ujian->getCachedSoalDanOpsi();
 
-                $urutanSoal = $ujian->acak_soal ? $soal->pluck('uuid')->shuffle()->values()->all() : $soal->pluck('uuid')->all();
+            $urutanSoal = $ujian->acak_soal ? $soal->pluck('uuid')->shuffle()->values()->all() : $soal->pluck('uuid')->all();
 
-                $urutanOpsi = [];
-                foreach ($soal as $s) {
-                    if ($s->tipe === 'match') {
-                        $jumlahPasangan = count($s->meta['pairs'] ?? []);
-                        $idx = range(0, max(0, $jumlahPasangan - 1));
-                        $urutanOpsi[$s->uuid] = $ujian->acak_opsi ? collect($idx)->shuffle()->values()->all() : $idx;
-                    } elseif ($s->butuhOpsi()) {
-                        $ids = $s->opsi->pluck('uuid');
-                        $urutanOpsi[$s->uuid] = $ujian->acak_opsi ? $ids->shuffle()->values()->all() : $ids->all();
-                    }
+            $urutanOpsi = [];
+            foreach ($soal as $s) {
+                if ($s->tipe === 'match') {
+                    $jumlahPasangan = count($s->meta['pairs'] ?? []);
+                    $idx = range(0, max(0, $jumlahPasangan - 1));
+                    $urutanOpsi[$s->uuid] = $ujian->acak_opsi ? collect($idx)->shuffle()->values()->all() : $idx;
+                } elseif ($s->butuhOpsi()) {
+                    $ids = $s->opsi->pluck('uuid');
+                    $urutanOpsi[$s->uuid] = $ujian->acak_opsi ? $ids->shuffle()->values()->all() : $ids->all();
                 }
+            }
 
-                return UjianAttempt::create([
-                    'id_ujian_kelas'    => $ujianKelas->uuid,
-                    'id_siswa'          => $request->user()->uuid,
-                    'urutan_soal'       => $urutanSoal,
-                    'urutan_opsi'       => $urutanOpsi,
-                    'mulai_pada'        => now(),
-                    'batas_waktu_pada'  => now()->addMinutes($ujian->durasi_menit),
-                    'status'            => UjianAttempt::STATUS_IN_PROGRESS,
-                ]);
-            });
+            // Simpan attempt langsung tanpa lock transaction agar tidak terjadi deadlock saat 1000 siswa submit bersamaan
+            $attempt = UjianAttempt::create([
+                'id_ujian_kelas'    => $ujianKelas->uuid,
+                'id_siswa'          => $request->user()->uuid,
+                'urutan_soal'       => $urutanSoal,
+                'urutan_opsi'       => $urutanOpsi,
+                'mulai_pada'        => now(),
+                'batas_waktu_pada'  => now()->addMinutes($ujian->durasi_menit),
+                'status'            => UjianAttempt::STATUS_IN_PROGRESS,
+            ]);
+
+            $redirectUrl = route('ujian.siswa.kerjakan', [$ujian, $attempt]);
+            if ($request->wantsJson()) {
+                return response()->json(['ok' => true, 'redirect' => $redirectUrl]);
+            }
 
             return redirect()->route('ujian.siswa.kerjakan', [$ujian, $attempt]);
         });
@@ -320,49 +362,133 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
     public function simpanJawaban(Request $request, Ujian $ujian, UjianAttempt $attempt)
     {
-        $this->pastikanMilikSiswa($request, $attempt);
-        abort_if($attempt->isLocked(), 403, 'Ujian terkunci — hubungi guru/panitia untuk membuka kembali.');
-        abort_unless($attempt->status === UjianAttempt::STATUS_IN_PROGRESS, 422, 'Ujian ini sudah dikumpulkan.');
-        abort_if($attempt->isExpired(), 422, 'Waktu ujian sudah habis.');
+        return $this->retryOnDbBusy(function () use ($request, $ujian, $attempt) {
+            $this->pastikanMilikSiswa($request, $attempt);
+            abort_if($attempt->isLocked(), 403, 'Ujian terkunci — hubungi guru/panitia untuk membuka kembali.');
+            abort_unless($attempt->status === UjianAttempt::STATUS_IN_PROGRESS, 422, 'Ujian ini sudah dikumpulkan.');
+            abort_if($attempt->isExpired(), 422, 'Waktu ujian sudah habis.');
 
-        $data = $request->validate([
-            'id_soal'            => 'required|uuid',
-            'id_opsi_dipilih'    => 'nullable|uuid',
-            'opsi_dipilih_multi' => 'nullable|array',
-            'opsi_dipilih_multi.*' => 'uuid',
-            'jawaban_pasangan'   => 'nullable|array',
-            'jawaban_esai'       => 'nullable|string|max:10000',
-        ]);
+            $data = $request->validate([
+                'id_soal'            => 'required|uuid',
+                'id_opsi_dipilih'    => 'nullable|uuid',
+                'opsi_dipilih_multi' => 'nullable|array',
+                'opsi_dipilih_multi.*' => 'uuid',
+                'jawaban_pasangan'   => 'nullable|array',
+                'jawaban_esai'       => 'nullable|string|max:10000',
+            ]);
 
-        $soal = $ujian->getCachedSoalDanOpsi()->firstWhere('uuid', $data['id_soal']);
-        abort_unless($soal, 404, 'Soal tidak ditemukan.');
+            $soal = $ujian->getCachedSoalDanOpsi()->firstWhere('uuid', $data['id_soal']);
+            abort_unless($soal, 404, 'Soal tidak ditemukan.');
 
-        UjianJawaban::updateOrCreate(
-            ['id_attempt' => $attempt->uuid, 'id_soal' => $soal->uuid],
-            [
-                'id_opsi_dipilih'    => in_array($soal->tipe, ['mcq', 'true_false'], true) ? ($data['id_opsi_dipilih'] ?? null) : null,
-                'opsi_dipilih_multi' => $soal->tipe === 'mcq_complex' ? ($data['opsi_dipilih_multi'] ?? []) : null,
-                'jawaban_pasangan'   => $soal->tipe === 'match' ? ($data['jawaban_pasangan'] ?? []) : null,
-                'jawaban_esai'       => $soal->tipe === 'essay' ? ($data['jawaban_esai'] ?? null) : null,
-                'dijawab_pada'       => now(),
-            ]
-        );
+            UjianJawaban::updateOrCreate(
+                ['id_attempt' => $attempt->uuid, 'id_soal' => $soal->uuid],
+                [
+                    'id_opsi_dipilih'    => in_array($soal->tipe, ['mcq', 'true_false'], true) ? ($data['id_opsi_dipilih'] ?? null) : null,
+                    'opsi_dipilih_multi' => $soal->tipe === 'mcq_complex' ? ($data['opsi_dipilih_multi'] ?? []) : null,
+                    'jawaban_pasangan'   => $soal->tipe === 'match' ? ($data['jawaban_pasangan'] ?? []) : null,
+                    'jawaban_esai'       => $soal->tipe === 'essay' ? ($data['jawaban_esai'] ?? null) : null,
+                    'dijawab_pada'       => now(),
+                ]
+            );
 
-        return response()->json(['ok' => true]);
+            return response()->json(['ok' => true]);
+        });
+    }
+
+    /**
+     * Endpoint Sinkron Batch (Rencana 3):
+     * Menyimpan sekumpulan jawaban sekaligus dalam 1 single database query (bulk upsert),
+     * memotong puluhan ribu request HTTP individual menjadi beberapa request batch ringan.
+     */
+    public function sinkronBatch(Request $request, Ujian $ujian, UjianAttempt $attempt)
+    {
+        return $this->retryOnDbBusy(function () use ($request, $ujian, $attempt) {
+            $this->pastikanMilikSiswa($request, $attempt);
+            abort_if($attempt->isLocked(), 403, 'Ujian terkunci — hubungi guru/panitia untuk membuka kembali.');
+            abort_unless($attempt->status === UjianAttempt::STATUS_IN_PROGRESS, 422, 'Ujian ini sudah dikumpulkan.');
+            abort_if($attempt->isExpired(), 422, 'Waktu ujian sudah habis.');
+
+            $validated = $request->validate([
+                'jawaban'                        => 'required|array|max:200',
+                'jawaban.*.id_soal'              => 'required|uuid',
+                'jawaban.*.id_opsi_dipilih'      => 'nullable|uuid',
+                'jawaban.*.opsi_dipilih_multi'   => 'nullable|array',
+                'jawaban.*.opsi_dipilih_multi.*' => 'uuid',
+                'jawaban.*.jawaban_pasangan'     => 'nullable|array',
+                'jawaban.*.jawaban_esai'         => 'nullable|string|max:10000',
+            ]);
+
+            $daftarJawaban = $validated['jawaban'];
+            if (empty($daftarJawaban)) {
+                return response()->json(['ok' => true, 'count' => 0]);
+            }
+
+            // Ambil cache soal & opsi (in-memory / Cache 6 jam, tanpa query DB)
+            $cachedSoals = $ujian->getCachedSoalDanOpsi()->keyBy('uuid');
+            $now = now()->toDateTimeString();
+
+            $rows = [];
+            foreach ($daftarJawaban as $item) {
+                $soal = $cachedSoals->get($item['id_soal']);
+                if (!$soal) {
+                    continue;
+                }
+
+                $idOpsiDipilih = null;
+                $opsiMulti = null;
+                $pasangan = null;
+                $esai = null;
+
+                if (in_array($soal->tipe, ['mcq', 'true_false'], true)) {
+                    $idOpsiDipilih = $item['id_opsi_dipilih'] ?? null;
+                } elseif ($soal->tipe === 'mcq_complex') {
+                    $opsiMulti = isset($item['opsi_dipilih_multi']) ? json_encode($item['opsi_dipilih_multi']) : json_encode([]);
+                } elseif ($soal->tipe === 'match') {
+                    $pasangan = isset($item['jawaban_pasangan']) ? json_encode($item['jawaban_pasangan']) : json_encode([]);
+                } elseif ($soal->tipe === 'essay') {
+                    $esai = $item['jawaban_esai'] ?? null;
+                }
+
+                $rows[] = [
+                    'uuid'               => (string) \Illuminate\Support\Str::uuid(),
+                    'id_attempt'         => $attempt->uuid,
+                    'id_soal'            => $soal->uuid,
+                    'id_opsi_dipilih'    => $idOpsiDipilih,
+                    'opsi_dipilih_multi' => $opsiMulti,
+                    'jawaban_pasangan'   => $pasangan,
+                    'jawaban_esai'       => $esai,
+                    'dijawab_pada'       => $now,
+                    'created_at'         => $now,
+                    'updated_at'         => $now,
+                ];
+            }
+
+            if (!empty($rows)) {
+                UjianJawaban::upsert(
+                    $rows,
+                    ['id_attempt', 'id_soal'],
+                    ['id_opsi_dipilih', 'opsi_dipilih_multi', 'jawaban_pasangan', 'jawaban_esai', 'dijawab_pada', 'updated_at']
+                );
+            }
+
+            return response()->json(['ok' => true, 'count' => count($rows)]);
+        });
     }
 
     public function laporKeluar(Request $request, Ujian $ujian, UjianAttempt $attempt)
     {
-        $this->pastikanMilikSiswa($request, $attempt);
+        return $this->retryOnDbBusy(function () use ($request, $attempt) {
+            $this->pastikanMilikSiswa($request, $attempt);
 
-        $data = $request->validate(['tipe' => 'required|in:keluar_fullscreen,ganti_tab']);
+            $data = $request->validate(['tipe' => 'required|in:keluar_fullscreen,ganti_tab']);
 
-        if ($attempt->status === UjianAttempt::STATUS_IN_PROGRESS && !$attempt->isLocked()) {
-            \App\Models\UjianPelanggaran::create(['id_attempt' => $attempt->uuid, 'id_siswa' => $attempt->id_siswa, 'tipe' => $data['tipe']]);
-            $attempt->update(['dikunci' => true]);
-        }
+            if ($attempt->status === UjianAttempt::STATUS_IN_PROGRESS && !$attempt->isLocked()) {
+                \App\Models\UjianPelanggaran::create(['id_attempt' => $attempt->uuid, 'id_siswa' => $attempt->id_siswa, 'tipe' => $data['tipe']]);
+                $attempt->update(['dikunci' => true]);
+            }
 
-        return response()->json(['ok' => true]);
+            return response()->json(['ok' => true]);
+        });
     }
 
     public function submit(Request $request, Ujian $ujian, UjianAttempt $attempt)

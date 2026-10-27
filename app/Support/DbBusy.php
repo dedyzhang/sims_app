@@ -22,7 +22,15 @@ class DbBusy
         $pesan = $e->getMessage();
 
         return str_contains($pesan, 'Operation not permitted')
-            || str_contains($pesan, 'SQLSTATE[HY000] [2002]');
+            || str_contains($pesan, 'SQLSTATE[HY000] [2002]')
+            || str_contains($pesan, 'Connection refused')
+            || str_contains($pesan, 'max_user_connections')
+            || str_contains($pesan, 'Too many connections')
+            || str_contains($pesan, 'MySQL server has gone away')
+            || str_contains($pesan, 'Lost connection')
+            || str_contains($pesan, 'Deadlock found')
+            || str_contains($pesan, 'Lock wait timeout')
+            || str_contains($pesan, 'database is locked');
     }
 
     public static function pesan(): string

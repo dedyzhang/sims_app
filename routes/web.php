@@ -1157,6 +1157,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{ujian}/mulai', [UjianSiswaController::class, 'start'])->middleware('throttle:10,1')->name('siswa.start');
         Route::get('/{ujian}/kerjakan/{attempt}', [UjianSiswaController::class, 'kerjakan'])->name('siswa.kerjakan');
         Route::post('/{ujian}/kerjakan/{attempt}/jawab', [UjianSiswaController::class, 'simpanJawaban'])->middleware('throttle:60,1')->name('siswa.jawab');
+        Route::post('/{ujian}/kerjakan/{attempt}/sinkron-batch', [UjianSiswaController::class, 'sinkronBatch'])->middleware('throttle:120,1')->name('siswa.sinkronBatch');
         Route::get('/{ujian}/kerjakan/{attempt}/status', [UjianSiswaController::class, 'status'])->middleware('throttle:360,1')->name('siswa.status');
         Route::post('/{ujian}/kerjakan/{attempt}/keluar-fullscreen', [UjianSiswaController::class, 'laporKeluar'])->middleware('throttle:30,1')->name('siswa.keluar');
         Route::post('/{ujian}/kerjakan/{attempt}/kumpul', [UjianSiswaController::class, 'submit'])->middleware('throttle:10,1')->name('siswa.submit');

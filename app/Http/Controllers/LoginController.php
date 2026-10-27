@@ -288,6 +288,19 @@ class LoginController extends Controller
     private function loginResilient(User $user, bool $remember = false): void
     {
         retry(3, fn () => Auth::login($user, $remember), fn (int $attempt) => $attempt * 200);
+
+        // Rencana 4: Pre-populate data profil siswa di session saat login
+        // Menghilangkan puluhan ribu query redundant (SELECT * FROM siswas WHERE id_login = ...) saat ujian
+        if ($user->access === 'siswa') {
+            try {
+                $siswa = Siswa::where('id_login', $user->uuid)->first();
+                if ($siswa) {
+                    session()->put('profil_siswa_' . $user->uuid, $siswa);
+                }
+            } catch (\Throwable $e) {
+                // Abaikan jika ada gangguan DB sesaat; siswaAtauGagal memiliki fallback mandiri
+            }
+        }
     }
 
     private function dbBusyMessage(): string

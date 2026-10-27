@@ -26,9 +26,17 @@ class Setting extends Model
     private static function memo(): ArrayObject
     {
         if (! app()->bound('setting.memo')) {
-            $rows = static::query()->get(['key', 'value'])
-                ->mapWithKeys(fn (self $s) => [$s->key => ['value' => $s->value]])
-                ->all();
+            try {
+                $rows = \Illuminate\Support\Facades\Cache::remember(
+                    'global_settings_rows',
+                    300,
+                    fn () => static::query()->get(['key', 'value'])
+                        ->mapWithKeys(fn (self $s) => [$s->key => ['value' => $s->value]])
+                        ->all()
+                );
+            } catch (\Throwable) {
+                $rows = [];
+            }
             app()->instance('setting.memo', new ArrayObject($rows));
         }
 
@@ -42,10 +50,12 @@ class Setting extends Model
     protected static function booted(): void
     {
         static::saved(function (self $setting): void {
+            \Illuminate\Support\Facades\Cache::forget('global_settings_rows');
             self::memo()[$setting->key] = ['value' => $setting->value];
         });
 
         static::deleted(function (self $setting): void {
+            \Illuminate\Support\Facades\Cache::forget('global_settings_rows');
             self::memo()->offsetUnset($setting->key);
         });
     }

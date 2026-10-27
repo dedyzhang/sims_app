@@ -20,7 +20,14 @@ trait RetriesOnDbBusy
     {
         return retry(
             $times,
-            $fn,
+            function ($attempt) use ($fn) {
+                if ($attempt > 1) {
+                    try {
+                        \Illuminate\Support\Facades\DB::purge();
+                    } catch (Throwable) {}
+                }
+                return $fn($attempt);
+            },
             fn (int $attempt) => $attempt * 200,
             fn (Throwable $e) => DbBusy::terdeteksi($e)
         );

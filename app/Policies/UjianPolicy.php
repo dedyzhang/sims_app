@@ -74,30 +74,34 @@ class UjianPolicy
         if ($user->access !== 'siswa') {
             return false;
         }
-        $siswa = Siswa::where('id_login', $user->uuid)->first();
+
+        // Pakai session memo profil siswa terlebih dahulu untuk memotong query berulang saat submit token massal
+        $sessionKey = 'profil_siswa_' . $user->uuid;
+        $siswa = (request()->hasSession() && request()->session()->has($sessionKey))
+            ? request()->session()->get($sessionKey)
+            : ($user->siswa ?? Siswa::where('id_login', $user->uuid)->first());
+
         if (!$siswa || $siswa->id_kelas !== $ujianKelas->id_kelas) {
             return false;
         }
 
         $ujian = $ujianKelas->ujian;
+
+        // Jika ujian kelas sudah buka secara normal (kasus 99% siswa), langsung loloskan tanpa buang query susulan
+        if ($ujianKelas->isOpenNow()) {
+            if ($ujian?->wajibScanQr() && !$ujian->paket->sudahDicekSiswa($siswa)) {
+                return false;
+            }
+            return true;
+        }
+
+        // Hanya jika kelas belum buka/tutup, cek apakah siswa adalah peserta susulan hari ini
         $isSusulanHariIni = \App\Models\UjianSusulan::where('id_ujian', $ujian->uuid)
             ->where('id_siswa', $siswa->uuid)
             ->whereDate('tanggal', now()->toDateString())
             ->exists();
 
-        if (!$isSusulanHariIni) {
-            if (!$ujianKelas->isOpenNow()) {
-                return false;
-            }
-
-            // Defense-in-depth: gate ramah utamanya di UjianSiswaController::gate(), ini
-            // jaga-jaga kalau ada yg coba POST token langsung ke start() tanpa lewat gate().
-            if ($ujian?->wajibScanQr() && !$ujian->paket->sudahDicekSiswa($siswa)) {
-                return false;
-            }
-        }
-
-        return true;
+        return $isSusulanHariIni;
     }
 
     public function gradeEssay(User $user, Ujian $ujian): bool

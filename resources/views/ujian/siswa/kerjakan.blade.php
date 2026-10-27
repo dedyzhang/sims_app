@@ -18,10 +18,12 @@
 @section('content')
 <div id="ujian-root" class="max-w-2xl mx-auto pb-24"
      x-data="ujianKerjakan({
+        attemptUuid: {{ Js::from($attempt->uuid) }},
         soal: {{ Js::from($soalTampil) }},
         jawabanAwal: {{ Js::from($initJawaban) }},
         batasWaktu: {{ Js::from($attempt->batas_waktu_pada?->toIso8601String()) }},
         urlJawab: {{ Js::from(route('ujian.siswa.jawab', [$ujian, $attempt])) }},
+        urlSinkronBatch: {{ Js::from(route('ujian.siswa.sinkronBatch', [$ujian, $attempt])) }},
         urlStatus: {{ Js::from(route('ujian.siswa.status', [$ujian, $attempt])) }},
         urlKeluar: {{ Js::from(route('ujian.siswa.keluar', [$ujian, $attempt])) }},
         urlSubmit: {{ Js::from(route('ujian.siswa.submit', [$ujian, $attempt])) }},
@@ -196,10 +198,28 @@
 
 @push('scripts')
 <script>
+function getSafeStorage() {
+    try {
+        const testKey = '__sims_storage_test__';
+        window.localStorage.setItem(testKey, testKey);
+        window.localStorage.removeItem(testKey);
+        return window.localStorage;
+    } catch (e) {
+        console.warn('localStorage tidak tersedia/dibatasi di browser ini. Beralih ke in-memory storage fallback.');
+        const mem = {};
+        return {
+            getItem: (k) => (Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null),
+            setItem: (k, v) => { mem[k] = String(v); },
+            removeItem: (k) => { delete mem[k]; },
+            clear: () => { Object.keys(mem).forEach(k => delete mem[k]); }
+        };
+    }
+}
+
 function ujianKerjakan(cfg) {
     return {
         soal: cfg.soal,
-        jawaban: cfg.jawabanAwal,
+        jawaban: cfg.jawabanAwal || {},
         batasWaktu: cfg.batasWaktu ? new Date(cfg.batasWaktu).getTime() : null,
         idx: 0,
         sisaDetik: 0,
@@ -208,11 +228,16 @@ function ujianKerjakan(cfg) {
         mengumpulkan: false,
         mengumpulkanOtomatis: false,
         intentional: false,
-        simpanStatus: '',
+        simpanStatus: 'Siap',
         simpanError: false,
         loadingBlock: false,
-        _jawabanBerubah: {},
+        _storage: null,
+        _storageKey: 'sims_jawaban_' + (cfg.attemptUuid || 'default'),
+        _dirtyQueue: {},
+        _isSyncing: false,
         _timerHandle: null,
+        _syncTimer: null,
+        _debounceTimer: null,
         
         triggerBlock() {
             this.loadingBlock = true;
@@ -223,8 +248,33 @@ function ujianKerjakan(cfg) {
         _csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
 
         init() {
+            this._storage = getSafeStorage();
+
+            // Pulihkan jawaban tersimpan dari safe storage lokal jika ada
+            try {
+                const raw = this._storage.getItem(this._storageKey);
+                if (raw) {
+                    const localData = JSON.parse(raw);
+                    if (localData && typeof localData === 'object') {
+                        // Merge jawaban lokal dan server (jawaban lokal lebih baru/prioritas)
+                        this.jawaban = { ...this.jawaban, ...localData };
+                    }
+                } else {
+                    // Seed awal ke storage lokal dari database
+                    this._storage.setItem(this._storageKey, JSON.stringify(this.jawaban));
+                }
+            } catch (e) {}
+
             this.tickCountdown();
             this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
+
+            // Timer sinkron batch berkala setiap 25-30 detik (dengan random jitter agar ratusan siswa tidak serentak)
+            const syncIntervalMs = 25000 + Math.floor(Math.random() * 5000);
+            this._syncTimer = setInterval(() => {
+                if (Object.keys(this._dirtyQueue).length > 0) {
+                    this.flushPendingAnswers();
+                }
+            }, syncIntervalMs);
 
             const syncFs = () => {
                 const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -235,8 +285,21 @@ function ujianKerjakan(cfg) {
             document.addEventListener('fullscreenchange', syncFs);
             document.addEventListener('webkitfullscreenchange', syncFs);
             document.addEventListener('visibilitychange', () => {
-                if (document.hidden && !this.intentional && this.fsActive) this.laporKeluar('ganti_tab');
+                if (document.hidden && !this.intentional && this.fsActive) {
+                    this.laporKeluar('ganti_tab');
+                }
+                // Kirim jawaban tertunda di background saat tab diminimalkan
+                if (document.hidden && Object.keys(this._dirtyQueue).length > 0) {
+                    this.flushPendingAnswersBeacon();
+                }
             });
+
+            window.addEventListener('beforeunload', () => {
+                if (Object.keys(this._dirtyQueue).length > 0) {
+                    this.flushPendingAnswersBeacon();
+                }
+            });
+
             window.lucide && lucide.createIcons();
         },
 
@@ -281,10 +344,6 @@ function ujianKerjakan(cfg) {
         },
         pindah(i) {
             if (i < 0 || i >= this.soal.length) return;
-            const currentUuid = this.soal[this.idx].uuid;
-            if (this._jawabanBerubah[currentUuid]) {
-                this._doSimpan(currentUuid);
-            }
             this.idx = i;
             this.triggerBlock();
         },
@@ -310,51 +369,127 @@ function ujianKerjakan(cfg) {
             this.tandaiBerubah(soalUuid);
         },
 
-        tandaiBerubah(soalUuid) {
-            this._jawabanBerubah[soalUuid] = true;
-        },
-        async _doSimpan(soalUuid) {
-            if (this.terkunci) return;
-            
-            this._jawabanBerubah[soalUuid] = false;
-            
+        buildPayload(soalUuid) {
             const s = this.soal.find(x => x.uuid === soalUuid);
-            if (!s) return;
+            if (!s) return null;
             const payload = { id_soal: soalUuid };
             if (s.tipe === 'mcq' || s.tipe === 'true_false') payload.id_opsi_dipilih = this.jawaban[soalUuid] || null;
             if (s.tipe === 'mcq_complex') payload.opsi_dipilih_multi = this.jawaban[soalUuid] || [];
             if (s.tipe === 'match') payload.jawaban_pasangan = this.jawaban[soalUuid] || {};
             if (s.tipe === 'essay') payload.jawaban_esai = this.jawaban[soalUuid] || '';
+            return payload;
+        },
 
+        tandaiBerubah(soalUuid) {
+            // 1. Simpan ke Safe Storage lokal seketika (0ms)
             try {
-                const res = await fetch(cfg.urlJawab, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this._csrf },
-                    body: JSON.stringify(payload),
-                });
-                
-                if (res.status === 403) { 
-                    const isJson = res.headers.get('content-type')?.includes('application/json');
-                    if (isJson) {
-                        try {
-                            const errData = await res.clone().json();
-                            if (errData && errData.message && errData.message.toLowerCase().includes('terkunci')) {
-                                this.kunci(); 
-                                return; 
-                            }
-                        } catch (err) {}
-                    }
-                    throw new Error('Gagal simpan sementara');
-                }
-                
-                if (!res.ok) throw new Error('gagal simpan');
-                this.simpanStatus = 'Tersimpan';
+                this._storage.setItem(this._storageKey, JSON.stringify(this.jawaban));
+            } catch (e) {}
+
+            // 2. Masukkan ke dirty queue untuk dikirim dalam batch
+            const payload = this.buildPayload(soalUuid);
+            if (payload) {
+                this._dirtyQueue[soalUuid] = payload;
+                this.simpanStatus = 'Tersimpan di perangkat';
                 this.simpanError = false;
-            } catch (e) {
-                this.simpanStatus = 'Gagal tersimpan - periksa koneksi';
-                this.simpanError = true;
-                this._jawabanBerubah[soalUuid] = true;
             }
+
+            // 3. Debounce sync: jika siswa diam selama 5 detik setelah menjawab, sinkronkan ke server
+            if (this._debounceTimer) clearTimeout(this._debounceTimer);
+            this._debounceTimer = setTimeout(() => {
+                this.flushPendingAnswers();
+            }, 5000);
+        },
+
+        async flushPendingAnswers(forceWait = false) {
+            if (this.terkunci) return;
+            const keys = Object.keys(this._dirtyQueue);
+            if (keys.length === 0) return;
+
+            if (this._isSyncing && !forceWait) return;
+            this._isSyncing = true;
+
+            const itemsToSend = keys.map(k => this._dirtyQueue[k]);
+
+            let success = false;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    const res = await fetch(cfg.urlSinkronBatch, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': this._csrf,
+                        },
+                        body: JSON.stringify({ jawaban: itemsToSend }),
+                    });
+
+                    if (res.ok) {
+                        keys.forEach(k => {
+                            if (this._dirtyQueue[k] && this._dirtyQueue[k].id_soal === k) {
+                                delete this._dirtyQueue[k];
+                            }
+                        });
+                        this.simpanStatus = 'Tersimpan';
+                        this.simpanError = false;
+                        success = true;
+                        break;
+                    }
+
+                    if (res.status === 403) {
+                        const isJson = res.headers.get('content-type')?.includes('application/json');
+                        if (isJson) {
+                            try {
+                                const errData = await res.clone().json();
+                                if (errData && errData.message && errData.message.toLowerCase().includes('terkunci')) {
+                                    this.kunci();
+                                    this._isSyncing = false;
+                                    return;
+                                }
+                            } catch (err) {}
+                        }
+                    }
+
+                    // Jeda backoff jika server 503
+                    if (res.status === 503 && attempt < 2) {
+                        await new Promise(r => setTimeout(r, (attempt + 1) * 350));
+                        continue;
+                    }
+                } catch (e) {
+                    if (attempt < 2) {
+                        await new Promise(r => setTimeout(r, (attempt + 1) * 350));
+                        continue;
+                    }
+                }
+            }
+
+            this._isSyncing = false;
+
+            if (!success) {
+                // Jawaban tetap tersimpan aman di local storage HP!
+                this.simpanStatus = 'Tersimpan di perangkat (menunggu sinkron)';
+                this.simpanError = false;
+            }
+        },
+
+        flushPendingAnswersBeacon() {
+            try {
+                const keys = Object.keys(this._dirtyQueue);
+                if (keys.length === 0) return;
+                const items = keys.map(k => this._dirtyQueue[k]);
+                const payload = JSON.stringify({ jawaban: items });
+                
+                fetch(cfg.urlSinkronBatch, {
+                    method: 'POST',
+                    keepalive: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': this._csrf
+                    },
+                    body: payload
+                }).catch(() => {});
+            } catch (e) {}
         },
 
         laporKeluar(tipe) {
@@ -377,6 +512,8 @@ function ujianKerjakan(cfg) {
         kunci() {
             this.terkunci = true;
             clearInterval(this._timerHandle);
+            clearInterval(this._syncTimer);
+            if (this._debounceTimer) clearTimeout(this._debounceTimer);
             clearInterval(this._statusHandle);
         },
 
@@ -396,9 +533,10 @@ function ujianKerjakan(cfg) {
             });
         },
         async kumpulkan(otomatis) {
-            const currentUuid = this.soal[this.idx].uuid;
-            if (this._jawabanBerubah[currentUuid]) {
-                await this._doSimpan(currentUuid);
+            // 1. Pastikan seluruh jawaban tertunda di dirtyQueue telah disinkronkan ke server
+            if (Object.keys(this._dirtyQueue).length > 0) {
+                this.simpanStatus = 'Menyinkronkan jawaban akhir...';
+                await this.flushPendingAnswers(true);
             }
 
             // SENGAJA tak pakai kunci() di sini ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â kunci() menyalakan `terkunci` yg
@@ -408,6 +546,8 @@ function ujianKerjakan(cfg) {
             this.mengumpulkan = true;
             this.mengumpulkanOtomatis = !!otomatis;
             clearInterval(this._timerHandle);
+            clearInterval(this._syncTimer);
+            if (this._debounceTimer) clearTimeout(this._debounceTimer);
             clearInterval(this._statusHandle);
             try {
                 const res = await fetch(cfg.urlSubmit, {
@@ -422,7 +562,7 @@ function ujianKerjakan(cfg) {
                     this.mengumpulkan = false;
                     $.alert({
                         title: 'Server Sedang Sibuk',
-                        content: 'Koneksi ke server sedang padat. Jawaban Anda tetap aman. Silakan klik tombol Kumpulkan Ujian sekali lagi.',
+                        content: 'Koneksi ke server sedang padat. Seluruh jawaban Anda tetap aman di perangkat. Silakan klik tombol Kumpulkan Ujian sekali lagi.',
                         type: 'orange'
                     });
                     this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
@@ -434,11 +574,13 @@ function ujianKerjakan(cfg) {
                 }
                 
                 if (res.redirected) { 
+                    try { this._storage.removeItem(this._storageKey); } catch (e) {}
                     window.location.href = res.url; 
                     return; 
                 }
                 
                 if (res.ok) {
+                    try { this._storage.removeItem(this._storageKey); } catch (e) {}
                     try {
                         const data = await res.json();
                         if (data && data.redirect) {

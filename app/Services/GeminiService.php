@@ -599,34 +599,77 @@ class GeminiService
      */
     public function probeApiKey(string $apiKey): void
     {
-        $apiKey = trim($apiKey);
+        $apiKey = trim(trim($apiKey), "\"'`");
         if ($apiKey === '') {
             throw new RuntimeException('API key kosong.');
         }
 
-        $model = (string) config('ai.model', 'gemini-2.0-flash');
-        $url = rtrim((string) config('ai.base_url'), '/')."/models/{$model}:generateContent";
+        if (str_starts_with($apiKey, 'sk-or-')) {
+            throw new RuntimeException('API key yang dimasukkan adalah key OpenRouter (sk-or-...). Harap gunakan API key Google Gemini dari Google AI Studio.');
+        }
+
+        if (str_starts_with($apiKey, 'sk-')) {
+            throw new RuntimeException('API key yang dimasukkan adalah key OpenAI (sk-...). Harap gunakan API key Google Gemini dari Google AI Studio.');
+        }
+
+        $baseUrl = (string) config('ai.base_url', 'https://generativelanguage.googleapis.com/v1beta');
+        $url = rtrim($baseUrl, '/').'/models';
 
         try {
-            $response = Http::timeout(20)
-                ->withQueryParameters(['key' => $apiKey])
+            $response = Http::timeout(15)
+                ->retry(
+                    times: (int) config('ai.retries', 2),
+                    sleepMilliseconds: (int) config('ai.retry_delay', 500),
+                    when: fn (\Throwable $e) => $this->isTransient($e),
+                    throw: false,
+                )
+                ->withQueryParameters([
+                    'key' => $apiKey,
+                    'pageSize' => 1,
+                ])
                 ->acceptJson()
-                ->post($url, [
-                    'contents' => [['role' => 'user', 'parts' => [['text' => 'ping']]]],
-                    'generationConfig' => [
-                        'maxOutputTokens' => 8,
-                        'temperature' => 0,
-                    ],
-                ]);
-        } catch (\Throwable) {
-            throw new RuntimeException('Gagal menghubungi Gemini untuk memvalidasi API key. Coba lagi.');
+                ->get($url);
+        } catch (\Throwable $e) {
+            Log::warning('Gemini probeApiKey failed: '.$e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            $detail = $e->getMessage();
+            $hint = 'Periksa koneksi internet atau firewall server.';
+            if (str_contains($detail, 'cURL error 28') || str_contains(strtolower($detail), 'timed out')) {
+                $hint = 'Waktu koneksi habis (timeout 25 detik). Server tidak dapat menjangkau server Google (generativelanguage.googleapis.com).';
+            } elseif (str_contains($detail, 'cURL error 60') || str_contains(strtolower($detail), 'ssl certificate')) {
+                $hint = 'Sertifikat SSL server bermasalah (cURL error 60). Periksa konfigurasi curl.cainfo di php.ini server.';
+            } elseif (str_contains($detail, 'cURL error 6') || str_contains(strtolower($detail), 'resolve host')) {
+                $hint = 'DNS server tidak dapat menemukan domain Google (generativelanguage.googleapis.com).';
+            } elseif (str_contains($detail, 'cURL error 7')) {
+                $hint = 'Koneksi ke port 443 Google ditolak atau diblokir firewall/jaringan server.';
+            }
+
+            throw new RuntimeException("Gagal menghubungi Gemini untuk memvalidasi API key. {$hint}");
         }
 
         if ($response->successful()) {
             return;
         }
 
-        throw new RuntimeException($this->normalizeError($response->status(), $response->json())
+        $json = $response->json();
+        $detail = $json['error']['message'] ?? '';
+        $reason = $json['error']['details'][0]['reason'] ?? '';
+
+        if ($response->status() === 400 && ($reason === 'API_KEY_INVALID' || str_contains($detail, 'API key not valid'))) {
+            throw new RuntimeException('API key tidak valid atau belum aktif di Google AI Studio. Pastikan key disalin lengkap tanpa terpotong.');
+        }
+
+        if ($response->status() === 403) {
+            throw new RuntimeException('API key ditolak Google (403). Pastikan Generative Language API diaktifkan dan API key tidak dibatasi.');
+        }
+
+        if ($response->status() === 429) {
+            throw new RuntimeException('Batas kuota/rate limit Google Gemini tercapai (429). Tunggu beberapa menit lalu coba lagi.');
+        }
+
+        throw new RuntimeException($this->normalizeError($response->status(), $json)
             ?: 'API key tidak valid atau belum aktif di Google AI Studio.');
     }
 

@@ -63,6 +63,20 @@ class Ujian extends Model
         \Illuminate\Support\Facades\Cache::forget('ujian_' . $this->uuid . '_soal_opsi');
     }
 
+    public function getCachedKelas()
+    {
+        return \Illuminate\Support\Facades\Cache::remember(
+            'ujian_' . $this->uuid . '_kelas_all',
+            now()->addHours(6),
+            fn () => $this->kelas()->get()
+        );
+    }
+
+    public function clearKelasCache()
+    {
+        \Illuminate\Support\Facades\Cache::forget('ujian_' . $this->uuid . '_kelas_all');
+    }
+
     public function kelas()
     {
         return $this->hasMany(UjianKelas::class, 'id_ujian', 'uuid');

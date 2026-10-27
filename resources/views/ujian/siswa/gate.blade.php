@@ -57,3 +57,116 @@
     @endif
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('form-mulai-ujian');
+    const btn = document.getElementById('btn-mulai-ujian');
+    const inputToken = form?.querySelector('input[name="token"]');
+    if (!form || !btn) return;
+
+    let isSubmitting = false;
+
+    // Bersihkan spasi secara otomatis jika ada spasi bawaan keyboard HP / copy-paste
+    inputToken?.addEventListener('input', function () {
+        this.value = this.value.replace(/\s+/g, '');
+    });
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        if (isSubmitting) return;
+
+        const tokenVal = inputToken ? inputToken.value.trim() : '';
+        if (!tokenVal) {
+            inputToken?.focus();
+            return;
+        }
+
+        isSubmitting = true;
+
+        // Kunci tombol seketika dan tampilkan indikator
+        btn.disabled = true;
+        btn.classList.add('opacity-80', 'cursor-not-allowed');
+        const originalBtnHtml = btn.innerHTML;
+        btn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Menghubungkan ke server...';
+
+        // Hapus alert error sebelumnya jika ada
+        const existingAlert = document.getElementById('token-error-alert');
+        if (existingAlert) existingAlert.remove();
+
+        // Rencana 5: Micro-Jitter (50ms - 1200ms) untuk meratakan lonjakan serempak
+        const jitterMs = Math.floor(Math.random() * 1150) + 50;
+        await new Promise(r => setTimeout(r, jitterMs));
+
+        // Submit dengan Fetch dan 3x Silent Retry diam-diam jika server sedang sibuk sesaat
+        const csrf = form.querySelector('input[name="_token"]')?.value || '';
+        let lastErrorMessage = '';
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const res = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf,
+                    },
+                    body: JSON.stringify({ token: tokenVal }),
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.redirect) {
+                        window.location.href = data.redirect;
+                        return;
+                    }
+                    window.location.reload();
+                    return;
+                }
+
+                if (res.status === 422) {
+                    // Token salah (kesalahan ketik siswa, tidak perlu retry ke server)
+                    const errData = await res.json().catch(() => ({}));
+                    lastErrorMessage = errData.message || 'Token salah. Minta token yang benar ke guru/panitia ujian.';
+                    break;
+                }
+
+                if (res.status === 403) {
+                    const errData = await res.json().catch(() => ({}));
+                    lastErrorMessage = errData.message || 'Ujian belum dibuka untuk kelas Anda atau waktu belum tiba.';
+                    break;
+                }
+
+                // Jika status 503 (database busy) atau 500, tunggu sejenak lalu coba lagi diam-diam
+                if ((res.status === 503 || res.status >= 500) && attempt < 2) {
+                    await new Promise(r => setTimeout(r, (attempt + 1) * 400));
+                    continue;
+                }
+
+                lastErrorMessage = 'Koneksi ke server sedang padat. Silakan tekan Mulai Ujian sekali lagi.';
+            } catch (err) {
+                if (attempt < 2) {
+                    await new Promise(r => setTimeout(r, (attempt + 1) * 400));
+                    continue;
+                }
+                lastErrorMessage = 'Gagal menghubungi server. Periksa koneksi internet Anda lalu coba lagi.';
+            }
+        }
+
+        // Jika sampai di sini berarti gagal setelah dicoba 3x
+        isSubmitting = false;
+        btn.disabled = false;
+        btn.classList.remove('opacity-80', 'cursor-not-allowed');
+        btn.innerHTML = originalBtnHtml;
+
+        const alertDiv = document.createElement('div');
+        alertDiv.id = 'token-error-alert';
+        alertDiv.className = 'card p-3 border-l-4 !border-l-rose-500 text-xs text-rose-700 dark:text-rose-300 font-semibold mb-3';
+        alertDiv.textContent = lastErrorMessage || 'Terjadi kendala saat memvalidasi token. Silakan coba lagi.';
+        form.parentNode.insertBefore(alertDiv, form);
+    });
+});
+</script>
+@endpush

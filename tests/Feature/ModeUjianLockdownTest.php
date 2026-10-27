@@ -112,6 +112,13 @@ class ModeUjianLockdownTest extends TestCase
         ]);
     }
 
+    protected function tearDown(): void
+    {
+        ModeUjian::nonaktifkan();
+        \Illuminate\Support\Facades\Cache::flush();
+        parent::tearDown();
+    }
+
     public function test_toggle_mode_ujian(): void
     {
         $this->assertFalse(ModeUjian::aktif());
@@ -347,5 +354,191 @@ class ModeUjianLockdownTest extends TestCase
 
         $this->ujian->refresh();
         $this->assertSame('draft', $this->ujian->status);
+    }
+
+    public function test_cache_settings_dan_langganan_aktif(): void
+    {
+        \Illuminate\Support\Facades\Cache::flush();
+
+        Setting::set('nama_sekolah', 'Sekolah Tes');
+        $this->assertSame('Sekolah Tes', Setting::get('nama_sekolah'));
+        $this->assertTrue(\Illuminate\Support\Facades\Cache::has('global_settings_rows'));
+
+        \App\Models\Langganan::create([
+            'paket' => 'pro',
+            'durasi_bulan' => 12,
+            'mulai_pada' => now(),
+            'berakhir_pada' => now()->addYear(),
+            'status' => 'aktif',
+        ]);
+        $l1 = \App\Models\Langganan::current();
+        $this->assertNotNull($l1);
+        $this->assertTrue(\Illuminate\Support\Facades\Cache::has('langganan_current_record'));
+    }
+
+    public function test_simpan_jawaban_berhasil_tersimpan_dengan_aman(): void
+    {
+        $this->actingAs($this->siswaUser)
+            ->post(route('ujian.siswa.start', $this->ujian), ['token' => 'TOKENMODE1'])
+            ->assertRedirect();
+
+        $attempt = UjianAttempt::where('id_siswa', $this->siswaUser->uuid)->firstOrFail();
+        $soal = $this->ujian->soal()->firstOrFail();
+        $opsi = $soal->opsi()->firstOrFail();
+
+        $res = $this->actingAs($this->siswaUser)->postJson(
+            route('ujian.siswa.jawab', [$this->ujian, $attempt]),
+            [
+                'id_soal' => $soal->uuid,
+                'id_opsi_dipilih' => $opsi->uuid,
+            ]
+        );
+
+        $res->assertOk()->assertJson(['ok' => true]);
+
+        $this->assertDatabaseHas('ujian_jawaban', [
+            'id_attempt' => $attempt->uuid,
+            'id_soal' => $soal->uuid,
+            'id_opsi_dipilih' => $opsi->uuid,
+        ]);
+    }
+
+    public function test_sinkron_batch_menyimpan_banyak_jawaban_dalam_satu_panggilan(): void
+    {
+        // Siapkan soal kedua bertipe essay
+        $soalEsai = UjianSoal::create([
+            'id_ujian'  => $this->ujian->uuid,
+            'tipe'      => 'essay',
+            'teks_soal' => 'Jelaskan pengertian pantun!',
+            'poin'      => 20,
+            'urutan'    => 2,
+        ]);
+
+        $this->ujian->clearSoalCache();
+
+        $this->actingAs($this->siswaUser)
+            ->post(route('ujian.siswa.start', $this->ujian), ['token' => 'TOKENMODE1'])
+            ->assertRedirect();
+
+        $attempt = UjianAttempt::where('id_siswa', $this->siswaUser->uuid)->firstOrFail();
+        $soalMcq = $this->ujian->soal()->where('tipe', 'mcq')->firstOrFail();
+        $opsi = $soalMcq->opsi()->firstOrFail();
+
+        $payload = [
+            'jawaban' => [
+                [
+                    'id_soal' => $soalMcq->uuid,
+                    'id_opsi_dipilih' => $opsi->uuid,
+                ],
+                [
+                    'id_soal' => $soalEsai->uuid,
+                    'jawaban_esai' => 'Pantun adalah puisi lama Indonesia yang bersajak a-b-a-b.',
+                ],
+            ],
+        ];
+
+        $res = $this->actingAs($this->siswaUser)->postJson(
+            route('ujian.siswa.sinkronBatch', [$this->ujian, $attempt]),
+            $payload
+        );
+
+        $res->assertOk()->assertJson(['ok' => true, 'count' => 2]);
+
+        $this->assertDatabaseHas('ujian_jawaban', [
+            'id_attempt' => $attempt->uuid,
+            'id_soal' => $soalMcq->uuid,
+            'id_opsi_dipilih' => $opsi->uuid,
+        ]);
+
+        $this->assertDatabaseHas('ujian_jawaban', [
+            'id_attempt' => $attempt->uuid,
+            'id_soal' => $soalEsai->uuid,
+            'jawaban_esai' => 'Pantun adalah puisi lama Indonesia yang bersajak a-b-a-b.',
+        ]);
+
+        // Verifikasi update via upsert: siswa merevisi jawaban esai
+        $payloadUpdate = [
+            'jawaban' => [
+                [
+                    'id_soal' => $soalEsai->uuid,
+                    'jawaban_esai' => 'Revisi: Pantun adalah karya sastra 4 baris.',
+                ],
+            ],
+        ];
+
+        $resUpdate = $this->actingAs($this->siswaUser)->postJson(
+            route('ujian.siswa.sinkronBatch', [$this->ujian, $attempt]),
+            $payloadUpdate
+        );
+
+        $resUpdate->assertOk()->assertJson(['ok' => true, 'count' => 1]);
+
+        $this->assertDatabaseHas('ujian_jawaban', [
+            'id_attempt' => $attempt->uuid,
+            'id_soal' => $soalEsai->uuid,
+            'jawaban_esai' => 'Revisi: Pantun adalah karya sastra 4 baris.',
+        ]);
+
+        // Pastikan tidak ada baris ganda (tetap 2 baris total untuk attempt ini)
+        $this->assertSame(2, \App\Models\UjianJawaban::where('id_attempt', $attempt->uuid)->count());
+    }
+
+    public function test_sinkron_batch_menolak_siswa_lain_dan_attempt_terkunci(): void
+    {
+        $this->actingAs($this->siswaUser)
+            ->post(route('ujian.siswa.start', $this->ujian), ['token' => 'TOKENMODE1'])
+            ->assertRedirect();
+
+        $attempt = UjianAttempt::where('id_siswa', $this->siswaUser->uuid)->firstOrFail();
+        $soal = $this->ujian->soal()->firstOrFail();
+
+        // Siswa lain mencoba kirim ke attempt ini
+        $siswaLain = User::create([
+            'username' => 'siswa_lain',
+            'password' => Hash::make('password123'),
+            'access'   => 'siswa',
+        ]);
+        Siswa::create([
+            'id_login'        => $siswaLain->uuid,
+            'id_kelas'        => $this->siswaUser->siswa->id_kelas,
+            'nama'            => 'Siswa Lain',
+            'nis'             => '9999',
+            'jk'              => 'P',
+            'face_descriptor' => [0.1, 0.2],
+        ]);
+
+        $this->actingAs($siswaLain)->postJson(
+            route('ujian.siswa.sinkronBatch', [$this->ujian, $attempt]),
+            ['jawaban' => [['id_soal' => $soal->uuid]]]
+        )->assertForbidden();
+
+        // Kunci attempt, lalu coba simpan
+        $attempt->update(['dikunci' => true]);
+
+        $this->actingAs($this->siswaUser)->postJson(
+            route('ujian.siswa.sinkronBatch', [$this->ujian, $attempt]),
+            ['jawaban' => [['id_soal' => $soal->uuid]]]
+        )->assertForbidden();
+    }
+
+    public function test_profil_siswa_dimemo_di_session_saat_login_dan_akses(): void
+    {
+        // Test login pre-caching
+        $res = $this->post(route('login.post'), [
+            'credential' => 'siswa_mode',
+            'password'   => 'password123',
+        ]);
+        $res->assertRedirect();
+
+        $sessionKey = 'profil_siswa_' . $this->siswaUser->uuid;
+        $this->assertTrue(session()->has($sessionKey));
+        $this->assertSame('Siswa Mode Ujian', session($sessionKey)->nama);
+
+        // Akses halaman /ujian/saya dengan session yang sudah memiliki profil
+        // Memastikan tidak throw error dan berhasil merender halaman
+        $this->actingAs($this->siswaUser)
+            ->withSession([$sessionKey => session($sessionKey)])
+            ->get(route('ujian.siswa.index'))
+            ->assertOk();
     }
 }

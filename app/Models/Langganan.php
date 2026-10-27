@@ -45,14 +45,29 @@ class Langganan extends Model
         return $this->belongsTo(User::class, 'diatur_oleh', 'uuid');
     }
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => \Illuminate\Support\Facades\Cache::forget('langganan_current_record'));
+        static::deleted(fn () => \Illuminate\Support\Facades\Cache::forget('langganan_current_record'));
+    }
+
     /** Lisensi berjalan (single-tenant → satu baris; ambil yang terbaru bila ada sisa data lama). */
     public static function current(): ?self
     {
-        $langganan = static::orderByDesc('berakhir_pada')->first();
+        try {
+            return \Illuminate\Support\Facades\Cache::remember(
+                'langganan_current_record',
+                300,
+                function () {
+                    $langganan = static::orderByDesc('berakhir_pada')->first();
+                    $langganan?->sinkronkanStatus();
 
-        $langganan?->sinkronkanStatus();
-
-        return $langganan;
+                    return $langganan;
+                }
+            );
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
