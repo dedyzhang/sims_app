@@ -172,10 +172,7 @@ class UjianSimulasiCommand extends Command
             }
             User::insert($rows);
 
-            foreach ($rows as $row) {
-                $user = new User();
-                $user->uuid = $row['uuid'];
-                $user->access = 'siswa';
+            foreach (User::hydrate($rows) as $user) {
                 $users[] = $user;
             }
         }
@@ -215,12 +212,7 @@ class UjianSimulasiCommand extends Command
             }
             UjianAttempt::insert($rows);
 
-            foreach ($rows as $row) {
-                $att = new UjianAttempt();
-                $att->uuid = $row['uuid'];
-                $att->id_ujian_kelas = $row['id_ujian_kelas'];
-                $att->id_siswa = $row['id_siswa'];
-                $att->status = UjianAttempt::STATUS_IN_PROGRESS;
+            foreach (UjianAttempt::hydrate($rows) as $att) {
                 $attempts[] = $att;
             }
         }
@@ -298,7 +290,8 @@ class UjianSimulasiCommand extends Command
                     'status' => UjianAttempt::STATUS_SUBMITTED,
                     'selesai_pada' => now(),
                 ]);
-                $grader->finalisasiObjektif($attempt->fresh());
+                $fresh = $attempt->fresh() ?? $attempt;
+                $grader->finalisasiObjektif($fresh);
             }
 
             $durations[] = (microtime(true) - $t0) * 1000;
