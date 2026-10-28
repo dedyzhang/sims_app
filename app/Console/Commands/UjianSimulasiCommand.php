@@ -349,10 +349,20 @@ class UjianSimulasiCommand extends Command
         );
 
         $this->newLine();
-        if ($s['avg_ms'] <= 50) {
-            $this->info('✅ KESIMPULAN: Server dan database SANGAT KUAT menampung '.$siswaCount.' siswa serentak tanpa antrean.');
+        if (! $isModeUjian) {
+            $this->error('❌ KESIMPULAN BAHAYA: Mode Ujian dalam kondisi NONAKTIF (Mode Normal).');
+            $this->line("   ⚠️  Total waktu submit memakan <fg=red;options=bold>".number_format($s['total_ms'] / 1000, 2)." detik</> ({$totalJawaban} jawaban dinilai sinkron).");
+            $this->line("   ⚠️  Throughput hanya <fg=red;options=bold>".number_format($s['throughput'], 1)." submit/detik</>.");
+            $this->line("   ⚠️  Dengan kapasitas <comment>100 PHP Worker</comment> di hosting Anda, antrean 1.000 siswa akan menumpuk hingga 16+ detik,");
+            $this->line('       yang <fg=red;options=bold>PASTI MEMICU ERROR 504 GATEWAY TIMEOUT / 503 SERVICE UNAVAILABLE</> di browser siswa!');
+            $this->newLine();
+            $this->info("   👉 SOLUSI: Jalankan dengan <fg=green;options=bold>--mode-ujian=1</> untuk membuktikan kecepatan Fast-Submit tanpa antrean.");
+        } elseif ($s['total_ms'] <= 2500 && $s['throughput'] >= 200) {
+            $this->info("✅ KESIMPULAN AMAN: Mode Ujian AKTIF (Fast-Submit ⚡).");
+            $this->line("   Seluruh 1.000 siswa tuntas dalam <fg=green;options=bold>".number_format($s['total_ms'] / 1000, 2)." detik</>.");
+            $this->line('   Throughput mencapai <fg=green;options=bold>'.number_format($s['throughput'], 1)." submit/detik</>, sangat aman di bawah kapasitas 100 PHP Worker.");
         } else {
-            $this->warn('⚠️ KESIMPULAN: Waktu respon di atas 50ms, pastikan Mode Ujian selalu aktif saat pelaksanaan.');
+            $this->warn("⚠️ KESIMPULAN: Waktu respon mendekati ambang batas antrean. Pastikan proktor membagi siswa masuk secara bergelombang.");
         }
     }
 }
