@@ -67,4 +67,25 @@ class SchoolLetterheadTest extends TestCase
         $this->assertTrue(str_starts_with($fixed, "Sekolah\n"));
         $this->assertStringContainsString("Sekolah\n\nSekolah adalah tempat belajar.", $fixed);
     }
+
+    public function test_lines_memprioritaskan_kop_teks_dari_setting_aplikasi(): void
+    {
+        Setting::set('kop_teks', "<p>YAYASAN MUTIARA BANGSA</p>\n<p><strong>SMP MUTIARA BANGSA</strong></p>\n<p>Jl. Sudirman No. 1</p>");
+        Setting::set('nama_sekolah', 'Sekolah Lain');
+
+        $lines = SchoolLetterhead::lines();
+        $this->assertSame('YAYASAN MUTIARA BANGSA', $lines[0]);
+        $this->assertSame('SMP MUTIARA BANGSA', $lines[1]);
+        $this->assertSame('Jl. Sudirman No. 1', $lines[2]);
+
+        $html = SchoolLetterhead::kopTeksHtml();
+        $this->assertStringContainsString('YAYASAN MUTIARA BANGSA', $html);
+        $this->assertStringContainsString('SMP MUTIARA BANGSA', $html);
+    }
+
+    public function test_logo_methods_fallback(): void
+    {
+        $this->assertNotNull(SchoolLetterhead::logoKiriPath());
+        $this->assertNotNull(SchoolLetterhead::logoKiriUrl());
+    }
 }

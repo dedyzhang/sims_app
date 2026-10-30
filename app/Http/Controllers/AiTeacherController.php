@@ -23,11 +23,18 @@ use App\Support\LearningDocument;
 use App\Support\LearningDocxBuilder;
 use App\Support\ModulAktif;
 use App\Support\PresentationSlides;
+use App\Models\Pelajaran;
+use App\Models\Semester;
 use App\Support\QuizDocument;
 use App\Support\QuizDocxBuilder;
 use App\Support\QuizImageEnricher;
 use App\Support\SchoolLetterhead;
+use App\Support\ProsemProtaDocument;
+use App\Support\ProsemProtaDocxBuilder;
+use App\Support\StandardCurriculumCp;
 use App\Support\TeacherOutputLanguage;
+use App\Support\TpAtpDocument;
+use App\Support\TpAtpDocxBuilder;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
@@ -74,7 +81,7 @@ class AiTeacherController extends Controller
         $histories = AiTeacherHistory::query()
             ->where('user_uuid', auth()->id())
             ->latest()
-            ->limit(20)
+            ->limit(100)
             ->get()
             ->map(fn (AiTeacherHistory $history) => $this->historyPayload($history))
             ->values();
@@ -102,8 +109,25 @@ class AiTeacherController extends Controller
         $hasApiKey = $user->hasGeminiApiKey();
         $canvaStatus = app(\App\Services\CanvaConnectService::class)->statusPayload($user);
 
+        $tpatpDocuments = AiTeacherHistory::query()
+            ->where('user_uuid', $user->uuid)
+            ->where('type', 'tpatp')
+            ->latest()
+            ->limit(30)
+            ->get()
+            ->map(fn (AiTeacherHistory $h) => [
+                'uuid' => $h->uuid,
+                'title' => $h->title,
+                'answer' => $h->answer,
+                'metadata' => $h->metadata ?? [],
+                'created_at' => $h->created_at?->toIso8601String(),
+                'created_at_human' => $h->created_at?->locale('id')->diffForHumans(),
+            ])
+            ->values();
+
         return view('ai.teacher', [
             'histories' => $histories,
+            'tpatpDocuments' => $tpatpDocuments,
             'quotaUsage' => $this->aiPublicQuotaUsage(true, $user->uuid),
             'canViewQuotaUsage' => false,
             'arenaClassrooms' => $arenaClassrooms,
@@ -113,6 +137,14 @@ class AiTeacherController extends Controller
             'needsApiKeySetup' => ! $hasApiKey,
             'canvaStatus' => $canvaStatus,
             'teacherMaterials' => $this->materials->listPayloads($user->uuid),
+            'pelajarans' => Pelajaran::orderBy('urutan')->get(['uuid', 'nama', 'kode', 'jp']),
+            'standardCps' => StandardCurriculumCp::all(),
+            'activeTahunAjaran' => (Semester::where('is_active', 1)->orWhere('aktif', 1)->value('tahun') ?? '2026/2027'),
+            'activeSemester' => (Semester::where('is_active', 1)->orWhere('aktif', 1)->value('semester') ?? 1),
+            'defaultCalendarEventsGanjil' => ProsemProtaDocument::getDefaultCalendarEvents(true),
+            'defaultCalendarEventsGenap' => ProsemProtaDocument::getDefaultCalendarEvents(false),
+            'weekColumnsGanjil' => ProsemProtaDocument::getWeekColumns(true),
+            'weekColumnsGenap' => ProsemProtaDocument::getWeekColumns(false),
             'externalAccounts' => [
                 'has_gemini_api_key' => $hasApiKey,
                 'gemini_api_key_masked' => $user->geminiApiKeyMasked(),
@@ -140,7 +172,7 @@ class AiTeacherController extends Controller
     public function externalPrompt(Request $request): JsonResponse
     {
         $tool = $request->validate([
-            'tool' => ['required', 'in:quiz,blueprint,learning,summary,feedback,chat'],
+            'tool' => ['required', 'in:quiz,blueprint,learning,summary,feedback,chat,tpatp,prosemprota'],
         ])['tool'];
 
         $built = match ($tool) {
@@ -150,6 +182,8 @@ class AiTeacherController extends Controller
             'summary' => $this->composeSummary($request),
             'feedback' => $this->composeFeedback($request),
             'chat' => $this->composeChat($request),
+            'tpatp' => $this->composeTpAtp($request),
+            'prosemprota' => $this->composeTpAtp($request),
         };
 
         if ($built instanceof JsonResponse) {
@@ -179,7 +213,7 @@ class AiTeacherController extends Controller
     public function externalResult(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'tool' => ['required', 'in:quiz,blueprint,learning,summary,feedback,chat'],
+            'tool' => ['required', 'in:quiz,blueprint,learning,summary,feedback,chat,tpatp,prosemprota'],
             'title' => ['nullable', 'string', 'max:180'],
             'answer' => ['required', 'string', 'min:1', 'max:100000'],
         ]);
@@ -191,6 +225,8 @@ class AiTeacherController extends Controller
             'summary' => ['type' => 'summary', 'type_label' => 'Perangkum Materi'],
             'feedback' => ['type' => 'feedback', 'type_label' => 'Catatan Siswa'],
             'chat' => ['type' => 'gemini_chat', 'type_label' => 'Nalar Guru'],
+            'tpatp' => ['type' => 'tpatp', 'type_label' => 'TP & ATP'],
+            'prosemprota' => ['type' => 'prosem_prota', 'type_label' => 'Prosem & Prota'],
         };
 
         $title = trim((string) ($data['title'] ?? '')) ?: $meta['type_label'];
@@ -1393,6 +1429,358 @@ class AiTeacherController extends Controller
         ));
     }
 
+    /** POST /ai/teacher/tpatp — generator Tujuan Pembelajaran (TP) & Alur Tujuan Pembelajaran (ATP). */
+    public function tpatp(Request $request): JsonResponse
+    {
+        $built = $this->composeTpAtp($request);
+        if ($built instanceof JsonResponse) {
+            return $built;
+        }
+
+        @set_time_limit($this->teacherExecutionTimeLimit());
+
+        return $this->respond(
+            $request,
+            'teacher_tpatp',
+            $built['system'],
+            $built['prompt'],
+            $this->teacherMaxOutputTokens(),
+            $this->teacherGenerateOptions() + [
+                'thinking_level' => 'low',
+                'timeout' => (int) config('ai.long_timeout'),
+                'retries' => 1,
+                'answer_style' => $built['answer_style'],
+            ],
+            $built['history'],
+        );
+    }
+
+    /** POST /ai/teacher/tpatp/preview — render hasil jadi dokumen TP dan ATP berformat. */
+    public function previewTpAtp(Request $request): JsonResponse
+    {
+        $data = $this->validatedTpAtpExport($request);
+        $doc = TpAtpDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
+
+        return response()->json([
+            'ok' => true,
+            'parsed' => $doc['parsed'],
+            'html' => view('ai.teacher-tpatp-preview', [
+                'doc' => $doc,
+                'content' => $doc['text'],
+                'kopLogoKiri' => SchoolLetterhead::logoKiriUrl(),
+                'kopLogoKanan' => SchoolLetterhead::logoKananUrl(),
+                'kopTeksHtml' => SchoolLetterhead::kopTeksHtml(),
+                'kop' => SchoolLetterhead::lines(),
+            ])->render(),
+        ]);
+    }
+
+    /** POST /ai/teacher/tpatp/export-word — unduh dokumen Word (.docx) formal ber-border rapat. */
+    public function exportTpAtpWord(Request $request)
+    {
+        $data = $this->validatedTpAtpExport($request);
+        $title = $this->tpAtpExportTitle($data);
+        $fileName = (Str::slug($title) ?: 'tp-atp-kurikulum-merdeka').'-'.now()->format('Ymd-His').'.docx';
+        $path = tempnam(sys_get_temp_dir(), 'ai-tpatp-word-');
+
+        if (! $path) {
+            abort(500, 'Gagal membuat file Word.');
+        }
+
+        $doc = TpAtpDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
+
+        try {
+            $written = TpAtpDocxBuilder::write($path, $doc);
+            if (! $written) {
+                abort(500, 'Gagal menulis dokumen Word TP dan ATP.');
+            }
+        } catch (\Throwable $e) {
+            @unlink($path);
+            abort(500, 'Gagal menyusun dokumen Word TP dan ATP: '.$e->getMessage());
+        }
+
+        return $this->attachmentDownload($path, $fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+
+    /** POST /ai/teacher/tpatp/export-pdf — unduh dokumen PDF landscape identik format acuan. */
+    public function exportTpAtpPdf(Request $request)
+    {
+        $data = $this->validatedTpAtpExport($request);
+        $title = $this->tpAtpExportTitle($data);
+        $fileName = (Str::slug($title) ?: 'tp-atp-kurikulum-merdeka').'-'.now()->format('Ymd-His').'.pdf';
+
+        $doc = TpAtpDocument::parse(SchoolLetterhead::ensurePrefix($data['content']));
+
+        $pdf = Pdf::loadView('ai.teacher-tpatp-pdf', [
+            'title' => $title,
+            'content' => $doc['text'],
+            'doc' => $doc,
+            'isPdf' => true,
+            'kopLogoKiri' => SchoolLetterhead::logoKiriDataUri(),
+            'kopLogoKanan' => SchoolLetterhead::logoKananDataUri(),
+            'kopTeksHtml' => SchoolLetterhead::kopTeksHtml(),
+            'kop' => SchoolLetterhead::lines(),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download($fileName)->withHeaders($this->attachmentHeaders(
+            $fileName,
+            'application/pdf'
+        ));
+    }
+
+    private function validatedTpAtpExport(Request $request): array
+    {
+        if (! $request->has('content') && $request->has('text')) {
+            $request->merge(['content' => $request->input('text')]);
+        }
+
+        return $request->validate([
+            'title' => ['nullable', 'string', 'max:150'],
+            'content' => ['required', 'string', 'max:120000'],
+        ]);
+    }
+
+    private function tpAtpExportTitle(array $data): string
+    {
+        $title = trim((string) ($data['title'] ?? ''));
+
+        return $title !== '' ? $title : 'TP & ATP Kurikulum Merdeka';
+    }
+
+    /** POST /ai/teacher/prosem-prota/generate — susun Program Semester (PROSEM) & Program Tahunan (PROTA). */
+    public function generateProsemProta(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'source_uuid' => ['nullable', 'string'],
+            'content' => ['nullable', 'string', 'max:120000'],
+            'kelas' => ['nullable', 'string', 'max:10'],
+            'semester' => ['nullable', 'string', 'in:ganjil,genap,both'],
+            'jp_per_week' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'sumatif_jp' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'cadangan_jp_sem1' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'cadangan_jp_sem2' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'calendar_events_ganjil' => ['nullable', 'array'],
+            'calendar_events_genap' => ['nullable', 'array'],
+        ]);
+
+        $content = '';
+        if (! empty($data['source_uuid'])) {
+            $history = AiTeacherHistory::query()
+                ->where('uuid', $data['source_uuid'])
+                ->where('user_uuid', auth()->id())
+                ->first();
+            if ($history) {
+                $content = $history->answer;
+            }
+        }
+
+        if (empty($content) && ! empty($data['content'])) {
+            $content = $data['content'];
+        }
+
+        if (empty($content)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Pilih salah satu hasil TP & ATP yang sudah jadi atau masukkan teks dokumen TP & ATP terlebih dahulu.',
+            ], 422);
+        }
+
+        $options = [
+            'kelas' => $data['kelas'] ?? '',
+            'semester' => $data['semester'] ?? 'both',
+            'jp_per_week' => $data['jp_per_week'] ?? 3,
+            'sumatif_jp' => $data['sumatif_jp'] ?? 2,
+            'cadangan_jp_sem1' => $data['cadangan_jp_sem1'] ?? 0,
+            'cadangan_jp_sem2' => $data['cadangan_jp_sem2'] ?? 3,
+            'calendar_events_ganjil' => $data['calendar_events_ganjil'] ?? null,
+            'calendar_events_genap' => $data['calendar_events_genap'] ?? null,
+            'signature' => ProsemProtaDocument::resolveSignature(),
+        ];
+
+        $built = ProsemProtaDocument::buildFromTpAtp($content, $options);
+
+        if (! $built['is_valid']) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Dokumen TP & ATP tidak memiliki data tujuan pembelajaran atau materi pokok yang dapat disusun menjadi Prosem dan Prota.',
+            ], 422);
+        }
+
+        $title = "Prosem & Prota {$built['meta']['mapel']} Kelas {$built['meta']['kelas']}";
+
+        $history = $this->storeHistory(auth()->id(), [
+            'type' => 'prosem_prota',
+            'type_label' => 'Prosem & Prota',
+            'title' => $title,
+            'metadata' => [
+                'kelas' => $built['meta']['kelas'],
+                'mapel' => $built['meta']['mapel'],
+                'tahun' => $built['meta']['tahun'],
+                'source_uuid' => $data['source_uuid'] ?? null,
+                'options' => $options,
+                'doc' => $built,
+            ],
+        ], $built['text']);
+
+        return response()->json([
+            'ok' => true,
+            'answer' => $built['text'],
+            'doc' => $built,
+            'history' => $history,
+            'html' => view('ai.teacher-prosem-prota-preview', [
+                'doc' => $built,
+            ])->render(),
+        ]);
+    }
+
+    /** POST /ai/teacher/prosem-prota/preview — render pratinjau Prosem dan Prota berformat. */
+    public function previewProsemProta(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'content' => ['nullable', 'string', 'max:120000'],
+            'source_uuid' => ['nullable', 'string'],
+            'kelas' => ['nullable', 'string', 'max:10'],
+            'jp_per_week' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'sumatif_jp' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'cadangan_jp_sem1' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'cadangan_jp_sem2' => ['nullable', 'integer', 'min:0', 'max:20'],
+            'calendar_events_ganjil' => ['nullable', 'array'],
+            'calendar_events_genap' => ['nullable', 'array'],
+        ]);
+
+        $content = '';
+        if (! empty($data['source_uuid'])) {
+            $history = AiTeacherHistory::query()
+                ->where('uuid', $data['source_uuid'])
+                ->where('user_uuid', auth()->id())
+                ->first();
+            if ($history) {
+                $content = $history->answer;
+                // Jika tidak dikirim event kalender kustom di request, wariskan dari opsi tersimpan di history
+                if (empty($data['calendar_events_ganjil']) && ! empty($history->metadata['options']['calendar_events_ganjil'])) {
+                    $data['calendar_events_ganjil'] = $history->metadata['options']['calendar_events_ganjil'];
+                }
+                if (empty($data['calendar_events_genap']) && ! empty($history->metadata['options']['calendar_events_genap'])) {
+                    $data['calendar_events_genap'] = $history->metadata['options']['calendar_events_genap'];
+                }
+            }
+        }
+        if (empty($content) && ! empty($data['content'])) {
+            $content = $data['content'];
+        }
+
+        if (empty($content)) {
+            return response()->json(['ok' => false, 'message' => 'Konten dokumen kosong.'], 422);
+        }
+
+        if (empty($data['signature'])) {
+            $data['signature'] = ProsemProtaDocument::resolveSignature();
+        }
+
+        $doc = ProsemProtaDocument::buildFromTpAtp($content, $data);
+
+        return response()->json([
+            'ok' => true,
+            'html' => view('ai.teacher-prosem-prota-preview', [
+                'doc' => $doc,
+            ])->render(),
+            'doc' => $doc,
+        ]);
+    }
+
+    /** POST /ai/teacher/prosem-prota/export-word — unduh dokumen Word (.docx) PROTA atau PROSEM. */
+    public function exportProsemProtaWord(Request $request)
+    {
+        $data = $request->validate([
+            'content' => ['required', 'string', 'max:120000'],
+            'type' => ['nullable', 'string', 'in:both,prota,prosem,prosem_ganjil,prosem_genap'],
+            'title' => ['nullable', 'string', 'max:180'],
+            'kelas' => ['nullable', 'string', 'max:10'],
+            'jp_per_week' => ['nullable', 'integer'],
+            'sumatif_jp' => ['nullable', 'integer'],
+            'cadangan_jp_sem1' => ['nullable', 'integer'],
+            'cadangan_jp_sem2' => ['nullable', 'integer'],
+            'calendar_events_ganjil' => ['nullable', 'array'],
+            'calendar_events_genap' => ['nullable', 'array'],
+        ]);
+
+        $type = $data['type'] ?? 'both';
+        if (empty($data['signature'])) {
+            $data['signature'] = ProsemProtaDocument::resolveSignature();
+        }
+        $doc = ProsemProtaDocument::buildFromTpAtp($data['content'], $data);
+        $title = $data['title'] ?? "prosem-prota-{$doc['meta']['mapel']}-kelas-{$doc['meta']['kelas']}";
+        $fileName = (Str::slug($title) ?: 'prosem-prota').'-'.now()->format('Ymd-His').'.docx';
+        $path = tempnam(sys_get_temp_dir(), 'ai-prosem-word-');
+
+        if (! $path) {
+            abort(500, 'Gagal membuat file sementara.');
+        }
+
+        try {
+            $written = ProsemProtaDocxBuilder::write($path, $doc, $type);
+            if (! $written) {
+                abort(500, 'Gagal menulis dokumen Word Prosem & Prota.');
+            }
+        } catch (\Throwable $e) {
+            @unlink($path);
+            throw $e;
+        }
+
+        return $this->attachmentDownload($path, $fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+
+    /** POST /ai/teacher/prosem-prota/export-pdf — unduh dokumen PDF landscape PROTA atau PROSEM. */
+    public function exportProsemProtaPdf(Request $request)
+    {
+        $data = $request->validate([
+            'content' => ['required', 'string', 'max:120000'],
+            'doc_type' => ['nullable', 'string', 'in:prota,prosem_ganjil,prosem_genap,prosem'],
+            'title' => ['nullable', 'string', 'max:180'],
+            'kelas' => ['nullable', 'string', 'max:10'],
+            'jp_per_week' => ['nullable', 'integer'],
+            'sumatif_jp' => ['nullable', 'integer'],
+            'cadangan_jp_sem1' => ['nullable', 'integer'],
+            'cadangan_jp_sem2' => ['nullable', 'integer'],
+            'calendar_events_ganjil' => ['nullable', 'array'],
+            'calendar_events_genap' => ['nullable', 'array'],
+        ]);
+
+        $docType = $data['doc_type'] ?? 'prota';
+        if (empty($data['signature'])) {
+            $data['signature'] = ProsemProtaDocument::resolveSignature();
+        }
+        $doc = ProsemProtaDocument::buildFromTpAtp($data['content'], $data);
+        $title = $data['title'] ?? "Prosem Prota {$doc['meta']['mapel']} Kelas {$doc['meta']['kelas']}";
+        $fileName = (Str::slug($title) ?: 'prosem-prota').'-'.now()->format('Ymd-His').'.pdf';
+
+        if ($docType === 'prota') {
+            $pdf = Pdf::loadView('ai.teacher-prota-pdf', [
+                'title' => $title,
+                'prota' => $doc['prota'],
+                'doc' => $doc,
+            ])->setPaper('a4', 'landscape');
+        } elseif ($docType === 'prosem_genap') {
+            $pdf = Pdf::loadView('ai.teacher-prosem-pdf', [
+                'title' => $title.' (Semester Genap)',
+                'prosem' => $doc['prosem']['genap'],
+                'doc' => $doc,
+            ])->setPaper('a4', 'landscape');
+        } else {
+            // prosem_ganjil atau default prosem
+            $pdf = Pdf::loadView('ai.teacher-prosem-pdf', [
+                'title' => $title.' (Semester Ganjil)',
+                'prosem' => $doc['prosem']['ganjil'],
+                'doc' => $doc,
+            ])->setPaper('a4', 'landscape');
+        }
+
+        return $pdf->download($fileName)->withHeaders($this->attachmentHeaders(
+            $fileName,
+            'application/pdf'
+        ));
+    }
+
     /** POST /ai/teacher/learning - generator RPM Learning. */
     public function learning(Request $request): JsonResponse
     {
@@ -1885,6 +2273,241 @@ TXT;
                     'source' => $sourceType,
                     'source_file' => $sourceName ?: null,
                     'source_chars' => $sourceText !== '' ? mb_strlen($sourceText) : 0,
+                    'via' => 'sims',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array{system:string,prompt:string,answer_style:string,history:array,title:string}|JsonResponse
+     */
+    private function composeTpAtp(Request $request): array|JsonResponse
+    {
+        $rawMapel = trim((string) $request->input('mapel', ''));
+        $standard = $rawMapel !== '' ? StandardCurriculumCp::find($rawMapel) : null;
+
+        if (! $request->filled('cp') && $request->filled('cp_custom')) {
+            $request->merge(['cp' => $request->input('cp_custom')]);
+        } elseif (! $request->filled('cp') && $standard !== null) {
+            $request->merge([
+                'cp' => $standard['cp_utama'] ?? '',
+            ]);
+            if (! $request->filled('elemen') && ! empty($standard['elemen_utama'])) {
+                $request->merge(['elemen' => $standard['elemen_utama']]);
+            }
+        }
+
+        $data = $request->validate([
+            'mode' => ['nullable', 'in:both,tp,atp'],
+            'mapel' => ['required', 'string', 'max:150'],
+            'fase_kelas' => ['nullable', 'string', 'max:100'],
+            'tahun' => ['nullable', 'string', 'max:50'],
+            'elemen' => ['nullable', 'string', 'max:500'],
+            'cp' => ['required', 'string', 'max:10000'],
+            'lingkup_materi' => ['nullable', 'string', 'max:3000'],
+            'jp' => ['nullable', 'integer', 'min:1', 'max:120'],
+            'catatan' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $mode = $data['mode'] ?? 'both';
+        $mapel = trim((string) $data['mapel']);
+        $faseKelas = trim((string) ($data['fase_kelas'] ?? '')) ?: 'D/VII-IX';
+        $tahun = trim((string) ($data['tahun'] ?? '')) ?: (Semester::where('is_active', 1)->orWhere('aktif', 1)->value('tahun') ?? '2026-2027');
+        $tahun = str_replace('/', '-', $tahun);
+        $elemen = trim((string) ($data['elemen'] ?? '')) ?: 'Pemahaman Konsep';
+        $cp = trim((string) $data['cp']);
+        $lingkupMateri = trim((string) ($data['lingkup_materi'] ?? ''));
+        $jp = (int) ($data['jp'] ?? 27);
+        $catatan = trim((string) ($data['catatan'] ?? ''));
+
+        $kop = SchoolLetterhead::asPlainText();
+        $user = $request->user();
+        $userGuru = $user?->guru;
+        $namaGuru = $userGuru?->nama ?: ($user?->name ?: 'Guru Mata Pelajaran');
+        $nikGuru = $userGuru?->nik ?: ($userGuru?->nip ?: ($user?->username ?: '-'));
+        $kota = trim((string) Setting::get('kota', 'Tanjungpinang'));
+        if (str_starts_with(strtolower($kota), 'kota ')) {
+            $kota = substr($kota, 5);
+        }
+        $kota = $kota ?: 'Tanjungpinang';
+        $bulanIndo = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+        $tanggalHariIni = $kota.', '.now()->format('j').' '.$bulanIndo[(int) now()->format('n')].' '.now()->format('Y');
+
+        $instruksiLingkupMateri = '';
+        if ($lingkupMateri !== '') {
+            $instruksiLingkupMateri = <<<TXT
+
+LINGKUP MATERI YANG DITENTUKAN GURU (WAJIB DIIKUTI SECARA KONSISTEN):
+Guru telah menetapkan daftar lingkup materi pokok secara manual sebagai berikut:
+{$lingkupMateri}
+
+PERHATIAN KHUSUS UNTUK LINGKUP MATERI DI ATAS:
+- Kamu WAJIB menyusun Tujuan Pembelajaran (TP) dan Alur Tujuan Pembelajaran (ATP) dengan MENGGUNAKAN LINGKUP MATERI DI ATAS.
+- Petakan dan distribusikan butir-butir TP secara logis, runtut, dan terstruktur ke dalam masing-masing lingkup materi tersebut.
+- ATURAN JUMLAH & VARIASI TP: Untuk setiap lingkup materi (baik jika langsung 3 tingkat kelas 7, 8, 9 maupun per tingkat), VARIASIKAN jumlah butir TP sesuai kedalaman materi. Materi yang luas dan kompleks WAJIB dibuat menjadi 3 sampai 4 butir TP (maksimal 4 TP), sedangkan materi yang lebih ringkas 2 sampai 3 butir TP (minimal 2 TP). DILARANG KERAS membuat semua materi seragam hanya 2 TP!
+- Jangan mengganti, mengabaikan, atau mengacak lingkup materi di atas dengan topik lain yang tidak relevan.
+TXT;
+        }
+
+        $instruksiKhusus = '';
+        if ($catatan !== '') {
+            $instruksiKhusus = "\nCatatan dan Fokus Khusus dari Guru:\n{$catatan}\n";
+        }
+
+        $prompt = <<<TXT
+Kamu diminta menyusun dokumen resmi Tujuan Pembelajaran (TP) dan Alur Tujuan Pembelajaran (ATP) Kurikulum Merdeka yang disesuaikan dengan Capaian Pembelajaran (CP) mata pelajaran.
+
+KOP SURAT RESMI SEKOLAH (Wajib disalin PERSIS; berasal dari data identitas sekolah yang tersimpan di aplikasi SIMS):
+{$kop}
+
+DATA MATA PELAJARAN:
+- Mata Pelajaran: {$mapel}
+- Fase / Kelas: {$faseKelas}
+- Tahun Pelajaran: {$tahun}
+- Elemen: {$elemen}
+- Capaian Pembelajaran (CP):
+{$cp}
+- Estimasi Alokasi Waktu: {$jp} JP per lingkup materi
+{$instruksiLingkupMateri}
+{$instruksiKhusus}
+
+PETUNJUK FORMAT DOKUMEN:
+- Gunakan KOP SURAT RESMI SEKOLAH di atas (salin persis dari data aplikasi SIMS). Jangan mengganti atau mengarang nama yayasan/sekolah lain.
+- Struktur tabel dan alur ikuti format standar dokumen resmi:
+TXT;
+
+        if ($mode === 'both' || $mode === 'tp') {
+            $petunjukLingkup = $lingkupMateri !== ''
+                ? 'Gunakan lingkup materi yang telah ditentukan oleh guru di atas untuk mengelompokkan dan menjabarkan setiap TP.'
+                : 'Tuliskan nama Lingkup Materi pokok yang terperinci dan kontekstual (bukan singkatan abstrak) untuk setiap baris TP agar materi pembelajaran terjabarkan dengan tuntas.';
+
+            $prompt .= <<<TXT
+
+1. BAGIAN TUJUAN PEMBELAJARAN (TP):
+Tulis judul:
+TUJUAN PEMBELAJARAN (TP)
+MATA PELAJARAN : {$mapel}
+FASE / KELAS : {$faseKelas}
+TAHUN PELAJARAN : {$tahun}
+
+Tulis penanda: "TABEL TUJUAN PEMBELAJARAN"
+Lalu buat tabel dengan delimiter pipe "|" dengan kolom persis:
+ELEMEN | CAPAIAN PEMBELAJARAN | LINGKUP MATERI | TUJUAN PEMBELAJARAN (TP) | KODE TP | ALOKASI WAKTU (JP) | SEMESTER
+
+Aturan Tabel TP:
+- Turunkan butir-butir Tujuan Pembelajaran (TP) dari teks Capaian Pembelajaran (CP) yang diberikan.
+- TP harus operasional, spesifik, terukur, dan menggunakan Kata Kerja Operasional (KKO) Taksonomi Bloom (seperti Menjelaskan, Mengidentifikasi, Menganalisis, Memprediksi, Menguraikan, Merefleksikan).
+- JABARKAN LINGKUP MATERI SECARA JELAS: {$petunjukLingkup}
+- Kelompokkan TP ke dalam Lingkup Materi pokok yang relevan.
+- ATURAN JUMLAH DAN VARIASI TP PER LINGKUP MATERI (WAJIB DIPATUHI & HARUS BERVARIASI):
+  * DILARANG KERAS membuat semua materi seragam hanya 2 TP!
+  * Kamu WAJIB MEMVARIASIKAN jumlah butir TP sesuai kedalaman dan kompleksitas materi:
+    - Jika materi luas, padat konsep, atau kompleks (misal: sejarah lokal dan toponimi nusantara, dinamika sosial dan integrasi bangsa, mitigasi bencana dan kebijakan ekonomi, aljabar linear, geometri bangun ruang, dsb): WAJIB DIBUAT MENJADI 3 SAMPAI 4 BUTIR TP (maksimal 4 TP).
+    - Jika materi lebih ringkas atau fokus: buat 2 sampai 3 butir TP (minimal 2 TP).
+  * Dokumen untuk 3 tingkat (Kelas 7, 8, 9) maupun per tingkat HARUS memiliki variasi yang dinamis: beberapa materi memiliki 3 TP, materi kompleks memiliki 4 TP, dan materi sederhana 2 TP.
+  * DILARANG membuat hanya 1 butir TP untuk satu materi (terlalu sedikit).
+  * DILARANG membuat lebih dari 4 butir TP dalam satu materi (agar alur tetap fokus dan proporsional).
+- Kode TP harus sistematis:
+  * Jika mencakup 3 tingkat: sesuaikan kode dengan jenjang kelas, contoh Kelas 7: [Inisial].7.1 s/d [Inisial].7.x; Kelas 8: [Inisial].8.1 s/d [Inisial].8.x; Kelas 9: [Inisial].9.1 s/d [Inisial].9.x.
+- ATURAN PENTING KOLOM ALOKASI WAKTU (JP) DI TABEL TP: Tuliskan nilai alokasi total materi "{$jp} JP" pada setiap baris TP dalam lingkup materi tersebut (misalnya "{$jp} JP"). Kolom ini di tabel TP akan dimerge menjadi satu sel utuh per lingkup materi.
+- Tentukan Semester pelaksanaan ("Ganjil" atau "Genap").
+TXT;
+        }
+
+        if ($mode === 'both' || $mode === 'atp') {
+            $prompt .= <<<TXT
+
+2. BAGIAN ALUR TUJUAN PEMBELAJARAN (ATP):
+Tulis judul:
+ALUR TUJUAN PEMBELAJARAN (ATP)
+MATA PELAJARAN : {$mapel}
+FASE / KELAS : {$faseKelas}
+TAHUN PELAJARAN : {$tahun}
+
+Tulis penanda: "DIAGRAM ALUR TUJUAN PEMBELAJARAN"
+Lalu susun alur tahapan pembelajaran Fase D (Kelas 7, Kelas 8, Kelas 9) dengan format baris tabel delimiter pipe "|":
+TAHAP | KELAS | SEMESTER | KODE | LINGKUP MATERI | TUJUAN PEMBELAJARAN | TIPE
+
+Keterangan kolom Diagram Alur:
+- TAHAP: label tahapan (misal Awal, TP 1, TP 2, Mid, Transisi, Akhir)
+- KELAS: 7, 8, atau 9
+- SEMESTER: Ganjil atau Genap
+- KODE: kode TP (misal PK.7.1, PK.7.2, PK.8.1, dst; atau "-" untuk titik awal/transisi)
+- LINGKUP MATERI: jabarkan lingkup materi pokok secara jelas (misal: "Keberagaman Geografis dan SDA", "Dinamika Sosial dan Lembaga"; atau "-" untuk titik awal/transisi)
+- TUJUAN PEMBELAJARAN: teks kompetensi ringkas untuk kotak diagram
+- TIPE: salah satu dari:
+  * "start" : untuk node awal semester (wajib tulis judul lengkap di kolom TUJUAN PEMBELAJARAN, misal "Awal fase D Kelas 7 Semester Ganjil")
+  * "tp" : untuk kotak tujuan pembelajaran utama
+  * "transition" : untuk node penghubung antarkelas (wajib tulis judul lengkap di kolom TUJUAN PEMBELAJARAN, misal "Capaian Pembelajaran Akhir Fase D Kelas 7 menuju pembelajaran fase D kelas 8 Semester Ganjil")
+  * "end" : untuk node capaian akhir fase (wajib tulis judul di kolom TUJUAN PEMBELAJARAN, misal "Capaian Pembelajaran Akhir Fase D")
+
+PENTING UNTUK NODE TIPE "start", "transition", dan "end":
+- Kolom TUJUAN PEMBELAJARAN TIDAK BOLEH BERISI TANDA HUBUNG ("-")! Selalu tuliskan kalimat judul lengkapnya.
+- Jangan biarkan kotak start atau transisi hanya berisi tanda "-".
+
+Aturan Diagram Alur:
+- Bagi alur secara sistematis per jenjang kelas (Kelas 7, Kelas 8, Kelas 9).
+- Tampilkan butir-butir TP yang telah bervariasi per lingkup materi (2 sampai 4 TP per materi sesuai kompleksitasnya).
+- JABARKAN LINGKUP MATERI PADA SETIAP KOTAK TP secara jelas dan terarah sesuai muatan kurikulum.
+
+Lalu tulis penanda: "TABEL ALUR TUJUAN PEMBELAJARAN"
+NO | KELAS | SEMESTER | LINGKUP MATERI | KODE TP | TUJUAN PEMBELAJARAN | ALOKASI JP
+(Daftar urutan alur pembelajaran secara kronologis dari awal hingga akhir fase).
+
+ATURAN PENTING KOLOM ALOKASI JP PADA TABEL ATP:
+- Pada tabel ATP, kolom ALOKASI JP adalah alokasi waktu PER BUTIR TUJUAN PEMBELAJARAN (bukan mengulang total materi)!
+- Nilai ALOKASI JP per butir TP WAJIB dihitung dari total JP lingkup materi tersebut ("{$jp} JP") dibagi sesuai jumlah butir TP di dalamnya sehingga jumlah alokasi per TP pas dengan total materi.
+  * Contoh: Jika lingkup materi memiliki alokasi 18 JP dan terdiri dari 2 butir TP, maka alokasi per TP di tabel ATP masing-masing adalah "9 JP" dan "9 JP" (18 / 2 = 9 JP), BUKAN menuliskan 18 JP di setiap baris TP!
+  * Contoh: Jika alokasi materi 27 JP dan ada 3 butir TP, maka alokasi per butir TP adalah "9 JP", "9 JP", "9 JP" (27 / 3 = 9 JP).
+  * Contoh: Jika alokasi materi 27 JP dan ada 4 butir TP, maka bagikan secara proporsional (misal 7 JP, 7 JP, 7 JP, 6 JP sehingga totalnya pas 27 JP).
+- DILARANG KERAS mengulang angka total materi (misal {$jp} JP) di setiap baris butir TP pada tabel ATP!
+TXT;
+        }
+
+        $prompt .= <<<TXT
+
+3. PENUTUP & TANDA TANGAN:
+Tulis marker "TANDA TANGAN:"
+{$tanggalHariIni}
+Guru Mata Pelajaran
+
+{$namaGuru}
+NIK. {$nikGuru}
+
+ATURAN PENTING:
+- Gunakan teks polos dengan pemisah pipe "|" untuk tabel agar sistem dapat merender menjadi tabel dan diagram visual berformat persis contoh PDF acuan.
+- Jangan gunakan formatting Markdown lain (#, **, ```) di dalam isi dokumen.
+- Pastikan seluruh tujuan pembelajaran selaras dengan teks CP yang diberikan.
+TXT;
+
+        $titleLabel = match ($mode) {
+            'tp' => 'TP - ' . $mapel,
+            'atp' => 'ATP - ' . $mapel,
+            default => 'TP & ATP - ' . $mapel,
+        };
+
+        return [
+            'system' => (string) config('ai.teacher.tpatp'),
+            'prompt' => $prompt,
+            'answer_style' => 'Tulis sebagai dokumen TP & ATP resmi berformat teks polos dengan tabel pipe "|". Jangan gunakan markdown pagar (#) atau bintang (**).',
+            'title' => $titleLabel,
+            'history' => [
+                'type' => 'tpatp',
+                'type_label' => 'TP & ATP',
+                'title' => $titleLabel,
+                'metadata' => [
+                    'mode' => $mode,
+                    'mapel' => $mapel,
+                    'fase_kelas' => $faseKelas,
+                    'tahun' => $tahun,
+                    'elemen' => $elemen,
+                    'lingkup_materi' => $lingkupMateri,
+                    'jp' => $jp,
                     'via' => 'sims',
                 ],
             ],
@@ -2390,159 +3013,7 @@ TXT;
 
     private function learningFormatInstruction(string $tool): string
     {
-        $kop = SchoolLetterhead::asPlainText();
-        $namaSekolah = SchoolLetterhead::schoolName();
-        $kepala = SchoolLetterhead::kepalaSekolah();
-        $nipKepala = SchoolLetterhead::nipKepala();
-
-        return <<<TXT
-Ikuti format RPM resmi sekolah PERSIS (hasil export Word/PDF harus sama bentuknya). Tulis teks polos tanpa Markdown (#, **, ```), tanpa pembuka/penutup di luar dokumen.
-
-KOP WAJIB (salin PERSIS dari identitas sekolah di SIMS; jangan diganti atau dikarang):
-{$kop}
-
-JUDUL:
-PERENCANAAN PEMBELAJARAN MENDALAM
-"[JUDUL TOPIK HURUF KAPITAL DALAM TANDA KUTIP]"
-
-IDENTITAS (satu label per baris, spasi sebelum titik dua):
-SEKOLAH : {$namaSekolah}
-NAMA GURU : [nama]
-MATA PELAJARAN : [mapel]
-KELAS / SEMESTER : [kelas] / [semester]
-ALOKASI WAKTU : [contoh: 2 JP (2 x 40 Menit)]
-
-IDENTIFIKASI
-Murid:
-[paragraf kondisi murid]
-Materi:
-[nama materi]
-Dimensi Profil Lulusan (DPL):
-Dimensi profil lulusan yang akan dicapai dalam pembelajaran:
-☑ DPL 1 Keimanan dan ketakwaan terhadap Tuhan Yang Maha Esa
-☑ DPL 2 Kewargaan
-☑ DPL 3 Penalaran Kritis
-☐ DPL 4 Kreativitas
-☑ DPL 5 Kolaborasi
-☑ DPL 6 Kemandirian
-☑ DPL 7 Kesehatan
-☑ DPL 8 Komunikasi
-(centang ☑ hanya yang relevan; sisanya ☐ — selalu 8 baris)
-
-DESAIN PEMBELAJARAN
-Capaian Pembelajaran:
-[paragraf]
-Lintas Disiplin Ilmu:
-[disiplin]: [isi]
-Tujuan Pembelajaran:
-1. ...
-2. ...
-Topik Pembelajaran:
-1. ...
-2. ...
-Praktik Pedagogis:
-[pendekatan/model]
-Kemitraan Pembelajaran:
-1. ...
-2. ...
-Lingkungan Pembelajaran:
-Lingkungan Pembelajaran Terintegrasi:
-Ruang Fisik (Lingkungan Nyata):
-• ...
-Ruang Virtual (Pembelajaran Kolaboratif):
-• ...
-Budaya Belajar:
-• ...
-Pemanfaatan Digital:
-1. Perencanaan: ...
-2. Pelaksanaan: ...
-3. Asesmen: ...
-4. Media Sosial & Kampanye Digital: ...
-
-PENGALAMAN BELAJAR
-AWAL
-(Berkesadaran, Bermakna, dan Menggembirakan)
-✓ [kegiatan] (Berkesadaran)
-✓ [kegiatan]
-✓ [pertanyaan pemantik]:
-"[pertanyaan 1]"
-"[pertanyaan 2]"
-INTI (Berkesadaran, Bermakna, dan Menggembirakan)
-MEMAHAMI
-(Berkesadaran dan Bermakna)
-✓ ...
-MENGAPLIKASI
-(Berkesadaran, Bermakna, dan Menggembirakan)
-✓ ...
-MEREFLEKSI
-(Berkesadaran, Bermakna, dan Menggembirakan)
-✓ ...
-PENUTUP (Berkesadaran, Bermakna, dan Menggembirakan)
-✓ ...
-✓ [refleksi]:
-"[pertanyaan]"
-"[pertanyaan]"
-"[pertanyaan]"
-
-ASESMEN PEMBELAJARAN
-Asesmen pada Awal Pembelajaran:
-[deskripsi]
-• Jenis Soal: ...
-• Jumlah Soal: ...
-• Tujuan: ...
-Asesmen pada Proses Pembelajaran:
-[deskripsi observasi]
-Asesmen pada Akhir Pembelajaran:
-[deskripsi]
-a. ...
-b. ...
-
-TANDA TANGAN:
-[Tempat], [tanggal]
-Mengetahui, | Guru Mata Pelajaran
-Kepala Sekolah |
-{$kepala} | [Nama Guru]
-NIK. {$nipKepala} | NIK. [nomor/titik-titik]
-
-LAMPIRAN 1 : ASESMEN AWAL PEMBELAJARAN
-• Materi : ...
-• Kelas : ...
-• Jenis Soal : ...
-• Tujuan : ...
-A. Soal Pilihan Ganda (3 soal)
-1. ...
-a. ...
-b. ...
-c. ...
-d. ...
-(minimal 3 soal)
-
-LAMPIRAN 2 : ASESMEN PADA PROSES PEMBELAJARAN
-Tujuan Pembelajaran:
-1. ...
-2. ...
-Kompetensi | Baru Mulai | Berkembang | Cakap | Mahir
-[kompetensi] | [baru mulai] | [berkembang] | [cakap] | [mahir]
-(minimal 4 baris kompetensi)
-Keterangan:
-• Baru Mulai: ...
-• Berkembang: ...
-• Cakap: ...
-• Mahir: ...
-
-LAMPIRAN 3 : ASESMEN PADA AKHIR PEMBELAJARAN
-• Kisi-Kisi : ...
-• Materi : ...
-Soal Pilihan Ganda
-1. ...
-a. ...
-b. ...
-c. ...
-d. ...
-(minimal 10 soal)
-
-Isi harus sesuai topik/mapel/kelas yang diminta. Jangan mengarang identitas yang tidak diberikan — pakai placeholder [Nama Guru] bila belum ada. Kop surat dan nama kepala sekolah sudah diisi dari data SIMS.
-TXT;
+        return LearningDocument::formatInstruction($tool);
     }
 
     private function learningToolLabel(string $tool): string

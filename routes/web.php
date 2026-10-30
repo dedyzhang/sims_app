@@ -84,6 +84,7 @@ use App\Http\Controllers\Osis\OsisPemilihanController;
 use App\Http\Controllers\Osis\OsisPemilihController;
 use App\Http\Controllers\Osis\OsisVoteController;
 use App\Http\Controllers\LanggananController;
+use App\Http\Controllers\RpmDigitalController;
 use App\Http\Controllers\BankSoalController;
 use App\Http\Controllers\UjianAnalisisController;
 use App\Http\Controllers\UjianController;
@@ -279,6 +280,14 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/quiz/export-pdf', 'exportQuizPdf')->name('quiz.export-pdf');
             Route::post('/quiz/send-arena', 'sendToArena')->middleware('throttle:20,1')->name('quiz.send-arena');
             Route::post('/blueprint', 'blueprint')->name('blueprint');
+            Route::post('/tpatp', 'tpatp')->name('tpatp');
+            Route::post('/tpatp/preview', 'previewTpAtp')->name('tpatp.preview');
+            Route::post('/tpatp/export-word', 'exportTpAtpWord')->name('tpatp.export-word');
+            Route::post('/tpatp/export-pdf', 'exportTpAtpPdf')->name('tpatp.export-pdf');
+            Route::post('/prosem-prota/generate', 'generateProsemProta')->name('prosem-prota.generate');
+            Route::post('/prosem-prota/preview', 'previewProsemProta')->name('prosem-prota.preview');
+            Route::post('/prosem-prota/export-word', 'exportProsemProtaWord')->name('prosem-prota.export-word');
+            Route::post('/prosem-prota/export-pdf', 'exportProsemProtaPdf')->name('prosem-prota.export-pdf');
             Route::post('/learning', 'learning')->name('learning');
             Route::post('/learning/preview', 'previewLearning')->name('learning.preview');
             Route::post('/learning/export-word', 'exportLearningWord')->name('learning.export-word');
@@ -689,6 +698,27 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::post('/{guru}/{list}/upload', 'upload')->middleware('throttle:30,1')->name('upload');
         Route::get('/{guru}', 'show')->name('show');
     });
+
+    // ─── RPM Digital (Rencana Pembelajaran Mendalam) ───
+    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,sarpras,sapras,admin', 'modul:akademik'])
+        ->prefix('akademik/rpm-digital')
+        ->name('rpm.')
+        ->controller(RpmDigitalController::class)
+        ->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('/buat', 'create')->name('create');
+            Route::post('/', 'store')->name('store');
+            Route::post('/generate', 'generate')->middleware('throttle:30,1')->name('generate');
+            Route::post('/generate-pdf', 'generateFromPdf')->middleware('throttle:20,1')->name('generate-pdf');
+            Route::post('/preview', 'preview')->name('preview');
+            Route::get('/{rpm}', 'show')->name('show');
+            Route::get('/{rpm}/edit', 'edit')->name('edit');
+            Route::put('/{rpm}', 'update')->name('update');
+            Route::delete('/{rpm}', 'destroy')->name('destroy');
+            Route::post('/{rpm}/state', 'saveInteractiveState')->name('save-state');
+            Route::get('/{rpm}/export-pdf', 'exportPdf')->name('export-pdf');
+            Route::get('/{rpm}/export-word', 'exportWord')->name('export-word');
+        });
 
     // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Kalender Absensi & Agenda (admin & kurikulum; guard di controller) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     Route::middleware('modul:absensi')->prefix('kalender-absensi')->name('kalender.')->controller(KalenderController::class)->group(function () {

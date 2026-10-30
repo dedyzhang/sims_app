@@ -11,28 +11,32 @@ use ZipArchive;
  */
 trait DocxXml
 {
-    protected static function run(string $text, bool $bold = false, bool $italic = false, int $sz = 20, ?string $color = null): string
+    protected static function run(string $text, bool $bold = false, bool $italic = false, int $sz = 20, ?string $color = null, bool $underline = false): string
     {
         $props = '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>'
             .($bold ? '<w:b/>' : '')
             .($italic ? '<w:i/>' : '')
+            .($underline ? '<w:u w:val="single"/>' : '')
             .($color !== null ? '<w:color w:val="'.$color.'"/>' : '')
             .'<w:sz w:val="'.$sz.'"/><w:szCs w:val="'.$sz.'"/>';
 
         return '<w:r><w:rPr>'.$props.'</w:rPr><w:t xml:space="preserve">'.htmlspecialchars($text, ENT_QUOTES | ENT_XML1, 'UTF-8').'</w:t></w:r>';
     }
 
-    /** @param array{align?:string,after?:int,before?:int,left?:int,hanging?:int,rule?:bool} $opts */
+    /** @param array{align?:string,after?:int,spaceAfter?:int,before?:int,spaceBefore?:int,left?:int,hanging?:int,rule?:bool,bottomBorder?:string,borderSz?:int,border_sz?:int} $opts */
     protected static function p(array $runs, array $opts = []): string
     {
         $pPr = '';
-        if (! empty($opts['rule'])) {
-            $pPr .= '<w:pBdr><w:bottom w:val="single" w:sz="8" w:space="4" w:color="000000"/></w:pBdr>';
+        if (! empty($opts['rule']) || ! empty($opts['bottomBorder'])) {
+            $sz = (int) ($opts['borderSz'] ?? $opts['border_sz'] ?? 8);
+            $pPr .= '<w:pBdr><w:bottom w:val="single" w:sz="'.$sz.'" w:space="4" w:color="000000"/></w:pBdr>';
         }
         if (isset($opts['left']) || isset($opts['hanging'])) {
             $pPr .= '<w:ind'.(isset($opts['left']) ? ' w:left="'.$opts['left'].'"' : '').(isset($opts['hanging']) ? ' w:hanging="'.$opts['hanging'].'"' : '').'/>';
         }
-        $pPr .= '<w:spacing'.(isset($opts['before']) ? ' w:before="'.$opts['before'].'"' : '').' w:after="'.($opts['after'] ?? 80).'"/>';
+        $after = $opts['after'] ?? ($opts['spaceAfter'] ?? 80);
+        $before = $opts['before'] ?? ($opts['spaceBefore'] ?? null);
+        $pPr .= '<w:spacing'.($before !== null ? ' w:before="'.$before.'"' : '').' w:after="'.$after.'"/>';
         if (isset($opts['align'])) {
             $pPr .= '<w:jc w:val="'.$opts['align'].'"/>';
         }
@@ -40,18 +44,23 @@ trait DocxXml
         return '<w:p><w:pPr>'.$pPr.'</w:pPr>'.implode('', $runs).'</w:p>';
     }
 
-    /** @param array{w:int,span?:int,vmerge?:string,fill?:string|null,borders?:bool,border_sz?:int} $opts */
+    /** @param array{w:int,span?:int,gridSpan?:int,vmerge?:string,vMerge?:string,fill?:string|null,shd?:string|null,borders?:bool,noBorder?:bool,border_sz?:int,valign?:string,vAlign?:string,textDirection?:string} $opts */
     protected static function tc(array $content, array $opts): string
     {
         $tcPr = '<w:tcW w:w="'.$opts['w'].'" w:type="dxa"/>';
-        if (isset($opts['span'])) {
-            $tcPr .= '<w:gridSpan w:val="'.$opts['span'].'"/>';
+
+        $span = $opts['span'] ?? ($opts['gridSpan'] ?? null);
+        if ($span !== null && (int) $span > 1) {
+            $tcPr .= '<w:gridSpan w:val="'.$span.'"/>';
         }
-        if (isset($opts['vmerge'])) {
-            $tcPr .= $opts['vmerge'] === 'restart' ? '<w:vMerge w:val="restart"/>' : '<w:vMerge/>';
+
+        $vmerge = $opts['vmerge'] ?? ($opts['vMerge'] ?? null);
+        if ($vmerge !== null) {
+            $tcPr .= $vmerge === 'restart' ? '<w:vMerge w:val="restart"/>' : '<w:vMerge/>';
         }
-        // Border per-sel wajib agar garis tidak putus (terutama di sel vMerge).
-        if ($opts['borders'] ?? true) {
+
+        $hasBorders = ($opts['borders'] ?? true) && empty($opts['noBorder']);
+        if ($hasBorders) {
             $sz = (int) ($opts['border_sz'] ?? 4);
             $tcPr .= '<w:tcBorders>'
                 .'<w:top w:val="single" w:color="000000" w:sz="'.$sz.'"/>'
@@ -59,17 +68,47 @@ trait DocxXml
                 .'<w:bottom w:val="single" w:color="000000" w:sz="'.$sz.'"/>'
                 .'<w:right w:val="single" w:color="000000" w:sz="'.$sz.'"/>'
                 .'</w:tcBorders>';
-        }
-        if (! empty($opts['fill'])) {
-            $tcPr .= '<w:shd w:val="clear" w:color="auto" w:fill="'.$opts['fill'].'"/>';
+        } else {
+            $tcPr .= '<w:tcBorders>'
+                .'<w:top w:val="none"/>'
+                .'<w:left w:val="none"/>'
+                .'<w:bottom w:val="none"/>'
+                .'<w:right w:val="none"/>'
+                .'</w:tcBorders>';
         }
 
-        return '<w:tc><w:tcPr>'.$tcPr.'</w:tcPr>'.implode('', $content).'</w:tc>';
+        $fill = $opts['fill'] ?? ($opts['shd'] ?? null);
+        if (! empty($fill)) {
+            $tcPr .= '<w:shd w:val="clear" w:color="auto" w:fill="'.ltrim($fill, '#').'"/>';
+        }
+
+        if (! empty($opts['textDirection'])) {
+            $tcPr .= '<w:textDirection w:val="'.$opts['textDirection'].'"/>';
+        }
+
+        $valign = $opts['valign'] ?? ($opts['vAlign'] ?? null);
+        if (! empty($valign)) {
+            $tcPr .= '<w:vAlign w:val="'.$valign.'"/>';
+        }
+
+        // OpenXML mewajibkan sel tabel berisi setidaknya satu unsur block-level (<w:p>)
+        $inner = empty($content) ? '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>' : implode('', $content);
+
+        return '<w:tc><w:tcPr>'.$tcPr.'</w:tcPr>'.$inner.'</w:tc>';
     }
 
-    protected static function tr(string $cells): string
+    /** @param array{header?:bool,cantSplit?:bool} $opts */
+    protected static function tr(string $cells, array $opts = []): string
     {
-        return '<w:tr>'.$cells.'</w:tr>';
+        $trPr = '';
+        if (! empty($opts['header'])) {
+            $trPr .= '<w:tblHeader/>';
+        }
+        if ($opts['cantSplit'] ?? true) {
+            $trPr .= '<w:cantSplit/>';
+        }
+
+        return '<w:tr>'.($trPr !== '' ? '<w:trPr>'.$trPr.'</w:trPr>' : '').$cells.'</w:tr>';
     }
 
     /** @param int[] $gridCols */
@@ -92,7 +131,7 @@ trait DocxXml
         }
 
         return '<w:tbl><w:tblPr><w:tblW w:w="'.array_sum($gridCols).'" w:type="dxa"/>'.$borders
-            .'<w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar>'
+            .'<w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="60" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="60" w:type="dxa"/></w:tblCellMar>'
             .'<w:tblLayout w:type="fixed"/></w:tblPr>'
             .'<w:tblGrid>'.$grid.'</w:tblGrid>'
             .$rows
@@ -108,19 +147,23 @@ trait DocxXml
     /**
      * Bungkus body WordprocessingML jadi dokumen A4 utuh.
      *
-     * @param  array{orientation?:string,margin?:array{top?:int,right?:int,bottom?:int,left?:int}}  $opts
+     * @param  array{orientation?:string,landscape?:bool,margin?:array{top?:int,right?:int,bottom?:int,left?:int}}  $opts
      */
     protected static function documentXmlFor(string $body, array $opts = []): string
     {
-        $landscape = ($opts['orientation'] ?? 'portrait') === 'landscape';
+        $landscape = (($opts['orientation'] ?? 'portrait') === 'landscape')
+            || (! empty($opts['landscape']));
         $pageW = $landscape ? 16838 : 11906;
         $pageH = $landscape ? 11906 : 16838;
         $orient = $landscape ? ' w:orient="landscape"' : '';
         $margin = $opts['margin'] ?? [];
-        $top = (int) ($margin['top'] ?? 1440);
-        $right = (int) ($margin['right'] ?? 1440);
-        $bottom = (int) ($margin['bottom'] ?? 1440);
-        $left = (int) ($margin['left'] ?? 1440);
+
+        // Standar margin landscape: 1140 dxa (~20mm) agar pas dengan lebar konten tabel 14558 dxa
+        $defaultMargin = $landscape ? 1140 : 1440;
+        $top = (int) ($margin['top'] ?? $defaultMargin);
+        $right = (int) ($margin['right'] ?? $defaultMargin);
+        $bottom = (int) ($margin['bottom'] ?? $defaultMargin);
+        $left = (int) ($margin['left'] ?? $defaultMargin);
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'

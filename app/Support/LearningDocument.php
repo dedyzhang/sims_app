@@ -341,4 +341,165 @@ final class LearningDocument
 
         return null;
     }
+
+    /**
+     * Panduan format RPM (Rencana Pembelajaran Mendalam) resmi untuk prompt AI.
+     * Menggunakan kop surat, identitas kepala sekolah, dan struktur tabel acuan resmi.
+     */
+    public static function formatInstruction(string $tool = 'rpp'): string
+    {
+        $kop = SchoolLetterhead::asPlainText();
+        $namaSekolah = SchoolLetterhead::schoolName();
+        $kepala = SchoolLetterhead::kepalaSekolah();
+        $nipKepala = SchoolLetterhead::nipKepala();
+
+        return <<<TXT
+Ikuti format RPM resmi sekolah PERSIS (hasil export Word/PDF harus sama bentuknya). Tulis teks polos tanpa Markdown (#, **, ```), tanpa pembuka/penutup di luar dokumen.
+
+KOP WAJIB (salin PERSIS dari identitas sekolah di SIMS; jangan diganti atau dikarang):
+{$kop}
+
+JUDUL:
+PERENCANAAN PEMBELAJARAN MENDALAM
+"[JUDUL TOPIK HURUF KAPITAL DALAM TANDA KUTIP]"
+
+IDENTITAS (satu label per baris, spasi sebelum titik dua):
+SEKOLAH : {$namaSekolah}
+NAMA GURU : [nama]
+MATA PELAJARAN : [mapel]
+KELAS / SEMESTER : [kelas] / [semester]
+ALOKASI WAKTU : [contoh: 2 JP (2 x 40 Menit)]
+
+IDENTIFIKASI
+Murid:
+[paragraf kondisi murid]
+Materi:
+[nama materi]
+Dimensi Profil Lulusan (DPL):
+Dimensi profil lulusan yang akan dicapai dalam pembelajaran:
+☑ DPL 1 Keimanan dan ketakwaan terhadap Tuhan Yang Maha Esa
+☑ DPL 2 Kewargaan
+☑ DPL 3 Penalaran Kritis
+☐ DPL 4 Kreativitas
+☑ DPL 5 Kolaborasi
+☑ DPL 6 Kemandirian
+☑ DPL 7 Kesehatan
+☑ DPL 8 Komunikasi
+(centang ☑ hanya yang relevan; sisanya ☐ — selalu 8 baris)
+
+DESAIN PEMBELAJARAN
+Capaian Pembelajaran:
+[paragraf]
+Lintas Disiplin Ilmu:
+[disiplin]: [isi]
+Tujuan Pembelajaran:
+1. ...
+2. ...
+Topik Pembelajaran:
+1. ...
+2. ...
+Praktik Pedagogis:
+[pendekatan/model]
+Kemitraan Pembelajaran:
+1. ...
+2. ...
+Lingkungan Pembelajaran:
+Lingkungan Pembelajaran Terintegrasi:
+Ruang Fisik (Lingkungan Nyata):
+• ...
+Ruang Virtual (Pembelajaran Kolaboratif):
+• ...
+Budaya Belajar:
+• ...
+Pemanfaatan Digital:
+1. Perencanaan: ...
+2. Pelaksanaan: ...
+3. Asesmen: ...
+4. Media Sosial & Kampanye Digital: ...
+
+PENGALAMAN BELAJAR
+AWAL
+(Berkesadaran, Bermakna, dan Menggembirakan)
+✓ [kegiatan] (Berkesadaran)
+✓ [kegiatan]
+✓ [pertanyaan pemantik]:
+"[pertanyaan 1]"
+"[pertanyaan 2]"
+INTI (Berkesadaran, Bermakna, dan Menggembirakan)
+MEMAHAMI
+(Berkesadaran dan Bermakna)
+✓ ...
+MENGAPLIKASI
+(Berkesadaran, Bermakna, dan Menggembirakan)
+✓ ...
+MEREFLEKSI
+(Berkesadaran, Bermakna, dan Menggembirakan)
+✓ ...
+PENUTUP (Berkesadaran, Bermakna, dan Menggembirakan)
+✓ ...
+✓ [refleksi]:
+"[pertanyaan]"
+"[pertanyaan]"
+"[pertanyaan]"
+
+ASESMEN PEMBELAJARAN
+Asesmen pada Awal Pembelajaran:
+[deskripsi]
+• Jenis Soal: ...
+• Jumlah Soal: ...
+• Tujuan: ...
+Asesmen pada Proses Pembelajaran:
+[deskripsi observasi]
+Asesmen pada Akhir Pembelajaran:
+[deskripsi]
+a. ...
+b. ...
+
+TANDA TANGAN:
+[Tempat], [tanggal]
+Mengetahui, | Guru Mata Pelajaran
+Kepala Sekolah |
+{$kepala} | [Nama Guru]
+NIK. {$nipKepala} | NIK. [nomor/titik-titik]
+
+LAMPIRAN 1 : ASESMEN AWAL PEMBELAJARAN
+• Materi : ...
+• Kelas : ...
+• Jenis Soal : ...
+• Tujuan : ...
+A. Soal Pilihan Ganda (3 soal)
+1. ...
+a. ...
+b. ...
+c. ...
+d. ...
+(minimal 3 soal)
+
+LAMPIRAN 2 : ASESMEN PADA PROSES PEMBELAJARAN
+Tujuan Pembelajaran:
+1. ...
+2. ...
+Kompetensi | Baru Mulai | Berkembang | Cakap | Mahir
+[kompetensi] | [baru mulai] | [berkembang] | [cakap] | [mahir]
+(minimal 4 baris kompetensi)
+Keterangan:
+• Baru Mulai: ...
+• Berkembang: ...
+• Cakap: ...
+• Mahir: ...
+
+LAMPIRAN 3 : ASESMEN PADA AKHIR PEMBELAJARAN
+• Kisi-Kisi : ...
+• Materi : ...
+Soal Pilihan Ganda
+1. ...
+a. ...
+b. ...
+c. ...
+d. ...
+(minimal 10 soal)
+
+Isi harus sesuai topik/mapel/kelas yang diminta. Jangan mengarang identitas yang tidak diberikan — pakai placeholder [Nama Guru] bila belum ada. Kop surat dan nama kepala sekolah sudah diisi dari data SIMS.
+TXT;
+    }
 }

@@ -26,9 +26,14 @@
         .rpm-doc table.identitas td.lbl { width: 170px; }
         .rpm-doc table.identitas td.sep { width: 14px; }
         .rpm-doc table.tbl { width: 100%; border-collapse: collapse; margin-top: 14px; border: 1px solid #000; table-layout: fixed; }
+        .rpm-doc table.tbl col.col-sec { width: 17%; }
+        .rpm-doc table.tbl col.col-sub { width: 22%; }
+        .rpm-doc table.tbl col.col-content { width: 61%; }
         .rpm-doc table.tbl td { border: 1px solid #000; padding: 6px 8px; vertical-align: top; word-wrap: break-word; }
         .rpm-doc table.tbl td.sec { width: 17%; font-weight: 700; text-transform: uppercase; background: #f2f2f2; vertical-align: middle; text-align: center; }
-        .rpm-doc table.tbl td.sub { width: 21%; font-weight: 700; }
+        .rpm-doc table.tbl td.sec-cont { border-top: none !important; border-bottom: none !important; }
+        .rpm-doc table.tbl td.sec-last { border-top: none !important; border-bottom: 1px solid #000 !important; }
+        .rpm-doc table.tbl td.sub { width: 22%; font-weight: 700; }
         .rpm-doc table.tbl td.stagehead { background: #f2f2f2; font-weight: 700; }
         .rpm-doc table.tbl td.stagehead .pilar { font-weight: 400; font-style: italic; font-size: 11px; }
         .rpm-doc .cell-line { margin: 0 0 3px; }

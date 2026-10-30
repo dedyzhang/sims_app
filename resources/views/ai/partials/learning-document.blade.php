@@ -47,12 +47,21 @@
 
 {{-- IDENTIFIKASI --}}
 @if($doc['identifikasi'])
+    @php $identifikasiCount = count($doc['identifikasi']); @endphp
     <table class="tbl">
+        <colgroup>
+            <col class="col-sec">
+            <col class="col-sub">
+            <col class="col-content">
+        </colgroup>
         @foreach($doc['identifikasi'] as $i => $row)
+            @php
+                $isFirst = $i === 0;
+                $isLast = $i === $identifikasiCount - 1;
+                $secClass = 'sec ' . ($isFirst ? 'sec-start' : ($isLast ? 'sec-last' : 'sec-cont'));
+            @endphp
             <tr>
-                @if($i === 0)
-                    <td class="sec" rowspan="{{ count($doc['identifikasi']) }}">IDENTIFIKASI</td>
-                @endif
+                <td class="{{ $secClass }}">@if($isFirst) IDENTIFIKASI @endif</td>
                 <td class="sub">{{ $row['label'] }}</td>
                 <td>
                     @if(str_starts_with($row['label'], 'Dimensi Profil Lulusan') && $row['dpl'])
@@ -81,12 +90,21 @@
 
 {{-- DESAIN PEMBELAJARAN --}}
 @if($doc['desain'])
+    @php $desainCount = count($doc['desain']); @endphp
     <table class="tbl">
+        <colgroup>
+            <col class="col-sec">
+            <col class="col-sub">
+            <col class="col-content">
+        </colgroup>
         @foreach($doc['desain'] as $i => $row)
+            @php
+                $isFirst = $i === 0;
+                $isLast = $i === $desainCount - 1;
+                $secClass = 'sec ' . ($isFirst ? 'sec-start' : ($isLast ? 'sec-last' : 'sec-cont'));
+            @endphp
             <tr>
-                @if($i === 0)
-                    <td class="sec" rowspan="{{ count($doc['desain']) }}">DESAIN PEMBELAJARAN</td>
-                @endif
+                <td class="{{ $secClass }}">@if($isFirst) DESAIN PEMBELAJARAN @endif</td>
                 <td class="sub">{{ $row['label'] }}</td>
                 <td>{!! $renderCellLines($row['lines']) !!}</td>
             </tr>
@@ -97,17 +115,28 @@
 {{-- PENGALAMAN BELAJAR --}}
 @if($doc['pengalaman'])
     @php
-        $pengalamanRows = 0;
-        foreach ($doc['pengalaman'] as $stage) {
-            $pengalamanRows += 1 + (($stage['items'] ?? []) ? 1 : 0);
+        $totalPengalamanRows = 0;
+        foreach ($doc['pengalaman'] as $st) {
+            $totalPengalamanRows += 1 + (!empty($st['items']) ? 1 : 0);
         }
+        $currentRow = 0;
     @endphp
     <table class="tbl">
+        <colgroup>
+            <col class="col-sec">
+            <col class="col-sub">
+            <col class="col-content">
+        </colgroup>
         @foreach($doc['pengalaman'] as $i => $stage)
+            @php
+                $currentRow++;
+                $isFirst = $currentRow === 1;
+                $hasItems = !empty($stage['items']);
+                $isLast = $currentRow === $totalPengalamanRows;
+                $secClass = 'sec ' . ($isFirst ? 'sec-start' : ($isLast ? 'sec-last' : 'sec-cont'));
+            @endphp
             <tr>
-                @if($i === 0)
-                    <td class="sec" rowspan="{{ $pengalamanRows }}">PENGALAMAN BELAJAR</td>
-                @endif
+                <td class="{{ $secClass }}">@if($isFirst) PENGALAMAN BELAJAR @endif</td>
                 <td class="stagehead" colspan="2">
                     {{ $stage['heading'] }}
                     @if($stage['subtitle'] !== '')
@@ -115,9 +144,15 @@
                     @endif
                 </td>
             </tr>
-            @if($stage['items'])
+            @if($hasItems)
+                @php
+                    $currentRow++;
+                    $isLast = $currentRow === $totalPengalamanRows;
+                    $secClass = 'sec ' . ($isLast ? 'sec-last' : 'sec-cont');
+                @endphp
                 <tr>
-                    <td class="sub"></td>
+                    <td class="{{ $secClass }}"></td>
+                    <td class="sub">Langkah Pembelajaran</td>
                     <td>
                         @foreach($stage['items'] as $item)
                             @if($item['type'] === 'check')
@@ -137,12 +172,21 @@
 
 {{-- ASESMEN PEMBELAJARAN --}}
 @if($doc['asesmen'])
+    @php $asesmenCount = count($doc['asesmen']); @endphp
     <table class="tbl">
+        <colgroup>
+            <col class="col-sec">
+            <col class="col-sub">
+            <col class="col-content">
+        </colgroup>
         @foreach($doc['asesmen'] as $i => $row)
+            @php
+                $isFirst = $i === 0;
+                $isLast = $i === $asesmenCount - 1;
+                $secClass = 'sec ' . ($isFirst ? 'sec-start' : ($isLast ? 'sec-last' : 'sec-cont'));
+            @endphp
             <tr>
-                @if($i === 0)
-                    <td class="sec" rowspan="{{ count($doc['asesmen']) }}">ASESMEN PEMBELAJARAN</td>
-                @endif
+                <td class="{{ $secClass }}">@if($isFirst) ASESMEN PEMBELAJARAN @endif</td>
                 <td class="sub">{{ $row['label'] }}</td>
                 <td>{!! $renderCellLines($row['lines']) !!}</td>
             </tr>
@@ -198,8 +242,15 @@
                 @endphp
                 <table class="rubrik">
                     @if($isRubrik5)
+                        <colgroup>
+                            <col style="width: 24%;">
+                            <col style="width: 19%;">
+                            <col style="width: 19%;">
+                            <col style="width: 19%;">
+                            <col style="width: 19%;">
+                        </colgroup>
                         <tr class="head">
-                            <td rowspan="2">Kompetensi</td>
+                            <td rowspan="2" style="vertical-align:middle;text-align:center;">Kompetensi</td>
                             <td colspan="4" style="text-align:center">Kriteria</td>
                         </tr>
                         <tr class="subhead">

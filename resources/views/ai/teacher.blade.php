@@ -2115,6 +2115,327 @@
                 </button>
             </div>
 
+            {{-- TP & ATP Kurikulum Merdeka --}}
+            <div x-show="tab === 'tpatp'" class="space-y-4" x-cloak>
+                <div>
+                    <label class="form-label">Jenis Dokumen yang Dibuat <span class="text-rose-500">*</span></label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" @click="tpatp.mode = 'both'"
+                                class="rounded-xl border px-3 py-2 text-xs font-semibold text-center transition"
+                                :class="tpatp.mode === 'both' ? 'border-primary bg-primary/10 text-primary font-bold shadow-sm' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300 hover:border-slate-300'">
+                            TP &amp; ATP (Lengkap)
+                        </button>
+                        <button type="button" @click="tpatp.mode = 'tp'"
+                                class="rounded-xl border px-3 py-2 text-xs font-semibold text-center transition"
+                                :class="tpatp.mode === 'tp' ? 'border-primary bg-primary/10 text-primary font-bold shadow-sm' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300 hover:border-slate-300'">
+                            Hanya TP
+                        </button>
+                        <button type="button" @click="tpatp.mode = 'atp'"
+                                class="rounded-xl border px-3 py-2 text-xs font-semibold text-center transition"
+                                :class="tpatp.mode === 'atp' ? 'border-primary bg-primary/10 text-primary font-bold shadow-sm' : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300 hover:border-slate-300'">
+                            Hanya ATP
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">
+                        Format resmi Kurikulum Merdeka: tabel TP ber-KODE TP &amp; alokasi JP, serta diagram alur (flowchart) ATP.
+                    </p>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label class="form-label m-0">Mata Pelajaran <span class="text-rose-500">*</span></label>
+                        <button type="button" @click="loadStandardCpForSelectedMapel(true)"
+                                x-show="tpatp.mapel"
+                                class="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline">
+                            <i data-lucide="sparkles" class="w-3 h-3"></i> Muat CP Kemendikbud
+                        </button>
+                    </div>
+                    <select x-model="tpatp.mapel" @change="onTpAtpMapelChange()" class="form-input">
+                        <option value="">-- Pilih Mata Pelajaran --</option>
+                        <template x-for="p in pelajarans" :key="p.uuid">
+                            <option :value="p.nama" x-text="p.nama + ' (' + (p.jp ? p.jp + ' JP/minggu' : p.kode) + ')'"></option>
+                        </template>
+                        <option value="__custom__">Mata Pelajaran Lainnya (Ketik Manual)...</option>
+                    </select>
+                    <div x-show="tpatp.mapel === '__custom__' || (!pelajarans.some(p => p.nama === tpatp.mapel) && tpatp.mapel)" class="mt-2">
+                        <input type="text" x-model="tpatp.custom_mapel" @input="tpatp.mapel = tpatp.custom_mapel" @change="onTpAtpMapelChange()" placeholder="Ketik nama mata pelajaran…" class="form-input">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label">Fase / Jenjang Kelas</label>
+                        <input type="text" x-model="tpatp.fase_kelas" placeholder="D/VII-IX" class="form-input">
+                        <p class="text-[10px] text-slate-400 mt-0.5">Default SMP: Fase D (Kelas 7 - 9).</p>
+                    </div>
+                    <div>
+                        <label class="form-label">Tahun Pelajaran</label>
+                        <input type="text" x-model="tpatp.tahun" placeholder="2026-2027" class="form-input">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label class="form-label m-0">Elemen Mata Pelajaran</label>
+                        <span x-show="currentStandardCpElemenList().length > 0" class="text-[10.5px] text-slate-400 font-medium">
+                            Pilihan elemen spesifik:
+                        </span>
+                    </div>
+                    <input type="text" x-model="tpatp.elemen" placeholder="Contoh: Pemahaman Konsep" class="form-input">
+                    <div x-show="currentStandardCpElemenList().length > 0" class="flex flex-wrap gap-1.5 mt-2" x-cloak>
+                        <template x-for="el in currentStandardCpElemenList()" :key="el.nama">
+                            <button type="button" @click="selectStandardElemen(el)"
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition cursor-pointer"
+                                    :class="tpatp.elemen === el.nama
+                                        ? 'border-primary bg-primary/10 text-primary font-bold shadow-xs'
+                                        : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-primary hover:text-primary'">
+                                <i data-lucide="tag" class="w-2.5 h-2.5 opacity-70"></i>
+                                <span x-text="el.nama"></span>
+                            </button>
+                        </template>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-1">Elemen kurikulum (mis. Pemahaman Konsep, Bilangan, Menyimak, dsb).</p>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <label class="form-label m-0">Capaian Pembelajaran (CP) <span class="text-rose-500">*</span></label>
+                        <button type="button" @click="loadStandardCpForSelectedMapel(true)"
+                                x-show="tpatp.mapel"
+                                class="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline">
+                            <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reset ke CP Resmi
+                        </button>
+                    </div>
+                    <textarea x-model="tpatp.cp" rows="5" class="form-input text-xs leading-relaxed"
+                              placeholder="Tempel atau ketik Capaian Pembelajaran (CP) Fase D di sini… (atau klik 'Muat CP Kemendikbud' di atas)"></textarea>
+                    <p class="text-[11px] text-slate-400 mt-1">
+                        TP dan ATP akan diturunkan secara runtut &amp; operasional langsung dari CP ini (setiap lingkup materi terdiri dari minimal 2 dan maksimal 4 butir TP).
+                    </p>
+                </div>
+
+                <div>
+                    <label class="form-label">Lingkup Materi Pokok (Opsional / Ditentukan Guru)</label>
+                    <textarea x-model="tpatp.lingkup_materi" rows="3" class="form-input text-xs leading-relaxed"
+                              placeholder="Ketik daftar materi pokok jika ingin ditentukan sendiri, misal:&#10;1. Keberagaman Kondisi Geografis Indonesia&#10;2. Dinamika Pemanfaatan Sumber Daya Alam&#10;3. Potensi Ekonomi dan Pemberdayaan Masyarakat..."></textarea>
+                    <p class="text-[11px] text-slate-400 mt-1">
+                        Kosongkan jika ingin AI merumuskan lingkup materi otomatis dari CP. Jika diisi, AI akan menyesuaikan butir TP dan alur ATP sesuai lingkup materi Anda (setiap materi otomatis disusun minimal 2 dan maksimal 4 butir TP).
+                    </p>
+                </div>
+
+                <div>
+                    <label class="form-label">Estimasi Alokasi Waktu per Lingkup Materi (JP)</label>
+                    <input type="number" min="1" max="120" x-model="tpatp.jp" class="form-input">
+                    <p class="text-[11px] text-slate-400 mt-0.5">Contoh: 27 JP per lingkup materi (dihitung proporsional dalam semester).</p>
+                </div>
+
+                <div>
+                    <label class="form-label">Catatan / Penyesuaian Guru (Opsional)</label>
+                    <textarea x-model="tpatp.catatan" rows="2" class="form-input text-xs"
+                              placeholder="Misal: Fokuskan Kelas 7 Semester Ganjil &amp; Genap; integrasikan nilai kemanusiaan/budi pekerti..."></textarea>
+                </div>
+
+                <button type="button" @click="submit('tpatp')" :disabled="loading || !canSubmitTpAtp()"
+                        class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
+                    <i data-lucide="route" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
+                    <span x-text="loading ? 'AI sedang menyusun TP &amp; ATP…' : 'Buat TP &amp; ATP'"></span>
+                </button>
+                <button type="button" @click="submitExternal('tpatp')" :disabled="loading || !canSubmitTpAtp()"
+                        class="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2 text-xs font-semibold text-slate-500 hover:border-primary hover:text-primary disabled:opacity-40">
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                    Cadangan: buka Gemini web
+                </button>
+            </div>
+
+            {{-- Prosem & Prota Kurikulum Merdeka --}}
+            <div x-show="tab === 'prosemprota'" class="space-y-4" x-cloak>
+                {{-- Card Pilih Sumber TP & ATP --}}
+                <div class="rounded-2xl border border-primary/20 bg-primary/[0.03] p-3.5 space-y-3 dark:border-primary/30 dark:bg-primary/[0.06]">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                            <i data-lucide="route" class="w-4 h-4 text-primary"></i> Sumber TP &amp; ATP
+                        </span>
+                        <button type="button" @click="useActiveTpAtpForProsemProta()"
+                                x-show="activeTpAtpResult || (result && (tab === 'tpatp' || tab === 'prosemprota'))"
+                                class="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Pakai TP/ATP Aktif
+                        </button>
+                    </div>
+
+                    <div>
+                        <label class="form-label">Pilih Hasil TP &amp; ATP Tersimpan</label>
+                        <select x-model="prosemprota.source_uuid" @change="onSelectTpAtpSource()" class="form-input text-xs">
+                            <option value="">-- Pilih Dokumen TP &amp; ATP --</option>
+                            <template x-for="doc in tpatpDocuments" :key="doc.uuid">
+                                <option :value="doc.uuid" x-text="doc.title + ' (' + doc.created_at_human + ')'"></option>
+                            </template>
+                        </select>
+                        <p class="text-[11px] text-slate-400 mt-1" x-show="!tpatpDocuments.length">
+                            Belum ada riwayat generate TP &amp; ATP tersimpan. Anda bisa generate di tab "TP &amp; ATP" terlebih dahulu atau klik "Pakai TP/ATP Aktif".
+                        </p>
+                    </div>
+
+                    <div x-show="prosemprota.selected_tpatp_info" class="rounded-xl border border-emerald-200 bg-emerald-50/70 p-2.5 text-[11px] text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                        <div class="font-bold flex items-center gap-1.5">
+                            <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+                            <span x-text="prosemprota.selected_tpatp_info?.title"></span>
+                        </div>
+                        <div class="text-[10px] text-emerald-700 dark:text-emerald-300 mt-0.5">
+                            Dokumen siap ditransformasikan ke format Program Semester (PROSEM) &amp; Program Tahunan (PROTA).
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Pengaturan Sasaran Kelas & Dokumen --}}
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label">Jenjang Kelas</label>
+                        <select x-model="prosemprota.kelas" class="form-input text-xs">
+                            <option value="VII">Kelas VII (7)</option>
+                            <option value="VIII">Kelas VIII (8)</option>
+                            <option value="IX">Kelas IX (9)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Alokasi JP per Minggu</label>
+                        <input type="number" min="1" max="10" x-model="prosemprota.jp_per_week" class="form-input text-xs">
+                        <p class="text-[10px] text-slate-400 mt-0.5">IPS = 3 JP, MTK/IPA/B.Indo = 4-5 JP</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="form-label">Penilaian Sumatif per Bab</label>
+                        <input type="number" min="1" max="6" x-model="prosemprota.sumatif_jp" class="form-input text-xs">
+                        <p class="text-[10px] text-slate-400 mt-0.5">Dipotong dari total jam lingkup materi (mis. 27 JP − 2 JP = 25 JP TP)</p>
+                    </div>
+                    <div>
+                        <label class="form-label">Cadangan Sem 2 (JP)</label>
+                        <input type="number" min="0" max="10" x-model="prosemprota.cadangan_jp_sem2" class="form-input text-xs">
+                        <p class="text-[10px] text-slate-400 mt-0.5">Default acuan: 3 JP</p>
+                    </div>
+                </div>
+
+                {{-- Pengaturan Kalender Kegiatan & Libur (PROSEM) --}}
+                <div class="rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 p-3 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="calendar-cog" class="w-4 h-4 text-indigo-600 dark:text-indigo-400"></i>
+                            <span class="text-xs font-bold text-slate-800 dark:text-slate-100">Agenda &amp; Libur Sekolah</span>
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300"
+                                  x-text="(prosemprota.calendar_events_ganjil.length + prosemprota.calendar_events_genap.length) + ' kegiatan'"></span>
+                        </div>
+                        <button type="button" @click="prosemprota.calendar_modal_open = !prosemprota.calendar_modal_open; $nextTick(() => window.lucide && lucide.createIcons())"
+                                class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                            <span x-text="prosemprota.calendar_modal_open ? 'Tutup' : 'Atur Agenda'"></span>
+                            <i data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform" :class="prosemprota.calendar_modal_open && 'rotate-180'"></i>
+                        </button>
+                    </div>
+
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 m-0 leading-relaxed">
+                        Sesuaikan libur semester, MPLS, jeda tengah semester, PSAJ/PAS, dan agenda khusus sekolah Anda. Kalender Prosem &amp; jam mingguan akan otomatis menyesuaikan.
+                    </p>
+
+                    {{-- Konten Pengaturan Kalender saat Terbuka --}}
+                    <div x-show="prosemprota.calendar_modal_open" x-cloak class="pt-2 border-t border-indigo-100 dark:border-indigo-900/40 space-y-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex p-0.5 bg-slate-200/80 dark:bg-slate-800 rounded-lg text-xs font-semibold">
+                                <button type="button" @click="prosemprota.calendar_active_tab = 'ganjil'; $nextTick(() => window.lucide && lucide.createIcons())"
+                                        class="px-2.5 py-1 rounded-md transition"
+                                        :class="prosemprota.calendar_active_tab === 'ganjil' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm font-bold' : 'text-slate-600 dark:text-slate-400'">
+                                    Ganjil (Juli–Des)
+                                    <span class="ml-1 text-[10px] font-normal" x-text="'(' + prosemprota.calendar_events_ganjil.length + ')'"></span>
+                                </button>
+                                <button type="button" @click="prosemprota.calendar_active_tab = 'genap'; $nextTick(() => window.lucide && lucide.createIcons())"
+                                        class="px-2.5 py-1 rounded-md transition"
+                                        :class="prosemprota.calendar_active_tab === 'genap' ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm font-bold' : 'text-slate-600 dark:text-slate-400'">
+                                    Genap (Jan–Jun)
+                                    <span class="ml-1 text-[10px] font-normal" x-text="'(' + prosemprota.calendar_events_genap.length + ')'"></span>
+                                </button>
+                            </div>
+                            <button type="button" @click="resetProsemCalendar(prosemprota.calendar_active_tab)"
+                                    class="text-[11px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1"
+                                    title="Kembalikan kegiatan semester ini ke acuan standar">
+                                <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+                                <span>Reset Default</span>
+                            </button>
+                        </div>
+
+                        {{-- Daftar Event untuk Tab Aktif --}}
+                        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+                            <template x-for="(ev, idx) in (prosemprota.calendar_active_tab === 'ganjil' ? prosemprota.calendar_events_ganjil : prosemprota.calendar_events_genap)" :key="prosemprota.calendar_active_tab + '-' + idx">
+                                <div class="p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xs space-y-2 text-xs">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-3.5 h-3.5 rounded-full shrink-0 border border-slate-300" :style="'background-color: ' + ev.color"></div>
+                                        <input type="text" x-model="ev.label" @input="saveProsemCalendar()" placeholder="Nama kegiatan / libur..."
+                                               class="form-input text-xs py-1 px-2 font-medium flex-1">
+                                        <button type="button" @click="removeCalendarEvent(prosemprota.calendar_active_tab, idx)"
+                                                class="text-rose-500 hover:text-rose-700 p-1 shrink-0" title="Hapus agenda ini">
+                                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                        </button>
+                                    </div>
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 items-center text-[11px]">
+                                        <div>
+                                            <span class="text-[10px] text-slate-400 block mb-0.5">Mulai Minggu:</span>
+                                            <select x-model.number="ev.start_col" @change="updateCalendarEventSpan(ev)" class="form-input text-[11px] py-1 px-1.5">
+                                                <template x-for="col in (prosemprota.calendar_active_tab === 'ganjil' ? weekColumnsGanjil : weekColumnsGenap)" :key="col.col_index">
+                                                    <option :value="col.col_index" x-text="col.label"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <span class="text-[10px] text-slate-400 block mb-0.5">Sampai Minggu:</span>
+                                            <select x-model.number="ev.end_col" @change="updateCalendarEventSpan(ev)" class="form-input text-[11px] py-1 px-1.5">
+                                                <template x-for="col in (prosemprota.calendar_active_tab === 'ganjil' ? weekColumnsGanjil : weekColumnsGenap)" :key="col.col_index">
+                                                    <option :value="col.col_index" x-text="col.label" :disabled="col.col_index < ev.start_col"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                        <div class="col-span-2 sm:col-span-1">
+                                            <span class="text-[10px] text-slate-400 block mb-0.5">Kategori / Warna:</span>
+                                            <div class="flex items-center gap-1">
+                                                <template x-for="preset in calendarColorPresets" :key="preset.name">
+                                                    <button type="button" @click="setCalendarEventPreset(ev, preset)"
+                                                            class="w-4 h-4 rounded-full border border-slate-300 transition-transform hover:scale-125 shrink-0"
+                                                            :class="ev.color === preset.color && 'ring-2 ring-primary ring-offset-1'"
+                                                            :style="'background-color: ' + preset.color"
+                                                            :title="preset.name"></button>
+                                                </template>
+                                                <span class="text-[10px] text-slate-500 ml-auto font-semibold" x-text="ev.col_span + ' mg'"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        {{-- Tombol Tambah Agenda --}}
+                        <button type="button" @click="addCalendarEvent(prosemprota.calendar_active_tab)"
+                                class="w-full py-1.5 border border-dashed border-indigo-300 dark:border-indigo-800 rounded-lg text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 flex items-center justify-center gap-1.5 transition">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                            <span>Tambah Agenda / Libur (<span x-text="prosemprota.calendar_active_tab === 'ganjil' ? 'Ganjil' : 'Genap'"></span>)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 p-3 text-[11px] text-slate-600 dark:text-slate-300 space-y-1 leading-relaxed">
+                    <div class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                        <i data-lucide="info" class="w-3.5 h-3.5 text-primary"></i> Format Otomatis Sesuai Acuan
+                    </div>
+                    <p class="m-0">
+                        1. <strong>PROTA</strong>: Memetakan Elemen, CP, Bab Materi Pokok, butir TP, Kode TP, Alokasi JP per bab, Penilaian Sumatif, Cadangan, dan Total Semester I &amp; II.
+                    </p>
+                    <p class="m-0">
+                        2. <strong>PROSEM</strong>: Menyusun matriks kalender 26 minggu dengan blok vertikal (Libur, MPLS, PAS, Class Meeting, Rapor, Natal) dan distribusi jam pelajaran mingguan secara proporsional.
+                    </p>
+                </div>
+
+                <button type="button" @click="submitProsemProta()" :disabled="loading || (!prosemprota.source_uuid && !activeTpAtpResult && !result)"
+                        class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
+                    <i data-lucide="calendar-check-2" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
+                    <span x-text="loading ? 'Menyusun Prosem &amp; Prota…' : 'Susun Prosem &amp; Prota'"></span>
+                </button>
+            </div>
+
             {{-- RPM Learning --}}
             <div x-show="tab === 'learning'" class="space-y-4" x-cloak>
                 <div>
@@ -2469,6 +2790,27 @@
                         <button type="button" x-show="tab === 'learning' && resultSource !== 'ocr'" @click="exportLearning('pdf')" :disabled="exportingPdf" class="ai-toolbar-btn">
                             <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF'"></span>
                         </button>
+                        <button type="button" x-show="tab === 'tpatp' && resultSource !== 'ocr'" @click="exportTpAtp('word')" :disabled="exportingWord" class="ai-toolbar-btn">
+                            <i :data-lucide="exportingWord ? 'loader-circle' : 'file-down'" class="w-4 h-4" :class="exportingWord ? 'animate-spin' : ''"></i><span x-text="exportingWord ? 'Export...' : 'Word'"></span>
+                        </button>
+                        <button type="button" x-show="tab === 'tpatp' && resultSource !== 'ocr'" @click="exportTpAtp('pdf')" :disabled="exportingPdf" class="ai-toolbar-btn">
+                            <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF'"></span>
+                        </button>
+                        <button type="button" x-show="tab === 'tpatp' && resultSource !== 'ocr'" @click="useActiveTpAtpForProsemProta()" class="ai-toolbar-btn ai-toolbar-btn--accent" title="Susun Program Semester dan Program Tahunan dari hasil TP &amp; ATP ini">
+                            <i data-lucide="calendar-range" class="w-4 h-4"></i><span>Susun Prosem &amp; Prota</span>
+                        </button>
+                        <button type="button" x-show="tab === 'prosemprota' && resultSource !== 'ocr'" @click="exportProsemProta('word')" :disabled="exportingWord" class="ai-toolbar-btn">
+                            <i :data-lucide="exportingWord ? 'loader-circle' : 'file-down'" class="w-4 h-4" :class="exportingWord ? 'animate-spin' : ''"></i><span x-text="exportingWord ? 'Export...' : 'Word (.docx)'"></span>
+                        </button>
+                        <button type="button" x-show="tab === 'prosemprota' && resultSource !== 'ocr'" @click="exportProsemProta('pdf', 'prosem_ganjil')" :disabled="exportingPdf" class="ai-toolbar-btn" title="Unduh PDF Program Semester Ganjil">
+                            <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF Prosem (Ganjil)'"></span>
+                        </button>
+                        <button type="button" x-show="tab === 'prosemprota' && resultSource !== 'ocr'" @click="exportProsemProta('pdf', 'prosem_genap')" :disabled="exportingPdf" class="ai-toolbar-btn" title="Unduh PDF Program Semester Genap">
+                            <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF Prosem (Genap)'"></span>
+                        </button>
+                        <button type="button" x-show="tab === 'prosemprota' && resultSource !== 'ocr'" @click="exportProsemProta('pdf', 'prota')" :disabled="exportingPdf" class="ai-toolbar-btn" title="Unduh PDF Program Tahunan">
+                            <i :data-lucide="exportingPdf ? 'loader-circle' : 'file-type'" class="w-4 h-4" :class="exportingPdf ? 'animate-spin' : ''"></i><span x-text="exportingPdf ? 'Export...' : 'PDF Prota'"></span>
+                        </button>
                         </div>
                         <div class="ai-toolbar-row" aria-label="Aksi lanjutan hasil">
                         <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr' && arenaBelajarAktif"
@@ -2698,7 +3040,7 @@
                         class="flex w-full shrink-0 items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 text-sm">
                         <i data-lucide="history" class="w-4 h-4"></i> History Generate
-                        <span class="text-[11px] font-medium text-slate-400" x-text="histories.length ? '(' + histories.length + ')' : ''"></span>
+                        <span class="text-[11px] font-medium text-slate-400" x-text="displayedHistories.length ? '(' + displayedHistories.length + ')' : (historyFilter === 'tab' && tabHistoriesCount === 0 ? '(0)' : '')"></span>
                     </h2>
                     <span class="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
                         <span x-text="collapsed ? 'Buka' : 'Tutup'"></span>
@@ -2707,12 +3049,42 @@
                 </button>
 
                 <div x-show="!collapsed" x-cloak class="flex min-h-0 flex-1 flex-col border-t border-slate-100 dark:border-slate-800">
-                    <div x-show="histories.length === 0" class="grid flex-1 place-items-center px-4 py-10 text-slate-300 dark:text-slate-600">
-                        <p class="text-xs text-center">Belum ada history.</p>
+                    {{-- Filter Pill: Menyesuaikan Tab Aktif vs Semua --}}
+                    <div class="flex items-center justify-between gap-1.5 px-3 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 shrink-0">
+                        <div class="flex items-center gap-1 min-w-0 flex-1">
+                            <button type="button" @click="setHistoryFilter('tab')"
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition min-w-0"
+                                    :class="historyFilter === 'tab' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700/60'"
+                                    :title="'Filter riwayat khusus tab ' + currentTabLabel">
+                                <span class="truncate" x-text="currentTabLabel"></span>
+                                <span class="text-[10px] opacity-80" x-text="'(' + tabHistoriesCount + ')'"></span>
+                            </button>
+                            <button type="button" @click="setHistoryFilter('all')"
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition shrink-0"
+                                    :class="historyFilter === 'all' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700/60'"
+                                    title="Tampilkan riwayat dari seluruh modul AI">
+                                <span>Semua</span>
+                                <span class="text-[10px] opacity-80" x-text="'(' + histories.length + ')'"></span>
+                            </button>
+                        </div>
                     </div>
 
-                    <div x-show="histories.length > 0" class="ai-teacher-history-body space-y-2 px-3 py-3">
-                        <template x-for="item in histories" :key="item.uuid">
+                    <div x-show="displayedHistories.length === 0" class="grid flex-1 place-items-center px-4 py-10 text-slate-400 dark:text-slate-500">
+                        <div class="text-center px-2">
+                            <i data-lucide="inbox" class="w-7 h-7 mx-auto mb-1.5 opacity-40"></i>
+                            <p class="text-xs m-0" x-show="historyFilter === 'tab'">Belum ada history untuk <span class="font-semibold text-slate-700 dark:text-slate-200" x-text="currentTabLabel"></span>.</p>
+                            <p class="text-xs m-0" x-show="historyFilter !== 'tab'">Belum ada history.</p>
+                            <button type="button" x-show="historyFilter === 'tab' && histories.length > 0"
+                                    @click="setHistoryFilter('all')"
+                                    class="mt-2.5 inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline">
+                                <i data-lucide="list" class="w-3.5 h-3.5"></i>
+                                Lihat semua history (<span x-text="histories.length"></span>)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div x-show="displayedHistories.length > 0" class="ai-teacher-history-body space-y-2 px-3 py-3">
+                        <template x-for="item in displayedHistories" :key="item.uuid">
                             <div class="rounded-lg border border-slate-200 bg-white transition hover:border-primary hover:bg-primary/5 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-primary/70">
                                 <div class="flex items-start gap-1 p-2.5">
                                     <button type="button" @click="openHistory(item)" class="min-w-0 flex-1 text-left">
@@ -2922,7 +3294,7 @@
 <script>
     function teacherAi() {
         return {
-            tab: @js(in_array(request('tab'), ['gemini', 'quiz', 'blueprint', 'learning', 'summary', 'feedback', 'audio'], true) ? request('tab') : 'gemini'),
+            tab: @js(in_array(request('tab'), ['gemini', 'quiz', 'blueprint', 'tpatp', 'prosemprota', 'learning', 'summary', 'feedback', 'audio'], true) ? request('tab') : 'gemini'),
             loading: false,
             exportingWord: false,
             exportingPdf: false,
@@ -2964,6 +3336,53 @@
             },
             deletingHistory: '',  // uuid item history yang sedang dihapus
             histories: @js($histories ?? []),
+            historyFilter: localStorage.getItem('ai.teacher.historyFilter') || 'tab',
+            tabMatchesHistory(tabKey, item) {
+                if (!item || !item.type) return false;
+                const type = item.type;
+                switch (tabKey) {
+                    case 'prosemprota':
+                        return type === 'prosem_prota' || type === 'prosemprota';
+                    case 'tpatp':
+                        return type === 'tpatp';
+                    case 'quiz':
+                        return type === 'quiz' || (type === 'ocr_scan' && (item.metadata?.scope === 'quiz' || !item.metadata?.scope));
+                    case 'blueprint':
+                        return type === 'blueprint';
+                    case 'learning':
+                        return type === 'rpp' || type === 'learning' || (type === 'ocr_scan' && item.metadata?.scope === 'learning');
+                    case 'summary':
+                        return type === 'summary';
+                    case 'feedback':
+                        return type === 'feedback';
+                    case 'gemini':
+                        return type === 'gemini_chat';
+                    case 'audio':
+                        return true;
+                    default:
+                        return true;
+                }
+            },
+            get currentTabLabel() {
+                const found = this.tabs.find(t => t.key === this.tab);
+                return found ? found.label : 'Tab Ini';
+            },
+            get tabHistoriesCount() {
+                return this.histories.filter(item => this.tabMatchesHistory(this.tab, item)).length;
+            },
+            get displayedHistories() {
+                if (this.historyFilter === 'all') {
+                    return this.histories;
+                }
+                return this.histories.filter(item => this.tabMatchesHistory(this.tab, item));
+            },
+            setHistoryFilter(filter) {
+                this.historyFilter = filter;
+                try {
+                    localStorage.setItem('ai.teacher.historyFilter', filter);
+                } catch (_) {}
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
             quota: @js($quotaUsage ?? null),
             quotaLoading: false,
             quotaTimer: null,
@@ -3014,11 +3433,18 @@
                 { key: 'gemini',   label: 'Nalar Guru',      icon: 'brain' },
                 { key: 'quiz',     label: 'Generator Soal',  icon: 'clipboard-pen-line' },
                 { key: 'blueprint', label: 'Kisi-kisi',       icon: 'table-properties' },
+                { key: 'tpatp',    label: 'TP & ATP',        icon: 'route' },
+                { key: 'prosemprota', label: 'Prosem & Prota', icon: 'calendar-range' },
                 { key: 'learning', label: 'RPM Learning',    icon: 'book-open-check' },
                 { key: 'summary',  label: 'Perangkum Materi', icon: 'file-stack' },
                 { key: 'feedback', label: 'Catatan Siswa',  icon: 'user-pen' },
                 { key: 'audio', label: 'Media Suara', icon: 'audio-lines' },
             ],
+            pelajarans: @json($pelajarans ?? []),
+            standardCps: @json($standardCps ?? []),
+            tpatpDocuments: @json($tpatpDocuments ?? []),
+            activeTpAtpResult: '',
+            activeTahunAjaran: @json($activeTahunAjaran ?? '2026/2027'),
             geminiMessages: [],
             geminiInput: '',
             geminiLoading: false,
@@ -3049,6 +3475,44 @@
             previewSeq: 0,
             quiz:     { topik: '', jumlah: 5, jenis_soal: ['pg'], tingkat: 'sedang', jenjang: '', source: 'ai', file: null, fileName: '', document_uuid: '', soal_bergambar: false, output_language: 'id', include_pinyin: false },
             blueprint: { topik: '', mapel: '', jenjang: '', jumlah: 20, bentuk_penilaian: 'Ulangan Harian', kompetensi: '', catatan: '', file: null, fileName: '', source_text: '' },
+            tpatp: {
+                mode: 'both',
+                mapel: '',
+                custom_mapel: '',
+                fase_kelas: 'D/VII-IX',
+                tahun: '2026-2027',
+                elemen: '',
+                cp: '',
+                lingkup_materi: '',
+                jp: 27,
+                catatan: '',
+            },
+            prosemprota: {
+                source_uuid: '',
+                kelas: 'VII',
+                semester: 'both',
+                jp_per_week: 3,
+                sumatif_jp: 2,
+                cadangan_jp_sem1: 0,
+                cadangan_jp_sem2: 3,
+                selected_tpatp_info: null,
+                calendar_modal_open: false,
+                calendar_active_tab: 'ganjil',
+                calendar_events_ganjil: @js($defaultCalendarEventsGanjil ?? []),
+                calendar_events_genap: @js($defaultCalendarEventsGenap ?? []),
+            },
+            weekColumnsGanjil: @js($weekColumnsGanjil ?? []),
+            weekColumnsGenap: @js($weekColumnsGenap ?? []),
+            defaultCalendarEventsGanjil: @js($defaultCalendarEventsGanjil ?? []),
+            defaultCalendarEventsGenap: @js($defaultCalendarEventsGenap ?? []),
+            calendarColorPresets: [
+                { name: 'Libur', color: '#f8c4cb', text_color: '#881337' },
+                { name: 'Kegiatan / MPLS', color: '#cbd5e1', text_color: '#1e293b' },
+                { name: 'Asesmen / Ujian', color: '#a7f3d0', text_color: '#064e3b' },
+                { name: 'Rapor / Meeting', color: '#fed7aa', text_color: '#7c2d12' },
+                { name: 'Keagamaan / Raya', color: '#fef08a', text_color: '#713f12' },
+                { name: 'Khusus', color: '#e9d5ff', text_color: '#581c87' },
+            ],
             materials: @json($teacherMaterials ?? []),
             materialsTimer: null,
             materialDeleting: '',
@@ -3079,6 +3543,7 @@
             urls: {
                 quiz:     '{{ route('ai.teacher.quiz') }}',
                 blueprint: '{{ route('ai.teacher.blueprint') }}',
+                tpatp:    '{{ route('ai.teacher.tpatp') }}',
                 learning: '{{ route('ai.teacher.learning') }}',
                 summary:  '{{ route('ai.teacher.summary') }}',
                 feedback: '{{ route('ai.teacher.feedback') }}',
@@ -3088,6 +3553,13 @@
                 ocr: '{{ route('ai.teacher.ocr') }}',
                 historyBase: '{{ url('ai/teacher/history') }}',
                 quizPreview: '{{ route('ai.teacher.quiz.preview') }}',
+                tpatpPreview: '{{ route('ai.teacher.tpatp.preview') }}',
+                tpatpWord: '{{ route('ai.teacher.tpatp.export-word') }}',
+                tpatpPdf: '{{ route('ai.teacher.tpatp.export-pdf') }}',
+                prosemProtaGenerate: '{{ route('ai.teacher.prosem-prota.generate') }}',
+                prosemProtaPreview: '{{ route('ai.teacher.prosem-prota.preview') }}',
+                prosemProtaWord: '{{ route('ai.teacher.prosem-prota.export-word') }}',
+                prosemProtaPdf: '{{ route('ai.teacher.prosem-prota.export-pdf') }}',
                 qualityChecker: '{{ route('classroom.arena.quality-checker.check', ['classroom' => '__CLASSROOM__']) }}',
                 qualityBatch: '{{ route('ai.teacher.quiz.quality-batch') }}',
                 quizWord: '{{ route('ai.teacher.quiz.export-word') }}',
@@ -3190,6 +3662,7 @@
                 if (!['ready', 'failed', 'cancelled'].includes(this.audio.asset.status)) this.audio.pollTimer = setTimeout(() => this.pollAudio(), 3000);
             },
             init() {
+                this.initProsemCalendar();
                 this.startQuotaPolling();
                 this.loadAudioTargets();
                 this.loadAudioHistory();
@@ -3410,7 +3883,7 @@
                     const answer = this.tidyNalarAnswer(d.answer || '');
                     const msg = { role: 'assistant', text: answer, previewHtml: '' };
                     this.geminiMessages.push(msg);
-                    if (d.history) this.histories.unshift(d.history);
+                    if (d.history) this.addHistory(d.history);
                     await this.attachQuizPreviewToMessage(msg);
                 } catch (_) {
                     this.geminiError = 'Koneksi gagal. Coba lagi.';
@@ -4258,6 +4731,16 @@
                     } else if ((this.blueprint.source_text || '').trim()) {
                         form.append('source_text', this.blueprint.source_text.trim());
                     }
+                } else if (tool === 'tpatp') {
+                    form.append('mode', this.tpatp.mode || 'both');
+                    form.append('mapel', this.tpatp.mapel || '');
+                    form.append('fase_kelas', this.tpatp.fase_kelas || 'D/VII-IX');
+                    form.append('tahun', this.tpatp.tahun || '');
+                    form.append('elemen', this.tpatp.elemen || '');
+                    form.append('cp', this.tpatp.cp || '');
+                    if (this.tpatp.lingkup_materi) form.append('lingkup_materi', this.tpatp.lingkup_materi);
+                    form.append('jp', this.tpatp.jp || 27);
+                    if (this.tpatp.catatan) form.append('catatan', this.tpatp.catatan);
                 } else {
                     form.append('topik', this.quiz.topik || '');
                     form.append('jumlah', this.quiz.jumlah || 1);
@@ -4328,6 +4811,18 @@
                         this.result = d.answer;
                         this.resultSource = 'generate';
                         if (d.history) this.addHistory(d.history);
+                        if (tool === 'tpatp') {
+                            this.activeTpAtpResult = d.answer;
+                            if (d.history) {
+                                this.tpatpDocuments.unshift({
+                                    uuid: d.history.uuid,
+                                    title: d.history.title,
+                                    answer: d.answer,
+                                    metadata: d.history.metadata || {},
+                                    created_at_human: 'Baru saja',
+                                });
+                            }
+                        }
                         if (d.warning) this.error = d.warning;
                         if (tool === 'quiz' && (d.history?.metadata?.document_uuid || d.history?.meta?.document_uuid)) {
                             this.quiz.document_uuid = d.history.metadata?.document_uuid || d.history.meta.document_uuid;
@@ -4335,7 +4830,7 @@
                         if (tool === 'learning' && (d.history?.metadata?.document_uuid || d.history?.meta?.document_uuid)) {
                             this.learning.document_uuid = d.history.metadata?.document_uuid || d.history.meta.document_uuid;
                         }
-                        if (tool === 'learning' || tool === 'quiz') await this.refreshPreview();
+                        if (tool === 'learning' || tool === 'quiz' || tool === 'tpatp') await this.refreshPreview();
                         if (seq !== this.generateSeq) return;
                         if (tool === 'quiz' && this.quiz.source === 'file') await this.loadMaterials();
                         if (tool === 'learning' && this.learning.source === 'file') await this.loadMaterials();
@@ -4466,6 +4961,16 @@
                     } else if (this.quiz.source === 'file' && this.quiz.document_uuid) {
                         form.append('document_uuid', this.quiz.document_uuid);
                     }
+                } else if (tool === 'tpatp') {
+                    form.append('mode', this.tpatp.mode || 'both');
+                    form.append('mapel', this.tpatp.mapel || '');
+                    form.append('fase_kelas', this.tpatp.fase_kelas || 'D/VII-IX');
+                    form.append('tahun', this.tpatp.tahun || '');
+                    form.append('elemen', this.tpatp.elemen || '');
+                    form.append('cp', this.tpatp.cp || '');
+                    if (this.tpatp.lingkup_materi) form.append('lingkup_materi', this.tpatp.lingkup_materi);
+                    form.append('jp', this.tpatp.jp || 27);
+                    if (this.tpatp.catatan) form.append('catatan', this.tpatp.catatan);
                 }
 
                 return {
@@ -4700,7 +5205,7 @@
                     const input = document.createElement('input');
                     input.type = 'hidden';
                     input.name = name;
-                    input.value = value == null ? '' : String(value);
+                    input.value = value == null ? '' : (typeof value === 'object' ? JSON.stringify(value) : String(value));
                     form.appendChild(input);
                 });
 
@@ -4786,15 +5291,199 @@
                 if (this.tab === 'blueprint') {
                     return this.blueprint.topik ? 'Kisi-kisi - ' + this.blueprint.topik : 'Kisi-kisi dari Asisten Guru';
                 }
+                if (this.tab === 'tpatp') {
+                    return this.tpatp.mapel ? 'TP & ATP - ' + this.tpatp.mapel : 'TP & ATP Kurikulum Merdeka';
+                }
+                if (this.tab === 'prosemprota') {
+                    return 'Prosem & Prota' + (this.prosemprota.kelas ? ' Kelas ' + this.prosemprota.kelas : '');
+                }
                 return this.quiz.topik ? 'Soal - ' + this.quiz.topik : 'Soal dari Asisten Guru';
+            },
+            canSubmitTpAtp() {
+                return (this.tpatp.mapel || '').trim() !== '' && (this.tpatp.cp || '').trim() !== '';
+            },
+            findStandardCp(mapelName) {
+                if (!mapelName || mapelName === '__custom__') return null;
+                const raw = String(mapelName).trim();
+                if (!raw) return null;
+                const q = raw.toLowerCase();
+                const cps = this.standardCps || {};
+
+                // 1. Cocokkan key langsung (misal 'mtk', 'ips', 'ipa', dsb)
+                if (cps[q]) return cps[q];
+
+                // 2. Cocokkan kode persis (misal 'MTK', 'IPA', 'BDM')
+                for (const key in cps) {
+                    const item = cps[key];
+                    if (item && item.kode && item.kode.toLowerCase() === q) {
+                        return item;
+                    }
+                }
+
+                // 3. Cocokkan nama persis atau saling mengandung (substring)
+                for (const key in cps) {
+                    const item = cps[key];
+                    if (!item || !item.nama) continue;
+                    const nama = item.nama.toLowerCase();
+                    if (nama === q || q.includes(nama) || nama.includes(q)) {
+                        return item;
+                    }
+                }
+
+                // 4. Heuristik kata kunci (disinkronkan dengan StandardCurriculumCp::find di backend)
+                const keywords = [
+                    { kw: 'mate', key: 'mtk' },
+                    { kw: 'mtk', key: 'mtk' },
+                    { kw: 'sosial', key: 'ips' },
+                    { kw: 'ips', key: 'ips' },
+                    { kw: 'alam', key: 'ipa' },
+                    { kw: 'ipa', key: 'ipa' },
+                    { kw: 'sains', key: 'ipa' },
+                    { kw: 'indo', key: 'bin' },
+                    { kw: 'ingg', key: 'ing' },
+                    { kw: 'panca', key: 'pp' },
+                    { kw: 'ppkn', key: 'pp' },
+                    { kw: 'pkn', key: 'pp' },
+                    { kw: 'kewarganegaraan', key: 'pp' },
+                    { kw: 'infor', key: 'inf' },
+                    { kw: 'komputer', key: 'inf' },
+                    { kw: 'tik', key: 'inf' },
+                    { kw: 'seni', key: 'sb' },
+                    { kw: 'musik', key: 'sb' },
+                    { kw: 'rupa', key: 'sb' },
+                    { kw: 'tari', key: 'sb' },
+                    { kw: 'teater', key: 'sb' },
+                    { kw: 'jasmani', key: 'pjok' },
+                    { kw: 'olahraga', key: 'pjok' },
+                    { kw: 'pjok', key: 'pjok' },
+                    { kw: 'penjas', key: 'pjok' },
+                    { kw: 'agama', key: 'agm' },
+                    { kw: 'islam', key: 'agm' },
+                    { kw: 'kristen', key: 'agm' },
+                    { kw: 'katolik', key: 'agm' },
+                    { kw: 'hindu', key: 'agm' },
+                    { kw: 'buddha', key: 'agm' },
+                    { kw: 'budi pekerti', key: 'agm' },
+                    { kw: 'melayu', key: 'bdm' },
+                    { kw: 'bmr', key: 'bdm' },
+                    { kw: 'mandarin', key: 'mdr' },
+                    { kw: 'tionghoa', key: 'mdr' },
+                    { kw: 'koding', key: 'kka' },
+                    { kw: 'coding', key: 'kka' },
+                    { kw: 'ai', key: 'kka' },
+                    { kw: 'prakarya', key: 'pra' },
+                ];
+
+                for (const entry of keywords) {
+                    if (q.includes(entry.kw) && cps[entry.key]) {
+                        return cps[entry.key];
+                    }
+                }
+
+                return null;
+            },
+            currentStandardCpElemenList() {
+                const found = this.findStandardCp(this.tpatp.mapel);
+                return (found && Array.isArray(found.elemen_list)) ? found.elemen_list : [];
+            },
+            selectStandardElemen(el) {
+                if (!el) return;
+                this.tpatp.elemen = el.nama || '';
+                if (el.cp) {
+                    this.tpatp.cp = el.cp;
+                }
+            },
+            onTpAtpMapelChange() {
+                const mapelName = this.tpatp.mapel;
+                if (!mapelName) {
+                    this.tpatp.elemen = '';
+                    this.tpatp.cp = '';
+                    this.tpatp.lingkup_materi = '';
+                    return;
+                }
+                if (mapelName === '__custom__') {
+                    this.tpatp.custom_mapel = '';
+                    this.tpatp.elemen = '';
+                    this.tpatp.cp = '';
+                    this.tpatp.lingkup_materi = '';
+                    return;
+                }
+
+                // Cari kecocokan data JP di daftar mata pelajaran sekolah
+                const match = (this.pelajarans || []).find(p => p.nama.toLowerCase() === mapelName.toLowerCase());
+                if (match && match.jp) {
+                    this.tpatp.jp = Math.max(18, Math.round(18 * match.jp / 2));
+                }
+
+                // Selalu perbarui elemen & CP sesuai mata pelajaran yang baru dipilih
+                this.loadStandardCpForSelectedMapel(true);
+            },
+            loadStandardCpForSelectedMapel(force = true) {
+                const mapelName = this.tpatp.mapel;
+                if (!mapelName || mapelName === '__custom__') return;
+
+                const found = this.findStandardCp(mapelName);
+                if (found) {
+                    this.tpatp.elemen = found.elemen_utama || '';
+                    this.tpatp.cp = found.cp_utama || '';
+                    if (found.jp_default) {
+                        const match = (this.pelajarans || []).find(p => p.nama.toLowerCase() === mapelName.toLowerCase());
+                        if (match && match.jp) {
+                            this.tpatp.jp = Math.max(18, Math.round(18 * match.jp / 2));
+                        } else {
+                            this.tpatp.jp = found.jp_default;
+                        }
+                    }
+                    if (force) {
+                        this.tpatp.lingkup_materi = '';
+                    }
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                } else if (force) {
+                    this.tpatp.elemen = '';
+                    this.tpatp.cp = '';
+                    this.tpatp.lingkup_materi = '';
+                }
+            },
+            async exportTpAtp(format) {
+                if (!this.result) return;
+                const isPdf = format === 'pdf';
+                if ((isPdf && this.exportingPdf) || (!isPdf && this.exportingWord)) return;
+                if (isPdf) this.exportingPdf = true; else this.exportingWord = true;
+                this.error = '';
+                this.exportNotice = '';
+                try {
+                    const title = this.currentDocumentTitle();
+                    const fileName = this.slugify(title || 'tp-atp-kurikulum-merdeka') + (isPdf ? '.pdf' : '.docx');
+                    await this.downloadExportFile({
+                        url: isPdf ? this.urls.tpatpPdf : this.urls.tpatpWord,
+                        fields: {
+                            title,
+                            content: this.result,
+                        },
+                        fileName,
+                        mimeHint: isPdf
+                            ? 'application/pdf'
+                            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    });
+                } catch (e) {
+                    this.error = (e && e.message) ? e.message : 'Export gagal. Periksa koneksi lalu coba lagi.';
+                } finally {
+                    if (isPdf) this.exportingPdf = false; else this.exportingWord = false;
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                }
             },
             /**
              * Ambil pratinjau dokumen berformat dari server (parser + template yang sama
              * dengan export), jadi tampilan di layar persis seperti hasil unduhannya.
-             * Berlaku untuk tab yang punya dokumen berformat: soal dan RPM Learning.
+             * Berlaku untuk tab yang punya dokumen berformat: soal, RPM Learning, dan TP & ATP.
              */
             async refreshPreview() {
-                const url = { quiz: this.urls.quizPreview, learning: this.urls.learningPreview }[this.tab];
+                const url = {
+                    quiz: this.urls.quizPreview,
+                    learning: this.urls.learningPreview,
+                    tpatp: this.urls.tpatpPreview,
+                    prosemprota: this.urls.prosemProtaPreview,
+                }[this.tab];
                 if (!url || !this.result) {
                     this.previewHtml = '';
                     return;
@@ -4804,9 +5493,26 @@
                 const content = this.result;
                 this.previewLoading = true;
                 try {
-                    const body = tab === 'learning'
-                        ? { tool: this.learning.tool, content }
-                        : { content, interactive_quality: true };
+                    let body = { content };
+                    if (tab === 'learning') {
+                        body = { tool: this.learning.tool, content };
+                    } else if (tab === 'tpatp') {
+                        body = { content, title: this.currentDocumentTitle() };
+                    } else if (tab === 'prosemprota') {
+                        body = {
+                            content,
+                            kelas: this.prosemprota.kelas,
+                            jp_per_week: this.prosemprota.jp_per_week,
+                            sumatif_jp: this.prosemprota.sumatif_jp,
+                            cadangan_jp_sem1: this.prosemprota.cadangan_jp_sem1,
+                            cadangan_jp_sem2: this.prosemprota.cadangan_jp_sem2,
+                            calendar_events_ganjil: this.prosemprota.calendar_events_ganjil,
+                            calendar_events_genap: this.prosemprota.calendar_events_genap,
+                            title: this.currentDocumentTitle(),
+                        };
+                    } else {
+                        body = { content, interactive_quality: true };
+                    }
                     const r = await fetch(url, {
                         method: 'POST',
                         headers: {
@@ -4834,6 +5540,230 @@
                             if (this.$refs.hasilScrollBody) this.$refs.hasilScrollBody.scrollTop = 0;
                         });
                     }
+                }
+            },
+            onSelectTpAtpSource() {
+                if (!this.prosemprota.source_uuid) {
+                    this.prosemprota.selected_tpatp_info = null;
+                    return;
+                }
+                const doc = this.tpatpDocuments.find(d => d.uuid === this.prosemprota.source_uuid);
+                if (doc) {
+                    this.prosemprota.selected_tpatp_info = {
+                        title: doc.title,
+                        time: doc.created_at_human || 'Tersimpan',
+                    };
+                    const meta = doc.metadata || {};
+                    if (meta.fase_kelas) {
+                        if (meta.fase_kelas.includes('7') || meta.fase_kelas.includes('VII')) this.prosemprota.kelas = 'VII';
+                        else if (meta.fase_kelas.includes('8') || meta.fase_kelas.includes('VIII')) this.prosemprota.kelas = 'VIII';
+                        else if (meta.fase_kelas.includes('9') || meta.fase_kelas.includes('IX')) this.prosemprota.kelas = 'IX';
+                    }
+                    if (meta.jp) {
+                        this.prosemprota.jp_per_week = Math.max(2, Math.min(5, Math.round(meta.jp / 9)));
+                    }
+                }
+            },
+            useActiveTpAtpForProsemProta() {
+                if (this.tab === 'tpatp' && this.result) {
+                    this.activeTpAtpResult = this.result;
+                }
+                this.tab = 'prosemprota';
+                this.prosemprota.source_uuid = '';
+                this.prosemprota.selected_tpatp_info = {
+                    title: this.currentDocumentTitle() || 'TP & ATP Aktif Saat Ini',
+                    time: 'Aktif di sesi ini',
+                };
+                if (this.tpatp.fase_kelas) {
+                    if (this.tpatp.fase_kelas.includes('7') || this.tpatp.fase_kelas.includes('VII')) this.prosemprota.kelas = 'VII';
+                    else if (this.tpatp.fase_kelas.includes('8') || this.tpatp.fase_kelas.includes('VIII')) this.prosemprota.kelas = 'VIII';
+                    else if (this.tpatp.fase_kelas.includes('9') || this.tpatp.fase_kelas.includes('IX')) this.prosemprota.kelas = 'IX';
+                }
+                if (this.tpatp.jp) {
+                    this.prosemprota.jp_per_week = Math.max(2, Math.min(5, Math.round(this.tpatp.jp / 9)));
+                }
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+            initProsemCalendar() {
+                try {
+                    const savedG = localStorage.getItem('sims_prosem_calendar_events_ganjil');
+                    if (savedG) {
+                        const parsed = JSON.parse(savedG);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            this.prosemprota.calendar_events_ganjil = parsed;
+                        }
+                    }
+                    const savedE = localStorage.getItem('sims_prosem_calendar_events_genap');
+                    if (savedE) {
+                        const parsed = JSON.parse(savedE);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            this.prosemprota.calendar_events_genap = parsed;
+                        }
+                    }
+                } catch (_) {}
+            },
+            saveProsemCalendar() {
+                try {
+                    localStorage.setItem('sims_prosem_calendar_events_ganjil', JSON.stringify(this.prosemprota.calendar_events_ganjil));
+                    localStorage.setItem('sims_prosem_calendar_events_genap', JSON.stringify(this.prosemprota.calendar_events_genap));
+                } catch (_) {}
+            },
+            resetProsemCalendar(semester = null) {
+                if (!semester || semester === 'ganjil') {
+                    this.prosemprota.calendar_events_ganjil = JSON.parse(JSON.stringify(this.defaultCalendarEventsGanjil));
+                }
+                if (!semester || semester === 'genap') {
+                    this.prosemprota.calendar_events_genap = JSON.parse(JSON.stringify(this.defaultCalendarEventsGenap));
+                }
+                this.saveProsemCalendar();
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+            addCalendarEvent(semester) {
+                const target = semester === 'ganjil' ? this.prosemprota.calendar_events_ganjil : this.prosemprota.calendar_events_genap;
+                target.push({
+                    label: 'Agenda Sekolah',
+                    start_col: 0,
+                    end_col: 0,
+                    col_span: 1,
+                    color: '#cbd5e1',
+                    text_color: '#1e293b',
+                });
+                this.saveProsemCalendar();
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+            removeCalendarEvent(semester, index) {
+                const target = semester === 'ganjil' ? this.prosemprota.calendar_events_ganjil : this.prosemprota.calendar_events_genap;
+                target.splice(index, 1);
+                this.saveProsemCalendar();
+            },
+            updateCalendarEventSpan(ev) {
+                ev.start_col = parseInt(ev.start_col) || 0;
+                ev.end_col = parseInt(ev.end_col) || 0;
+                if (ev.end_col < ev.start_col) {
+                    ev.end_col = ev.start_col;
+                }
+                ev.col_span = Math.max(1, ev.end_col - ev.start_col + 1);
+                this.saveProsemCalendar();
+            },
+            setCalendarEventPreset(ev, preset) {
+                ev.color = preset.color;
+                ev.text_color = preset.text_color;
+                this.saveProsemCalendar();
+            },
+            async submitProsemProta() {
+                this.error = '';
+                this.loading = true;
+                this.result = '';
+                this.previewHtml = '';
+                try {
+                    let content = '';
+                    if (this.prosemprota.source_uuid) {
+                        const found = this.tpatpDocuments.find(d => d.uuid === this.prosemprota.source_uuid);
+                        if (found) content = found.answer;
+                    } else if (this.activeTpAtpResult) {
+                        content = this.activeTpAtpResult;
+                    } else if (this.result) {
+                        content = this.result;
+                    }
+
+                    if (!content) {
+                        this.error = 'Pilih salah satu hasil TP & ATP yang sudah ada terlebih dahulu.';
+                        this.loading = false;
+                        return;
+                    }
+
+                    const body = {
+                        source_uuid: this.prosemprota.source_uuid,
+                        content: content,
+                        kelas: this.prosemprota.kelas,
+                        semester: this.prosemprota.semester,
+                        jp_per_week: this.prosemprota.jp_per_week,
+                        sumatif_jp: this.prosemprota.sumatif_jp,
+                        cadangan_jp_sem1: this.prosemprota.cadangan_jp_sem1,
+                        cadangan_jp_sem2: this.prosemprota.cadangan_jp_sem2,
+                        calendar_events_ganjil: this.prosemprota.calendar_events_ganjil,
+                        calendar_events_genap: this.prosemprota.calendar_events_genap,
+                    };
+
+                    const r = await fetch(this.urls.prosemProtaGenerate, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        },
+                        body: JSON.stringify(body),
+                    });
+
+                    const d = await r.json().catch(() => ({}));
+                    if (!r.ok || !d.ok) {
+                        this.error = (d && d.message) ? d.message : 'Gagal menyusun Prosem & Prota.';
+                        return;
+                    }
+
+                    this.result = d.answer;
+                    this.resultSource = 'ai';
+                    if (d.history) {
+                        this.addHistory(d.history);
+                    }
+                    if (d.html) {
+                        this.previewHtml = d.html;
+                    } else {
+                        await this.refreshPreview();
+                    }
+                } catch (e) {
+                    this.error = (e && e.message) ? e.message : 'Terjadi kesalahan sistem.';
+                } finally {
+                    this.loading = false;
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
+                }
+            },
+            async exportProsemProta(format, docType = 'prosem_ganjil') {
+                if (!this.result) return;
+                const isPdf = format === 'pdf';
+                if ((isPdf && this.exportingPdf) || (!isPdf && this.exportingWord)) return;
+                if (isPdf) this.exportingPdf = true; else this.exportingWord = true;
+                this.error = '';
+                this.exportNotice = '';
+                try {
+                    const title = this.currentDocumentTitle();
+                    let fileName = this.slugify(title || 'prosem-prota');
+                    if (isPdf) {
+                        fileName += `-${docType}.pdf`;
+                    } else {
+                        fileName += '.docx';
+                    }
+
+                    const fields = {
+                        title,
+                        content: this.result,
+                        kelas: this.prosemprota.kelas,
+                        jp_per_week: this.prosemprota.jp_per_week,
+                        sumatif_jp: this.prosemprota.sumatif_jp,
+                        cadangan_jp_sem1: this.prosemprota.cadangan_jp_sem1,
+                        cadangan_jp_sem2: this.prosemprota.cadangan_jp_sem2,
+                        calendar_events_ganjil: this.prosemprota.calendar_events_ganjil,
+                        calendar_events_genap: this.prosemprota.calendar_events_genap,
+                    };
+                    if (isPdf) {
+                        fields.doc_type = docType;
+                    } else {
+                        fields.type = 'both';
+                    }
+
+                    await this.downloadExportFile({
+                        url: isPdf ? this.urls.prosemProtaPdf : this.urls.prosemProtaWord,
+                        fields,
+                        fileName,
+                        mimeHint: isPdf
+                            ? 'application/pdf'
+                            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    });
+                } catch (e) {
+                    this.error = (e && e.message) ? e.message : 'Export gagal. Periksa koneksi lalu coba lagi.';
+                } finally {
+                    if (isPdf) this.exportingPdf = false; else this.exportingWord = false;
+                    this.$nextTick(() => window.lucide && lucide.createIcons());
                 }
             },
             bindQualityPreviewButtons() {
@@ -5220,7 +6150,7 @@
             },
 
             addHistory(item) {
-                this.histories = [item, ...this.histories.filter((history) => history.uuid !== item.uuid)].slice(0, 20);
+                this.histories = [item, ...this.histories.filter((history) => history.uuid !== item.uuid)].slice(0, 100);
             },
 
             async deleteHistory(item) {
@@ -5297,11 +6227,32 @@
                     return;
                 }
 
-                this.tab = learningTypes.includes(item.type) ? 'learning' : item.type;
+                this.tab = (item.type === 'prosem_prota' || item.type === 'prosemprota')
+                    ? 'prosemprota'
+                    : (learningTypes.includes(item.type) ? 'learning' : item.type);
                 if (learningTypes.includes(item.type)) this.learning.tool = item.type;
+                if (item.type === 'tpatp' && item.metadata) {
+                    if (item.metadata.mode) this.tpatp.mode = item.metadata.mode;
+                    if (item.metadata.mapel) this.tpatp.mapel = item.metadata.mapel;
+                    if (item.metadata.fase_kelas) this.tpatp.fase_kelas = item.metadata.fase_kelas;
+                    if (item.metadata.tahun) this.tpatp.tahun = item.metadata.tahun;
+                    if (item.metadata.elemen) this.tpatp.elemen = item.metadata.elemen;
+                    if (item.metadata.lingkup_materi) this.tpatp.lingkup_materi = item.metadata.lingkup_materi;
+                    if (item.metadata.jp) this.tpatp.jp = item.metadata.jp;
+                }
+                if ((item.type === 'prosem_prota' || item.type === 'prosemprota') && item.metadata) {
+                    if (item.metadata.kelas) this.prosemprota.kelas = item.metadata.kelas;
+                    if (item.metadata.source_uuid) this.prosemprota.source_uuid = item.metadata.source_uuid;
+                    if (item.metadata.options) {
+                        if (item.metadata.options.jp_per_week) this.prosemprota.jp_per_week = item.metadata.options.jp_per_week;
+                        if (item.metadata.options.sumatif_jp) this.prosemprota.sumatif_jp = item.metadata.options.sumatif_jp;
+                        if (item.metadata.options.calendar_events_ganjil) this.prosemprota.calendar_events_ganjil = item.metadata.options.calendar_events_ganjil;
+                        if (item.metadata.options.calendar_events_genap) this.prosemprota.calendar_events_genap = item.metadata.options.calendar_events_genap;
+                    }
+                }
                 this.result = item.answer || '';
                 this.resultSource = 'generate';
-                if (this.tab === 'learning' || this.tab === 'quiz') this.refreshPreview();
+                if (this.tab === 'learning' || this.tab === 'quiz' || this.tab === 'tpatp' || this.tab === 'prosemprota') this.refreshPreview();
                 this.$nextTick(() => window.lucide && lucide.createIcons());
             },
 

@@ -751,6 +751,11 @@
                         $akademik[] = ['perangkat.self', ['perangkat.self', 'perangkat.show'], 'folder-check', 'Perangkat Ajar Saya'];
                     }
 
+                    // RPM Digital: menu tersendiri di Akademik, terpisah dari Asisten Guru
+                    if (\App\Support\UserRole::matches($access, 'guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sapras', 'admin', 'superadmin')) {
+                        $akademik[] = ['rpm.index', ['rpm.*'], 'scroll-text', 'RPM Digital'];
+                    }
+
                     if (auth()->user()?->siswa || $access === 'orangtua') {
                         $akademik[] = ['nilai.self', ['nilai.self'], 'chart-column', 'Nilai Saya'];
                     }
