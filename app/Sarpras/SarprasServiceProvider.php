@@ -28,6 +28,7 @@ class SarprasServiceProvider extends ServiceProvider
     private const STAFF = [
         'superadmin', 'admin', 'sapras', 'sarpras', 'kepala',
         'kurikulum', 'kesiswaan', 'sekretaris', 'walikelas', 'guru',
+        'tendik', 'bendahara',
     ];
 
     public function register(): void
@@ -110,7 +111,7 @@ class SarprasServiceProvider extends ServiceProvider
         ];
 
         foreach ($map as $permission => $roles) {
-            Gate::define($permission, fn ($user) => in_array($user->access, $roles, true));
+            Gate::define($permission, fn ($user) => in_array($user->access, $roles, true) || $user->canAccess('manage_sarpras'));
         }
     }
 }

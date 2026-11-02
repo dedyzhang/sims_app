@@ -25,6 +25,11 @@ class TickerStats
     public const CACHE_KEY = 'sims_ticker_stats';
     public const TTL       = 60; // detik — angka ticker tak perlu real-time presisi
 
+    public static function clear(): void
+    {
+        Cache::forget(self::CACHE_KEY);
+    }
+
     /** Angka mentah ter-cache. */
     public static function raw(): array
     {
@@ -52,7 +57,7 @@ class TickerStats
                 'peminjaman'     => $peminjaman,
                 'semesterLabel'  => $semester ? 'SEMESTER ' . $semester->semester . ' (' . $semester->tahun . ')' : 'TIDAK AKTIF',
                 'onlineSiswa'    => User::where('access', 'siswa')->where('last_seen_at', '>=', $nowSub3)->count(),
-                'onlineGuru'     => User::whereIn('access', ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'sekretaris', 'kepala', 'sarpras', 'sapras', 'bendahara'])->where('last_seen_at', '>=', $nowSub3)->count(),
+                'onlineGuru'     => User::whereIn('access', ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'sekretaris', 'kepala', 'sarpras', 'sapras', 'bendahara', 'tendik'])->where('last_seen_at', '>=', $nowSub3)->count(),
                 'onlineOrangTua' => User::where('access', 'orangtua')->where('last_seen_at', '>=', $nowSub3)->count(),
                 'onlineAdmin'    => User::whereIn('access', ['superadmin', 'admin'])->where('last_seen_at', '>=', $nowSub3)->count(),
             ];
@@ -63,7 +68,7 @@ class TickerStats
     public static function flags(?string $role): array
     {
         $management = UserRole::matches((string) $role, 'superadmin', 'admin', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sekretaris');
-        $teacher    = UserRole::matches((string) $role, 'superadmin', 'admin', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sekretaris', 'walikelas', 'guru');
+        $teacher    = UserRole::matches((string) $role, 'superadmin', 'admin', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sekretaris', 'walikelas', 'guru', 'tendik', 'bendahara');
 
         return [
             'management' => $management,

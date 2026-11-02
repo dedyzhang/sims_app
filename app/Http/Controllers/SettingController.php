@@ -23,7 +23,7 @@ use Illuminate\Support\Str;
 class SettingController extends Controller
 {
     /** Role & permission yang sah untuk matriks hak akses (satu sumber kebenaran). */
-    private const VALID_ROLES = ['kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'bendahara', 'guru', 'orangtua', 'siswa'];
+    private const VALID_ROLES = ['kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'bendahara', 'tendik', 'guru', 'orangtua', 'siswa'];
 
     private const PERMISSION_LABELS = [
         'manage_users' => 'Mengelola Data Siswa & Guru (Data Master)',

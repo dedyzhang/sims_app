@@ -40,6 +40,7 @@ class Pengumuman extends Model
         'sarpras'   => 'Sarpras',
         'guru'      => 'Guru',
         'walikelas' => 'Wali Kelas',
+        'tendik'    => 'Tendik',
         'orangtua'  => 'Orang Tua',
         'siswa'     => 'Siswa',
     ];

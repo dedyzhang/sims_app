@@ -186,6 +186,7 @@ class KartuGuruController extends Controller
             'kesiswaan'            => ['Waka Kesiswaan', 'KESISWAAN'],
             'sarpras'              => ['Waka Sarpras', 'SARPRAS'],
             'bendahara'            => ['Bendahara', 'BENDAHARA'],
+            'tendik'               => ['Tendik', 'TENDIK'],
             'admin', 'superadmin'  => ['Admin / Operator', 'ADMIN'],
             'yayasan'              => ['Yayasan', 'YAYASAN'],
             default                => ['Guru', 'GURU'],

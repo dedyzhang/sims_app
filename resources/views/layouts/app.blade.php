@@ -793,7 +793,7 @@
                         $agendaItems[] = ['agenda.batas', ['agenda.batas'], 'book-open-text', 'Buku Batas'];
                     }
                     // Agenda Rapat: semua guru/staff boleh lihat; kelola penuh utk admin/manage_rapat/sekretaris rapat.
-                    if (auth()->user()?->guru || $isAdmin || auth()->user()?->canAccess('manage_rapat') || in_array($access, ['kesiswaan','sarpras','kurikulum','kepala'])) {
+                    if (auth()->user()?->guru || $isAdmin || auth()->user()?->canAccess('manage_rapat') || in_array($access, ['kesiswaan','sarpras','kurikulum','kepala','tendik','bendahara'])) {
                         $agendaItems[] = ['rapat.index', ['rapat.*'], 'users-round', 'Agenda Rapat'];
                     }
                     if ($isAdmin) {
@@ -952,7 +952,7 @@
                             ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*','sarpras.perbaikan.*','sarpras.jadwal.*'], 'wrench', 'Kerusakan & Perawatan'],
                             ['sarpras.laporan.index',    ['sarpras.laporan.*','sarpras.mutasi.*','sarpras.penghapusan.*','sarpras.pengadaan.*','sarpras.stok-opname.*'], 'file-bar-chart', 'Laporan & Administrasi'],
                         ]];
-                    } elseif (auth()->user()?->guru || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru'], true)) {
+                    } elseif (auth()->user()?->guru || in_array($access, ['kepala','kurikulum','kesiswaan','sekretaris','walikelas','guru','tendik','bendahara'], true)) {
                         $groups['sarpras'] = ['Sarana & Prasarana', 'building-2', [
                             ['sarpras.peminjaman.index', ['sarpras.peminjaman.*'],                       'hand-helping',     'Peminjaman'],
                             ['sarpras.kerusakan.index',  ['sarpras.kerusakan.*'],                        'triangle-alert',   'Lapor Kerusakan'],

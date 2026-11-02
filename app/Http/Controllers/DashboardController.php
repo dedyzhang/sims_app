@@ -67,7 +67,7 @@ class DashboardController extends Controller
         // ── Data ringkas Sarpras (admin/kepala/sapras saja, 4 query → 1 blok data) ──
         $sarpras = null;
         $sarprasRoles = ['superadmin', 'admin', 'kepala', 'sarpras'];
-        if (UserRole::matches((string) $user->access, ...$sarprasRoles) && $user->can('sarpras.dashboard.lihat')) {
+        if ((UserRole::matches((string) $user->access, ...$sarprasRoles) || $user->canAccess('manage_sarpras')) && $user->can('sarpras.dashboard.lihat')) {
             $tickerStats = \App\Support\TickerStats::raw();
             $sarpras = [
                 'totalAset'        => $tickerStats['aset'],

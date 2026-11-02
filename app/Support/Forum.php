@@ -47,6 +47,7 @@ class Forum
         'kesiswaan'  => 'Waka Kesiswaan',
         'sarpras'    => 'Waka Sarpras',
         'bendahara'  => 'Bendahara',
+        'tendik'     => 'Tendik',
         'guru'       => 'Guru',
         'siswa'      => 'Siswa',
         'orangtua'   => 'Orang Tua',
@@ -65,6 +66,7 @@ class Forum
         'kesiswaan'  => ['forum.view.all', 'forum.topic.create', 'forum.comment.create', 'forum.moderate', 'forum.announce'],
         'sarpras'    => ['forum.view.scope', 'forum.topic.create', 'forum.comment.create', 'forum.moderate'],
         'bendahara'  => ['forum.view.scope', 'forum.topic.create', 'forum.comment.create'],
+        'tendik'     => ['forum.view.scope', 'forum.topic.create', 'forum.comment.create'],
         'guru'       => ['forum.view.scope', 'forum.topic.create', 'forum.comment.create', 'forum.moderate'],
         'siswa'      => ['forum.view.scope', 'forum.comment.create'],
         'orangtua'   => ['forum.view.scope', 'forum.comment.create'],
@@ -87,6 +89,7 @@ class Forum
             'sarpras'   => ['sarpras', 'umum', 'pengumuman'],
             'kesiswaan' => ['kesiswaan', 'umum', 'pengumuman'],
             'kurikulum' => ['akademik', 'umum', 'pengumuman'],
+            'tendik'    => ['umum', 'pengumuman'],
             default     => null,
         };
     }

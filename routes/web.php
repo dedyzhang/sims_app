@@ -249,7 +249,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ AsistenAI Chatbot (Fase 2) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     // Widget AI generatif hanya untuk staf/admin Ã¢â‚¬â€ siswa & orang tua memakai chatbot handoff.
-    Route::middleware('role:admin,superadmin,guru,walikelas,kepala,kurikulum,kesiswaan,sapras,bendahara,sekretaris')
+    Route::middleware('role:admin,superadmin,guru,walikelas,kepala,kurikulum,kesiswaan,sapras,bendahara,sekretaris,tendik')
         ->prefix('ai/chat')->name('ai.chat.')->controller(AiChatController::class)->group(function () {
             Route::post('/', 'send')->name('send');
             Route::get('/history', 'history')->name('history');

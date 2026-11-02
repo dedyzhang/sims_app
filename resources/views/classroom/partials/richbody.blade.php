@@ -6,7 +6,62 @@
 <style>
     .rich-body { line-height: 1.7; color: inherit; }
     .rich-body p { margin: 0 0 .7em; }
-    .rich-body ul, .rich-body ol { margin: 0 0 .7em 1.4em; }
+    .rich-body ul {
+        list-style-type: disc !important;
+        margin: 0.5em 0 0.7em 1.5em !important;
+        padding-left: 0.5em !important;
+    }
+    .rich-body ol {
+        list-style-type: decimal !important;
+        margin: 0.5em 0 0.7em 1.5em !important;
+        padding-left: 0.5em !important;
+    }
+    .rich-body ol[type="A"], .rich-body ol.list-alpha-upper { list-style-type: upper-alpha !important; }
+    .rich-body ol[type="a"], .rich-body ol.list-alpha-lower { list-style-type: lower-alpha !important; }
+    .rich-body ol[type="I"], .rich-body ol.list-roman-upper { list-style-type: upper-roman !important; }
+    .rich-body ol[type="i"], .rich-body ol.list-roman-lower { list-style-type: lower-roman !important; }
+    .rich-body ol[type="1"], .rich-body ol.list-decimal { list-style-type: decimal !important; }
+    .rich-body ul ul {
+        list-style-type: circle !important;
+        margin: 0.25em 0 0.25em 1.25em !important;
+    }
+    .rich-body ul ul ul {
+        list-style-type: square !important;
+    }
+    .rich-body ol ol {
+        list-style-type: lower-alpha !important;
+        margin: 0.25em 0 0.25em 1.25em !important;
+    }
+    .rich-body ol ol ol {
+        list-style-type: lower-roman !important;
+    }
+    .rich-body li {
+        display: list-item !important;
+        margin-bottom: 0.25em;
+    }
+    .rich-body li:last-child {
+        margin-bottom: 0;
+    }
+    .rich-body li > p {
+        margin: 0 0 0.25em;
+    }
+    .rich-body li > p:last-child {
+        margin-bottom: 0;
+    }
+    .rich-body svg { display: inline-block; vertical-align: middle; }
+    .rich-body .lucide,
+    .rich-body svg.lucide {
+        display: inline-block;
+        vertical-align: -0.15em;
+        width: 1.15em;
+        height: 1.15em;
+    }
+    .rich-body i[data-lucide] {
+        display: inline-block;
+        vertical-align: middle;
+        min-width: 1em;
+        min-height: 1em;
+    }
     .rich-body img.math-svg { display: inline-block; }
     .rich-body table { border-collapse: collapse; margin: .5em 0; }
     .rich-body table td, .rich-body table th { border: 1px solid #cbd5e1; padding: 4px 8px; }

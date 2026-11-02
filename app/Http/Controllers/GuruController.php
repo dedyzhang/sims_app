@@ -51,18 +51,21 @@ class GuruController extends Controller
             'tmt_ngajar'    => 'nullable|date',
             'tmt_smp'       => 'nullable|date',
             'no_telp'       => 'nullable|string|max:20',
+            'access'        => 'nullable|in:' . implode(',', array_keys(self::ROLES)) . ',sapras',
         ]);
 
         // Buat akun login
         $identifier = $data['nik'] ?? $data['nip'] ?? null;
         $username = $identifier ?? (Str::slug($data['nama'], '.') . '.' . Str::random(4));
         $password = \App\Support\PasswordSederhana::buat();
+        $access = $data['access'] ?? 'guru';
+        unset($data['access']);
 
         $user = User::create([
             'username'   => $username,
             'identifier' => $identifier,
             'password'   => $password,
-            'access'     => 'guru',
+            'access'     => $access,
             'must_change_password' => true,
         ]);
 
@@ -180,6 +183,7 @@ class GuruController extends Controller
         'kesiswaan' => 'Kesiswaan',
         'sarpras'   => 'Sarana & Prasarana',
         'bendahara' => 'Bendahara',
+        'tendik'    => 'Tendik',
         'kepala'    => 'Kepala Sekolah',
         'admin'     => 'Admin',
     ];
