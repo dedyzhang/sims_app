@@ -125,6 +125,8 @@ class AiTeacherController extends Controller
             ])
             ->values();
 
+        $activeSemesterModel = Semester::aktif() ?? Semester::first();
+
         return view('ai.teacher', [
             'histories' => $histories,
             'tpatpDocuments' => $tpatpDocuments,
@@ -139,8 +141,8 @@ class AiTeacherController extends Controller
             'teacherMaterials' => $this->materials->listPayloads($user->uuid),
             'pelajarans' => Pelajaran::orderBy('urutan')->get(['uuid', 'nama', 'kode', 'jp']),
             'standardCps' => StandardCurriculumCp::all(),
-            'activeTahunAjaran' => (Semester::where('is_active', 1)->orWhere('aktif', 1)->value('tahun') ?? '2026/2027'),
-            'activeSemester' => (Semester::where('is_active', 1)->orWhere('aktif', 1)->value('semester') ?? 1),
+            'activeTahunAjaran' => $activeSemesterModel?->tahun ?? '2026/2027',
+            'activeSemester' => (int) ($activeSemesterModel?->semester ?? 1),
             'defaultCalendarEventsGanjil' => ProsemProtaDocument::getDefaultCalendarEvents(true),
             'defaultCalendarEventsGenap' => ProsemProtaDocument::getDefaultCalendarEvents(false),
             'weekColumnsGanjil' => ProsemProtaDocument::getWeekColumns(true),
@@ -2313,7 +2315,8 @@ TXT;
         $mode = $data['mode'] ?? 'both';
         $mapel = trim((string) $data['mapel']);
         $faseKelas = trim((string) ($data['fase_kelas'] ?? '')) ?: 'D/VII-IX';
-        $tahun = trim((string) ($data['tahun'] ?? '')) ?: (Semester::where('is_active', 1)->orWhere('aktif', 1)->value('tahun') ?? '2026-2027');
+        $activeSem = Semester::aktif() ?? Semester::first();
+        $tahun = trim((string) ($data['tahun'] ?? '')) ?: ($activeSem?->tahun ?? '2026-2027');
         $tahun = str_replace('/', '-', $tahun);
         $elemen = trim((string) ($data['elemen'] ?? '')) ?: 'Pemahaman Konsep';
         $cp = trim((string) $data['cp']);
