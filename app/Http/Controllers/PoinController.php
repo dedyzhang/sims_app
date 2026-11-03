@@ -5,11 +5,15 @@ namespace App\Http\Controllers;
 use App\Exports\AturanExport;
 use App\Imports\AturanImport;
 use App\Models\Aturan;
+use App\Models\Guru;
 use App\Models\Orangtua;
 use App\Models\Poin;
 use App\Models\PoinTemp;
+use App\Models\Semester;
+use App\Models\Setting;
 use App\Models\Siswa;
 use App\Support\ExcelWatermark;
+use App\Support\SchoolLetterhead;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -436,6 +440,68 @@ class PoinController extends Controller
             'siswa' => $siswa, 'ledger' => $this->ledgerSorted($h['ledger'], $request),
             'sisa' => $h['sisa'], 'peringatan' => $h['peringatan'],
         ]);
+    }
+
+    /** Cetak lembar rekapitulasi poin kedisiplinan per siswa untuk dilampirkan ke orang tua. */
+    public function poinPrint(Request $request, Siswa $siswa)
+    {
+        $u = auth()->user();
+        $isOwnSiswa = ($u->siswa && $u->siswa->uuid === $siswa->uuid);
+        $isOwnOrtu = ($u->access === 'orangtua' && Orangtua::where('id_login', $u->uuid)->first()?->id_siswa === $siswa->uuid);
+
+        if (!$isOwnSiswa && !$isOwnOrtu) {
+            $this->guardLihatSiswa();
+            if (!$this->bisaKelola() || $this->isWalikelas()) {
+                abort_unless($u->guru?->walikelas && $siswa->id_kelas === $u->guru->walikelas->id_kelas, 403, 'Siswa ini bukan siswa kelas Anda.');
+            }
+        }
+
+        $h = self::hitung($siswa->uuid);
+        $totalKurang = 0;
+        foreach ($h['ledger'] as $l) {
+            if (($l['row']->aturan?->jenis ?? '') === 'kurang') {
+                $totalKurang += (int) ($l['row']->aturan->poin ?? 0);
+            }
+        }
+        $totalTambah = $h['totalTambah'];
+
+        $sem = Semester::aktif() ?? Semester::first();
+        $walikelasGuru = $siswa->kelas?->walikelas?->guru;
+        $kepalaNama = SchoolLetterhead::kepalaSekolah();
+        $nipKepala = SchoolLetterhead::nipKepala();
+
+        return view('poin.siswa.print', [
+            'siswa'       => $siswa->load('kelas'),
+            'sem'         => $sem,
+            'ledger'      => $h['ledger'],
+            'sisa'        => $h['sisa'],
+            'peringatan'  => $h['peringatan'],
+            'totalKurang' => $totalKurang,
+            'totalTambah' => $totalTambah,
+            'sekolah'     => [
+                'nama'     => Setting::get('nama_sekolah', 'Sekolah'),
+                'alamat'   => Setting::get('alamat_sekolah', ''),
+                'kota'     => Setting::get('kota', ''),
+                'provinsi' => Setting::get('provinsi', ''),
+                'telp'     => Setting::get('telp_sekolah', ''),
+                'npsn'     => Setting::get('npsn', ''),
+            ],
+            'walikelas'    => $walikelasGuru,
+            'kepala'       => $kepalaNama,
+            'nipKepala'    => $nipKepala,
+            'tanggal'      => now()->locale('id')->translatedFormat('d F Y'),
+            'kopLogoKiri'  => $this->kopImg('kop_logo_kiri', 'img/tutwuri.png'),
+            'kopLogoKanan' => $this->kopImg('kop_logo_kanan', 'img/maitreyawira_square.png'),
+            'kopTeks'      => Setting::get('kop_teks'),
+        ]);
+    }
+
+    private function kopImg(string $key, string $default): ?string
+    {
+        $v = Setting::get($key);
+        if ($v && file_exists(storage_path('app/public/' . $v))) return asset('storage/' . $v);
+        if (file_exists(public_path($default))) return asset($default);
+        return null;
     }
 
     /**

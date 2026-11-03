@@ -46,7 +46,7 @@
                         <x-sortable-th field="nama" label="Nama" />
                         <x-sortable-th field="kelas" label="Kelas" class="hide-mobile w-20" />
                         <x-sortable-th field="sisa" label="Sisa Poin" align="right" class="w-40" />
-                        <th class="text-right w-20">Aksi</th>
+                        <th class="text-right w-24">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -62,7 +62,10 @@
                             @if($p !== '-')<span class="badge bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300 ml-1">{{ $p }}</span>@endif
                         </td>
                         <td class="text-right">
-                            <a href="{{ route('poin.siswa.show', $s) }}" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-primary inline-flex"><i data-lucide="eye" class="w-3.5 h-3.5"></i></a>
+                            <div class="flex items-center justify-end gap-1">
+                                <a href="{{ route('poin.siswa.print', $s) }}" target="_blank" title="Cetak Poin Siswa" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-primary inline-flex"><i data-lucide="printer" class="w-3.5 h-3.5"></i></a>
+                                <a href="{{ route('poin.siswa.show', $s) }}" title="Lihat Riwayat" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 hover:text-primary inline-flex"><i data-lucide="eye" class="w-3.5 h-3.5"></i></a>
+                            </div>
                         </td>
                     </tr>
                     @endforeach

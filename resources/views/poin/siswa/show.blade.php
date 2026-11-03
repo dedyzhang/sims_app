@@ -27,11 +27,12 @@
         </div>
     </div>
 
-    @if(in_array(auth()->user()->access, ['superadmin', 'admin', 'kesiswaan']))
-    <div class="flex justify-end">
+    <div class="flex items-center justify-end gap-2">
+        <a href="{{ route('poin.siswa.print', $siswa) }}" target="_blank" class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition"><i data-lucide="printer" class="w-4 h-4"></i> Cetak Poin</a>
+        @if(in_array(auth()->user()->access, ['superadmin', 'admin', 'kesiswaan']))
         <a href="{{ route('poin.siswa.create', $siswa) }}" class="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm"><i data-lucide="plus" class="w-4 h-4"></i> Tambah Poin</a>
+        @endif
     </div>
-    @endif
 
     {{-- Ledger --}}
     <div class="card overflow-hidden">

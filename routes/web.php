@@ -852,6 +852,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::group([], function () {
             Route::get('/siswa', [PoinController::class, 'poinIndex'])->name('siswa.index');
             Route::get('/siswa/{siswa}', [PoinController::class, 'poinShow'])->name('siswa.show');
+            Route::get('/siswa/{siswa}/print', [PoinController::class, 'poinPrint'])->name('siswa.print');
         });
 
         // Pengajuan guru/walikelas/sekretaris Ã¢â‚¬â€ guard peran dilakukan di controller
