@@ -409,6 +409,7 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
         peserta: [],
         mapelOpsi: [],
         mapelFilter: '',
+        loading: false,
         _csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
         _timer: null,
 
@@ -417,6 +418,8 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
         },
 
         async muat() {
+            if (this.loading) return;
+            this.loading = true;
             try {
                 const url = this.mapelFilter ? urlPoll + '?mapel=' + encodeURIComponent(this.mapelFilter) : urlPoll;
                 const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -424,7 +427,13 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
                 const data = await res.json();
                 this.peserta = data.peserta;
                 this.mapelOpsi = data.mapelOpsi;
-            } catch (e) {}
+            } catch (e) {
+            } finally {
+                this.loading = false;
+                this.$nextTick(() => {
+                    if (window.lucide) window.lucide.createIcons();
+                });
+            }
         },
 
         formatSisa(iso) {

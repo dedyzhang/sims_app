@@ -205,6 +205,19 @@ Route::middleware(['modul:akademik', 'modul:arena_belajar'])
         Route::post('/{joinToken}/jawab', [GamePracticeJoinController::class, 'answer'])->name('answer')->middleware('throttle:60,1');
     });
 
+// ─── Pre-Test Ujian: link publik via QR/barcode ─── TANPA login akun, siapa saja bisa coba pengerjaan
+Route::middleware(['modul:ujian'])
+    ->prefix('pretest')->name('pretest.public.')
+    ->controller(\App\Http\Controllers\PretestPublicController::class)
+    ->group(function () {
+        Route::get('/{token}', 'show')->name('show')->middleware('throttle:120,1');
+        Route::post('/{token}/mulai', 'mulai')->name('mulai')->middleware('throttle:30,1');
+        Route::get('/{token}/kerjakan', 'kerjakan')->name('kerjakan');
+        Route::post('/{token}/jawab', 'jawab')->name('jawab')->middleware('throttle:120,1');
+        Route::post('/{token}/kumpul', 'kumpul')->name('kumpul')->middleware('throttle:15,1');
+        Route::get('/{token}/selesai', 'selesai')->name('selesai');
+    });
+
 // Halaman "Langganan berakhir" Ã¢â‚¬â€ PUBLIK (tanpa auth) supaya siapa pun yang terkunci
 // oleh middleware EnforceLangganan tetap bisa melihat penjelasannya.
 Route::get('/langganan-berakhir', fn () => response()->view('langganan.berakhir'))->name('langganan.berakhir');
@@ -976,6 +989,10 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/guru/template', [GuruController::class, 'template'])->name('guru.template');
         Route::get('/guru/import', [GuruController::class, 'importForm'])->name('guru.import.form');
         Route::post('/guru/import', [GuruController::class, 'import'])->name('guru.import');
+        Route::get('/guru/ngajar-tanpa-guru', [GuruController::class, 'ngajarTanpaGuru'])->name('guru.ngajar-tanpa-guru');
+        Route::post('/guru/ngajar-tanpa-guru/bulk-ganti', [GuruController::class, 'bulkGantiGuruNgajar'])->name('guru.ngajar-tanpa-guru.bulk-ganti');
+        Route::post('/guru/ngajar-tanpa-guru/{uuid}/ganti', [GuruController::class, 'gantiGuruNgajar'])->name('guru.ngajar-tanpa-guru.ganti');
+        Route::delete('/guru/ngajar-tanpa-guru/{uuid}/hapus', [GuruController::class, 'hapusNgajarTanpaGuru'])->name('guru.ngajar-tanpa-guru.hapus');
         Route::resource('/guru', GuruController::class);
         Route::post('/guru/{uuid}/reset', [GuruController::class, 'reset'])->name('guru.reset');
         Route::get('/guru/{uuid}/pelajaran', [GuruController::class, 'pelajaran'])->name('guru.pelajaran');
@@ -1255,6 +1272,15 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::delete('/susulan/{susulan}', [\App\Http\Controllers\UjianSusulanController::class, 'destroy'])->name('susulan.destroy');
         Route::get('/{ujian}/edit', [UjianController::class, 'edit'])->name('edit');
         Route::get('/{ujian}/pratinjau', [UjianController::class, 'pratinjau'])->name('pratinjau');
+        Route::get('/{ujian}/pretest', [\App\Http\Controllers\UjianPretestController::class, 'index'])->name('pretest.index');
+        Route::put('/{ujian}/pretest', [\App\Http\Controllers\UjianPretestController::class, 'update'])->name('pretest.update');
+        Route::post('/{ujian}/pretest/toggle', [\App\Http\Controllers\UjianPretestController::class, 'toggle'])->name('pretest.toggle');
+        Route::post('/{ujian}/pretest/regenerate', [\App\Http\Controllers\UjianPretestController::class, 'regenerateToken'])->name('pretest.regenerate');
+        Route::get('/{ujian}/pretest/peserta/{peserta}', [\App\Http\Controllers\UjianPretestController::class, 'pesertaDetail'])->name('pretest.peserta.detail');
+        Route::delete('/{ujian}/pretest/peserta/{peserta}', [\App\Http\Controllers\UjianPretestController::class, 'destroyPeserta'])->name('pretest.peserta.destroy');
+        Route::post('/{ujian}/pretest/reset', [\App\Http\Controllers\UjianPretestController::class, 'resetSemuaPeserta'])->name('pretest.peserta.reset');
+        Route::get('/{ujian}/pretest/cetak-analisis', [\App\Http\Controllers\UjianPretestController::class, 'cetakAnalisis'])->name('pretest.cetak-analisis');
+        Route::get('/{ujian}/pretest/unduh-analisis', [\App\Http\Controllers\UjianPretestController::class, 'unduhAnalisis'])->name('pretest.unduh-analisis');
         Route::get('/{ujian}/pengaturan', [UjianController::class, 'editPengaturan'])->name('pengaturan.edit');
         Route::post('/{ujian}/update', [UjianController::class, 'update'])->name('update');
         Route::post('/{ujian}/kelas', [UjianController::class, 'syncKelas'])->name('kelas.sync');

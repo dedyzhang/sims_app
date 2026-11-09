@@ -25,7 +25,9 @@ class GuruController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        return view('guru.index', compact('gurus'));
+        $ngajarTanpaGuruCount = Ngajar::whereDoesntHave('guru')->count();
+
+        return view('guru.index', compact('gurus', 'ngajarTanpaGuruCount'));
     }
 
     public function create()
@@ -197,11 +199,15 @@ class GuruController extends Controller
         $ngajars   = Ngajar::with(['pelajaran', 'kelas'])->where('id_guru', $uuid)->get();
 
         // Peta kelas yang SUDAH diajar guru LAIN per pelajaran → utk nonaktifkan di form
+        // HANYA masukkan jika gurunya AKTIF (bukan guru yang sudah terhapus)
         $takenMap = [];
         $lain = Ngajar::with('guru')->whereNotNull('id_pelajaran')->whereNotNull('id_guru')
             ->where('id_guru', '!=', $uuid)->get();
         foreach ($lain as $ng) {
-            $nama = $ng->guru?->nama ?? 'guru lain';
+            if (!$ng->guru) {
+                continue; // Jika guru sudah terhapus, jangan nonaktifkan kelas ini (bisa diambil alih)
+            }
+            $nama = $ng->guru->nama;
             if (empty($ng->id_kelas)) {
                 foreach ($kelas as $k) {
                     $takenMap[$ng->id_pelajaran][$k->uuid] = $nama; // "semua kelas"
@@ -227,7 +233,7 @@ class GuruController extends Controller
             'id_kelas.min'      => 'Pilih minimal satu kelas.',
         ]);
 
-        Guru::findOrFail($uuid);
+        $guru = Guru::findOrFail($uuid);
 
         // Satu pelajaran bisa ditugaskan ke BANYAK kelas sekaligus,
         // tapi 1 (pelajaran + kelas) hanya boleh diajar SATU guru (anti-bentrok).
@@ -242,6 +248,14 @@ class GuruController extends Controller
                 ->first();
 
             if ($taken) {
+                // JIKA GURU SEBELUMNYA SUDAH TERHAPUS DARI SISTEM:
+                // Otomatis ambil alih penugasan orphan ini ke guru yang sedang diedit!
+                if (!$taken->guru) {
+                    $this->prosesTransferNgajar($taken, $guru);
+                    $count++;
+                    continue;
+                }
+
                 $k = Kelas::find($kelasUuid);
                 $conflicts[] = ($k ? $k->tingkat . $k->kelas : '-') . ' → ' . ($taken->guru?->nama ?? 'guru lain');
                 continue;
@@ -276,16 +290,55 @@ class GuruController extends Controller
     {
         $ngajar = Ngajar::findOrFail($ngajarUuid);
 
-        if ($ngajar->id_kelas && $ngajar->id_pelajaran) {
-            Classroom::where('id_kelas', $ngajar->id_kelas)
-                ->where('id_pelajaran', $ngajar->id_pelajaran)
-                ->get()
-                ->each(fn (Classroom $c) => $c->forceDelete());
-        }
+        \Illuminate\Support\Facades\DB::transaction(function () use ($ngajar) {
+            if ($ngajar->id_kelas && $ngajar->id_pelajaran) {
+                Classroom::where('id_kelas', $ngajar->id_kelas)
+                    ->where('id_pelajaran', $ngajar->id_pelajaran)
+                    ->get()
+                    ->each(fn (Classroom $c) => $c->forceDelete());
+            }
 
-        $ngajar->delete();
+            $ngajar->delete();
+        });
 
         return back()->with('success', 'Pelajaran & ruang kelas terkait dihapus.');
+    }
+
+    /**
+     * Memindahtangankan data ngajar (Jadwal, Classroom, Ngajar) ke guru tujuan.
+     */
+    private function prosesTransferNgajar(Ngajar $ngajar, Guru $guruTujuan): void
+    {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($ngajar, $guruTujuan) {
+            // 1. Pindahkan Jadwal
+            \App\Models\Jadwal::where('id_guru', $ngajar->id_guru)
+                ->where('id_pelajaran', $ngajar->id_pelajaran)
+                ->where('id_kelas', $ngajar->id_kelas)
+                ->update(['id_guru' => $guruTujuan->uuid]);
+
+            // 2. Pindahkan kepemilikan Classroom (e-learning)
+            if ($guruTujuan->id_login) {
+                \App\Models\Classroom::where('id_pelajaran', $ngajar->id_pelajaran)
+                    ->where('id_kelas', $ngajar->id_kelas)
+                    ->update(['created_by' => $guruTujuan->id_login]);
+            }
+
+            // 3. Tangani record Ngajar (anti-duplikat jika guru tujuan sudah punya row mapel+kelas tsb)
+            $duplikat = Ngajar::where('id_guru', $guruTujuan->uuid)
+                ->where('id_pelajaran', $ngajar->id_pelajaran)
+                ->where('id_kelas', $ngajar->id_kelas)
+                ->where('uuid', '!=', $ngajar->uuid)
+                ->first();
+
+            if ($duplikat) {
+                // Pindahkan materi ke ngajar tujuan jika ada
+                \App\Models\Materi::where('id_ngajar', $ngajar->uuid)
+                    ->update(['id_ngajar' => $duplikat->uuid]);
+                $ngajar->delete();
+            } else {
+                $ngajar->update(['id_guru' => $guruTujuan->uuid]);
+            }
+        });
     }
 
     /** Memindahtangankan data ngajar (Jadwal & Classroom) ke guru lain */
@@ -302,34 +355,85 @@ class GuruController extends Controller
             return back()->with('error', 'Guru tujuan sama dengan guru saat ini.');
         }
 
-        // 1. Pindahkan Jadwal
-        \App\Models\Jadwal::where('id_guru', $ngajar->id_guru)
-            ->where('id_pelajaran', $ngajar->id_pelajaran)
-            ->where('id_kelas', $ngajar->id_kelas)
-            ->update(['id_guru' => $guruTujuan->uuid]);
-
-        // 2. Pindahkan Classroom (e-learning) ownership
-        if ($guruTujuan->id_login) {
-            \App\Models\Classroom::where('created_by', $ngajar->guru->id_login ?? '')
-                ->where('id_pelajaran', $ngajar->id_pelajaran)
-                ->where('id_kelas', $ngajar->id_kelas)
-                ->update(['created_by' => $guruTujuan->id_login]);
-        }
-
-        // Cek duplikat
-        $duplikat = Ngajar::where('id_guru', $guruTujuan->uuid)
-            ->where('id_pelajaran', $ngajar->id_pelajaran)
-            ->where('id_kelas', $ngajar->id_kelas)
-            ->first();
-
-        // 3. Tangani Ngajar record
-        if ($duplikat) {
-            $ngajar->delete(); // Hapus yang lama karena guru baru sudah punya
-        } else {
-            $ngajar->update(['id_guru' => $guruTujuan->uuid]);
-        }
+        $this->prosesTransferNgajar($ngajar, $guruTujuan);
 
         return back()->with('success', 'Data mengajar berhasil dipindahkan ke ' . $guruTujuan->nama . '.');
+    }
+
+    /** Halaman khusus kelola penugasan mengajar yang tidak memiliki guru aktif */
+    public function ngajarTanpaGuru(Request $request)
+    {
+        $ngajarTanpaGuru = Ngajar::whereDoesntHave('guru')
+            ->with(['pelajaran', 'kelas'])
+            ->get();
+
+        $guruList = Guru::orderBy('nama')->get(['uuid', 'nama']);
+
+        return view('guru.ngajar-tanpa-guru', compact('ngajarTanpaGuru', 'guruList'));
+    }
+
+    /** Ganti guru untuk satu penugasan ngajar tanpa guru */
+    public function gantiGuruNgajar(Request $request, string $uuid)
+    {
+        $data = $request->validate([
+            'id_guru_tujuan' => 'required|exists:gurus,uuid',
+        ]);
+
+        $ngajar = Ngajar::with(['pelajaran', 'kelas'])->findOrFail($uuid);
+        $guruTujuan = Guru::findOrFail($data['id_guru_tujuan']);
+
+        $this->prosesTransferNgajar($ngajar, $guruTujuan);
+
+        $mapel = $ngajar->pelajaran?->nama ?? 'Pelajaran';
+        $kelas = $ngajar->kelas ? ('Kelas ' . $ngajar->kelas->tingkat . $ngajar->kelas->kelas) : 'Semua Kelas';
+
+        return back()->with('success', "Penugasan {$mapel} ({$kelas}) berhasil dialihkan ke {$guruTujuan->nama}.");
+    }
+
+    /** Ganti guru secara massal (bulk) untuk beberapa penugasan ngajar tanpa guru sekaligus */
+    public function bulkGantiGuruNgajar(Request $request)
+    {
+        $data = $request->validate([
+            'id_ngajar'      => 'required|array|min:1',
+            'id_ngajar.*'    => 'exists:ngajars,uuid',
+            'id_guru_tujuan' => 'required|exists:gurus,uuid',
+        ], [
+            'id_ngajar.required' => 'Pilih minimal satu penugasan mengajar yang ingin dialihkan.',
+        ]);
+
+        $guruTujuan = Guru::findOrFail($data['id_guru_tujuan']);
+
+        $count = 0;
+        foreach ($data['id_ngajar'] as $idNgajar) {
+            $ngajar = Ngajar::find($idNgajar);
+            if (!$ngajar) {
+                continue;
+            }
+
+            $this->prosesTransferNgajar($ngajar, $guruTujuan);
+            $count++;
+        }
+
+        return back()->with('success', "{$count} penugasan mengajar berhasil dialihkan ke {$guruTujuan->nama}.");
+    }
+
+    /** Hapus satu baris penugasan ngajar tanpa guru */
+    public function hapusNgajarTanpaGuru(string $uuid)
+    {
+        $ngajar = Ngajar::findOrFail($uuid);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($ngajar) {
+            if ($ngajar->id_kelas && $ngajar->id_pelajaran) {
+                Classroom::where('id_kelas', $ngajar->id_kelas)
+                    ->where('id_pelajaran', $ngajar->id_pelajaran)
+                    ->get()
+                    ->each(fn (Classroom $c) => $c->forceDelete());
+            }
+
+            $ngajar->delete();
+        });
+
+        return back()->with('success', 'Penugasan mengajar berhasil dihapus.');
     }
 
     /** Simpan data wajah guru (descriptor) untuk presensi */

@@ -104,7 +104,7 @@
                     <label class="flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer"
                            :class="(jawaban[s.uuid]||[]).includes(o.uuid) ? 'border-primary bg-primary/5' : 'border-slate-200 dark:border-slate-600'">
                         <input type="checkbox" :checked="(jawaban[s.uuid]||[]).includes(o.uuid)"
-                               @change="toggleMulti(s.uuid, o.uuid); tandaiBerubah(s.uuid)"
+                               @change="toggleMulti(s.uuid, o.uuid, $event)"
                                class="w-5 h-5 rounded-md border-2 border-slate-300 dark:border-slate-600 text-primary focus:ring-2 focus:ring-primary/30 transition cursor-pointer flex-shrink-0">
                         <span class="text-sm ujian-rich-body break-words min-w-0" x-html="o.teks"></span>
                     </label>
@@ -416,7 +416,13 @@ function ujianKerjakan(cfg) {
             this.sisaDetik = Math.max(0, Math.round((this.batasWaktu - Date.now()) / 1000));
             if (this.sisaDetik <= 0 && !this.terkunci && !this.mengumpulkan) {
                 this.intentional = true;
-                this.kumpulkan(true);
+                this.mengumpulkan = true;
+                // Jeda acak halus 100ms - 2000ms saat auto-submit waktu habis
+                // agar ratusan siswa tidak menembak server di detik yang persis sama
+                const autoSubmitJitter = Math.floor(Math.random() * 1900) + 100;
+                setTimeout(() => {
+                    this.kumpulkan(true);
+                }, autoSubmitJitter);
             }
         },
         pindah(i) {
@@ -433,11 +439,35 @@ function ujianKerjakan(cfg) {
             return !!j;
         },
 
-        toggleMulti(soalUuid, opsiUuid) {
-            let arr = this.jawaban[soalUuid] || [];
-            if (arr.includes(opsiUuid)) arr = arr.filter(x => x !== opsiUuid);
-            else arr.push(opsiUuid);
-            this.jawaban[soalUuid] = arr;
+        toggleMulti(soalUuid, opsiUuid, event) {
+            let arr = [...(this.jawaban[soalUuid] || [])];
+            const s = this.soal.find(x => x.uuid === soalUuid);
+            const totalOpsi = (s && s.opsi) ? s.opsi.length : 0;
+
+            if (arr.includes(opsiUuid)) {
+                arr = arr.filter(x => x !== opsiUuid);
+                this.jawaban[soalUuid] = arr;
+                this.tandaiBerubah(soalUuid);
+            } else {
+                // Cegah memilih seluruh opsi yang ada (maksimal N - 1 opsi)
+                // Siswa tidak tahu jumlah kunci benar, namun dicegah memborong seluruh pilihan
+                if (totalOpsi > 1 && arr.length >= totalOpsi - 1) {
+                    if (event && event.target) {
+                        event.target.checked = false;
+                    }
+                    if (window.$ && $.alert) {
+                        $.alert({
+                            title: 'Batas Pilihan',
+                            content: 'Pada pilihan ganda kompleks, Anda tidak boleh memilih seluruh opsi yang ada. Minimal sisakan 1 opsi tidak dipilih.',
+                            type: 'orange'
+                        });
+                    }
+                    return;
+                }
+                arr.push(opsiUuid);
+                this.jawaban[soalUuid] = arr;
+                this.tandaiBerubah(soalUuid);
+            }
         },
 
         setPasangan(soalUuid, kiri, kanan) {
@@ -627,15 +657,41 @@ function ujianKerjakan(cfg) {
             clearInterval(this._syncTimer);
             if (this._debounceTimer) clearTimeout(this._debounceTimer);
             clearInterval(this._statusHandle);
+
+            let res = null;
+            let isWafBlock = false;
+
+            // 3x Silent Retry otomatis jika server sedang padat (503) saat submit
+            for (let submitAttempt = 0; submitAttempt < 3; submitAttempt++) {
+                try {
+                    res = await fetch(cfg.urlSubmit, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this._csrf },
+                    });
+
+                    isWafBlock = res.status === 403 && !res.headers.get('content-type')?.includes('application/json');
+
+                    if ((res.status === 503 || isWafBlock) && submitAttempt < 2) {
+                        await new Promise(r => setTimeout(r, (submitAttempt + 1) * 700 + Math.floor(Math.random() * 300)));
+                        continue;
+                    }
+
+                    break;
+                } catch (e) {
+                    if (submitAttempt < 2) {
+                        await new Promise(r => setTimeout(r, (submitAttempt + 1) * 700 + Math.floor(Math.random() * 300)));
+                        continue;
+                    }
+                    break;
+                }
+            }
+
             try {
-                const res = await fetch(cfg.urlSubmit, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this._csrf },
-                });
+                if (!res) {
+                    throw new Error('Gagal menghubungi server.');
+                }
                 
                 // Jika error 503 (database busy) ATAU 403 HTML (diblokir WAF/ModSecurity hosting)
-                const isWafBlock = res.status === 403 && !res.headers.get('content-type')?.includes('application/json');
-                
                 if (res.status === 503 || isWafBlock) {
                     this.mengumpulkan = false;
                     $.alert({

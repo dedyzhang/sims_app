@@ -43,6 +43,21 @@ class UserPreference extends Model
         return $this->belongsTo(User::class, 'user_uuid', 'uuid');
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function (self $pref) {
+            if (request()->hasSession()) {
+                request()->session()->forget('user_pref_' . $pref->user_uuid);
+            }
+        });
+
+        static::deleted(function (self $pref) {
+            if (request()->hasSession()) {
+                request()->session()->forget('user_pref_' . $pref->user_uuid);
+            }
+        });
+    }
+
     public static function defaults(): array
     {
         return [

@@ -15,9 +15,19 @@
                 @if($ruangan->keterangan) · {{ $ruangan->keterangan }} @endif
             </p>
         </div>
-        <a href="{{ route('ujian.ruangan.monitor', $ruangan) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
-            <i data-lucide="radar" class="w-4 h-4 inline"></i> Buka Monitor Pengawas
-        </a>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('ujian.ruangan.monitor', $ruangan) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
+                <i data-lucide="radar" class="w-4 h-4 inline"></i> Buka Monitor Pengawas
+            </a>
+            <form method="POST" action="{{ route('ujian.paket.ruangan.destroy', [$paket, $ruangan]) }}" onsubmit="return confirmAction(this, 'Hapus ruangan \'{{ addslashes($ruangan->nama) }}\'? Seluruh data peserta roster di ruangan ini akan ikut terhapus.', 'red')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="px-3.5 py-2 rounded-xl text-sm font-semibold text-rose-600 border border-rose-200 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition flex items-center gap-1.5" title="Hapus Ruangan">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span>Hapus Ruangan</span>
+                </button>
+            </form>
+        </div>
     </div>
 
     {{-- Peserta --}}

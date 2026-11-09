@@ -25,6 +25,16 @@
             <p class="text-sm text-slate-500 mt-0.5">{{ $gurus->total() }} guru terdaftar</p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
+            <a href="{{ route('guru.ngajar-tanpa-guru') }}"
+               class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border {{ ($ngajarTanpaGuruCount ?? 0) > 0 ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800' }} transition">
+                <i data-lucide="user-x" class="w-4 h-4 {{ ($ngajarTanpaGuruCount ?? 0) > 0 ? 'text-amber-600' : 'text-slate-400' }}"></i>
+                <span>Penugasan Tanpa Guru</span>
+                @if(($ngajarTanpaGuruCount ?? 0) > 0)
+                <span class="px-2 py-0.5 rounded-full text-xs font-extrabold bg-rose-500 text-white animate-pulse">
+                    {{ $ngajarTanpaGuruCount }}
+                </span>
+                @endif
+            </a>
             <button @click="importModal=true"
                     class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition">
                 <i data-lucide="upload" class="w-4 h-4"></i> Import Excel
@@ -34,6 +44,28 @@
             </a>
         </div>
     </div>
+
+    @if(($ngajarTanpaGuruCount ?? 0) > 0)
+    <div class="card p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 flex items-center justify-between gap-3 flex-wrap rounded-2xl shadow-sm">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-amber-900 dark:text-amber-200">
+                    Terdapat {{ $ngajarTanpaGuruCount }} penugasan mengajar yang tidak memiliki guru aktif
+                </p>
+                <p class="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                    Data guru sebelumnya telah dihapus sehingga penugasan kelas dan mapel ini menggantung. Tentukan guru pengganti agar KBM dan jadwal berjalan normal.
+                </p>
+            </div>
+        </div>
+        <a href="{{ route('guru.ngajar-tanpa-guru') }}" class="btn-primary text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm">
+            <span>Atur Guru Pengganti</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </a>
+    </div>
+    @endif
 
     {{-- Search --}}
     <form method="GET" class="card p-4 flex flex-wrap gap-2">

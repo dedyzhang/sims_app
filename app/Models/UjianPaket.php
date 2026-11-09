@@ -30,6 +30,60 @@ class UjianPaket extends Model
         ];
     }
 
+    /**
+     * Hitung status otomatis berdasarkan tanggal mulai & selesai terhadap tanggal hari ini:
+     * - Sebelum tanggal mulai: 'draft'
+     * - Dalam rentang tanggal mulai s.d. tanggal selesai: 'berjalan'
+     * - Setelah tanggal selesai: 'selesai'
+     */
+    public static function hitungStatusOtomatis(?string $mulai, ?string $selesai, ?string $fallback = 'draft'): string
+    {
+        if ($mulai || $selesai) {
+            $today = now()->toDateString();
+            if ($selesai && $today > $selesai) {
+                return 'selesai';
+            }
+            if ($mulai && $today >= $mulai && (!$selesai || $today <= $selesai)) {
+                return 'berjalan';
+            }
+            if ($mulai && $today < $mulai) {
+                return 'draft';
+            }
+        }
+
+        return $fallback ?? 'draft';
+    }
+
+    /**
+     * Accessor: jika tanggal mulai / selesai ditentukan, status otomatis
+     * menyesuaikan tanggal hari ini tanpa harus diubah manual setiap hari.
+     */
+    public function getStatusAttribute($value): string
+    {
+        if ($this->tanggal_mulai || $this->tanggal_selesai) {
+            return static::hitungStatusOtomatis(
+                $this->tanggal_mulai?->toDateString(),
+                $this->tanggal_selesai?->toDateString(),
+                $value
+            );
+        }
+
+        return $value ?? 'draft';
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (UjianPaket $paket) {
+            if ($paket->tanggal_mulai || $paket->tanggal_selesai) {
+                $paket->attributes['status'] = static::hitungStatusOtomatis(
+                    $paket->tanggal_mulai?->toDateString(),
+                    $paket->tanggal_selesai?->toDateString(),
+                    $paket->attributes['status'] ?? 'draft'
+                );
+            }
+        });
+    }
+
     public function semester()
     {
         return $this->belongsTo(Semester::class, 'id_semester', 'id');

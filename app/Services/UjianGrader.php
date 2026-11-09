@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 class UjianGrader
 {
     /** @return array{is_benar: ?bool, skor: float} */
-    public function scoreObjective(UjianSoal $soal, UjianJawaban $jawaban): array
+    public function scoreObjective(UjianSoal $soal, object $jawaban): array
     {
         return match ($soal->tipe) {
             'mcq', 'true_false' => $this->scoreSingleSelect($soal, $jawaban),
@@ -26,7 +26,7 @@ class UjianGrader
         };
     }
 
-    private function scoreSingleSelect(UjianSoal $soal, UjianJawaban $jawaban): array
+    private function scoreSingleSelect(UjianSoal $soal, object $jawaban): array
     {
         $opsiBenar = $soal->opsi->firstWhere('is_benar', true);
         $dijawab = !empty($jawaban->id_opsi_dipilih);
@@ -53,12 +53,19 @@ class UjianGrader
      * apa adanya (poinEfektif() mengembalikan poin mentah utk mode ini, TANPA dikali
      * jumlah opsi) — semua-atau-tidak-sama-sekali tak punya konsep "per item".
      */
-    private function scoreMultiSelect(UjianSoal $soal, UjianJawaban $jawaban): array
+    private function scoreMultiSelect(UjianSoal $soal, object $jawaban): array
     {
         $benarUuids = $soal->opsi->where('is_benar', true)->pluck('uuid')->sort()->values();
         $dipilih = collect($jawaban->opsi_dipilih_multi ?? [])->sort()->values();
         $benar = $benarUuids->all() === $dipilih->all();
         $dijawab = $dipilih->isNotEmpty();
+
+        // Anti-spekulasi: jika siswa memilih seluruh opsi yang ada (N dari N opsi),
+        // otomatis dianggap tidak sah dan skor 0 (mencegah trik memborong semua pilihan)
+        $totalOpsi = $soal->opsi->count();
+        if ($totalOpsi > 1 && $dipilih->count() >= $totalOpsi) {
+            return ['is_benar' => false, 'skor' => 0];
+        }
 
         if ($soal->skor_mode === 'proporsional' && $benarUuids->isNotEmpty()) {
             $benarDipilih = $benarUuids->intersect($dipilih)->count();
@@ -83,7 +90,7 @@ class UjianGrader
     }
 
     /** Sama semantik poin dgn scoreMultiSelect() (lihat komentar di sana) — proporsional: poin PER PASANGAN; all_or_nothing: poin TOTAL apa adanya. */
-    private function scoreMatch(UjianSoal $soal, UjianJawaban $jawaban): array
+    private function scoreMatch(UjianSoal $soal, object $jawaban): array
     {
         $pairs = $soal->meta['pairs'] ?? [];
         $total = count($pairs);
@@ -168,6 +175,7 @@ class UjianGrader
         $idUjianKelas = $ujian->kelas()->pluck('uuid');
         $attempts = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelas)
             ->where('status', UjianAttempt::STATUS_SUBMITTED)
+            ->whereNull('skor_objektif')
             ->get();
 
         $count = 0;

@@ -139,6 +139,12 @@ class UjianGradingTest extends TestCase
         $hasilLengkap = $grader->scoreObjective($soal, $lengkap);
         $this->assertTrue($hasilLengkap['is_benar']);
         $this->assertSame(20.0, $hasilLengkap['skor']);
+
+        // Anti-spekulasi: Memilih seluruh opsi (A, B, C) otomatis diskualifikasi -> skor 0
+        $semua = new UjianJawaban(['opsi_dipilih_multi' => [$o1->uuid, $o2->uuid, $soal->opsi->last()->uuid]]);
+        $hasilSemua = $grader->scoreObjective($soal, $semua);
+        $this->assertFalse($hasilSemua['is_benar']);
+        $this->assertSame(0, $hasilSemua['skor']);
     }
 
     /**

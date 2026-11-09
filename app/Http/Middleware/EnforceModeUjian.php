@@ -16,6 +16,7 @@ class EnforceModeUjian
 {
     private const ALLOWED_ROUTE_PREFIXES = [
         'ujian.',
+        'pretest.',
         'ganti.',
         'face.',
     ];

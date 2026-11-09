@@ -292,8 +292,26 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
 
     public function prefTampilan(): \App\Models\UserPreference
     {
-        return $this->prefTampilanCache ??= $this->preference()
+        if ($this->prefTampilanCache !== null) {
+            return $this->prefTampilanCache;
+        }
+
+        $sessionKey = 'user_pref_' . $this->uuid;
+        if (request()->hasSession() && request()->session()->has($sessionKey)) {
+            $pref = request()->session()->get($sessionKey);
+            if ($pref instanceof \App\Models\UserPreference) {
+                return $this->prefTampilanCache = $pref;
+            }
+        }
+
+        $pref = $this->preference()
             ->firstOrCreate(['user_uuid' => $this->uuid], \App\Models\UserPreference::defaults());
+
+        if (request()->hasSession()) {
+            request()->session()->put($sessionKey, $pref);
+        }
+
+        return $this->prefTampilanCache = $pref;
     }
 
     /** Token FCM perangkat (multi-device) untuk push notification. */

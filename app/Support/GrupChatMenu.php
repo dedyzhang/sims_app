@@ -21,13 +21,33 @@ class GrupChatMenu
             return false;
         }
 
+        // Saat Mode Ujian aktif, siswa tidak boleh dan tidak perlu query grup chat
+        if (\App\Support\ModeUjian::aktif() && $user->access === 'siswa') {
+            return false;
+        }
+
+        if (! \App\Support\ModulAktif::aktif('grup_chat')) {
+            return false;
+        }
+
         if ($user->isAdmin() || $user->canAccess(GrupChatPolicy::IZIN_KELOLA)) {
             return true;
         }
 
-        return GrupChatMember::where('user_id', $user->getKey())
+        $sessionKey = 'grup_chat_tampil_' . $user->getKey();
+        if (request()->hasSession() && request()->session()->has($sessionKey)) {
+            return (bool) request()->session()->get($sessionKey);
+        }
+
+        $ada = GrupChatMember::where('user_id', $user->getKey())
             ->whereNull('left_at')
             ->exists();
+
+        if (request()->hasSession()) {
+            request()->session()->put($sessionKey, $ada);
+        }
+
+        return $ada;
     }
 
     /**

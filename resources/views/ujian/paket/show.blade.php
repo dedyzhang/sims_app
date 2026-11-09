@@ -91,13 +91,24 @@
         </div>
         <div class="grid gap-2.5">
             @forelse($paket->ruangan as $r)
-            <a href="{{ route('ujian.paket.ruangan.show', [$paket, $r]) }}" class="p-3.5 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-primary transition flex items-center justify-between gap-3">
-                <div>
-                    <p class="font-semibold text-sm">{{ $r->nama }}</p>
+            <div class="p-3.5 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-primary/50 transition flex items-center justify-between gap-3 bg-white dark:bg-slate-800">
+                <a href="{{ route('ujian.paket.ruangan.show', [$paket, $r]) }}" class="min-w-0 flex-1 group">
+                    <p class="font-semibold text-sm text-slate-800 dark:text-slate-100 group-hover:text-primary transition">{{ $r->nama }}</p>
                     <p class="text-xs text-slate-500 mt-0.5">{{ $r->peserta->count() }} peserta{{ $r->kapasitas ? ' / ' . $r->kapasitas . ' kapasitas' : '' }}</p>
+                </a>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <form method="POST" action="{{ route('ujian.paket.ruangan.destroy', [$paket, $r]) }}" onsubmit="return confirmAction(this, 'Hapus ruangan \'{{ addslashes($r->nama) }}\'? Seluruh data peserta roster di ruangan ini akan ikut terhapus.', 'red')">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition" title="Hapus Ruangan">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </form>
+                    <a href="{{ route('ujian.paket.ruangan.show', [$paket, $r]) }}" class="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" title="Kelola Ruangan">
+                        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    </a>
                 </div>
-                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
-            </a>
+            </div>
             @empty
             <p class="text-sm text-slate-400 py-2">Belum ada ruangan dibuat.</p>
             @endforelse
@@ -193,11 +204,14 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="draft" @selected($paket->status==='draft')>Draf</option>
-                        <option value="berjalan" @selected($paket->status==='berjalan')>Berjalan</option>
-                        <option value="selesai" @selected($paket->status==='selesai')>Selesai</option>
+                    <select name="status" class="form-select">
+                        <option value="draft" @selected($paket->status==='draft')>Draf (Belum Mulai / Persiapan)</option>
+                        <option value="berjalan" @selected($paket->status==='berjalan')>Berjalan (Sedang Berlangsung)</option>
+                        <option value="selesai" @selected($paket->status==='selesai')>Selesai (Sudah Berakhir)</option>
                     </select>
+                    <p class="text-[11px] text-slate-400 mt-1">
+                        <i data-lucide="sparkles" class="w-3 h-3 inline text-amber-500"></i> Otomatis menyesuaikan jika tanggal mulai &amp; selesai diisi.
+                    </p>
                 </div>
                 <div class="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 px-4 py-3"
                      x-data="{ wajibScan: {{ $paket->wajib_scan_qr ? 'true' : 'false' }} }">

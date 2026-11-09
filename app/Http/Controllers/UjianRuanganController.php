@@ -60,7 +60,7 @@ class UjianRuanganController extends Controller
         $this->authorize('kelola', $ruangan);
         $ruangan->delete();
 
-        return back()->with('success', 'Ruangan dihapus.');
+        return redirect()->route('ujian.paket.show', $paket)->with('success', 'Ruangan berhasil dihapus.');
     }
 
     /** Halaman kelola satu ruangan — form roster peserta + QR scan utk hadir/pengawas. */

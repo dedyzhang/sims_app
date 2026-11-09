@@ -190,9 +190,9 @@ class UjianAnalisisExportTest extends TestCase
         $this->assertEquals(1, $sheet->getCell("K{$dataRow}")->getValue());
 
         // KKM/Tuntas/Tidak Tuntas SEJAJAR dgn Jumlah/Rata-rata/L/TL Bagian A (bukan didorong
-        // jauh ke kanan oleh lebar Bagian B) — kolomTerakhirA=11(K), info box mulai K+2=M(label)/O(nilai).
-        $this->assertSame('KKM', $sheet->getCell('M4')->getValue());
-        $this->assertEquals(75, $sheet->getCell('O4')->getValue());
+        // jauh ke kanan oleh lebar Bagian B) — kolomTerakhirA=11(K), info box mulai K-1=J(label)/K(nilai).
+        $this->assertSame('KKM', $sheet->getCell('J4')->getValue());
+        $this->assertEquals(75, $sheet->getCell('K4')->getValue());
     }
 
     /**

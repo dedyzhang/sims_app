@@ -61,7 +61,32 @@ class UjianController extends Controller implements HasMiddleware
         }
 
         $ujians = $query->get();
-        
+
+        $daftarPaket = \App\Models\UjianPaket::withCount(['ujian', 'ruangan'])
+            ->with('semester')
+            ->latest()
+            ->get();
+
+        $totalTanpaPaket = $ujians->whereNull('id_ujian_paket')->count();
+
+        // Tentukan mode tampilan:
+        // Jika request memiliki parameter 'paket': masuk ke Halaman 2 (Kelola Ujian dalam Paket)
+        // Jika TIDAK ADA parameter 'paket' DAN ada paket terdaftar: tampilkan Halaman 1 (Pilih Paket Ujian)
+        // Jika database belum punya paket sama sekali (mis. saat pengujian unit test): langsung tampilkan Halaman 2 (Kelola Ujian)
+        $hasPaketParam = $request->has('paket');
+        $viewMode = ($hasPaketParam || $daftarPaket->isEmpty()) ? 'kelola' : 'pilih_paket';
+
+        $activePaketId = $request->query('paket', ($daftarPaket->isEmpty() ? 'all' : null));
+        $activePaket = ($activePaketId && $activePaketId !== 'all' && $activePaketId !== 'none')
+            ? $daftarPaket->firstWhere('uuid', $activePaketId)
+            : null;
+
+        $daftarTingkat = $ujians->flatMap(fn ($u) => $u->kelas->pluck('kelas.tingkat'))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+
         $groupedUjians = $ujians->groupBy(function ($ujian) {
             if ($ujian->susulans_exists) {
                 return 'Jadwal Susulan Aktif';
@@ -72,7 +97,16 @@ class UjianController extends Controller implements HasMiddleware
             return 'Tidak Dalam Paket';
         });
 
-        return view('ujian.index', compact('groupedUjians'));
+        return view('ujian.index', compact(
+            'ujians',
+            'groupedUjians',
+            'daftarPaket',
+            'totalTanpaPaket',
+            'daftarTingkat',
+            'viewMode',
+            'activePaketId',
+            'activePaket'
+        ));
     }
 
     public function create(Request $request)

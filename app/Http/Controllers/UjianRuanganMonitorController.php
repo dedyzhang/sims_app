@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RetriesOnDbBusy;
 use App\Models\Guru;
 use App\Models\Setting;
 use App\Models\Siswa;
@@ -10,6 +11,7 @@ use App\Models\UjianBeritaAcara;
 use App\Models\UjianDaftarHadir;
 use App\Models\UjianJadwal;
 use App\Models\UjianKelas;
+use App\Models\UjianPaket;
 use App\Models\UjianPelanggaran;
 use App\Models\UjianRuangan;
 use App\Models\UjianSesi;
@@ -35,6 +37,8 @@ use Illuminate\Validation\Rule;
  */
 class UjianRuanganMonitorController extends Controller
 {
+    use RetriesOnDbBusy;
+
     /** Ujian yg dijadwalkan (UjianJadwal) hari ini utk paket ruangan ini — dasar pencarian attempt aktif tiap siswa. */
     private function idUjianHariIni(UjianRuangan $ruangan): array
     {
@@ -53,74 +57,194 @@ class UjianRuanganMonitorController extends Controller
      */
     private function tokenHariIni(UjianRuangan $ruangan): \Illuminate\Support\Collection
     {
-        $idUjianHariIni = $this->idUjianHariIni($ruangan);
-        if (empty($idUjianHariIni)) {
-            return collect();
-        }
+        return \Illuminate\Support\Facades\Cache::remember(
+            'ujian_ruangan_token_hari_ini_' . $ruangan->uuid . '_' . now()->toDateString(),
+            60,
+            function () use ($ruangan) {
+                $idUjianHariIni = $this->idUjianHariIni($ruangan);
+                if (empty($idUjianHariIni)) {
+                    return collect();
+                }
 
-        return UjianKelas::with(['ujian.pelajaran', 'kelas'])
-            ->whereIn('id_ujian', $idUjianHariIni)
-            ->get()
-            ->groupBy('id_ujian')
-            ->map(function ($grp) {
-                $perTingkat = $grp->groupBy(fn ($uk) => $uk->kelas?->tingkat)
-                    ->map(fn ($g, $tingkat) => [
-                        'tingkat' => $tingkat,
-                        'token'   => $g->pluck('token_masuk')->filter()->unique()->implode(', '),
-                    ])
-                    ->sortKeys()
+                return UjianKelas::with(['ujian.pelajaran', 'kelas'])
+                    ->whereIn('id_ujian', $idUjianHariIni)
+                    ->get()
+                    ->groupBy('id_ujian')
+                    ->map(function ($grp) {
+                        $perTingkat = $grp->groupBy(fn ($uk) => $uk->kelas?->tingkat)
+                            ->map(fn ($g, $tingkat) => [
+                                'tingkat' => $tingkat,
+                                'token'   => $g->pluck('token_masuk')->filter()->unique()->implode(', '),
+                            ])
+                            ->sortKeys()
+                            ->values();
+
+                        return [
+                            'mapel'       => $grp->first()->ujian?->pelajaran?->nama ?? $grp->first()->ujian?->judul,
+                            'perTingkat'  => $perTingkat,
+                        ];
+                    })
+                    ->sortBy('mapel')
                     ->values();
-
-                return [
-                    'mapel'       => $grp->first()->ujian?->pelajaran?->nama ?? $grp->first()->ujian?->judul,
-                    'perTingkat'  => $perTingkat,
-                ];
-            })
-            ->sortBy('mapel')
-            ->values();
+            }
+        );
     }
 
-    /** Daftar ruangan yg boleh dimasuki guru TANPA scan fisik — semua ruangan yg py ujian dijadwalkan hari ini (siapa pun guru boleh masuk, lihat UjianRuanganPolicy::awasi()). */
+    /** Daftar ruangan yg boleh dimasuki guru TANPA scan fisik — HANYA ruangan yg py ujian dijadwalkan hari ini (siapa pun guru boleh masuk, lihat UjianRuanganPolicy::awasi()). */
     public function daftarRuanganSaya(Request $request)
     {
         $user = $request->user();
-        if ($user->isAdmin() || $user->canAccess('manage_ujian')) {
-            $ruanganList = UjianRuangan::with('paket')->latest()->get();
-        } else {
+        if (!$user->isAdmin() && !$user->canAccess('manage_ujian')) {
             abort_unless($user->guru, 403, 'Halaman ini khusus guru.');
-            $idPaketHariIni = UjianJadwal::whereDate('tanggal', now()->toDateString())->pluck('id_ujian_paket')->unique();
-            $ruanganList = UjianRuangan::with('paket')->whereIn('id_ujian_paket', $idPaketHariIni)->latest()->get();
         }
 
-        // SENGAJA tidak auto-redirect walau cuma 1 ruangan — guru harus tetap lihat & tap
-        // tombol "Scan & Masuk"-nya sendiri (itu yg memicu catatPengawasSesiAktif()), bukan
-        // dilompati diam-diam ke monitor tanpa pernah menyentuh langkah scan-nya.
-        return view('ujian.ruangan.daftar', compact('ruanganList'));
+        $idPaketHariIni = UjianJadwal::whereDate('tanggal', now()->toDateString())->pluck('id_ujian_paket')->unique()->toArray();
+
+        // Hanya paket ujian yang memiliki ruangan DAN memiliki jadwal ujian hari ini (kecuali jika minta ?semua=1)
+        $daftarPaketQuery = UjianPaket::withCount(['ruangan', 'ujian'])->has('ruangan');
+        if (!$request->boolean('semua')) {
+            $daftarPaketQuery->whereIn('uuid', $idPaketHariIni);
+        }
+        $daftarPaket = $daftarPaketQuery->latest()->get();
+
+        $activePaketId = $request->query('paket');
+        $activePaket = ($activePaketId && $activePaketId !== 'all')
+            ? UjianPaket::find($activePaketId)
+            : null;
+
+        $hasPaketParam = $request->has('paket');
+        // Mode tampilan: jika ada parameter paket atau paket aktif hari ini <= 1, langsung tampilkan ruangan.
+        // Jika ada lebih dari 1 paket aktif hari ini dan belum dipilih: tampilkan pilihan paket.
+        $viewMode = ($hasPaketParam || $daftarPaket->count() <= 1) ? 'ruangan' : 'pilih_paket';
+
+        // Query ruangan
+        if (empty($idPaketHariIni) && !$request->boolean('semua')) {
+            $ruanganList = collect();
+        } else {
+            $query = UjianRuangan::with(['paket', 'peserta.siswa.kelas'])->withCount('peserta');
+            if ($activePaket) {
+                $query->where('id_ujian_paket', $activePaket->uuid);
+            } elseif (!$request->boolean('semua')) {
+                $query->whereIn('id_ujian_paket', $idPaketHariIni);
+            }
+            $allRuangan = $query->orderBy('nama')->get();
+
+            // Ambil sesi & jadwal hari ini untuk setiap ruangan
+            $allPaketIds = $allRuangan->pluck('id_ujian_paket')->unique()->filter()->values();
+            $sesiHariIni = UjianSesi::whereIn('id_ujian_paket', $allPaketIds)
+                ->whereDate('tanggal', now()->toDateString())
+                ->whereHas('jadwal')
+                ->with(['jadwal.ujian.pelajaran'])
+                ->orderBy('jam_mulai')
+                ->get();
+
+            $allIdUjian = $sesiHariIni->flatMap(fn ($s) => $s->jadwal->pluck('id_ujian'))->unique()->filter()->values();
+            $ujianKelasGrouped = UjianKelas::whereIn('id_ujian', $allIdUjian)
+                ->get(['uuid', 'id_ujian', 'id_kelas'])
+                ->groupBy('id_ujian');
+
+            $sesiByPaket = $sesiHariIni->groupBy('id_ujian_paket');
+
+            $ruanganList = $allRuangan->filter(function ($r) use ($sesiByPaket, $ujianKelasGrouped, $request) {
+                $sesiListPaket = $sesiByPaket->get($r->id_ujian_paket, collect());
+                if ($sesiListPaket->isEmpty()) {
+                    if ($request->boolean('semua')) {
+                        $r->adaJadwalHariIni = false;
+                        $r->sesiHariIni = collect();
+                        $r->mapelHariIni = collect();
+                        return true;
+                    }
+                    return false;
+                }
+
+                // Kelas-kelas siswa pada roster ruangan ini
+                $idKelasPeserta = $r->peserta->pluck('siswa.id_kelas')->filter()->unique();
+
+                // Filter sesi yang relevan untuk kelas di ruangan ini
+                $sesiRelevan = $sesiListPaket->filter(function ($s) use ($idKelasPeserta, $ujianKelasGrouped) {
+                    if ($idKelasPeserta->isEmpty()) {
+                        return true; // Fallback jika belum diatur peserta
+                    }
+
+                    foreach ($s->jadwal as $j) {
+                        $kelasUjian = $ujianKelasGrouped->get($j->id_ujian, collect())->pluck('id_kelas');
+                        if ($kelasUjian->intersect($idKelasPeserta)->isNotEmpty()) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+                // Jika ruangan sudah ada peserta, tapi tidak ada sesi/mapel untuk kelas mereka hari ini
+                if ($r->peserta->isNotEmpty() && $sesiRelevan->isEmpty()) {
+                    if ($request->boolean('semua')) {
+                        $r->adaJadwalHariIni = false;
+                        $r->sesiHariIni = collect();
+                        $r->mapelHariIni = collect();
+                        return true;
+                    }
+                    return false;
+                }
+
+                $sesiFinal = $sesiRelevan->isNotEmpty() ? $sesiRelevan : $sesiListPaket;
+
+                $r->adaJadwalHariIni = true;
+                $r->sesiHariIni = $sesiFinal;
+                $r->mapelHariIni = $sesiFinal->flatMap(function ($s) use ($idKelasPeserta, $ujianKelasGrouped) {
+                    return $s->jadwal->filter(function ($j) use ($idKelasPeserta, $ujianKelasGrouped) {
+                        if ($idKelasPeserta->isEmpty()) {
+                            return true;
+                        }
+                        $kelasUjian = $ujianKelasGrouped->get($j->id_ujian, collect())->pluck('id_kelas');
+                        return $kelasUjian->intersect($idKelasPeserta)->isNotEmpty();
+                    })->map(function ($j) use ($s) {
+                        return [
+                            'sesi' => $s->sesi_label ?? ('Sesi ' . substr($s->jam_mulai, 0, 5)),
+                            'jam' => substr($s->jam_mulai, 0, 5) . ' - ' . substr($s->jam_selesai, 0, 5),
+                            'mapel' => $j->ujian?->pelajaran?->nama ?? $j->ujian?->judul ?? 'Ujian',
+                        ];
+                    });
+                });
+
+                return true;
+            })->values();
+        }
+
+        return view('ujian.ruangan.daftar', compact(
+            'ruanganList',
+            'daftarPaket',
+            'idPaketHariIni',
+            'activePaket',
+            'activePaketId',
+            'viewMode'
+        ));
     }
 
     public function show(Request $request, UjianRuangan $ruangan)
     {
-        $this->authorize('awasi', $ruangan);
-        // 'paket.ujian' ikut di-eager-load supaya $allUjianList di bawah tak lazy-load query terpisah.
-        $ruangan->load(['paket.ujian', 'peserta.siswa.kelas']);
+        return $this->retryOnDbBusy(function () use ($ruangan) {
+            $this->authorize('awasi', $ruangan);
+            // 'paket.ujian' ikut di-eager-load supaya $allUjianList di bawah tak lazy-load query terpisah.
+            $ruangan->load(['paket.ujian', 'peserta.siswa.kelas']);
 
-        $sesiHariIni = $this->sesiHariIni($ruangan);
-        $adaJadwalHariIni = $sesiHariIni->isNotEmpty();
-        $guruList = Guru::orderBy('nama')->get();
-        $baAdhocList = $this->baAdhocHariIni($ruangan);
-        $allUjianList = $ruangan->paket->ujian ?? collect();
-        $tokenHariIni = $this->tokenHariIni($ruangan);
+            $sesiHariIni = $this->sesiHariIni($ruangan);
+            $adaJadwalHariIni = $sesiHariIni->isNotEmpty();
+            $guruList = \Illuminate\Support\Facades\Cache::remember('guru_list_ordered', 300, fn () => Guru::orderBy('nama')->get());
+            $baAdhocList = $this->baAdhocHariIni($ruangan);
+            $allUjianList = $ruangan->paket->ujian ?? collect();
+            $tokenHariIni = $this->tokenHariIni($ruangan);
 
-        // Satu daftar gabungan terurut jam — tampilan TAK BOLEH bedakan "sesi terjadwal" vs
-        // "berita acara manual" (FL: tak mau ada konsep "ad-hoc" lagi). $sesiHariIni/
-        // $baAdhocList tetap dikirim terpisah krn loop modal-nya masih butuh dua sumber itu.
-        $agendaGabungan = $sesiHariIni->map(fn ($sesi) => [
-            'tipe' => 'sesi', 'sesi' => $sesi, 'ba' => $sesi->beritaAcara, 'jamMulai' => $sesi->jam_mulai,
-        ])->concat($baAdhocList->map(fn ($ba) => [
-            'tipe' => 'manual', 'sesi' => $ba->sesi, 'ba' => $ba, 'jamMulai' => $ba->sesi?->jam_mulai ?? $ba->jam_mulai_aktual ?? '99:99',
-        ]))->sortBy('jamMulai')->values();
+            // Satu daftar gabungan terurut jam — tampilan TAK BOLEH bedakan "sesi terjadwal" vs
+            // "berita acara manual" (FL: tak mau ada konsep "ad-hoc" lagi). $sesiHariIni/
+            // $baAdhocList tetap dikirim terpisah krn loop modal-nya masih butuh dua sumber itu.
+            $agendaGabungan = $sesiHariIni->map(fn ($sesi) => [
+                'tipe' => 'sesi', 'sesi' => $sesi, 'ba' => $sesi->beritaAcara, 'jamMulai' => $sesi->jam_mulai,
+            ])->concat($baAdhocList->map(fn ($ba) => [
+                'tipe' => 'manual', 'sesi' => $ba->sesi, 'ba' => $ba, 'jamMulai' => $ba->sesi?->jam_mulai ?? $ba->jam_mulai_aktual ?? '99:99',
+            ]))->sortBy('jamMulai')->values();
 
-        return view('ujian.ruangan.monitor', compact('ruangan', 'sesiHariIni', 'adaJadwalHariIni', 'guruList', 'baAdhocList', 'allUjianList', 'tokenHariIni', 'agendaGabungan'));
+            return view('ujian.ruangan.monitor', compact('ruangan', 'sesiHariIni', 'adaJadwalHariIni', 'guruList', 'baAdhocList', 'allUjianList', 'tokenHariIni', 'agendaGabungan'));
+        });
     }
 
     /**
@@ -174,7 +298,9 @@ class UjianRuanganMonitorController extends Controller
     {
         $idKelasSesiIni = UjianKelas::whereIn('id_ujian', $sesi->jadwal->pluck('id_ujian'))->pluck('id_kelas');
 
-        return $ruangan->peserta()->with('siswa')->get()
+        $peserta = $ruangan->relationLoaded('peserta') ? $ruangan->peserta : $ruangan->peserta()->with('siswa')->get();
+
+        return $peserta
             ->filter(fn ($p) => $idKelasSesiIni->contains($p->siswa?->id_kelas))
             ->count();
     }
@@ -237,90 +363,96 @@ class UjianRuanganMonitorController extends Controller
      */
     public function poll(Request $request, UjianRuangan $ruangan)
     {
-        $this->authorize('awasi', $ruangan);
+        return $this->retryOnDbBusy(function () use ($request, $ruangan) {
+            $this->authorize('awasi', $ruangan);
 
-        $idUjianHariIni = $this->idUjianHariIni($ruangan);
-        $peserta = $ruangan->peserta()->with('siswa.kelas')->get();
-        $idKelasPeserta = $peserta->pluck('siswa.id_kelas')->filter()->unique()->values();
+            $idUjianHariIni = $this->idUjianHariIni($ruangan);
+            $peserta = $ruangan->peserta()->with('siswa.kelas')->get();
+            $idKelasPeserta = $peserta->pluck('siswa.id_kelas')->filter()->unique()->values();
 
-        $ujianKelasHariIni = collect();
-        if (!empty($idUjianHariIni) && $idKelasPeserta->isNotEmpty()) {
-            $ujianKelasHariIni = UjianKelas::with(['ujian.pelajaran', 'kelas'])
-                ->whereIn('id_ujian', $idUjianHariIni)
-                ->whereIn('id_kelas', $idKelasPeserta)
-                ->get();
-        }
-        $ujianKelasByKelas = $ujianKelasHariIni->groupBy('id_kelas');
-
-        // Kunci attempt = (id_ujian_kelas, id_siswa/user uuid) — TIDAK cukup id_siswa saja,
-        // krn satu siswa bisa py >1 UjianKelas relevan hari ini (lihat docblock). Tanpa
-        // orderBy eksplisit (pola sama spt App\Services\UjianRoster) krn UUID v7 primary key
-        // di app ini sudah terurut waktu — get() mengembalikan lama→baru, keyBy() menimpa
-        // dgn yg diproses BELAKANGAN, jadi otomatis attempt TERBARU yg tersimpan per kunci.
-        $attemptsByUjianKelas = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasHariIni->pluck('uuid'))
-            ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
-            ->get()
-            ->groupBy('id_ujian_kelas')
-            ->map(fn ($grp) => $grp->keyBy('id_siswa'));
-
-        $rows = collect();
-        foreach ($peserta as $p) {
-            $siswa = $p->siswa;
-            if (!$siswa) {
-                continue;
+            $ujianKelasHariIni = collect();
+            if (!empty($idUjianHariIni) && $idKelasPeserta->isNotEmpty()) {
+                $ujianKelasHariIni = UjianKelas::with(['ujian.pelajaran', 'kelas'])
+                    ->whereIn('id_ujian', $idUjianHariIni)
+                    ->whereIn('id_kelas', $idKelasPeserta)
+                    ->get();
             }
-            foreach ($ujianKelasByKelas->get($siswa->id_kelas, collect()) as $uk) {
-                $a = $attemptsByUjianKelas->get($uk->uuid)?->get($siswa->id_login);
-                if (!$a) {
-                    continue; // belum mulai ujian ini — tak ditampilkan di tabel live, lihat docblock
+            $ujianKelasByKelas = $ujianKelasHariIni->groupBy('id_kelas');
+
+            // Kunci attempt = (id_ujian_kelas, id_siswa/user uuid) — TIDAK cukup id_siswa saja,
+            // krn satu siswa bisa py >1 UjianKelas relevan hari ini (lihat docblock). Tanpa
+            // orderBy eksplisit (pola sama spt App\Services\UjianRoster) krn UUID v7 primary key
+            // di app ini sudah terurut waktu — get() mengembalikan lama→baru, keyBy() menimpa
+            // dgn yg diproses BELAKANGAN, jadi otomatis attempt TERBARU yg tersimpan per kunci.
+            $attemptsByUjianKelas = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasHariIni->pluck('uuid'))
+                ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
+                ->select([
+                    'uuid', 'id_ujian_kelas', 'id_siswa', 'status', 'dikunci',
+                    'batas_waktu_pada', 'mulai_pada', 'selesai_pada', 'skor', 'nilai_akhir', 'total_skor',
+                ])
+                ->get()
+                ->groupBy('id_ujian_kelas')
+                ->map(fn ($grp) => $grp->keyBy('id_siswa'));
+
+            $rows = collect();
+            foreach ($peserta as $p) {
+                $siswa = $p->siswa;
+                if (!$siswa) {
+                    continue;
                 }
-                $rows->push([
-                    'id_peserta' => $p->uuid . '-' . $uk->uuid,
-                    'nama'       => $siswa->nama,
-                    'kelas'      => trim(($siswa->kelas?->tingkat ?? '') . ($siswa->kelas?->kelas ?? '')),
-                    'id_ujian'   => $uk->id_ujian,
-                    'mapel'      => $uk->ujian?->pelajaran?->nama,
-                    'attempt'    => $a,
-                ]);
+                foreach ($ujianKelasByKelas->get($siswa->id_kelas, collect()) as $uk) {
+                    $a = $attemptsByUjianKelas->get($uk->uuid)?->get($siswa->id_login);
+                    if (!$a) {
+                        continue; // belum mulai ujian ini — tak ditampilkan di tabel live, lihat docblock
+                    }
+                    $rows->push([
+                        'id_peserta' => $p->uuid . '-' . $uk->uuid,
+                        'nama'       => $siswa->nama,
+                        'kelas'      => trim(($siswa->kelas?->tingkat ?? '') . ($siswa->kelas?->kelas ?? '')),
+                        'id_ujian'   => $uk->id_ujian,
+                        'mapel'      => $uk->ujian?->pelajaran?->nama,
+                        'attempt'    => $a,
+                    ]);
+                }
             }
-        }
 
-        $mapelFilter = $request->string('mapel')->toString();
-        if ($mapelFilter !== '') {
-            $rows = $rows->filter(fn ($r) => $r['id_ujian'] === $mapelFilter)->values();
-        }
+            $mapelFilter = $request->string('mapel')->toString();
+            if ($mapelFilter !== '') {
+                $rows = $rows->filter(fn ($r) => $r['id_ujian'] === $mapelFilter)->values();
+            }
 
-        $pelanggaranCount = UjianPelanggaran::whereIn('id_attempt', $rows->pluck('attempt.uuid')->filter())
-            ->selectRaw('id_attempt, count(*) as jumlah')->groupBy('id_attempt')->pluck('jumlah', 'id_attempt');
+            $pelanggaranCount = UjianPelanggaran::whereIn('id_attempt', $rows->pluck('attempt.uuid')->filter())
+                ->selectRaw('id_attempt, count(*) as jumlah')->groupBy('id_attempt')->pluck('jumlah', 'id_attempt');
 
-        // $a SELALU ada (non-null) di titik ini — baris tanpa attempt sudah di-skip di loop atas.
-        $data = $rows->sortBy('nama')->values()->map(function ($r) use ($pelanggaranCount) {
-            $a = $r['attempt'];
+            // $a SELALU ada (non-null) di titik ini — baris tanpa attempt sudah di-skip di loop atas.
+            $data = $rows->sortBy('nama')->values()->map(function ($r) use ($pelanggaranCount) {
+                $a = $r['attempt'];
 
-            return [
-                'id_peserta'       => $r['id_peserta'],
-                'nama'             => $r['nama'],
-                'kelas'            => $r['kelas'],
-                'mapel'            => $r['mapel'],
-                'attempt_uuid'     => $a->uuid,
-                'status'           => $a->status,
-                'status_label'     => $a->statusLabel(),
-                'dikunci'          => $a->isLocked(),
-                'batas_waktu_pada' => $a->batas_waktu_pada?->toIso8601String(),
-                'pelanggaran'      => (int) ($pelanggaranCount[$a->uuid] ?? 0),
-            ];
+                return [
+                    'id_peserta'       => $r['id_peserta'],
+                    'nama'             => $r['nama'],
+                    'kelas'            => $r['kelas'],
+                    'mapel'            => $r['mapel'],
+                    'attempt_uuid'     => $a->uuid,
+                    'status'           => $a->status,
+                    'status_label'     => $a->statusLabel(),
+                    'dikunci'          => $a->isLocked(),
+                    'batas_waktu_pada' => $a->batas_waktu_pada?->toIso8601String(),
+                    'pelanggaran'      => (int) ($pelanggaranCount[$a->uuid] ?? 0),
+                ];
+            });
+
+            $mapelOpsi = $ujianKelasHariIni->groupBy('id_ujian')->map(function ($grp) {
+                $tingkat = $grp->pluck('kelas.tingkat')->filter()->unique()->sort()->implode(', ');
+
+                return [
+                    'uuid'  => $grp->first()->id_ujian,
+                    'label' => trim(($grp->first()->ujian?->pelajaran?->nama ?? '—') . ($tingkat !== '' ? " · Tingkat {$tingkat}" : '')),
+                ];
+            })->sortBy('label')->values();
+
+            return response()->json(['peserta' => $data, 'mapelOpsi' => $mapelOpsi]);
         });
-
-        $mapelOpsi = $ujianKelasHariIni->groupBy('id_ujian')->map(function ($grp) {
-            $tingkat = $grp->pluck('kelas.tingkat')->filter()->unique()->sort()->implode(', ');
-
-            return [
-                'uuid'  => $grp->first()->id_ujian,
-                'label' => trim(($grp->first()->ujian?->pelajaran?->nama ?? '—') . ($tingkat !== '' ? " · Tingkat {$tingkat}" : '')),
-            ];
-        })->sortBy('label')->values();
-
-        return response()->json(['peserta' => $data, 'mapelOpsi' => $mapelOpsi]);
     }
 
     /** Buka-kunci siswa yg "terkeluar" — HARUS anggota roster ruangan ini (bukan siswa dari ruangan lain). */

@@ -16,7 +16,7 @@ use Throwable;
  */
 trait RetriesOnDbBusy
 {
-    protected function retryOnDbBusy(callable $fn, int $times = 3)
+    protected function retryOnDbBusy(callable $fn, int $times = 4)
     {
         return retry(
             $times,
@@ -28,7 +28,7 @@ trait RetriesOnDbBusy
                 }
                 return $fn($attempt);
             },
-            fn (int $attempt) => $attempt * 200,
+            fn (int $attempt) => ($attempt * 250) + random_int(50, 200),
             fn (Throwable $e) => DbBusy::terdeteksi($e)
         );
     }

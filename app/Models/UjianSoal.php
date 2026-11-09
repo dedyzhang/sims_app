@@ -101,7 +101,7 @@ class UjianSoal extends Model
     }
 
     /** Apakah siswa mendapat SATU item spesifik ini benar (dari itemBenarList()) di suatu jawaban. */
-    public function itemDipilihBenar(UjianJawaban $jawaban, array $item): bool
+    public function itemDipilihBenar(object $jawaban, array $item): bool
     {
         if ($this->tipe === 'mcq_complex') {
             return in_array($item['opsi_uuid'], $jawaban->opsi_dipilih_multi ?? [], true);

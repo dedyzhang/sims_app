@@ -101,9 +101,10 @@ class UjianPaketController extends Controller implements HasMiddleware
             'id_semester'      => 'nullable|exists:semesters,id',
             'tanggal_mulai'    => 'nullable|date',
             'tanggal_selesai'  => 'nullable|date|after_or_equal:tanggal_mulai',
-            'status'           => 'required|in:draft,berjalan,selesai',
+            'status'           => 'nullable|in:draft,berjalan,selesai',
             'wajib_scan_qr'    => 'nullable|boolean',
         ]);
+        $data['status'] = $data['status'] ?? 'draft';
         $data['wajib_scan_qr'] = $request->boolean('wajib_scan_qr');
         $paket->update($data);
 

@@ -96,15 +96,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const existingAlert = document.getElementById('token-error-alert');
         if (existingAlert) existingAlert.remove();
 
-        // Rencana 5: Micro-Jitter (50ms - 1200ms) untuk meratakan lonjakan serempak
-        const jitterMs = Math.floor(Math.random() * 1150) + 50;
+        // Rencana 5: Micro-Jitter (100ms - 1900ms) untuk meratakan lonjakan serempak
+        const jitterMs = Math.floor(Math.random() * 1800) + 100;
         await new Promise(r => setTimeout(r, jitterMs));
 
-        // Submit dengan Fetch dan 3x Silent Retry diam-diam jika server sedang sibuk sesaat
+        // Submit dengan Fetch dan 4x Silent Retry diam-diam jika server sedang sibuk sesaat
         const csrf = form.querySelector('input[name="_token"]')?.value || '';
         let lastErrorMessage = '';
 
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 4; attempt++) {
             try {
                 const res = await fetch(form.action, {
                     method: 'POST',
@@ -119,6 +119,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (res.ok) {
                     const data = await res.json();
                     if (data && data.redirect) {
+                        // Jeda acak halus (200ms - 1200ms) sebelum pindah ke soal agar ratusan siswa
+                        // tidak serentak menembak route /kerjakan di detik yang persis sama
+                        const redirectJitter = Math.floor(Math.random() * 1000) + 200;
+                        await new Promise(r => setTimeout(r, redirectJitter));
                         window.location.href = data.redirect;
                         return;
                     }
@@ -139,23 +143,25 @@ document.addEventListener('DOMContentLoaded', function () {
                     break;
                 }
 
-                // Jika status 503 (database busy) atau 500, tunggu sejenak lalu coba lagi diam-diam
-                if ((res.status === 503 || res.status >= 500) && attempt < 2) {
-                    await new Promise(r => setTimeout(r, (attempt + 1) * 400));
+                // Jika status 503 (database busy) atau 500, tunggu dengan jeda bertingkat lalu coba lagi diam-diam
+                if ((res.status === 503 || res.status >= 500) && attempt < 3) {
+                    const retryWait = (attempt + 1) * 600 + Math.floor(Math.random() * 400);
+                    await new Promise(r => setTimeout(r, retryWait));
                     continue;
                 }
 
                 lastErrorMessage = 'Koneksi ke server sedang padat. Silakan tekan Mulai Ujian sekali lagi.';
             } catch (err) {
-                if (attempt < 2) {
-                    await new Promise(r => setTimeout(r, (attempt + 1) * 400));
+                if (attempt < 3) {
+                    const retryWait = (attempt + 1) * 600 + Math.floor(Math.random() * 400);
+                    await new Promise(r => setTimeout(r, retryWait));
                     continue;
                 }
                 lastErrorMessage = 'Gagal menghubungi server. Periksa koneksi internet Anda lalu coba lagi.';
             }
         }
 
-        // Jika sampai di sini berarti gagal setelah dicoba 3x
+        // Jika sampai di sini berarti gagal setelah dicoba 4x
         isSubmitting = false;
         btn.disabled = false;
         btn.classList.remove('opacity-80', 'cursor-not-allowed');

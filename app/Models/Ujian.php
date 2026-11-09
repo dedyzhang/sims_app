@@ -93,6 +93,12 @@ class Ujian extends Model
         return $this->belongsTo(UjianPaket::class, 'id_ujian_paket', 'uuid');
     }
 
+    /** Pre-test / Uji Coba Publik dengan Link & QR Code */
+    public function pretest()
+    {
+        return $this->hasOne(UjianPretest::class, 'id_ujian', 'uuid');
+    }
+
     /** Ujian standalone (id_ujian_paket null, "Ulangan Harian" bebas guru) selalu mode 1 — tak pernah wajib scan. */
     public function wajibScanQr(): bool
     {

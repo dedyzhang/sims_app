@@ -146,4 +146,40 @@ class UjianPaketTest extends TestCase
             ->assertRedirect();
         $this->assertSame('PAS (diedit admin)', $paket->fresh()->nama);
     }
+
+    public function test_status_paket_otomatis_menyesuaikan_tanggal(): void
+    {
+        // 1. Tanggal mulai belum tiba -> draft
+        $paketMasaDepan = UjianPaket::create([
+            'nama'            => 'PAS Masa Depan',
+            'jenis'           => 'pas',
+            'created_by'      => $this->guruA->uuid,
+            'tanggal_mulai'   => now()->addDays(5)->toDateString(),
+            'tanggal_selesai' => now()->addDays(10)->toDateString(),
+        ]);
+        $this->assertSame('draft', $paketMasaDepan->status);
+        $this->assertSame('Draf', $paketMasaDepan->statusLabel());
+
+        // 2. Hari ini dalam rentang tanggal -> berjalan
+        $paketBerjalan = UjianPaket::create([
+            'nama'            => 'PAS Sedang Berjalan',
+            'jenis'           => 'pas',
+            'created_by'      => $this->guruA->uuid,
+            'tanggal_mulai'   => now()->subDays(2)->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
+        ]);
+        $this->assertSame('berjalan', $paketBerjalan->status);
+        $this->assertSame('Berjalan', $paketBerjalan->statusLabel());
+
+        // 3. Tanggal selesai sudah lewat -> selesai
+        $paketLampau = UjianPaket::create([
+            'nama'            => 'PAS Masa Lalu',
+            'jenis'           => 'pas',
+            'created_by'      => $this->guruA->uuid,
+            'tanggal_mulai'   => now()->subDays(10)->toDateString(),
+            'tanggal_selesai' => now()->subDays(2)->toDateString(),
+        ]);
+        $this->assertSame('selesai', $paketLampau->status);
+        $this->assertSame('Selesai', $paketLampau->statusLabel());
+    }
 }

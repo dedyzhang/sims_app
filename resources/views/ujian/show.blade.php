@@ -24,6 +24,9 @@
         <a href="{{ route('ujian.edit', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
             <i data-lucide="list-checks" class="w-4 h-4 inline"></i> Susun Soal ({{ $ujian->soal->count() }})
         </a>
+        <a href="{{ route('ujian.pretest.index', $ujian) }}" class="px-4 py-2 rounded-xl text-sm font-semibold border border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/30 flex items-center gap-1.5">
+            <i data-lucide="qr-code" class="w-4 h-4 inline"></i> Pre-Test Publik
+        </a>
         <div x-data="{ openEkspor: false }" class="relative inline-block">
             <button type="button" @click="openEkspor = !openEkspor" class="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-1.5">
                 <i data-lucide="download" class="w-4 h-4"></i> Ekspor Soal

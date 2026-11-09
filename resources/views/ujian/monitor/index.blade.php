@@ -80,6 +80,7 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
         attempts: [],
         kelasOpsi: [],
         kelasFilter: '',
+        loading: false,
         _csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
         _timer: null,
 
@@ -88,6 +89,8 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
         },
 
         async muat() {
+            if (this.loading) return;
+            this.loading = true;
             try {
                 const url = this.kelasFilter ? urlPoll + '?kelas=' + encodeURIComponent(this.kelasFilter) : urlPoll;
                 const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -95,7 +98,13 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, urlResetTemplate) {
                 const data = await res.json();
                 this.attempts = data.attempts;
                 this.kelasOpsi = data.kelasOpsi;
-            } catch (e) {}
+            } catch (e) {
+            } finally {
+                this.loading = false;
+                this.$nextTick(() => {
+                    if (window.lucide) window.lucide.createIcons();
+                });
+            }
         },
 
         formatSisa(iso) {

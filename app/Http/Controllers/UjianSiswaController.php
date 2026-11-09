@@ -89,9 +89,11 @@ class UjianSiswaController extends Controller implements HasMiddleware
             // orderBy('created_at') ASC (bukan latest()) supaya keyBy() menyimpan baris
             // TERBARU per id_ujian_kelas (Collection::keyBy menimpa dgn item yg diproses
             // belakangan, jadi item terlama harus diproses duluan).
+            // Pangkas kolom HANYA ke status & identitas, jangan bawa urutan_soal & urutan_opsi yg berat.
             $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasList->pluck('uuid'))
                 ->where('id_siswa', $request->user()->uuid)
                 ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
+                ->select(['uuid', 'id_ujian_kelas', 'id_siswa', 'status', 'dikunci'])
                 ->orderBy('created_at')
                 ->get()->keyBy('id_ujian_kelas');
 
@@ -101,7 +103,24 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 ->pluck('id_ujian')
                 ->toArray();
 
-            $ujianKelasList = $ujianKelasList->filter(function($uk) use ($siswa, $susulanIds) {
+            // OPTIMASI N+1: Ambil semua paket yg butuh scan QR dalam 1 batch query gabungan
+            $paketIdsWajibQr = $ujianKelasList->pluck('ujian.paket')
+                ->filter(fn ($p) => $p && $p->wajib_scan_qr)
+                ->pluck('uuid')
+                ->unique();
+
+            $paketSudahHadir = collect();
+            if ($paketIdsWajibQr->isNotEmpty()) {
+                $paketSudahHadir = \App\Models\UjianDaftarHadir::where('ujian_daftar_hadir.id_siswa', $siswa->uuid)
+                    ->where('ujian_daftar_hadir.status', 'hadir')
+                    ->whereDate('ujian_daftar_hadir.tanggal', now()->toDateString())
+                    ->join('ujian_ruangans', 'ujian_daftar_hadir.id_ruangan', '=', 'ujian_ruangans.uuid')
+                    ->whereIn('ujian_ruangans.id_ujian_paket', $paketIdsWajibQr)
+                    ->pluck('ujian_ruangans.id_ujian_paket')
+                    ->flip();
+            }
+
+            $ujianKelasList = $ujianKelasList->filter(function($uk) use ($siswa, $susulanIds, $paketSudahHadir) {
                 $ujian = $uk->ujian;
                 if ($ujian && $ujian->id_ujian_paket) {
                     $paket = $ujian->paket;
@@ -116,7 +135,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
                     }
 
                     if ($paket && $paket->wajib_scan_qr) {
-                        if (!$paket->sudahDicekSiswa($siswa)) {
+                        if (!$paketSudahHadir->has($paket->uuid)) {
                             return false;
                         }
                     }
@@ -150,9 +169,13 @@ class UjianSiswaController extends Controller implements HasMiddleware
             abort_unless($ujianKelas, 404, 'Ujian ini tidak ditetapkan untuk kelas Anda.');
             abort_unless($ujian->isPublished() || $ujian->isClosed(), 404);
 
+            $ujian->loadMissing(['pelajaran', 'paket']);
+            $ujianKelas->setRelation('ujian', $ujian);
+
             $attempt = UjianAttempt::where('id_ujian_kelas', $ujianKelas->uuid)
                 ->where('id_siswa', $request->user()->uuid)
                 ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
+                ->select(['uuid', 'id_ujian_kelas', 'id_siswa', 'status', 'dikunci', 'wajib_token_ulang'])
                 ->latest()->first();
 
             if ($attempt && $attempt->status !== UjianAttempt::STATUS_IN_PROGRESS) {
@@ -219,6 +242,8 @@ class UjianSiswaController extends Controller implements HasMiddleware
             $siswa = $this->siswaAtauGagal($request);
             $ujianKelas = $ujian->getCachedKelas()->firstWhere('id_kelas', $siswa->id_kelas);
             abort_unless($ujianKelas, 404);
+            $ujian->loadMissing('paket');
+            $ujianKelas->setRelation('ujian', $ujian);
             $this->authorize('take', $ujianKelas);
 
             $data = $request->validate(['token' => 'required|string']);
@@ -237,6 +262,7 @@ class UjianSiswaController extends Controller implements HasMiddleware
             $existing = UjianAttempt::where('id_ujian_kelas', $ujianKelas->uuid)
                 ->where('id_siswa', $request->user()->uuid)
                 ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
+                ->select(['uuid', 'id_ujian_kelas', 'id_siswa', 'status', 'wajib_token_ulang'])
                 ->latest()->first();
             if ($existing) {
                 // Token sudah tervalidasi (hash_equals di atas) — kalau attempt ini sedang
@@ -311,7 +337,12 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
             $soalById = $ujian->getCachedSoalDanOpsi()->keyBy('uuid');
             $urutan = collect($attempt->urutan_soal)->map(fn ($id) => $soalById->get($id))->filter()->values();
-            $jawabanTersimpan = UjianJawaban::where('id_attempt', $attempt->uuid)->get()->keyBy('id_soal');
+
+            // OPTIMASI: Muat HANYA kolom jawaban aktif siswa, hemat transfer memori dari DB
+            $jawabanTersimpan = UjianJawaban::where('id_attempt', $attempt->uuid)
+                ->select(['id_soal', 'id_opsi_dipilih', 'opsi_dipilih_multi', 'jawaban_pasangan', 'jawaban_esai'])
+                ->get()
+                ->keyBy('id_soal');
 
             // Susun opsi tampil per soal sesuai urutan_opsi tersimpan, dan STRIP is_benar —
             // jawaban benar tidak boleh pernah terkirim ke browser siswa. teks_soal/opsi.teks

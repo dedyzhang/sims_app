@@ -13,15 +13,15 @@ use Throwable;
  * Tangani lonjakan koneksi DB sesaat (micro-spike / max_user_connections)
  * pada tingkat pipeline request. Jika koneksi atau query di awal request
  * (middleware, auth, route-model-binding) gagal karena database sibuk,
- * coba ulang otomatis hingga 3x dengan pembersihan koneksi (DB::purge())
- * sebelum melempar exception ke view error 503.
+ * coba ulang otomatis hingga 5x dengan exponential backoff + jitter dan
+ * pembersihan koneksi (DB::purge()) sebelum melempar exception ke view error 503.
  */
 class RetryOnDatabaseException
 {
     public function handle(Request $request, Closure $next): Response
     {
         $attempt = 0;
-        $maxAttempts = 3;
+        $maxAttempts = 5;
 
         while (true) {
             $attempt++;
@@ -35,8 +35,20 @@ class RetryOnDatabaseException
                         // abaikan bila purge gagal
                     }
 
-                    // Jeda progresif: 150ms pada retry 1, 300ms pada retry 2
-                    usleep($attempt * 150000);
+                    // Exponential backoff bertahap dengan random jitter:
+                    // attempt 1: ~200ms - 350ms
+                    // attempt 2: ~450ms - 700ms
+                    // attempt 3: ~800ms - 1150ms
+                    // attempt 4: ~1400ms - 1850ms
+                    // Memberikan ruang nafas total hingga 3-4 detik agar antrean MySQL reda
+                    $baseUs = match ($attempt) {
+                        1 => 200000,
+                        2 => 450000,
+                        3 => 800000,
+                        default => 1400000,
+                    };
+                    $jitterUs = random_int(40000, 250000);
+                    usleep($baseUs + $jitterUs);
                     continue;
                 }
 

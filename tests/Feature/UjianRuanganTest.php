@@ -140,4 +140,28 @@ class UjianRuanganTest extends TestCase
             ->get(route('ujian.paket.ruangan.cetak', [$this->paket, $ruangan]))
             ->assertForbidden();
     }
+
+    public function test_pembuat_paket_bisa_menghapus_ruangan(): void
+    {
+        $ruangan = UjianRuangan::create(['id_ujian_paket' => $this->paket->uuid, 'nama' => 'Ruang 1']);
+        $ruangan->peserta()->create(['id_siswa' => $this->siswa1->uuid]);
+
+        $res = $this->actingAs($this->guruA)
+            ->delete(route('ujian.paket.ruangan.destroy', [$this->paket, $ruangan]));
+
+        $res->assertRedirect(route('ujian.paket.show', $this->paket));
+        $this->assertDatabaseMissing('ujian_ruangan', ['uuid' => $ruangan->uuid]);
+        $this->assertDatabaseMissing('ujian_ruangan_peserta', ['id_ruangan' => $ruangan->uuid]);
+    }
+
+    public function test_guru_lain_tak_bisa_menghapus_ruangan_di_paket_orang(): void
+    {
+        $ruangan = UjianRuangan::create(['id_ujian_paket' => $this->paket->uuid, 'nama' => 'Ruang 1']);
+
+        $this->actingAs($this->guruB)
+            ->delete(route('ujian.paket.ruangan.destroy', [$this->paket, $ruangan]))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('ujian_ruangan', ['uuid' => $ruangan->uuid]);
+    }
 }

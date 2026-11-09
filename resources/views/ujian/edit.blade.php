@@ -18,6 +18,10 @@
                    class="px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-1.5">
                     <i data-lucide="smartphone" class="w-4 h-4"></i> Pratinjau
                 </a>
+                <a href="{{ route('ujian.pretest.index', $ujian) }}"
+                   class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 flex items-center gap-1.5 transition">
+                    <i data-lucide="qr-code" class="w-4 h-4"></i> Pre-Test Publik
+                </a>
 
                 {{-- Dropdown Ekspor Soal --}}
                 <div x-data="{ openEkspor: false }" class="relative inline-block">

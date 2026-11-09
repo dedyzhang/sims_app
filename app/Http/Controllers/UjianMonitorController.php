@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\RetriesOnDbBusy;
 use App\Models\Ujian;
 use App\Models\UjianAttempt;
 use App\Models\UjianPelanggaran;
@@ -18,12 +19,16 @@ use Illuminate\Support\Facades\DB;
  */
 class UjianMonitorController extends Controller
 {
+    use RetriesOnDbBusy;
+
     public function index(Request $request, Ujian $ujian)
     {
-        $this->authorize('monitor', $ujian);
-        $ujian->load('kelas.kelas');
+        return $this->retryOnDbBusy(function () use ($ujian) {
+            $this->authorize('monitor', $ujian);
+            $ujian->load('kelas.kelas');
 
-        return view('ujian.monitor.index', compact('ujian'));
+            return view('ujian.monitor.index', compact('ujian'));
+        });
     }
 
     /**
@@ -33,39 +38,41 @@ class UjianMonitorController extends Controller
      */
     public function poll(Request $request, Ujian $ujian, UjianRoster $rosterService)
     {
-        $this->authorize('monitor', $ujian);
+        return $this->retryOnDbBusy(function () use ($request, $ujian, $rosterService) {
+            $this->authorize('monitor', $ujian);
 
-        $ujianKelasList = $ujian->kelas()->with('kelas')->get();
-        $idKelasFilter = $request->string('kelas')->toString();
-        $untukRoster = $idKelasFilter ? $ujianKelasList->where('id_kelas', $idKelasFilter)->values() : $ujianKelasList;
+            $ujianKelasList = $ujian->kelas()->with('kelas')->get();
+            $idKelasFilter = $request->string('kelas')->toString();
+            $untukRoster = $idKelasFilter ? $ujianKelasList->where('id_kelas', $idKelasFilter)->values() : $ujianKelasList;
 
-        $roster = $rosterService->untukKelas($untukRoster);
-        $attemptUuids = $roster->pluck('attempt.uuid')->filter();
-        $pelanggaranCount = UjianPelanggaran::whereIn('id_attempt', $attemptUuids)
-            ->selectRaw('id_attempt, count(*) as jumlah')->groupBy('id_attempt')->pluck('jumlah', 'id_attempt');
+            $roster = $rosterService->untukKelas($untukRoster);
+            $attemptUuids = $roster->pluck('attempt.uuid')->filter();
+            $pelanggaranCount = UjianPelanggaran::whereIn('id_attempt', $attemptUuids)
+                ->selectRaw('id_attempt, count(*) as jumlah')->groupBy('id_attempt')->pluck('jumlah', 'id_attempt');
 
-        $data = $roster->map(function (array $row) use ($pelanggaranCount) {
-            $a = $row['attempt'];
-            $uk = $row['ujianKelas'];
+            $data = $roster->map(function (array $row) use ($pelanggaranCount) {
+                $a = $row['attempt'];
+                $uk = $row['ujianKelas'];
 
-            return [
-                'attempt_uuid'     => $a?->uuid,
-                'nama'             => $row['siswa']->nama,
-                'kelas'            => trim(($uk?->kelas?->tingkat ?? '') . ($uk?->kelas?->kelas ?? '')),
-                'status'           => $a?->status ?? 'belum_mulai',
-                'status_label'     => $a?->statusLabel() ?? 'Belum Mulai',
-                'dikunci'          => $a?->isLocked() ?? false,
-                'batas_waktu_pada' => $a?->batas_waktu_pada?->toIso8601String(),
-                'pelanggaran'      => $a ? (int) ($pelanggaranCount[$a->uuid] ?? 0) : 0,
-            ];
-        })->values();
+                return [
+                    'attempt_uuid'     => $a?->uuid,
+                    'nama'             => $row['siswa']->nama,
+                    'kelas'            => trim(($uk?->kelas?->tingkat ?? '') . ($uk?->kelas?->kelas ?? '')),
+                    'status'           => $a?->status ?? 'belum_mulai',
+                    'status_label'     => $a?->statusLabel() ?? 'Belum Mulai',
+                    'dikunci'          => $a?->isLocked() ?? false,
+                    'batas_waktu_pada' => $a?->batas_waktu_pada?->toIso8601String(),
+                    'pelanggaran'      => $a ? (int) ($pelanggaranCount[$a->uuid] ?? 0) : 0,
+                ];
+            })->values();
 
-        $kelasOpsi = $ujianKelasList->map(fn ($uk) => [
-            'uuid'  => $uk->id_kelas,
-            'label' => trim(($uk->kelas?->tingkat ?? '') . ($uk->kelas?->kelas ?? '')),
-        ])->unique('uuid')->sortBy('label')->values();
+            $kelasOpsi = $ujianKelasList->map(fn ($uk) => [
+                'uuid'  => $uk->id_kelas,
+                'label' => trim(($uk->kelas?->tingkat ?? '') . ($uk->kelas?->kelas ?? '')),
+            ])->unique('uuid')->sortBy('label')->values();
 
-        return response()->json(['attempts' => $data, 'kelasOpsi' => $kelasOpsi]);
+            return response()->json(['attempts' => $data, 'kelasOpsi' => $kelasOpsi]);
+        });
     }
 
     public function resetLock(Request $request, Ujian $ujian, UjianAttempt $attempt, UjianKuncian $kuncian)
