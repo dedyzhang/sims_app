@@ -114,9 +114,9 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 $paketSudahHadir = \App\Models\UjianDaftarHadir::where('ujian_daftar_hadir.id_siswa', $siswa->uuid)
                     ->where('ujian_daftar_hadir.status', 'hadir')
                     ->whereDate('ujian_daftar_hadir.tanggal', now()->toDateString())
-                    ->join('ujian_ruangans', 'ujian_daftar_hadir.id_ruangan', '=', 'ujian_ruangans.uuid')
-                    ->whereIn('ujian_ruangans.id_ujian_paket', $paketIdsWajibQr)
-                    ->pluck('ujian_ruangans.id_ujian_paket')
+                    ->join('ujian_ruangan', 'ujian_daftar_hadir.id_ruangan', '=', 'ujian_ruangan.uuid')
+                    ->whereIn('ujian_ruangan.id_ujian_paket', $paketIdsWajibQr)
+                    ->pluck('ujian_ruangan.id_ujian_paket')
                     ->flip();
             }
 
@@ -244,7 +244,26 @@ class UjianSiswaController extends Controller implements HasMiddleware
             abort_unless($ujianKelas, 404);
             $ujian->loadMissing('paket');
             $ujianKelas->setRelation('ujian', $ujian);
-            $this->authorize('take', $ujianKelas);
+
+            if ($request->user()->cannot('take', $ujianKelas)) {
+                $pesan = 'Ujian belum dibuka untuk kelas Anda atau waktu pelaksanaan belum tiba.';
+
+                if ($ujianKelas->status === 'closed' || !$ujian->isPublished()) {
+                    $pesan = 'Ujian ini sedang ditutup atau belum diterbitkan oleh guru/panitia.';
+                } elseif ($ujianKelas->dibuka_mulai && now()->lt($ujianKelas->dibuka_mulai)) {
+                    $pesan = 'Ujian belum dimulai. Jadwal mulai: ' . $ujianKelas->dibuka_mulai->translatedFormat('d M Y, H:i');
+                } elseif ($ujianKelas->dibuka_sampai && now()->gt($ujianKelas->dibuka_sampai)) {
+                    $pesan = 'Waktu pelaksanaan ujian ini sudah berakhir pada ' . $ujianKelas->dibuka_sampai->translatedFormat('d M Y, H:i') . '. Hubungi guru/pengawas jika membutuhkan ujian susulan atau perpanjangan jadwal.';
+                } elseif ($ujian->wajibScanQr() && !$ujian->paket?->sudahDicekSiswa($siswa)) {
+                    $pesan = 'Anda wajib scan QR kehadiran ruangan ujian terlebih dahulu sebelum memasukkan token.';
+                } elseif ($siswa->id_kelas !== $ujianKelas->id_kelas) {
+                    $pesan = 'Ujian ini tidak dibuka untuk kelas Anda.';
+                } elseif ($request->user()->access !== 'siswa') {
+                    $pesan = 'Hanya akun siswa yang dapat mengerjakan ujian ini.';
+                }
+
+                abort(403, $pesan);
+            }
 
             $data = $request->validate(['token' => 'required|string']);
             $inputToken = trim($data['token']);

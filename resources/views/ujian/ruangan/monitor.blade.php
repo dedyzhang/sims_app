@@ -423,11 +423,15 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
             try {
                 const url = this.mapelFilter ? urlPoll + '?mapel=' + encodeURIComponent(this.mapelFilter) : urlPoll;
                 const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                if (!res.ok) return;
+                if (!res.ok) {
+                    console.error('Gagal memuat status ruangan:', res.status, res.statusText);
+                    return;
+                }
                 const data = await res.json();
                 this.peserta = data.peserta;
                 this.mapelOpsi = data.mapelOpsi;
             } catch (e) {
+                console.error('Error saat memuat status ruangan:', e);
             } finally {
                 this.loading = false;
                 this.$nextTick(() => {

@@ -388,13 +388,21 @@ class UjianRuanganMonitorController extends Controller
             }
             $ujianKelasByUuid = $ujianKelasHariIni->keyBy('uuid');
 
-            $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasHariIni->pluck('uuid'))
-                ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
-                ->select([
-                    'uuid', 'id_ujian_kelas', 'id_siswa', 'status', 'dikunci',
-                    'batas_waktu_pada', 'mulai_pada', 'selesai_pada', 'skor', 'nilai_akhir', 'total_skor',
-                ])
-                ->get();
+            $candidateLoginIds = $peserta->pluck('siswa.id_login')->filter()->unique();
+            $candidateSiswaIds = $peserta->pluck('id_siswa')->filter()->unique();
+            $allCandidateIds = $candidateLoginIds->merge($candidateSiswaIds)->unique()->values();
+
+            $attempts = UjianAttempt::where(function ($query) use ($ujianKelasHariIni, $allCandidateIds) {
+                if ($ujianKelasHariIni->isNotEmpty()) {
+                    $query->whereIn('id_ujian_kelas', $ujianKelasHariIni->pluck('uuid'));
+                }
+                if ($allCandidateIds->isNotEmpty()) {
+                    $query->orWhereIn('id_siswa', $allCandidateIds);
+                }
+            })
+            ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
+            ->with(['ujianKelas.ujian.pelajaran', 'ujianKelas.kelas'])
+            ->get();
             $attemptsBySiswa = $attempts->groupBy('id_siswa');
 
             $rows = collect();
@@ -417,14 +425,25 @@ class UjianRuanganMonitorController extends Controller
                 $latestPerUk = $siswaAttempts->unique('uuid')->groupBy('id_ujian_kelas')->map(fn ($g) => $g->last());
 
                 foreach ($latestPerUk as $idUk => $a) {
-                    $uk = $ujianKelasByUuid->get($idUk);
+                    $uk = $a->ujianKelas ?? $ujianKelasByUuid->get($idUk);
                     if (!$uk) {
                         continue;
                     }
+
+                    // Pastikan ujian terkait dengan paket ruangan atau jadwal hari ini
+                    $ujian = $uk->ujian;
+                    $isRelevan = $ujian && (
+                        $ujian->id_ujian_paket === $ruangan->id_ujian_paket
+                        || in_array($ujian->uuid, $idUjianHariIni)
+                    );
+                    if (!$isRelevan) {
+                        continue;
+                    }
+
                     $rows->push([
                         'id_peserta' => $p->uuid . '-' . $uk->uuid,
                         'nama'       => $siswa->nama,
-                        'kelas'      => trim(($siswa->kelas?->tingkat ?? '') . ($siswa->kelas?->kelas ?? '')),
+                        'kelas'      => trim(($siswa->kelas?->tingkat ?? $uk->kelas?->tingkat ?? '') . ($siswa->kelas?->kelas ?? $uk->kelas?->kelas ?? '')),
                         'id_ujian'   => $uk->id_ujian,
                         'mapel'      => $uk->ujian?->pelajaran?->nama ?? $uk->ujian?->judul,
                         'attempt'    => $a,
@@ -458,12 +477,13 @@ class UjianRuanganMonitorController extends Controller
                 ];
             });
 
-            $mapelOpsi = $ujianKelasHariIni->groupBy('id_ujian')->map(function ($grp) {
+            $allUjianKelas = $ujianKelasHariIni->concat($attempts->pluck('ujianKelas')->filter())->unique('uuid');
+            $mapelOpsi = $allUjianKelas->groupBy('id_ujian')->map(function ($grp) {
                 $tingkat = $grp->pluck('kelas.tingkat')->filter()->unique()->sort()->implode(', ');
 
                 return [
                     'uuid'  => $grp->first()->id_ujian,
-                    'label' => trim(($grp->first()->ujian?->pelajaran?->nama ?? '—') . ($tingkat !== '' ? " · Tingkat {$tingkat}" : '')),
+                    'label' => trim(($grp->first()->ujian?->pelajaran?->nama ?? $grp->first()->ujian?->judul ?? '—') . ($tingkat !== '' ? " · Tingkat {$tingkat}" : '')),
                 ];
             })->sortBy('label')->values();
 
