@@ -34,15 +34,25 @@ class UjianRoster
         // baris lama yg dibatalkan bukan lagi status "terkini" siswa itu.
         $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasList->pluck('uuid'))
             ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
-            ->get()
-            ->keyBy('id_siswa');
+            ->get();
 
+        $attemptsBySiswa = $attempts->groupBy('id_siswa');
         $ujianKelasByKelas = $ujianKelasList->keyBy('id_kelas');
 
-        return $siswaList->map(fn (Siswa $siswa) => [
-            'siswa'      => $siswa,
-            'ujianKelas' => $ujianKelasByKelas->get($siswa->id_kelas),
-            'attempt'    => $attempts->get($siswa->id_login),
-        ])->sortBy(fn ($row) => $row['siswa']->nama)->values();
+        return $siswaList->map(function (Siswa $siswa) use ($ujianKelasByKelas, $attemptsBySiswa) {
+            $att = null;
+            if ($siswa->id_login && $attemptsBySiswa->has($siswa->id_login)) {
+                $att = $attemptsBySiswa->get($siswa->id_login)->last();
+            }
+            if (!$att && $attemptsBySiswa->has($siswa->uuid)) {
+                $att = $attemptsBySiswa->get($siswa->uuid)->last();
+            }
+
+            return [
+                'siswa'      => $siswa,
+                'ujianKelas' => $ujianKelasByKelas->get($siswa->id_kelas),
+                'attempt'    => $att,
+            ];
+        })->sortBy(fn ($row) => $row['siswa']->nama)->values();
     }
 }

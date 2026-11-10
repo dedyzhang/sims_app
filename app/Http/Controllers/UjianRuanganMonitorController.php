@@ -6,6 +6,7 @@ use App\Http\Controllers\Concerns\RetriesOnDbBusy;
 use App\Models\Guru;
 use App\Models\Setting;
 use App\Models\Siswa;
+use App\Models\Ujian;
 use App\Models\UjianAttempt;
 use App\Models\UjianBeritaAcara;
 use App\Models\UjianDaftarHadir;
@@ -42,9 +43,14 @@ class UjianRuanganMonitorController extends Controller
     /** Ujian yg dijadwalkan (UjianJadwal) hari ini utk paket ruangan ini — dasar pencarian attempt aktif tiap siswa. */
     private function idUjianHariIni(UjianRuangan $ruangan): array
     {
-        return UjianJadwal::where('id_ujian_paket', $ruangan->id_ujian_paket)
+        $jadwalIds = UjianJadwal::where('id_ujian_paket', $ruangan->id_ujian_paket)
             ->whereDate('tanggal', now()->toDateString())
             ->pluck('id_ujian')->unique()->all();
+
+        $paketIds = Ujian::where('id_ujian_paket', $ruangan->id_ujian_paket)
+            ->pluck('uuid')->all();
+
+        return array_values(array_unique(array_merge($jadwalIds, $paketIds)));
     }
 
     /**
@@ -332,18 +338,23 @@ class UjianRuanganMonitorController extends Controller
             return ['pesertaEligible' => $pesertaEligible, 'autoHadirMap' => collect()];
         }
 
-        $idLoginBySiswa = $pesertaEligible->pluck('siswa.id_login', 'siswa.uuid');
         $idKelasPeserta = $pesertaEligible->pluck('siswa.id_kelas')->unique();
         $idUjianKelasRelevan = $ujianKelasRelevan->whereIn('id_kelas', $idKelasPeserta)->pluck('uuid');
 
-        $idLoginSudahMulai = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelasRelevan)
+        $candidateIds = $pesertaEligible->flatMap(fn ($p) => array_filter([$p->siswa?->id_login, $p->siswa?->uuid]))->unique();
+
+        $idSudahMulai = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelasRelevan)
             ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
-            ->whereIn('id_siswa', $idLoginBySiswa->values()->filter())
+            ->whereIn('id_siswa', $candidateIds)
             ->pluck('id_siswa')->unique();
 
         return [
             'pesertaEligible' => $pesertaEligible,
-            'autoHadirMap' => $idLoginBySiswa->map(fn ($idLogin) => $idLogin && $idLoginSudahMulai->contains($idLogin)),
+            'autoHadirMap' => $pesertaEligible->mapWithKeys(function ($p) use ($idSudahMulai) {
+                $hadir = ($p->siswa?->id_login && $idSudahMulai->contains($p->siswa->id_login))
+                    || ($p->siswa?->uuid && $idSudahMulai->contains($p->siswa->uuid));
+                return [$p->id_siswa => (bool) $hadir];
+            }),
         ];
     }
 
@@ -368,31 +379,23 @@ class UjianRuanganMonitorController extends Controller
 
             $idUjianHariIni = $this->idUjianHariIni($ruangan);
             $peserta = $ruangan->peserta()->with('siswa.kelas')->get();
-            $idKelasPeserta = $peserta->pluck('siswa.id_kelas')->filter()->unique()->values();
 
             $ujianKelasHariIni = collect();
-            if (!empty($idUjianHariIni) && $idKelasPeserta->isNotEmpty()) {
+            if (!empty($idUjianHariIni)) {
                 $ujianKelasHariIni = UjianKelas::with(['ujian.pelajaran', 'kelas'])
                     ->whereIn('id_ujian', $idUjianHariIni)
-                    ->whereIn('id_kelas', $idKelasPeserta)
                     ->get();
             }
-            $ujianKelasByKelas = $ujianKelasHariIni->groupBy('id_kelas');
+            $ujianKelasByUuid = $ujianKelasHariIni->keyBy('uuid');
 
-            // Kunci attempt = (id_ujian_kelas, id_siswa/user uuid) — TIDAK cukup id_siswa saja,
-            // krn satu siswa bisa py >1 UjianKelas relevan hari ini (lihat docblock). Tanpa
-            // orderBy eksplisit (pola sama spt App\Services\UjianRoster) krn UUID v7 primary key
-            // di app ini sudah terurut waktu — get() mengembalikan lama→baru, keyBy() menimpa
-            // dgn yg diproses BELAKANGAN, jadi otomatis attempt TERBARU yg tersimpan per kunci.
-            $attemptsByUjianKelas = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasHariIni->pluck('uuid'))
+            $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasHariIni->pluck('uuid'))
                 ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
                 ->select([
                     'uuid', 'id_ujian_kelas', 'id_siswa', 'status', 'dikunci',
                     'batas_waktu_pada', 'mulai_pada', 'selesai_pada', 'skor', 'nilai_akhir', 'total_skor',
                 ])
-                ->get()
-                ->groupBy('id_ujian_kelas')
-                ->map(fn ($grp) => $grp->keyBy('id_siswa'));
+                ->get();
+            $attemptsBySiswa = $attempts->groupBy('id_siswa');
 
             $rows = collect();
             foreach ($peserta as $p) {
@@ -400,17 +403,30 @@ class UjianRuanganMonitorController extends Controller
                 if (!$siswa) {
                     continue;
                 }
-                foreach ($ujianKelasByKelas->get($siswa->id_kelas, collect()) as $uk) {
-                    $a = $attemptsByUjianKelas->get($uk->uuid)?->get($siswa->id_login);
-                    if (!$a) {
-                        continue; // belum mulai ujian ini — tak ditampilkan di tabel live, lihat docblock
+
+                // Ambil semua attempt untuk siswa ini (baik dicatat via id_login atau siswa.uuid)
+                $siswaAttempts = collect();
+                if ($siswa->id_login && $attemptsBySiswa->has($siswa->id_login)) {
+                    $siswaAttempts = $siswaAttempts->concat($attemptsBySiswa->get($siswa->id_login));
+                }
+                if ($attemptsBySiswa->has($siswa->uuid)) {
+                    $siswaAttempts = $siswaAttempts->concat($attemptsBySiswa->get($siswa->uuid));
+                }
+
+                // Ambil attempt terbaru per id_ujian_kelas
+                $latestPerUk = $siswaAttempts->unique('uuid')->groupBy('id_ujian_kelas')->map(fn ($g) => $g->last());
+
+                foreach ($latestPerUk as $idUk => $a) {
+                    $uk = $ujianKelasByUuid->get($idUk);
+                    if (!$uk) {
+                        continue;
                     }
                     $rows->push([
                         'id_peserta' => $p->uuid . '-' . $uk->uuid,
                         'nama'       => $siswa->nama,
                         'kelas'      => trim(($siswa->kelas?->tingkat ?? '') . ($siswa->kelas?->kelas ?? '')),
                         'id_ujian'   => $uk->id_ujian,
-                        'mapel'      => $uk->ujian?->pelajaran?->nama,
+                        'mapel'      => $uk->ujian?->pelajaran?->nama ?? $uk->ujian?->judul,
                         'attempt'    => $a,
                     ]);
                 }
@@ -460,7 +476,8 @@ class UjianRuanganMonitorController extends Controller
     {
         $this->authorize('awasi', $ruangan);
 
-        $siswaUuid = Siswa::where('id_login', $attempt->id_siswa)->value('uuid');
+        $siswaUuid = Siswa::where('id_login', $attempt->id_siswa)->value('uuid')
+            ?: (Siswa::where('uuid', $attempt->id_siswa)->exists() ? $attempt->id_siswa : null);
         abort_unless($siswaUuid && $ruangan->peserta()->where('id_siswa', $siswaUuid)->exists(), 404, 'Siswa ini bukan peserta ruangan ini.');
         abort_unless($attempt->isLocked(), 422, 'Attempt ini tidak sedang terkunci.');
 
