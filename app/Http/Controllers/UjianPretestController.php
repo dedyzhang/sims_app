@@ -18,14 +18,14 @@ class UjianPretestController extends Controller
         $this->authorize('manage', $ujian);
         $ujian->load('pelajaran');
 
-        // Buat pre-test otomatis jika belum ada
+        // Buat pre-test otomatis jika belum ada (default is_active false, ditutup sampai dibuka oleh guru)
         $pretest = $ujian->pretest;
         if (! $pretest) {
             $pretest = UjianPretest::create([
                 'id_ujian' => $ujian->uuid,
                 'token' => Str::upper(Str::random(8)),
                 'judul' => 'Pre-Test: ' . $ujian->judul,
-                'is_active' => true,
+                'is_active' => false,
                 'durasi_menit' => $ujian->durasi_menit,
                 'acak_soal' => $ujian->acak_soal,
                 'acak_opsi' => $ujian->acak_opsi,

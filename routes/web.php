@@ -1118,6 +1118,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
             Route::post('/identitas', 'setIdentitasSekolah')->name('setting.identitas');
             Route::post('/login-background', 'setLoginBackground')->name('setting.loginBackground');
             Route::post('/jenjang-sekolah', 'setJenjangSekolah')->name('setting.jenjangSekolah');
+            Route::post('/tampilan', 'setTampilan')->name('setting.tampilan');
             Route::post('/media-sosial', 'setMediaSosial')->name('setting.mediaSosial');
             Route::post('/poin-terlambat', 'setPoinTerlambat')->name('setting.poinTerlambat');
             Route::post('/waktu-terlambat', 'setWaktuTerlambat')->name('setting.waktuTerlambat');
@@ -1483,6 +1484,12 @@ Route::middleware(['auth', 'role:admin', 'modul:chatbot'])->prefix('chatbot/admi
     Route::post('/settings/avatar', [ChatbotAdminController::class, 'updateAvatar'])->name('settings.avatar');
     Route::post('/settings/quick-questions', [ChatbotAdminController::class, 'updateQuickQuestions'])->name('settings.quick-questions');
 });
+
+// Modul Demo Eksternal (Hanya aktif jika DEMO_ENABLED=true di .env)
+if (config('demo.enabled', false)) {
+    require __DIR__ . '/demo.php';
+}
+
 
 
 

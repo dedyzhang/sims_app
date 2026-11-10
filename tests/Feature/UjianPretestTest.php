@@ -87,11 +87,13 @@ class UjianPretestTest extends TestCase
         $response->assertOk();
         $response->assertSee('Pre-Test & Uji Coba Publik');
         $response->assertSee('Tautan Langsung Pre-Test');
+        $response->assertSee('Akses Ditutup');
+        $response->assertSee('Buka Akses');
 
-        // Pastikan record UjianPretest otomatis dibuat
+        // Pastikan record UjianPretest otomatis dibuat dengan is_active false (ditutup default)
         $this->assertDatabaseHas('ujian_pretests', [
             'id_ujian' => $this->ujian->uuid,
-            'is_active' => true,
+            'is_active' => false,
         ]);
     }
 
@@ -99,17 +101,34 @@ class UjianPretestTest extends TestCase
     {
         $this->actingAs($this->guruUser)->get(route('ujian.pretest.index', $this->ujian));
         $pretest = UjianPretest::where('id_ujian', $this->ujian->uuid)->first();
+        $this->assertFalse((bool) $pretest->is_active);
         $originalToken = $pretest->token;
 
-        // Toggle nonaktif
+        // Toggle buka akses (menjadi aktif)
         $resToggle = $this->actingAs($this->guruUser)->post(route('ujian.pretest.toggle', $this->ujian));
         $resToggle->assertRedirect();
+        $this->assertTrue((bool) $pretest->fresh()->is_active);
+
+        // Toggle tutup kembali (menjadi nonaktif)
+        $resToggle2 = $this->actingAs($this->guruUser)->post(route('ujian.pretest.toggle', $this->ujian));
+        $resToggle2->assertRedirect();
         $this->assertFalse((bool) $pretest->fresh()->is_active);
 
         // Regenerate token
         $resRegen = $this->actingAs($this->guruUser)->post(route('ujian.pretest.regenerate', $this->ujian));
         $resRegen->assertRedirect();
         $this->assertNotEquals($originalToken, $pretest->fresh()->token);
+    }
+
+    public function test_publik_melihat_halaman_tutup_saat_pretest_belum_dibuka(): void
+    {
+        $this->actingAs($this->guruUser)->get(route('ujian.pretest.index', $this->ujian));
+        $pretest = UjianPretest::where('id_ujian', $this->ujian->uuid)->first();
+
+        // Akses link publik saat status masih tertutup
+        $response = $this->get(route('pretest.public.show', $pretest->token));
+        $response->assertOk();
+        $response->assertSee('Akses Pre-Test Ditutup');
     }
 
     public function test_publik_bisa_mengerjakan_pretest_dan_mendapat_skor(): void

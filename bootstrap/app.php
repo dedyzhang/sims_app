@@ -30,9 +30,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Presence Forum: catat last_seen_at tiap request web (auth saja, dithrottle 60 dtk)
         // EnforceLangganan: kunci app (non-superadmin) saat lisensi langganan kadaluarsa.
         // EnforceModeUjian: kunci siswa ke halaman ujian saat mode ujian aktif.
+        // DemoSessionGuard: kunci & proteksi sesi demo (logout seketika jika demo dinonaktifkan).
         $middleware->web(
             prepend: [RetryOnDatabaseException::class],
-            append: [UpdateLastSeen::class, SecurityHeaders::class, EnforceLangganan::class, EnforceModeUjian::class]
+            append: [UpdateLastSeen::class, SecurityHeaders::class, EnforceLangganan::class, EnforceModeUjian::class, \App\Demo\DemoSessionGuard::class]
         );
 
         // Alias middleware. Gating role memakai `role:a,b,c` (CheckRole) yang

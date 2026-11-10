@@ -81,12 +81,15 @@ class UjianNilaiTransfer
      */
     private function resolveNgajar($ujian, $ujianKelas): ?Ngajar
     {
-        return $ujianKelas->id_guru_pengampu
+        $ngajarPengampu = $ujianKelas->id_guru_pengampu
             ? Ngajar::where('id_guru', $ujianKelas->id_guru_pengampu)
                 ->where('id_kelas', $ujianKelas->id_kelas)
                 ->where('id_pelajaran', $ujian->id_pelajaran)->first()
-            : Ngajar::where('id_kelas', $ujianKelas->id_kelas)
-                ->where('id_pelajaran', $ujian->id_pelajaran)->first();
+            : null;
+
+        // Jika pengampu adalah guru di luar data ngajar (pengganti), gunakan data Ngajar resmi kelas & mapel ini
+        return $ngajarPengampu ?: Ngajar::where('id_kelas', $ujianKelas->id_kelas)
+            ->where('id_pelajaran', $ujian->id_pelajaran)->first();
     }
 
     /**

@@ -76,4 +76,28 @@ class UjianKelas extends Model
             && $this->dibuka_mulai
             && now()->lt($this->dibuka_mulai);
     }
+
+    /** Apakah guru pengampu saat ini terdaftar di data Ngajar untuk mapel & kelas ini? */
+    public function pengampuSesuaiNgajar(): bool
+    {
+        if (!$this->id_guru_pengampu) {
+            return false;
+        }
+
+        $idPelajaran = $this->ujian?->id_pelajaran ?? $this->ujian()->value('id_pelajaran');
+        if (!$idPelajaran) {
+            return false;
+        }
+
+        return Ngajar::where('id_guru', $this->id_guru_pengampu)
+            ->where('id_kelas', $this->id_kelas)
+            ->where('id_pelajaran', $idPelajaran)
+            ->exists();
+    }
+
+    /** Apakah pengampu adalah guru di luar data ngajar (pengampu pengganti)? */
+    public function pengampuLuarNgajar(): bool
+    {
+        return !empty($this->id_guru_pengampu) && !$this->pengampuSesuaiNgajar();
+    }
 }

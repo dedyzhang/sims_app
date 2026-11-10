@@ -10,7 +10,7 @@
 
     {{-- Tabs --}}
     <div class="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1.5 mb-6 flex-wrap">
-        @foreach(['sekolah'=>['Identitas','building-2'],'fitur'=>['Fitur','toggle-left'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock'],'disiplin'=>['Kedisiplinan','shield-alert'],'sosmed'=>['Media Sosial','share-2'],'integrasi'=>['Integrasi','plug'],'aplikasi'=>['Aplikasi','smartphone'],'performa'=>['Performa Server','sliders-horizontal']] as $key => [$label,$icon])
+        @foreach(['sekolah'=>['Identitas & Tampilan','building-2'],'fitur'=>['Fitur','toggle-left'],'semester'=>['Semester','calendar-days'],'penilaian'=>['Penilaian','calculator'],'absensi'=>['Absensi','clock'],'disiplin'=>['Kedisiplinan','shield-alert'],'sosmed'=>['Media Sosial','share-2'],'integrasi'=>['Integrasi','plug'],'aplikasi'=>['Aplikasi','smartphone'],'performa'=>['Performa Server','sliders-horizontal']] as $key => [$label,$icon])
         <button @click="tab='{{ $key }}'"
                 :class="tab==='{{ $key }}' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
                 class="seg flex-1 min-w-fit flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition">
@@ -233,6 +233,67 @@
                 @endforeach
             </div>
             <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Simpan</button>
+        </form>
+
+        {{-- Tampilan Antarmuka & Animasi Halaman --}}
+        <form method="POST" action="{{ route('setting.tampilan') }}" class="card p-6 space-y-5 mt-5"
+              x-data="{
+                  tickerOn: {{ ($settings['ticker_bawah_aktif'] ?? '1') == '1' ? 'true' : 'false' }},
+                  fadeOn: {{ ($settings['animasi_fade_aktif'] ?? '1') == '1' ? 'true' : 'false' }}
+              }">
+            @csrf
+            <input type="hidden" name="tab" value="sekolah">
+            <div>
+                <h2 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <i data-lucide="layout-template" class="w-5 h-5 text-primary"></i>
+                    Tampilan Antarmuka &amp; Animasi
+                </h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Sesuaikan elemen antarmuka sistem dan animasi transisi halaman untuk kenyamanan visual serta performa.
+                </p>
+            </div>
+
+            <div class="space-y-4 divide-y divide-slate-100 dark:divide-slate-800">
+                {{-- Toggle Ticker SIMS-NET Bawah --}}
+                <div class="flex items-start justify-between gap-4 pt-2">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <i data-lucide="activity" class="w-4 h-4 text-emerald-500"></i>
+                            Ticker Statistik Berjalan (SIMS-NET)
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                            Menampilkan bilah teks berjalan (running ticker) di bagian paling bawah layar yang memuat data statistik sekolah secara realtime.
+                        </p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                        <input type="checkbox" name="ticker_bawah_aktif" value="1" class="hidden peer" x-model="tickerOn">
+                        <div class="relative w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-[color:var(--cp)] transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition peer-checked:after:translate-x-5"></div>
+                    </label>
+                </div>
+
+                {{-- Toggle Animasi Fade-In Reload --}}
+                <div class="flex items-start justify-between gap-4 pt-4">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
+                            Animasi Transisi Halaman (Fade-In)
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                            Efek transisi fade-in saat berpindah atau memuat ulang halaman. Matikan opsi ini jika Anda menginginkan halaman tampil instan tanpa jeda animasi transisi.
+                        </p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-1">
+                        <input type="checkbox" name="animasi_fade_aktif" value="1" class="hidden peer" x-model="fadeOn">
+                        <div class="relative w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer-checked:bg-[color:var(--cp)] transition after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition peer-checked:after:translate-x-5"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button type="submit" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
+                    <i data-lucide="save" class="w-4 h-4"></i> Simpan Pengaturan
+                </button>
+            </div>
         </form>
     </div>
 

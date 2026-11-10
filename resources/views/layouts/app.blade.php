@@ -27,6 +27,8 @@
         // browser yang sama yg mungkin sedang login sbg user lain.
         $kioskChrome = (bool) ($isKiosk ?? false);
         $isPanduanPage = request()->routeIs('panduan.visual');
+        $tickerBawahAktif = \App\Models\Setting::get('ticker_bawah_aktif', '1') === '1';
+        $animasiFadeAktif = \App\Models\Setting::get('animasi_fade_aktif', '1') === '1';
         // $access/$isAdmin/$modulOn/$activeGroups dipakai di luar blok sidebar juga (mis.
         // floating chat, script badge Grup Chat) — jadi dihitung di sini, bukan cuma di dalam
         // <aside> yang bisa disembunyikan (mode kiosk). Definisi di dalam <aside> sengaja TIDAK
@@ -502,7 +504,11 @@
         @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
         @keyframes slideToast { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
         /* fill mode forwards (bukan both) supaya transform akhir = none → tidak jadi containing block bagi modal position:fixed */
+        @if($animasiFadeAktif)
         .anim-fade { animation:fadeUp .4s cubic-bezier(.2,.8,.2,1); }
+        @else
+        .anim-fade { animation:none !important; }
+        @endif
         .stagger > * { animation:fadeUp .45s cubic-bezier(.2,.8,.2,1) both; }
         .stagger > *:nth-child(1){animation-delay:.02s} .stagger > *:nth-child(2){animation-delay:.07s}
         .stagger > *:nth-child(3){animation-delay:.12s} .stagger > *:nth-child(4){animation-delay:.17s}
@@ -1662,7 +1668,8 @@
             @include('partials.langganan-banner')
             @endunless
             <div @class([
-                'anim-fade flex-1',
+                'anim-fade' => $animasiFadeAktif,
+                'flex-1',
                 'min-h-0 flex flex-col' => $isPanduanPage,
             ])>@yield('content')</div>
             {{-- Footer — selalu menempel di bawah berkat mt-auto (konten flex-1 mendorongnya turun) --}}
@@ -1675,8 +1682,8 @@
     </div>
 </div>
 
-        {{-- SIMS-NET System Ticker Bar (Integrated for all roles, displaying real dashboard statistics) — disembunyikan di mode kiosk --}}
-        @unless($kioskChrome || \App\Support\ModeUjian::aktif())
+        {{-- SIMS-NET System Ticker Bar (Integrated for all roles, displaying real dashboard statistics) — disembunyikan di mode kiosk, mode ujian, atau jika dinonaktifkan di pengaturan --}}
+        @unless($kioskChrome || \App\Support\ModeUjian::aktif() || !$tickerBawahAktif)
         @php
             // Angka ticker diambil dari cache (App\Support\TickerStats) — menghindari
             // ~15 query agregat di setiap load halaman. Penyaringan per-role di bawah
@@ -2572,6 +2579,7 @@
         }, 0);
     });
 
+    @if($tickerBawahAktif)
     // Realtime update for footer ticker statistics from the database
     document.addEventListener('DOMContentLoaded', () => {
         const updateTickerStats = async () => {
@@ -2596,6 +2604,7 @@
         // Update stats every 30s; pause when tab hidden
         window.simsPollInterval(updateTickerStats, 30000, 'ticker');
     });
+    @endif
 </script>
 
 

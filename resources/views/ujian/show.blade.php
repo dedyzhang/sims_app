@@ -4,7 +4,7 @@
 @section('content')
 <div class="max-w-3xl mx-auto space-y-5">
     <div>
-        <nav class="text-xs text-slate-400 mb-1"><a href="{{ route('ujian.index') }}" class="hover:underline">Ujian</a> / {{ $ujian->judul }}</nav>
+        <nav class="text-xs text-slate-400 mb-1"><a href="{{ $ujian->id_ujian_paket ? route('ujian.index', ['paket' => $ujian->id_ujian_paket]) : route('ujian.index') }}" class="hover:underline">Ujian{{ $ujian->paket ? ' (' . $ujian->paket->nama . ')' : '' }}</a> / {{ $ujian->judul }}</nav>
         <div class="flex items-center gap-2 flex-wrap">
             <h1 class="page-title">{{ $ujian->judul }}</h1>
             <span class="badge bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{{ $ujian->jenisLabel() }}</span>
@@ -189,23 +189,53 @@
                      itu — kalau guru yg dicari belum muncul, tambah dulu di Data Ngajar. --}}
                 <div class="pl-3 border-l-2 border-slate-100 dark:border-slate-700 space-y-1.5">
                     @foreach($grup as $uk)
-                    @php $opsiGuru = $guruPengampuOpsi[$uk->uuid] ?? collect(); @endphp
-                    <div class="flex items-center justify-between gap-3 text-xs">
-                        <span class="font-medium text-slate-500 dark:text-slate-400">{{ $uk->kelas?->tingkat }}{{ $uk->kelas?->kelas }}</span>
-                        @if(!$ujian->isClosed())
-                        <div class="flex items-center gap-1.5">
-                            <select name="pengampu[{{ $uk->uuid }}]" form="form-pengampu" class="form-select py-1 text-xs" @if($opsiGuru->isEmpty()) disabled @endif>
-                                <option value="">— pilih pengampu —</option>
-                                @foreach($opsiGuru as $g)
-                                    <option value="{{ $g->uuid }}" @selected($uk->id_guru_pengampu === $g->uuid)>{{ $g->nama }}</option>
-                                @endforeach
-                            </select>
+                    @php
+                        $opsi = $guruPengampuOpsi[$uk->uuid] ?? ['ngajar' => collect(), 'lain' => collect()];
+                        $guruNgajar = is_array($opsi) ? ($opsi['ngajar'] ?? collect()) : $opsi;
+                        $guruLain = is_array($opsi) ? ($opsi['lain'] ?? collect()) : collect();
+                        $isPengampuLuar = $uk->pengampuLuarNgajar();
+                    @endphp
+                    <div class="py-1 border-b border-slate-50 dark:border-slate-800 last:border-b-0 space-y-1">
+                        <div class="flex items-center justify-between gap-3 text-xs flex-wrap sm:flex-nowrap">
+                            <span class="font-medium text-slate-600 dark:text-slate-300">{{ $uk->kelas?->tingkat }}{{ $uk->kelas?->kelas }}</span>
+                            @if(!$ujian->isClosed())
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <select name="pengampu[{{ $uk->uuid }}]" form="form-pengampu" class="form-select py-1 text-xs">
+                                    <option value="">— pilih pengampu —</option>
+                                    @if($guruNgajar->isNotEmpty())
+                                        <optgroup label="Guru Mapel Resmi (Data Ngajar)">
+                                            @foreach($guruNgajar as $g)
+                                                <option value="{{ $g->uuid }}" @selected($uk->id_guru_pengampu === $g->uuid)>{{ $g->nama }} (Guru Mapel)</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                    @if($guruLain->isNotEmpty())
+                                        <optgroup label="Guru Lainnya (Di Luar Data Ngajar / Pengganti)">
+                                            @foreach($guruLain as $g)
+                                                <option value="{{ $g->uuid }}" @selected($uk->id_guru_pengampu === $g->uuid)>{{ $g->nama }} (Pengganti)</option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                </select>
+                                @if($isPengampuLuar)
+                                    <span class="badge bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0 text-[10px]">
+                                        <i data-lucide="info" class="w-3 h-3 inline mr-0.5"></i> Di Luar Data Ngajar
+                                    </span>
+                                @endif
+                            </div>
+                            @else
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-slate-500">Pengampu: {{ $uk->guruPengampu?->nama ?? '—' }}</span>
+                                @if($isPengampuLuar)
+                                    <span class="badge bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 text-[10px]">Di Luar Data Ngajar</span>
+                                @endif
+                            </div>
+                            @endif
                         </div>
-                        @if($opsiGuru->isEmpty())
-                        <span class="text-slate-400 italic">(belum ada guru terdaftar di Ngajar utk mapel+kelas ini)</span>
-                        @endif
-                        @else
-                        <span class="text-slate-400">Pengampu: {{ $uk->guruPengampu?->nama ?? '—' }}</span>
+                        @if($isPengampuLuar)
+                        <p class="text-[11px] text-amber-600 dark:text-amber-400 pl-0 sm:pl-6">
+                            * Guru pengampu ini bukan pengajar mapel resmi kelas tersebut di data ngajar sekolah. Pengampu dapat memantau ujian &amp; menilai esai, tetapi <strong>tidak bisa mengumpulkan hasil ujian</strong> langsung ke buku nilai rapor.
+                        </p>
                         @endif
                     </div>
                     @endforeach

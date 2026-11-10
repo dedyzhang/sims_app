@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Guru;
+use App\Models\Kelas;
+use App\Models\Ngajar;
 use App\Models\Pelajaran;
 use App\Models\Semester;
 use App\Models\Ujian;
@@ -181,5 +183,64 @@ class UjianPaketTest extends TestCase
         ]);
         $this->assertSame('selesai', $paketLampau->status);
         $this->assertSame('Selesai', $paketLampau->statusLabel());
+    }
+
+    public function test_tombol_tambah_ujian_dan_form_create_membawa_parameter_paket(): void
+    {
+        $paket = UjianPaket::create([
+            'nama'       => 'PAS Ganjil 2026',
+            'jenis'      => 'pas',
+            'created_by' => $this->admin->uuid,
+        ]);
+
+        // Cek link di ujian.index saat paket aktif
+        $resIndex = $this->actingAs($this->admin)->get(route('ujian.index', ['paket' => $paket->uuid]));
+        $resIndex->assertOk();
+        $resIndex->assertSee(route('ujian.create', ['paket' => $paket->uuid]));
+
+        // Cek halaman create ujian dengan parameter paket
+        $resCreate = $this->actingAs($this->admin)->get(route('ujian.create', ['paket' => $paket->uuid]));
+        $resCreate->assertOk();
+        $resCreate->assertSee('PAS Ganjil 2026');
+        $resCreate->assertSee('Paket Ujian Aktif');
+        $resCreate->assertSee($paket->uuid);
+    }
+
+    public function test_store_ujian_dengan_id_ujian_paket_langsung_terhubung_ke_paket(): void
+    {
+        $paket = UjianPaket::create([
+            'nama'       => 'PTS Ganjil 2026',
+            'jenis'      => 'pts',
+            'created_by' => $this->admin->uuid,
+        ]);
+
+        $kelas = Kelas::create(['tingkat' => 7, 'kelas' => 'A']);
+        $guru = Guru::where('id_login', $this->guruA->uuid)->first();
+        Ngajar::create([
+            'id_guru'      => $guru->uuid,
+            'id_pelajaran' => $this->pelajaran->uuid,
+            'id_kelas'     => $kelas->uuid,
+        ]);
+
+        $resStore = $this->actingAs($this->admin)->post(route('ujian.store'), [
+            'id_ujian_paket'       => $paket->uuid,
+            'judul'                => 'PTS IPA Kelas 7',
+            'jenis'                => 'pts',
+            'target_nilai'         => 'pts',
+            'id_pelajaran'         => $this->pelajaran->uuid,
+            'id_kelas'             => [$kelas->uuid],
+            'durasi_menit'         => 90,
+            'mode_skor'            => 'rata_rata',
+            'acak_soal'            => 1,
+            'acak_opsi'            => 1,
+            'tampilkan_pembahasan' => 0,
+        ]);
+
+        $resStore->assertRedirect();
+
+        $ujian = Ujian::where('judul', 'PTS IPA Kelas 7')->first();
+        $this->assertNotNull($ujian);
+        $this->assertSame($paket->uuid, $ujian->id_ujian_paket);
+        $this->assertSame('PTS Ganjil 2026', $ujian->paket->nama);
     }
 }

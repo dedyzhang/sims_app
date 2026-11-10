@@ -192,6 +192,25 @@ class SettingController extends Controller
         return back()->with('success', 'Jenjang sekolah disimpan.');
     }
 
+    /**
+     * Pengaturan tampilan antarmuka dan animasi sistem:
+     * - ticker_bawah_aktif: bilah statistik SIMS-NET berjalan di footer layout
+     * - animasi_fade_aktif: efek animasi fade-in transisi saat memuat / memuat ulang halaman
+     */
+    public function setTampilan(Request $request)
+    {
+        abort_unless(auth()->user()->canAccess('manage_settings'), 403);
+
+        $tickerAktif = $request->boolean('ticker_bawah_aktif') ? '1' : '0';
+        $animasiFadeAktif = $request->boolean('animasi_fade_aktif') ? '1' : '0';
+
+        Setting::set('ticker_bawah_aktif', $tickerAktif);
+        Setting::set('animasi_fade_aktif', $animasiFadeAktif);
+
+        return redirect()->route('setting.index', ['tab' => $request->input('tab', 'sekolah')])
+            ->with('success', 'Pengaturan tampilan antarmuka dan animasi berhasil disimpan.');
+    }
+
     public function setMediaSosial(Request $request)
     {
         Setting::set('sosmed_aktif', $request->boolean('sosmed_aktif') ? '1' : '0');

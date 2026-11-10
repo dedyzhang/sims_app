@@ -245,7 +245,7 @@
 
                 {{-- Tombol Aksi di Bawah Tulisan --}}
                 <div class="flex items-center gap-2.5 flex-wrap pt-2 border-t border-slate-100 dark:border-slate-700/60">
-                    <a href="{{ route('ujian.create') }}" class="btn-primary px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-sm">
+                    <a href="{{ route('ujian.create', $activePaket ? ['paket' => $activePaket->uuid] : []) }}" class="btn-primary px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-sm">
                         <i data-lucide="plus" class="w-4 h-4"></i> Tambah Ujian
                     </a>
 
@@ -461,7 +461,7 @@
                         <p class="text-xs text-slate-400 max-w-sm mx-auto">Tambahkan mata pelajaran ke dalam paket ini untuk mulai menyusun butir soal.</p>
                         @can('create', \App\Models\Ujian::class)
                         <div class="pt-2">
-                            <a href="{{ route('ujian.create') }}" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5">
+                            <a href="{{ route('ujian.create', $activePaket ? ['paket' => $activePaket->uuid] : []) }}" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5">
                                 <i data-lucide="plus" class="w-4 h-4"></i> Buat Ujian Pertama
                             </a>
                         </div>

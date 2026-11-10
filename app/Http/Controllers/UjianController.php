@@ -49,8 +49,11 @@ class UjianController extends Controller implements HasMiddleware
             $guru = $user->guru;
             $pairs = \App\Models\Ngajar::where('id_guru', $guru?->uuid ?? '-')->get(['id_pelajaran', 'id_kelas']);
 
-            $query->where(function ($q) use ($user, $pairs) {
+            $query->where(function ($q) use ($user, $guru, $pairs) {
                 $q->where('created_by', $user->uuid);
+                if ($guru) {
+                    $q->orWhereHas('kelas', fn ($k) => $k->where('id_guru_pengampu', $guru->uuid));
+                }
                 foreach ($pairs as $p) {
                     $q->orWhere(function ($qq) use ($p) {
                         $qq->where('id_pelajaran', $p->id_pelajaran)
@@ -113,6 +116,12 @@ class UjianController extends Controller implements HasMiddleware
     {
         $this->authorize('create', Ujian::class);
 
+        $activePaket = null;
+        if ($request->filled('paket')) {
+            $activePaket = \App\Models\UjianPaket::find($request->query('paket'));
+        }
+        $daftarPaket = \App\Models\UjianPaket::latest()->get();
+
         [$ngajars] = $this->ngajarPilihan($request->user());
         $materiByNgajar = Materi::whereIn('id_ngajar', $ngajars->pluck('uuid'))->orderBy('nama')->get()->groupBy('id_ngajar');
         // Peta pelajaran → kelas yg beneran diajar mapel itu (via Ngajar, LINTAS SEMUA guru —
@@ -132,7 +141,14 @@ class UjianController extends Controller implements HasMiddleware
               )
             : collect();
 
-        return view('ujian.create', ['ngajars' => $ngajars, 'materiByNgajar' => $materiByNgajar, 'kelasByPelajaran' => $kelasByPelajaran, 'bolehAturKelas' => $bolehAturKelas]);
+        return view('ujian.create', [
+            'ngajars' => $ngajars,
+            'materiByNgajar' => $materiByNgajar,
+            'kelasByPelajaran' => $kelasByPelajaran,
+            'bolehAturKelas' => $bolehAturKelas,
+            'activePaket' => $activePaket,
+            'daftarPaket' => $daftarPaket,
+        ]);
     }
 
     public function store(Request $request)
@@ -141,6 +157,7 @@ class UjianController extends Controller implements HasMiddleware
         $user = $request->user();
 
         $data = $request->validate([
+            'id_ujian_paket'        => 'nullable|uuid|exists:ujian_paket,uuid',
             'judul'                 => 'required|string|max:150',
             'instruksi'             => 'nullable|string|max:5000',
             'jenis'                 => 'required|in:harian,pts,pas,uas',
@@ -206,6 +223,7 @@ class UjianController extends Controller implements HasMiddleware
 
         $ujian = DB::transaction(function () use ($request, $data, $user, $idKelas) {
             $ujian = Ujian::create([
+                'id_ujian_paket'        => $data['id_ujian_paket'] ?? null,
                 'id_pelajaran'          => $data['id_pelajaran'],
                 'id_materi'             => $data['id_materi'] ?? null,
                 'created_by'            => $user->uuid,
@@ -234,19 +252,26 @@ class UjianController extends Controller implements HasMiddleware
     public function show(Request $request, Ujian $ujian)
     {
         $this->authorize('manage', $ujian);
-        $ujian->load(['soal.opsi', 'kelas.kelas', 'kelas.guruPengampu', 'pelajaran', 'materi']);
+        $ujian->load(['soal.opsi', 'kelas.kelas', 'kelas.guruPengampu', 'pelajaran', 'materi', 'paket']);
         $kelasPilihan = $ujian->id_pelajaran ? $this->kelasPilihan($ujian->id_pelajaran) : collect();
         $bolehAturKelas = $this->bolehAturKelas($request->user());
 
-        // Daftar guru yg BENERAN cocok (via Ngajar) utk tiap kelas ter-assign — dipakai view
-        // utk isi opsi dropdown "Guru Pengampu" (selalu tampil, apa pun jumlah kandidatnya).
+        $semuaGuru = \App\Models\Guru::orderBy('nama')->get();
+
+        // Daftar guru yg cocok (via Ngajar) vs guru lainnya di luar data ngajar utk tiap kelas ter-assign
         $guruPengampuOpsi = $ujian->id_pelajaran
-            ? $ujian->kelas->mapWithKeys(function ($uk) use ($ujian) {
-                $matches = Ngajar::with('guru')
+            ? $ujian->kelas->mapWithKeys(function ($uk) use ($ujian, $semuaGuru) {
+                $ngajarGurus = Ngajar::with('guru')
                     ->where('id_pelajaran', $ujian->id_pelajaran)
                     ->where('id_kelas', $uk->id_kelas)
                     ->get()->pluck('guru')->filter()->unique('uuid')->values();
-                return [$uk->uuid => $matches];
+                $ngajarUuids = $ngajarGurus->pluck('uuid')->all();
+                $lainGurus = $semuaGuru->reject(fn ($g) => in_array($g->uuid, $ngajarUuids, true))->values();
+
+                return [$uk->uuid => [
+                    'ngajar' => $ngajarGurus,
+                    'lain'   => $lainGurus,
+                ]];
             })
             : collect();
 
@@ -302,12 +327,13 @@ class UjianController extends Controller implements HasMiddleware
     public function editPengaturan(Request $request, Ujian $ujian)
     {
         $this->authorize('manage', $ujian);
-        $ujian->load('pelajaran');
+        $ujian->load(['pelajaran', 'paket']);
         [$ngajars] = $this->ngajarPilihan($request->user());
         $pelajaranPilihan = $ngajars->pluck('pelajaran')->filter()->unique('uuid')->sortBy('nama')->values();
         $bolehAturKelas = $this->bolehAturKelas($request->user());
+        $daftarPaket = \App\Models\UjianPaket::latest()->get();
 
-        return view('ujian.pengaturan', compact('ujian', 'pelajaranPilihan', 'bolehAturKelas'));
+        return view('ujian.pengaturan', compact('ujian', 'pelajaranPilihan', 'bolehAturKelas', 'daftarPaket'));
     }
 
     public function update(Request $request, Ujian $ujian)
@@ -316,6 +342,7 @@ class UjianController extends Controller implements HasMiddleware
         abort_if($ujian->isClosed(), 422, 'Ujian yang sudah ditutup tidak bisa diubah.');
 
         $data = $request->validate([
+            'id_ujian_paket'        => 'nullable|uuid|exists:ujian_paket,uuid',
             'judul'                 => 'required|string|max:150',
             'instruksi'             => 'nullable|string|max:5000',
             'jenis'                 => 'required|in:harian,pts,pas,uas',
@@ -340,6 +367,10 @@ class UjianController extends Controller implements HasMiddleware
             'acak_opsi'             => $request->boolean('acak_opsi'),
             'tampilkan_pembahasan'  => $request->boolean('tampilkan_pembahasan'),
         ];
+
+        if ($this->bolehAturKelas($request->user())) {
+            $update['id_ujian_paket'] = $data['id_ujian_paket'] ?? null;
+        }
 
         // Mata pelajaran cuma boleh diubah selama masih draf & bukan sumatif (sumatif diturunkan
         // dari Materi->Ngajar, tak masuk akal diubah lepas dari situ) — cegah ujian yg sudah
@@ -504,18 +535,16 @@ class UjianController extends Controller implements HasMiddleware
         abort_unless($ujianKelas->id_ujian === $ujian->uuid, 404);
 
         $data = $request->validate([
-            'id_guru_pengampu' => 'required|uuid',
+            'id_guru_pengampu' => 'required|uuid|exists:gurus,uuid',
         ]);
-
-        $cocok = Ngajar::where('id_pelajaran', $ujian->id_pelajaran)
-            ->where('id_kelas', $ujianKelas->id_kelas)
-            ->where('id_guru', $data['id_guru_pengampu'])
-            ->exists();
-        abort_unless($cocok, 422, 'Guru yang dipilih tidak mengajar mata pelajaran ini di kelas tersebut.');
 
         $ujianKelas->update(['id_guru_pengampu' => $data['id_guru_pengampu']]);
 
-        return back()->with('success', 'Guru pengampu kelas ' . ($ujianKelas->kelas?->tingkat . $ujianKelas->kelas?->kelas) . ' disimpan.');
+        $pesanTambahan = $ujianKelas->pengampuLuarNgajar()
+            ? ' (Perhatian: Guru pengampu di luar data ngajar — tidak dapat mengumpulkan hasil ujian ke buku nilai rapor).'
+            : '.';
+
+        return back()->with('success', 'Guru pengampu kelas ' . ($ujianKelas->kelas?->tingkat . $ujianKelas->kelas?->kelas) . ' disimpan' . $pesanTambahan);
     }
 
     /**
@@ -530,11 +559,12 @@ class UjianController extends Controller implements HasMiddleware
 
         $data = $request->validate([
             'pengampu'   => 'array',
-            'pengampu.*' => 'nullable|uuid',
+            'pengampu.*' => 'nullable|uuid|exists:gurus,uuid',
         ]);
 
         $ujian->load('kelas.kelas');
         $disimpan = 0;
+        $adaLuarNgajar = false;
 
         foreach ($data['pengampu'] ?? [] as $idUjianKelas => $idGuru) {
             if (!$idGuru) continue;
@@ -542,17 +572,19 @@ class UjianController extends Controller implements HasMiddleware
             $ujianKelas = $ujian->kelas->firstWhere('uuid', $idUjianKelas);
             abort_unless($ujianKelas, 404);
 
-            $cocok = Ngajar::where('id_pelajaran', $ujian->id_pelajaran)
-                ->where('id_kelas', $ujianKelas->id_kelas)
-                ->where('id_guru', $idGuru)
-                ->exists();
-            abort_unless($cocok, 422, 'Guru pengampu kelas ' . ($ujianKelas->kelas?->tingkat . $ujianKelas->kelas?->kelas) . ' tidak valid.');
-
             $ujianKelas->update(['id_guru_pengampu' => $idGuru]);
+            if ($ujianKelas->pengampuLuarNgajar()) {
+                $adaLuarNgajar = true;
+            }
             $disimpan++;
         }
 
-        return back()->with('success', $disimpan > 0 ? "{$disimpan} guru pengampu disimpan." : 'Tidak ada perubahan pengampu.');
+        $pesan = $disimpan > 0 ? "{$disimpan} guru pengampu disimpan." : 'Tidak ada perubahan pengampu.';
+        if ($adaLuarNgajar) {
+            $pesan .= ' Pengampu di luar data ngajar tidak dapat mengumpulkan hasil ujian ke buku nilai rapor.';
+        }
+
+        return back()->with('success', $pesan);
     }
 
     /**
@@ -697,8 +729,9 @@ class UjianController extends Controller implements HasMiddleware
         // ke ujian_soal utk tiap siswa di roster — lihat UjianAttempt::skorSementara().
         $totalPoin = (int) $ujian->soal->sum(fn ($s) => $s->poinEfektif());
         $modeSkor = $ujian->mode_skor ?? 'rata_rata';
+        $bisaTransferNilai = $this->bisaTransferNilai($request->user(), $ujian, $untukRoster->pluck('id_kelas')->all());
 
-        return view('ujian.hasil.index', compact('ujian', 'ujianKelasList', 'roster', 'kelasFilter', 'totalPoin', 'modeSkor'));
+        return view('ujian.hasil.index', compact('ujian', 'ujianKelasList', 'roster', 'kelasFilter', 'totalPoin', 'modeSkor', 'bisaTransferNilai'));
     }
 
     /** Rincian jawaban per-soal satu siswa — dipakai dari baris roster Hasil & Transfer/Pemantauan. */
@@ -733,11 +766,18 @@ class UjianController extends Controller implements HasMiddleware
      * transfer otomatis sebelumnya gagal krn rapor terkunci, dan admin memang sudah
      * sadar membuka kunci itu utk memasukkan nilai ini.
      */
-        public function transferSemua(Request $request, Ujian $ujian, UjianNilaiTransfer $transfer)
+    public function transferSemua(Request $request, Ujian $ujian, UjianNilaiTransfer $transfer)
     {
         $this->authorize('manage', $ujian);
         
         $kelasFilter = $request->string('kelas')->toString();
+        $targetKelasIds = $kelasFilter ? [$kelasFilter] : $ujian->kelas()->pluck('id_kelas')->all();
+
+        abort_unless(
+            $this->bisaTransferNilai($request->user(), $ujian, $targetKelasIds),
+            403,
+            'Anda bertindak sebagai pengampu pengganti (di luar data penugasan mengajar sekolah). Pengumpulan hasil ujian ke dalam buku nilai hanya dapat dilakukan oleh guru mata pelajaran resmi atau admin.'
+        );
         
         $query = UjianAttempt::whereIn('id_ujian_kelas', $ujian->kelas()->pluck('uuid'))
             ->where('status', UjianAttempt::STATUS_DINILAI);
@@ -756,7 +796,7 @@ class UjianController extends Controller implements HasMiddleware
             $count++;
         }
         
-        return back()->with('success', "Berhasil memproses transfer nilai untuk {} siswa.");
+        return back()->with('success', "Berhasil memproses transfer nilai untuk {$count} siswa.");
     }
 
     public function transferUlang(Request $request, Ujian $ujian, UjianAttempt $attempt, UjianNilaiTransfer $transfer)
@@ -764,6 +804,12 @@ class UjianController extends Controller implements HasMiddleware
         $this->authorize('manage', $ujian);
         abort_unless($attempt->ujianKelas->id_ujian === $ujian->uuid, 404);
         abort_unless($attempt->status === UjianAttempt::STATUS_DINILAI, 422, 'Attempt ini belum selesai dinilai.');
+
+        abort_unless(
+            $this->bisaTransferNilai($request->user(), $ujian, [$attempt->ujianKelas->id_kelas]),
+            403,
+            'Anda bertindak sebagai pengampu pengganti (di luar data penugasan mengajar sekolah). Pengumpulan hasil ujian ke dalam buku nilai hanya dapat dilakukan oleh guru mata pelajaran resmi atau admin.'
+        );
 
         $transfer->transfer($attempt);
 
@@ -882,6 +928,31 @@ class UjianController extends Controller implements HasMiddleware
         $ngajars = $query->get()->sortBy(fn ($n) => [$n->pelajaran?->urutan, $n->pelajaran?->nama, $n->kelas?->tingkat, $n->kelas?->kelas])->values();
 
         return [$ngajars];
+    }
+
+    /** Cek apakah user berwenang mentransfer hasil ujian ke buku nilai rapor (harus memiliki penugasan Ngajar resmi atau admin) */
+    private function bisaTransferNilai($user, Ujian $ujian, $kelasIds = null): bool
+    {
+        if ($user->isAdmin() || $user->canAccess('manage_ujian')) {
+            return true;
+        }
+
+        $guru = $user->guru;
+        if (!$guru) {
+            return false;
+        }
+
+        $query = Ngajar::where('id_guru', $guru->uuid)
+            ->where('id_pelajaran', $ujian->id_pelajaran);
+
+        if (!empty($kelasIds)) {
+            $query->whereIn('id_kelas', (array) $kelasIds);
+        } else {
+            $idKelasUjian = $ujian->kelas()->pluck('id_kelas');
+            $query->whereIn('id_kelas', $idKelasUjian);
+        }
+
+        return $query->exists();
     }
 }
 

@@ -13,7 +13,7 @@ return new class extends Migration
             $table->uuid('id_ujian');
             $table->string('token', 32)->unique();
             $table->string('judul')->nullable();
-            $table->boolean('is_active')->default(true);
+            $table->boolean('is_active')->default(false);
             $table->unsignedInteger('durasi_menit')->default(60);
             $table->boolean('acak_soal')->default(true);
             $table->boolean('acak_opsi')->default(true);

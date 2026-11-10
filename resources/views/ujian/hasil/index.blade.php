@@ -12,6 +12,16 @@
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Target nilai: {{ strtoupper($ujian->target_nilai) }} — nilai ditransfer otomatis begitu attempt selesai dinilai. Semua siswa kelas ter-assign ditampilkan, termasuk yang belum mengerjakan.</p>
     </div>
 
+    @if(!$bisaTransferNilai)
+    <div class="card p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex items-start gap-3">
+        <i data-lucide="info" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
+        <div class="text-xs text-amber-800 dark:text-amber-300 space-y-0.5">
+            <p class="font-bold">Pengampu Pengganti (Di Luar Data Ngajar Sekolah)</p>
+            <p>Anda ditugaskan sebagai pengampu ujian di luar data penugasan mengajar sekolah. Anda dapat melihat hasil pengerjaan siswa dan memeriksa esai, tetapi <strong>tidak dapat mengumpulkan/mentransfer nilai</strong> langsung ke dalam buku nilai rapor. Pengumpulan nilai hanya dapat diproses oleh guru mata pelajaran resmi atau admin.</p>
+        </div>
+    </div>
+    @endif
+
     <div class="flex items-center justify-between flex-wrap gap-4 mb-4">
         @if($ujianKelasList->count() > 1)
         <form method="GET" action="{{ route('ujian.hasil.index', $ujian) }}" class="flex items-center gap-2">
@@ -34,12 +44,19 @@
                     <i data-lucide="check-square" class="w-4 h-4"></i> Kumpul Semua
                 </button>
             </form>
+            @if($bisaTransferNilai)
             <form method="POST" action="{{ route('ujian.hasil.transferSemua', $ujian) }}?kelas={{ $kelasFilter }}" onsubmit="return confirmAction(this, 'Transfer nilai semua siswa yang sudah selesai dinilai ke buku nilai secara massal?', 'blue')">
                 @csrf
                 <button type="submit" class="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
                     <i data-lucide="send" class="w-4 h-4"></i> Transfer Semua Nilai
                 </button>
             </form>
+            @else
+            <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800" title="Anda bukan guru mata pelajaran resmi di data penugasan mengajar sekolah.">
+                <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-600 shrink-0"></i>
+                <span>Transfer Nilai Terkunci (Di Luar Data Ngajar)</span>
+            </div>
+            @endif
             <form method="POST" action="{{ route('ujian.hasil.resetSemua', $ujian) }}" onsubmit="return confirmAction(this, 'Hapus SELURUH hasil pengerjaan semua siswa? Siswa harus mengulang dari awal dan nilai yang sudah ditransfer ke buku nilai akan dicabut.', 'red')">
                 @csrf
                 <button type="submit" class="btn-primary bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
@@ -111,7 +128,7 @@
                             </button>
                         </form>
                         @endif
-                        @if($attempt && $attempt->status === 'dinilai' && $attempt->status_transfer_nilai !== 'berhasil')
+                        @if($bisaTransferNilai && $attempt && $attempt->status === 'dinilai' && $attempt->status_transfer_nilai !== 'berhasil')
                         <form method="POST" action="{{ route('ujian.hasil.transferUlang', [$ujian, $attempt]) }}" class="inline">
                             @csrf
                             <button type="submit" title="Transfer Ulang" aria-label="Transfer Ulang" class="inline-flex p-1.5 rounded-lg text-primary hover:bg-primary/10">

@@ -37,6 +37,15 @@ class UjianPolicy
             return false;
         }
 
+        // Guru pengampu kelas ujian (termasuk pengampu pengganti di luar data ngajar)
+        $isPengampu = $ujian->relationLoaded('kelas')
+            ? $ujian->kelas->contains('id_guru_pengampu', $guru->uuid)
+            : $ujian->kelas()->where('id_guru_pengampu', $guru->uuid)->exists();
+
+        if ($isPengampu) {
+            return true;
+        }
+
         $idKelas = $ujian->relationLoaded('kelas')
             ? $ujian->kelas->pluck('id_kelas')
             : $ujian->kelas()->pluck('id_kelas');

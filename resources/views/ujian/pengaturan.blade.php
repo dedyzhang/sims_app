@@ -5,7 +5,7 @@
 <div class="max-w-2xl mx-auto space-y-5">
     <div>
         <nav class="text-xs text-slate-400 mb-1">
-            <a href="{{ route('ujian.index') }}" class="hover:underline">Ujian</a> /
+            <a href="{{ $ujian->id_ujian_paket ? route('ujian.index', ['paket' => $ujian->id_ujian_paket]) : route('ujian.index') }}" class="hover:underline">Ujian{{ $ujian->paket ? ' (' . $ujian->paket->nama . ')' : '' }}</a> /
             <a href="{{ route('ujian.show', $ujian) }}" class="hover:underline">{{ $ujian->judul }}</a> / Pengaturan
         </nav>
         <h1 class="page-title">Pengaturan Ujian</h1>
@@ -53,6 +53,19 @@
                 <input type="number" name="durasi_menit" value="{{ old('durasi_menit', $ujian->durasi_menit) }}" min="5" max="600" required class="form-input">
             </div>
         </div>
+
+        @if($bolehAturKelas && isset($daftarPaket) && $daftarPaket->isNotEmpty())
+        <div>
+            <label class="form-label">Paket Ujian</label>
+            <select name="id_ujian_paket" class="form-select">
+                <option value="">-- Ujian Mandiri (Tanpa Paket) --</option>
+                @foreach($daftarPaket as $pkt)
+                    <option value="{{ $pkt->uuid }}" @selected(old('id_ujian_paket', $ujian->id_ujian_paket) === $pkt->uuid)>{{ $pkt->nama }} ({{ strtoupper($pkt->jenis) }})</option>
+                @endforeach
+            </select>
+            <p class="text-xs text-slate-400 mt-1">Kaitkan ujian ini ke dalam folder paket atau lepaskan menjadi ujian mandiri.</p>
+        </div>
+        @endif
 
         <div>
             <label class="form-label">Mata Pelajaran</label>

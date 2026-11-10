@@ -136,7 +136,7 @@ class UjianReopenDanPengampuTest extends TestCase
         $this->assertSame($guruB->uuid, $uk->fresh()->id_guru_pengampu);
     }
 
-    public function test_set_pengampu_menolak_guru_yang_tak_mengajar_kelas_itu(): void
+    public function test_set_pengampu_bisa_memilih_guru_di_luar_data_ngajar(): void
     {
         $admin = $this->admin();
         [, $guruLuar] = $this->buatGuru('guru_luar_pengampu'); // sengaja TANPA Ngajar kelas ini
@@ -144,7 +144,21 @@ class UjianReopenDanPengampuTest extends TestCase
         $uk = UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => UjianKelas::generateToken()]);
 
         $this->actingAs($admin)->post(route('ujian.kelas.pengampu', [$ujian, $uk]), ['id_guru_pengampu' => $guruLuar->uuid])
-            ->assertStatus(422);
+            ->assertRedirect();
+        $this->assertSame($guruLuar->uuid, $uk->fresh()->id_guru_pengampu);
+        $this->assertTrue($uk->fresh()->pengampuLuarNgajar());
+        $this->assertFalse($uk->fresh()->pengampuSesuaiNgajar());
+    }
+
+    public function test_set_pengampu_menolak_uuid_guru_yang_tidak_ada_di_database(): void
+    {
+        $admin = $this->admin();
+        $ujian = $this->buatUjian($admin);
+        $uk = UjianKelas::create(['id_ujian' => $ujian->uuid, 'id_kelas' => $this->kelas->uuid, 'token_masuk' => UjianKelas::generateToken()]);
+
+        $this->actingAs($admin)->post(route('ujian.kelas.pengampu', [$ujian, $uk]), ['id_guru_pengampu' => '00000000-0000-0000-0000-000000000000'])
+            ->assertStatus(302)
+            ->assertSessionHasErrors('id_guru_pengampu');
         $this->assertNull($uk->fresh()->id_guru_pengampu);
     }
 
@@ -185,12 +199,12 @@ class UjianReopenDanPengampuTest extends TestCase
         $this->assertSame($guruA->uuid, $uk->fresh()->id_guru_pengampu);
     }
 
-    public function test_batch_pengampu_ditolak_kalau_ada_guru_tak_valid(): void
+    public function test_batch_pengampu_bisa_simpan_guru_di_luar_data_ngajar(): void
     {
         $admin = $this->admin();
         $kelasB = Kelas::create(['tingkat' => 7, 'kelas' => 'B']);
         [, $guruA] = $this->buatGuru('guru_batch_valid');
-        [, $guruLuar] = $this->buatGuru('guru_batch_tak_valid'); // TANPA Ngajar kelasB
+        [, $guruLuar] = $this->buatGuru('guru_batch_luar'); // TANPA Ngajar kelasB
 
         Ngajar::create(['id_guru' => $guruA->uuid, 'id_pelajaran' => $this->pelajaran->uuid, 'id_kelas' => $this->kelas->uuid]);
 
@@ -200,7 +214,11 @@ class UjianReopenDanPengampuTest extends TestCase
 
         $this->actingAs($admin)->post(route('ujian.kelas.pengampu.batch', $ujian), [
             'pengampu' => [$ukA->uuid => $guruA->uuid, $ukB->uuid => $guruLuar->uuid],
-        ])->assertStatus(422);
+        ])->assertRedirect();
+
+        $this->assertSame($guruA->uuid, $ukA->fresh()->id_guru_pengampu);
+        $this->assertSame($guruLuar->uuid, $ukB->fresh()->id_guru_pengampu);
+        $this->assertTrue($ukB->fresh()->pengampuLuarNgajar());
     }
 
     public function test_guru_bukan_pengampu_tak_bisa_nilai_esai_kelas_itu(): void
@@ -261,5 +279,61 @@ class UjianReopenDanPengampuTest extends TestCase
         $this->actingAs($admin)->get(route('ujian.grading.index', $ujian))
             ->assertOk()
             ->assertViewHas('attempts', fn ($attempts) => $attempts->count() === 1);
+    }
+
+    public function test_pengampu_di_luar_data_ngajar_tidak_bisa_transfer_nilai(): void
+    {
+        $admin = $this->admin();
+        [$userLuar, $guruLuar] = $this->buatGuru('guru_luar_transfer');
+        [$userResmi, $guruResmi] = $this->buatGuru('guru_resmi_transfer');
+
+        // Guru resmi terdaftar di Ngajar
+        Ngajar::create([
+            'id_guru' => $guruResmi->uuid,
+            'id_pelajaran' => $this->pelajaran->uuid,
+            'id_kelas' => $this->kelas->uuid,
+        ]);
+
+        $ujian = $this->buatUjian($admin);
+        // Tapi pengampu ujian diisi guru luar (pengganti)
+        $uk = UjianKelas::create([
+            'id_ujian' => $ujian->uuid,
+            'id_kelas' => $this->kelas->uuid,
+            'token_masuk' => UjianKelas::generateToken(),
+            'id_guru_pengampu' => $guruLuar->uuid,
+        ]);
+
+        $siswaUser = User::create(['username' => 'siswa_transfer_test', 'password' => Hash::make('rahasia123'), 'access' => 'siswa']);
+        $attempt = UjianAttempt::create([
+            'id_ujian_kelas' => $uk->uuid,
+            'id_siswa' => $siswaUser->uuid,
+            'urutan_soal' => [],
+            'status' => UjianAttempt::STATUS_DINILAI,
+            'total_skor' => 85,
+            'mulai_pada' => now(),
+            'selesai_pada' => now(),
+        ]);
+
+        // 1. Guru luar buka halaman hasil: bisa lihat, tapi transfer terkunci
+        $resHasil = $this->actingAs($userLuar)->get(route('ujian.hasil.index', $ujian));
+        $resHasil->assertOk();
+        $resHasil->assertSee('Transfer Nilai Terkunci (Di Luar Data Ngajar)');
+
+        // 2. Guru luar coba transferSemua: ditolak 403 Forbidden
+        $this->actingAs($userLuar)->post(route('ujian.hasil.transferSemua', $ujian))
+            ->assertForbidden();
+
+        // 3. Guru luar coba transferUlang: ditolak 403 Forbidden
+        $this->actingAs($userLuar)->post(route('ujian.hasil.transferUlang', [$ujian, $attempt]))
+            ->assertForbidden();
+
+        // 4. Guru resmi buka halaman hasil: bisa transfer
+        $resResmi = $this->actingAs($userResmi)->get(route('ujian.hasil.index', $ujian));
+        $resResmi->assertOk();
+        $resResmi->assertSee('Transfer Semua Nilai');
+
+        // 5. Admin bisa transferSemua
+        $this->actingAs($admin)->post(route('ujian.hasil.transferSemua', $ujian))
+            ->assertRedirect();
     }
 }
