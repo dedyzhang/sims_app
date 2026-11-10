@@ -77,7 +77,7 @@ class UjianKelas extends Model
             && now()->lt($this->dibuka_mulai);
     }
 
-    /** Apakah guru pengampu saat ini terdaftar di data Ngajar untuk mapel & kelas ini? */
+    /** Apakah guru pengampu saat ini terdaftar di data Ngajar untuk mapel & kelas/tingkat ini? */
     public function pengampuSesuaiNgajar(): bool
     {
         if (!$this->id_guru_pengampu) {
@@ -89,10 +89,42 @@ class UjianKelas extends Model
             return false;
         }
 
-        return Ngajar::where('id_guru', $this->id_guru_pengampu)
+        // 1. Cocok persis di kelas ini
+        $cocokKelas = Ngajar::where('id_guru', $this->id_guru_pengampu)
             ->where('id_kelas', $this->id_kelas)
             ->where('id_pelajaran', $idPelajaran)
             ->exists();
+
+        if ($cocokKelas) {
+            return true;
+        }
+
+        // 2. Atau guru ini mengajar mapel yang sama di tingkat kelas yang sama (guru mapel paralel)
+        $tingkat = $this->kelas?->tingkat ?? $this->kelas()->value('tingkat');
+        if ($tingkat) {
+            $cocokTingkat = Ngajar::where('id_guru', $this->id_guru_pengampu)
+                ->where('id_pelajaran', $idPelajaran)
+                ->whereHas('kelas', fn ($q) => $q->where('tingkat', $tingkat))
+                ->exists();
+
+            if ($cocokTingkat) {
+                return true;
+            }
+        }
+
+        // 3. Atau guru mengajar mapel ini di salah satu kelas yang terdaftar dalam ujian yang sama
+        $ujian = $this->ujian;
+        if ($ujian) {
+            $idKelasUjian = $ujian->kelas()->pluck('id_kelas')->filter()->all();
+            if (!empty($idKelasUjian)) {
+                return Ngajar::where('id_guru', $this->id_guru_pengampu)
+                    ->where('id_pelajaran', $idPelajaran)
+                    ->whereIn('id_kelas', $idKelasUjian)
+                    ->exists();
+            }
+        }
+
+        return false;
     }
 
     /** Apakah pengampu adalah guru di luar data ngajar (pengampu pengganti)? */

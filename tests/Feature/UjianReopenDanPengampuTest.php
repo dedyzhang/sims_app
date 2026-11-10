@@ -336,4 +336,101 @@ class UjianReopenDanPengampuTest extends TestCase
         $this->actingAs($admin)->post(route('ujian.hasil.transferSemua', $ujian))
             ->assertRedirect();
     }
+
+    public function test_tampilan_show_menampilkan_badge_popup_pengampu_luar(): void
+    {
+        $admin = $this->admin();
+        [, $guruLuar] = $this->buatGuru('guru_popup_luar');
+
+        $ujian = $this->buatUjian($admin);
+        UjianKelas::create([
+            'id_ujian' => $ujian->uuid,
+            'id_kelas' => $this->kelas->uuid,
+            'token_masuk' => UjianKelas::generateToken(),
+            'id_guru_pengampu' => $guruLuar->uuid,
+        ]);
+
+        $res = $this->actingAs($admin)->get(route('ujian.show', $ujian));
+        $res->assertOk();
+        $res->assertSee('Di Luar Data Ngajar');
+        $res->assertSee('openBadgeInfo');
+        $res->assertSee('Pengampu dapat memantau ujian &amp; menilai esai', false);
+    }
+
+    public function test_guru_mapel_paralel_di_tingkat_yang_sama_muncul_di_pilihan_pengampu(): void
+    {
+        $admin = $this->admin();
+
+        // Buat 2 kelas tingkat 9: 9A dan 9C
+        $kelas9A = \App\Models\Kelas::create(['tingkat' => '9', 'kelas' => 'A']);
+        $kelas9C = \App\Models\Kelas::create(['tingkat' => '9', 'kelas' => 'C']);
+
+        // Buat 2 guru: Bu Eka (ajar 9A) dan Bu Sanny (ajar 9C)
+        [$userEka, $guruEka] = $this->buatGuru('eka_kurniati');
+        [$userSanny, $guruSanny] = $this->buatGuru('sanny_simamora');
+
+        Ngajar::create([
+            'id_guru' => $guruEka->uuid,
+            'id_pelajaran' => $this->pelajaran->uuid,
+            'id_kelas' => $kelas9A->uuid,
+        ]);
+        Ngajar::create([
+            'id_guru' => $guruSanny->uuid,
+            'id_pelajaran' => $this->pelajaran->uuid,
+            'id_kelas' => $kelas9C->uuid,
+        ]);
+
+        $ujian = $this->buatUjian($admin);
+        $uk9A = UjianKelas::create([
+            'id_ujian' => $ujian->uuid,
+            'id_kelas' => $kelas9A->uuid,
+            'token_masuk' => UjianKelas::generateToken(),
+            'id_guru_pengampu' => $guruEka->uuid,
+        ]);
+        $uk9C = UjianKelas::create([
+            'id_ujian' => $ujian->uuid,
+            'id_kelas' => $kelas9C->uuid,
+            'token_masuk' => UjianKelas::generateToken(),
+            'id_guru_pengampu' => $guruSanny->uuid,
+        ]);
+
+        // Buka halaman ujian.show
+        $res = $this->actingAs($admin)->get(route('ujian.show', $ujian));
+        $res->assertOk();
+
+        $opsi = $res->viewData('guruPengampuOpsi');
+        $ngajar9A = $opsi[$uk9A->uuid]['ngajar']->pluck('uuid')->all();
+        $ngajar9C = $opsi[$uk9C->uuid]['ngajar']->pluck('uuid')->all();
+
+        // Kedua guru (Bu Eka dan Bu Sanny) HARUS muncul di Guru Mapel Resmi untuk 9A dan 9C
+        $this->assertContains($guruEka->uuid, $ngajar9A, 'Bu Eka harus muncul di pilihan pengampu 9A');
+        $this->assertContains($guruSanny->uuid, $ngajar9A, 'Bu Sanny harus muncul di pilihan pengampu 9A');
+
+        $this->assertContains($guruEka->uuid, $ngajar9C, 'Bu Eka harus muncul di pilihan pengampu 9C');
+        $this->assertContains($guruSanny->uuid, $ngajar9C, 'Bu Sanny harus muncul di pilihan pengampu 9C');
+
+        // Bu Sanny ditugaskan jadi pengampu 9A
+        $this->actingAs($admin)->post(route('ujian.kelas.pengampu.batch', $ujian), [
+            'pengampu' => [
+                $uk9A->uuid => $guruSanny->uuid,
+            ],
+        ])->assertRedirect();
+
+        $uk9A->refresh();
+        $this->assertSame($guruSanny->uuid, $uk9A->id_guru_pengampu);
+
+        // Bu Sanny adalah guru mapel paralel tingkat 9, sehingga BUKAN pengampu luar data ngajar
+        $this->assertTrue($uk9A->pengampuSesuaiNgajar());
+        $this->assertFalse($uk9A->pengampuLuarNgajar());
+
+        // Halaman ujian.show tidak menampilkan badge 'Di Luar Data Ngajar' untuk 9A
+        $resAfter = $this->actingAs($admin)->get(route('ujian.show', $ujian));
+        $resAfter->assertDontSee('Di Luar Data Ngajar');
+
+        // Bu Sanny berwenang mentransfer nilai untuk kelas 9A
+        $resHasil = $this->actingAs($userSanny)->get(route('ujian.hasil.index', $ujian) . '?kelas=' . $kelas9A->uuid);
+        $resHasil->assertOk();
+        $resHasil->assertSee('Transfer Semua Nilai');
+        $resHasil->assertDontSee('Transfer Nilai Terkunci');
+    }
 }

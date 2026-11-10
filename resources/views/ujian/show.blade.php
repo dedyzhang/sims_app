@@ -218,25 +218,90 @@
                                     @endif
                                 </select>
                                 @if($isPengampuLuar)
-                                    <span class="badge bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0 text-[10px]">
-                                        <i data-lucide="info" class="w-3 h-3 inline mr-0.5"></i> Di Luar Data Ngajar
-                                    </span>
+                                    <div class="relative inline-flex" x-data="{ openBadgeInfo: false }">
+                                        <button type="button"
+                                                @mouseenter="openBadgeInfo = true"
+                                                @mouseleave="openBadgeInfo = false"
+                                                @click.stop="openBadgeInfo = !openBadgeInfo"
+                                                @click.outside="openBadgeInfo = false"
+                                                class="badge bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0 text-[10px] cursor-pointer hover:bg-amber-200/80 dark:hover:bg-amber-900/60 transition inline-flex items-center gap-1 font-semibold focus:outline-none select-none"
+                                                title="Klik atau arahkan kursor untuk info pengampu di luar data ngajar">
+                                            <i data-lucide="info" class="w-3 h-3 shrink-0"></i>
+                                            <span>Di Luar Data Ngajar</span>
+                                        </button>
+                                        <div x-show="openBadgeInfo"
+                                             x-cloak
+                                             x-transition:enter="transition ease-out duration-150"
+                                             x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                                             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                             x-transition:leave="transition ease-in duration-100"
+                                             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                             x-transition:leave-end="opacity-0 translate-y-1 scale-95"
+                                             @click.stop
+                                             class="absolute z-50 right-0 top-full mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-amber-200 dark:border-amber-800/80 text-left text-[11px] leading-relaxed">
+                                            <div class="flex items-start gap-2">
+                                                <span class="p-1 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                                                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                                                </span>
+                                                <div class="space-y-1">
+                                                    <p class="font-bold text-amber-800 dark:text-amber-300 text-xs">Di Luar Data Ngajar</p>
+                                                    <p class="text-slate-600 dark:text-slate-300">
+                                                        Guru pengampu ini bukan pengajar mapel resmi kelas tersebut di data ngajar sekolah.
+                                                    </p>
+                                                    <p class="text-slate-600 dark:text-slate-300">
+                                                        Pengampu dapat memantau ujian &amp; menilai esai, tetapi <strong class="text-amber-700 dark:text-amber-400">tidak bisa mengumpulkan hasil ujian</strong> langsung ke buku nilai rapor.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 @endif
                             </div>
                             @else
-                            <div class="flex items-center gap-1.5">
+                            <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="text-slate-500">Pengampu: {{ $uk->guruPengampu?->nama ?? '—' }}</span>
                                 @if($isPengampuLuar)
-                                    <span class="badge bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 text-[10px]">Di Luar Data Ngajar</span>
+                                    <div class="relative inline-flex" x-data="{ openBadgeInfo: false }">
+                                        <button type="button"
+                                                @mouseenter="openBadgeInfo = true"
+                                                @mouseleave="openBadgeInfo = false"
+                                                @click.stop="openBadgeInfo = !openBadgeInfo"
+                                                @click.outside="openBadgeInfo = false"
+                                                class="badge bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0 text-[10px] cursor-pointer hover:bg-amber-200/80 dark:hover:bg-amber-900/60 transition inline-flex items-center gap-1 font-semibold focus:outline-none select-none"
+                                                title="Klik atau arahkan kursor untuk info pengampu di luar data ngajar">
+                                            <i data-lucide="info" class="w-3 h-3 shrink-0"></i>
+                                            <span>Di Luar Data Ngajar</span>
+                                        </button>
+                                        <div x-show="openBadgeInfo"
+                                             x-cloak
+                                             x-transition:enter="transition ease-out duration-150"
+                                             x-transition:enter-start="opacity-0 translate-y-1 scale-95"
+                                             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                             x-transition:leave="transition ease-in duration-100"
+                                             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                             x-transition:leave-end="opacity-0 translate-y-1 scale-95"
+                                             @click.stop
+                                             class="absolute z-50 right-0 top-full mt-1.5 w-72 sm:w-80 max-w-[calc(100vw-2rem)] p-3 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 shadow-xl border border-amber-200 dark:border-amber-800/80 text-left text-[11px] leading-relaxed">
+                                            <div class="flex items-start gap-2">
+                                                <span class="p-1 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                                                    <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                                                </span>
+                                                <div class="space-y-1">
+                                                    <p class="font-bold text-amber-800 dark:text-amber-300 text-xs">Di Luar Data Ngajar</p>
+                                                    <p class="text-slate-600 dark:text-slate-300">
+                                                        Guru pengampu ini bukan pengajar mapel resmi kelas tersebut di data ngajar sekolah.
+                                                    </p>
+                                                    <p class="text-slate-600 dark:text-slate-300">
+                                                        Pengampu dapat memantau ujian &amp; menilai esai, tetapi <strong class="text-amber-700 dark:text-amber-400">tidak bisa mengumpulkan hasil ujian</strong> langsung ke buku nilai rapor.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 @endif
                             </div>
                             @endif
                         </div>
-                        @if($isPengampuLuar)
-                        <p class="text-[11px] text-amber-600 dark:text-amber-400 pl-0 sm:pl-6">
-                            * Guru pengampu ini bukan pengajar mapel resmi kelas tersebut di data ngajar sekolah. Pengampu dapat memantau ujian &amp; menilai esai, tetapi <strong>tidak bisa mengumpulkan hasil ujian</strong> langsung ke buku nilai rapor.
-                        </p>
-                        @endif
                     </div>
                     @endforeach
                 </div>

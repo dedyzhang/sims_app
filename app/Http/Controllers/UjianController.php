@@ -259,12 +259,36 @@ class UjianController extends Controller implements HasMiddleware
         $semuaGuru = \App\Models\Guru::orderBy('nama')->get();
 
         // Daftar guru yg cocok (via Ngajar) vs guru lainnya di luar data ngajar utk tiap kelas ter-assign
+        $idKelasUjian = $ujian->kelas->pluck('id_kelas')->filter()->all();
+
         $guruPengampuOpsi = $ujian->id_pelajaran
-            ? $ujian->kelas->mapWithKeys(function ($uk) use ($ujian, $semuaGuru) {
+            ? $ujian->kelas->mapWithKeys(function ($uk) use ($ujian, $semuaGuru, $idKelasUjian) {
+                $tingkat = $uk->kelas?->tingkat;
+
+                // Guru mapel resmi: guru yang mengajar mapel ini di kelas ini, atau di tingkat yang sama, atau di kelas-kelas ujian ini
                 $ngajarGurus = Ngajar::with('guru')
                     ->where('id_pelajaran', $ujian->id_pelajaran)
-                    ->where('id_kelas', $uk->id_kelas)
+                    ->where(function ($q) use ($uk, $tingkat, $idKelasUjian) {
+                        $q->where('id_kelas', $uk->id_kelas);
+                        if (!empty($idKelasUjian)) {
+                            $q->orWhereIn('id_kelas', $idKelasUjian);
+                        }
+                        if ($tingkat) {
+                            $q->orWhereHas('kelas', fn ($kq) => $kq->where('tingkat', $tingkat));
+                        }
+                    })
                     ->get()->pluck('guru')->filter()->unique('uuid')->values();
+
+                // Guru yang mengajar kelas ini secara langsung diutamakan di urutan teratas
+                $guruKelasIniIds = Ngajar::where('id_pelajaran', $ujian->id_pelajaran)
+                    ->where('id_kelas', $uk->id_kelas)
+                    ->pluck('id_guru')->all();
+
+                $ngajarGurus = $ngajarGurus->sortBy(function ($g) use ($guruKelasIniIds) {
+                    $isKelasIni = in_array($g->uuid, $guruKelasIniIds, true) ? 0 : 1;
+                    return [$isKelasIni, $g->nama];
+                })->values();
+
                 $ngajarUuids = $ngajarGurus->pluck('uuid')->all();
                 $lainGurus = $semuaGuru->reject(fn ($g) => in_array($g->uuid, $ngajarUuids, true))->values();
 
@@ -946,7 +970,15 @@ class UjianController extends Controller implements HasMiddleware
             ->where('id_pelajaran', $ujian->id_pelajaran);
 
         if (!empty($kelasIds)) {
-            $query->whereIn('id_kelas', (array) $kelasIds);
+            $kelasTarget = \App\Models\Kelas::whereIn('uuid', (array) $kelasIds)->get();
+            $tingkatTarget = $kelasTarget->pluck('tingkat')->filter()->unique()->all();
+
+            $query->where(function ($q) use ($kelasIds, $tingkatTarget) {
+                $q->whereIn('id_kelas', (array) $kelasIds);
+                if (!empty($tingkatTarget)) {
+                    $q->orWhereHas('kelas', fn ($kq) => $kq->whereIn('tingkat', $tingkatTarget));
+                }
+            });
         } else {
             $idKelasUjian = $ujian->kelas()->pluck('id_kelas');
             $query->whereIn('id_kelas', $idKelasUjian);
