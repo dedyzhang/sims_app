@@ -5,46 +5,61 @@
     <title>{{ $title }}</title>
     <style>
         @page { margin: 8mm 9mm; }
-        body { font-family: DejaVu Sans, Arial, sans-serif; color:#333; font-size:8.4px; line-height:1.22; }
-        .topbar { background:#5b2d91; color:#fff; text-align:center; font-weight:700; font-size:14px; line-height:1.2; padding:10px 10px; }
-        .subject { display:block; margin-top:3px; }
-        table { border-collapse:collapse; width:100%; table-layout:fixed; }
+        body { font-family: DejaVu Sans, Arial, sans-serif; color:#000; font-size:8px; line-height:1.24; }
+        .kop { text-align: center; border-bottom: 2px double #000; padding-bottom: 5px; margin-bottom: 7px; }
+        .kop .nama { font-weight: 700; font-size: 11px; line-height: 1.2; text-transform: uppercase; color: #000; }
+        .kop .sub { font-weight: 700; font-size: 9px; margin-top: 1px; color: #000; }
+        .kop .alamat { font-size: 7.5px; line-height: 1.25; margin-top: 1px; color: #333; }
+
+        .blueprint-header { text-align: center; margin-bottom: 8px; }
+        .blueprint-header .title { font-weight: 700; font-size: 11px; text-transform: uppercase; color: #000; }
+        .blueprint-header .subtitle { font-weight: 700; font-size: 9.5px; margin-top: 1px; text-transform: uppercase; color: #000; }
+        .blueprint-header .subsubtitle { font-weight: 700; font-size: 9px; margin-top: 1px; text-transform: uppercase; color: #000; }
+
+        table { border-collapse: collapse; width: 100%; table-layout: fixed; }
         tr { page-break-inside: avoid; }
-        .identity { margin-top:7px; background:#fff8e8; border:1px solid #d89a17; }
-        .identity td { border:1px solid #d89a17; padding:5px 6px; vertical-align:middle; font-size:8.6px; word-wrap:break-word; }
-        .identity .label { width:18%; font-weight:700; }
-        .identity .value { width:32%; }
-        .blueprint { margin-top:7px; border:1px solid #d89a17; table-layout:fixed; }
-        .blueprint th { background:#5b2d91; color:#fff; border:1px solid #d89a17; padding:6px 4px; text-align:center; font-weight:700; font-size:7.8px; line-height:1.18; }
-        .blueprint td { border:1px solid #d89a17; padding:4px 4px; vertical-align:top; font-size:7.4px; line-height:1.18; word-wrap:break-word; }
-        .blueprint tr:nth-child(even) td { background:#f3eef8; }
-        .c-no { width:4%; text-align:center; }
-        .c-element { width:14%; font-weight:700; }
-        .c-material { width:20%; }
-        .c-indicator { width:31%; }
-        .c-level { width:9%; text-align:center; font-weight:700; color:#0066cc; }
-        .c-shape { width:13%; text-align:center; font-weight:700; color:#00136e; }
-        .c-qno { width:9%; text-align:center; }
-        .legend { margin-top:6px; font-size:7.8px; }
-        .note { margin-top:4px; font-size:7.8px; }
-        .sign { margin-top:12px; width:100%; font-size:8.8px; }
-        .sign td { width:50%; text-align:center; padding-top:3px; }
-        .answer-page { page-break-before:always; }
-        .answer-top { background:#2e7d32; color:#fff; text-align:center; font-weight:700; font-size:13px; line-height:1.25; padding:10px 10px; margin-bottom:12px; }
-        .section-title { color:#fff; font-weight:700; font-size:9.4px; padding:5px 8px; margin:7px 0 4px; page-break-after: avoid; }
-        .section-blue { background:#1565c0; }
-        .section-green { background:#00574b; }
-        .answer-table { table-layout:fixed; }
-        .answer-table th { background:#b7d8f1; border:1px solid #1683e8; padding:4px 5px; text-align:center; font-weight:700; font-size:8px; line-height:1.18; }
-        .answer-table td { border:1px solid #1683e8; padding:4px 5px; vertical-align:top; font-size:7.8px; line-height:1.2; word-wrap:break-word; }
-        .answer-table tr:nth-child(even) td { background:#e3f2fd; }
-        .answer-table .num { width:6%; text-align:center; font-weight:700; }
-        .answer-table .key { width:12%; text-align:center; font-weight:700; color:#0b66d8; }
-        .answer-table .wide { width:auto; }
-        .recap { margin-top:8px; }
-        .recap th { background:#e3f2fd; border:1px solid #1683e8; padding:4px; font-size:8px; }
-        .recap td { border:1px solid #1683e8; padding:4px; font-size:7.8px; word-wrap:break-word; }
-        .fallback { white-space:pre-wrap; font-size:10px; word-wrap:break-word; }
+        thead { display: table-header-group; }
+
+        .identity-clean { margin: 6px 0 8px 0; border: none; font-size: 7.8px; }
+        .identity-clean td { border: none; padding: 1.5px 4px; vertical-align: middle; color: #000; }
+        .identity-clean .id-label { font-weight: 700; width: 130px; }
+        .identity-clean .id-val { font-weight: normal; }
+
+        .competencies-box { margin-top: 5px; background: #f0f7fa; border: 1px solid #000; padding: 4px 6px; }
+        .competencies-title { font-weight: 700; font-size: 7.8px; color: #000; margin-bottom: 2px; }
+        .competencies-list { margin: 0; padding-left: 14px; font-size: 7.4px; line-height: 1.2; color: #000; }
+        .competencies-list li { margin-bottom: 1px; }
+
+        .blueprint { margin-top: 6px; border: 1px solid #000; font-size: 7.4px; }
+        .blueprint th { background: #b8d8e8; color: #000; border: 1px solid #000; padding: 4px 3px; text-align: center; font-weight: 700; font-size: 7.4px; line-height: 1.15; }
+        .blueprint td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; font-size: 7.2px; line-height: 1.18; word-wrap: break-word; color: #000; }
+
+        .c-no { text-align: center; }
+        .c-class { text-align: center; }
+        .c-level { text-align: center; }
+        .c-shape { text-align: center; }
+        .c-qno { text-align: center; }
+
+        .legend { margin-top: 5px; font-size: 7.4px; color: #000; }
+        .note { margin-top: 3px; font-size: 7.4px; color: #000; }
+        .sign { margin-top: 12px; width: 100%; font-size: 7.8px; color: #000; }
+        .sign td { text-align: center; padding-top: 2px; }
+
+        .answer-page { page-break-before: always; }
+        .answer-top { background: #b8d8e8; color: #000; text-align: center; font-weight: 700; font-size: 10px; line-height: 1.2; padding: 6px 8px; margin-bottom: 8px; border: 1px solid #000; }
+        .section-title { color: #000; font-weight: 700; font-size: 8px; padding: 4px 6px; margin: 6px 0 3px; background: #d8ecf8; border: 1px solid #000; page-break-after: avoid; }
+        .answer-table th { background: #b8d8e8; border: 1px solid #000; padding: 3px 4px; font-weight: 700; font-size: 7.4px; line-height: 1.15; color: #000; }
+        .answer-table td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; font-size: 7.2px; line-height: 1.18; word-wrap: break-word; color: #000; }
+        .answer-table .num { text-align: center; font-weight: 700; }
+        .answer-table .key { text-align: center; font-weight: 700; }
+
+        .recap { margin-top: 6px; }
+        .recap th { background: #b8d8e8; border: 1px solid #000; padding: 4px; font-size: 7.4px; text-align: center; font-weight: 700; color: #000; }
+        .recap td { border: 1px solid #000; padding: 3px 4px; font-size: 7.2px; word-wrap: break-word; color: #000; }
+
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .fallback { white-space: pre-wrap; font-size: 9px; word-wrap: break-word; }
     </style>
 </head>
 <body>

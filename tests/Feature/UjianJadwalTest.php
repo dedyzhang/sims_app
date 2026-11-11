@@ -119,6 +119,29 @@ class UjianJadwalTest extends TestCase
         $this->assertSame('2026-12-04 11:00:00', $uk->dibuka_sampai->format('Y-m-d H:i:s'));
     }
 
+    public function test_update_jadwal_membersihkan_cache_kelas(): void
+    {
+        $this->actingAs($this->admin)->post(route('ujian.paket.jadwal.store', $this->paket), [
+            'id_ujian' => $this->ujian->uuid, 'tanggal' => '2026-12-03',
+            'jam_mulai' => '08:00', 'jam_selesai' => '21:00',
+        ]);
+
+        // Cache terisi (seperti saat siswa membuka gate sebelum jam 21:00)
+        $cachedUk = $this->ujian->getCachedKelas()->firstWhere('id_kelas', $this->kelas7a->uuid);
+        $this->assertSame('2026-12-03 21:00:00', $cachedUk->dibuka_sampai->format('Y-m-d H:i:s'));
+
+        $jadwal = UjianJadwal::firstOrFail();
+
+        // Admin memperpanjang jadwal ke 23:00
+        $this->actingAs($this->admin)->post(route('ujian.paket.jadwal.update', [$this->paket, $jadwal]), [
+            'tanggal' => '2026-12-03', 'jam_mulai' => '21:00', 'jam_selesai' => '23:00',
+        ])->assertRedirect();
+
+        // getCachedKelas() sekarang harus mengembalikan jadwal baru (23:00), bukan cache lama (21:00)
+        $cachedUkBaru = $this->ujian->getCachedKelas()->firstWhere('id_kelas', $this->kelas7a->uuid);
+        $this->assertSame('2026-12-03 23:00:00', $cachedUkBaru->dibuka_sampai->format('Y-m-d H:i:s'));
+    }
+
     /** Sesuai Keputusan Desain #6: window yg sudah terisi TIDAK dibersihkan hanya krn jadwalnya dihapus — no-op saat kosong. */
     public function test_hapus_jadwal_terakhir_tidak_membersihkan_window_yang_sudah_terisi(): void
     {

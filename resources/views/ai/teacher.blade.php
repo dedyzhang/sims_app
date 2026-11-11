@@ -2077,32 +2077,78 @@
                     <label class="form-label">Catatan Guru (opsional)</label>
                     <textarea x-model="blueprint.catatan" rows="3" class="form-input text-sm leading-relaxed" placeholder="mis. sebaran C1-C3 lebih banyak, sertakan 2 soal HOTS, atau ikuti format sekolah."></textarea>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900/40">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <label class="form-label mb-1">Sumber soal agar kisi-kisi konsisten</label>
-                            <p class="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">Upload PDF/Word soal, atau klik <strong>Kirim ke Kisi-kisi</strong> dari hasil Generator Soal. Kisi-kisi akan mengikuti nomor, bentuk soal, dan kunci dari sumber ini.</p>
+
+                {{-- Sumber Soal Acuan Kisi-kisi --}}
+                <div class="rounded-2xl border border-primary/20 bg-primary/[0.03] p-3.5 space-y-3 dark:border-primary/30 dark:bg-primary/[0.06]">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                            <i data-lucide="table-properties" class="w-4 h-4 text-primary"></i> Sumber Soal Acuan Kisi-kisi
+                        </span>
+                        <button type="button" @click="useActiveQuizForBlueprint()"
+                                x-show="activeQuizResult || (result && (tab === 'quiz' || tab === 'blueprint'))"
+                                class="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline">
+                            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Pakai Soal Aktif
+                        </button>
+                    </div>
+
+                    <p class="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 m-0">
+                        Kisi-kisi 10 kolom akan diturunkan langsung dari soal acuan ini (nomor, indikator, tingkat kognitif, dan kunci jawaban).
+                    </p>
+
+                    {{-- Pilih dari Riwayat Generator Soal --}}
+                    <div>
+                        <label class="form-label text-[11px]">Ambil dari Riwayat Generator Soal</label>
+                        <select x-model="blueprint.selected_quiz_uuid" @change="onSelectQuizHistoryForBlueprint()" class="form-input text-xs">
+                            <option value="">-- Pilih Soal dari Generator Soal --</option>
+                            <template x-for="item in savedQuizHistories" :key="item.uuid">
+                                <option :value="item.uuid" x-text="item.title + ' (' + (item.created_at_human || '') + ')'"></option>
+                            </template>
+                        </select>
+                        <p class="text-[10px] text-slate-400 mt-1" x-show="!savedQuizHistories.length">
+                            Belum ada riwayat soal tersimpan. Anda bisa generate di tab "Generator Soal" terlebih dahulu atau upload file di bawah.
+                        </p>
+                    </div>
+
+                    {{-- Upload File PDF / Word Alternatif --}}
+                    <div>
+                        <label class="form-label text-[11px]">Atau Unggah File Soal Sendiri (PDF / Word)</label>
+                        <label class="flex min-h-[68px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-center transition hover:border-primary hover:bg-primary/5 dark:border-slate-700 dark:bg-slate-950/30 dark:hover:border-primary/70">
+                            <input x-ref="blueprintFile" type="file" class="sr-only" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" @change="setBlueprintFile($event)">
+                            <i data-lucide="upload-cloud" class="w-5 h-5 text-slate-400"></i>
+                            <span class="mt-1 text-xs font-semibold text-slate-700 dark:text-slate-200" x-text="blueprint.fileName || 'Pilih file PDF atau Word soal'"></span>
+                            <span class="text-[10px] text-slate-400">Maks. 10 MB (PDF teks, bukan scan foto)</span>
+                        </label>
+                    </div>
+
+                    {{-- Status Sumber Aktif --}}
+                    <div x-show="blueprint.file || blueprint.source_text" x-cloak
+                         class="rounded-xl border border-emerald-200 bg-emerald-50/70 p-2.5 text-[11px] text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
+                                <span class="font-bold truncate" x-text="blueprint.fileName || blueprint.source_name || 'Hasil Generator Soal'"></span>
+                            </div>
+                            <button type="button" @click="clearBlueprintSource()" class="shrink-0 text-rose-600 hover:text-rose-700 dark:text-rose-400 font-semibold text-[10px] flex items-center gap-0.5">
+                                <i data-lucide="trash-2" class="w-3 h-3"></i> Hapus
+                            </button>
                         </div>
-                        <button type="button" x-show="result && tab !== 'quiz'" x-cloak
-                                @click="useResultForBlueprint()"
-                                class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-primary/30 px-2.5 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/10">
-                            <i data-lucide="file-input" class="w-3.5 h-3.5"></i> Pakai hasil
-                        </button>
+                        <div class="text-[10px] text-emerald-700 dark:text-emerald-300 mt-1 flex items-center gap-2">
+                            <span x-text="blueprint.jumlah ? (blueprint.jumlah + ' butir soal terkunci') : ''"></span>
+                            <span>·</span>
+                            <span x-text="blueprint.source_text ? (formatNumber(blueprint.source_text.length) + ' karakter teks acuan') : (blueprint.fileName || '')"></span>
+                        </div>
                     </div>
+                </div>
 
-                    <label class="mt-3 flex min-h-[92px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-4 text-center transition hover:border-primary hover:bg-primary/5 dark:border-slate-700 dark:bg-slate-950/30 dark:hover:border-primary/70">
-                        <input x-ref="blueprintFile" type="file" class="sr-only" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" @change="setBlueprintFile($event)">
-                        <i data-lucide="upload-cloud" class="w-7 h-7 text-slate-400"></i>
-                        <span class="mt-2 text-sm font-semibold text-slate-700 dark:text-slate-200" x-text="blueprint.fileName || 'Unggah PDF atau Word soal'"></span>
-                        <span class="mt-1 text-[11px] text-slate-400">Maks. 10 MB. Gunakan PDF yang teksnya bisa disalin, bukan scan gambar.</span>
-                    </label>
-
-                    <div x-show="blueprint.file || blueprint.source_text" x-cloak class="mt-2 flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        <span class="truncate" x-text="blueprint.fileName || ('Hasil Generator Soal · ' + formatNumber((blueprint.source_text || '').length) + ' karakter')"></span>
-                        <button type="button" @click="clearBlueprintSource()" class="inline-flex items-center gap-1 text-rose-600 hover:text-rose-700 dark:text-rose-300">
-                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus
-                        </button>
+                {{-- Banner Konfirmasi Import Soal --}}
+                <div x-show="blueprintNotice" x-cloak class="rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200 flex items-start justify-between gap-2 shadow-xs">
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5"></i>
+                        <span x-text="blueprintNotice"></span>
                     </div>
+                    <button type="button" @click="blueprintNotice = ''" class="text-emerald-700 hover:text-emerald-900 dark:text-emerald-300">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
                 </div>
                 <button type="button" @click="submit('blueprint')" :disabled="loading || !canSubmitBlueprint()" class="btn-primary w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40">
                     <i data-lucide="table-properties" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
@@ -2820,10 +2866,11 @@
                             <span x-text="sendingArena ? 'Mengirim…' : 'Kirim ke Arena'"></span>
                         </button>
                         <button type="button" x-show="tab === 'quiz' && resultSource !== 'ocr'"
-                                @click="useResultForBlueprint()"
-                                class="ai-toolbar-btn ai-toolbar-btn--accent">
-                            <i data-lucide="table-2" class="w-4 h-4"></i>
-                            <span>Kirim ke Kisi-kisi</span>
+                                @click="sendQuizToBlueprint()"
+                                class="ai-toolbar-btn ai-toolbar-btn--accent font-bold"
+                                title="Buat dokumen kisi-kisi 10 kolom resmi dari hasil soal ini">
+                            <i data-lucide="table-properties" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+                            <span>Buat Kisi-kisi</span>
                         </button>
                         <button type="button" @click="copy()" class="ai-toolbar-btn">
                             <i :data-lucide="copied ? 'check' : 'copy'" class="w-4 h-4"></i><span x-text="copied ? 'Tersalin' : 'Salin'"></span>
@@ -2883,12 +2930,43 @@
                         </button>
                     </div>
 
-                    <div x-show="!loading && !materialProcessing && !ocr.loading && !result && !error && !externalFlow" x-cloak
+                    <div x-show="!loading && !materialProcessing && !ocr.loading && !result && !error && !externalFlow && !(tab === 'blueprint' && (blueprint.source_text || blueprint.file))" x-cloak
                          class="ai-teacher-hasil__empty text-slate-300 dark:text-slate-600">
                         <div class="text-center">
                             <i data-lucide="sparkles" class="w-10 h-10 mx-auto opacity-40"></i>
                             <p class="text-sm mt-2">Hasil generate / teks scan akan muncul di sini.</p>
                         </div>
+                    </div>
+
+                    {{-- Empty state khusus Kisi-kisi saat sumber soal acuan sudah terpasang --}}
+                    <div x-show="tab === 'blueprint' && (blueprint.source_text || blueprint.file) && !result && !loading && !error" x-cloak
+                         class="ai-teacher-hasil__empty">
+                        <div class="max-w-md mx-auto text-center p-6 rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/70 dark:border-emerald-800 dark:bg-emerald-950/30">
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-300 mx-auto grid place-items-center mb-3">
+                                <i data-lucide="table-properties" class="w-6 h-6"></i>
+                            </div>
+                            <h3 class="text-base font-bold text-slate-800 dark:text-slate-100">Sumber Soal Siap Digunakan</h3>
+                            <p class="text-xs text-slate-600 dark:text-slate-300 mt-1.5 leading-relaxed">
+                                Dokumen soal acuan telah dimuat (<span class="font-semibold text-emerald-700 dark:text-emerald-300" x-text="blueprint.jumlah + ' butir soal'"></span>). Klik tombol <strong>"Buat Kisi-kisi"</strong> pada formulir untuk menyusun tabel kisi-kisi resmi 10 kolom, kunci jawaban, dan rekap skor.
+                            </p>
+                            <button type="button" @click="submit('blueprint')" :disabled="loading || !canSubmitBlueprint()"
+                                    class="mt-4 btn-primary inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold">
+                                <i data-lucide="table-properties" class="w-4 h-4"></i> Buat Kisi-kisi Sekarang
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- Banner Pengantar Buat Kisi-kisi di Atas Pratinjau Soal --}}
+                    <div x-show="tab === 'quiz' && result && !loading && !editing && resultSource !== 'ocr'" x-cloak
+                         class="mb-3 flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs dark:border-emerald-800 dark:bg-emerald-950/40">
+                        <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                            <i data-lucide="table-properties" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0"></i>
+                            <span>Sudah selesai membuat soal? Susun kisi-kisi resmi 10 kolom langsung dari butir soal ini.</span>
+                        </div>
+                        <button type="button" @click="sendQuizToBlueprint()"
+                                class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition">
+                            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Buat Kisi-kisi dari Soal Ini
+                        </button>
                     </div>
 
                     <textarea x-show="result && !loading && !ocr.loading && editing" x-cloak
@@ -3376,6 +3454,9 @@
                 }
                 return this.histories.filter(item => this.tabMatchesHistory(this.tab, item));
             },
+            get savedQuizHistories() {
+                return (this.histories || []).filter(item => item && item.type === 'quiz' && (item.answer || '').trim());
+            },
             setHistoryFilter(filter) {
                 this.historyFilter = filter;
                 try {
@@ -3444,6 +3525,9 @@
             standardCps: @json($standardCps ?? []),
             tpatpDocuments: @json($tpatpDocuments ?? []),
             activeTpAtpResult: '',
+            activeQuizResult: '',
+            activeQuizInfo: null,
+            blueprintNotice: '',
             activeTahunAjaran: @json($activeTahunAjaran ?? '2026/2027'),
             geminiMessages: [],
             geminiInput: '',
@@ -3474,7 +3558,7 @@
             generateSeq: 0,
             previewSeq: 0,
             quiz:     { topik: '', jumlah: 5, jenis_soal: ['pg'], tingkat: 'sedang', jenjang: '', source: 'ai', file: null, fileName: '', document_uuid: '', soal_bergambar: false, output_language: 'id', include_pinyin: false },
-            blueprint: { topik: '', mapel: '', jenjang: '', jumlah: 20, bentuk_penilaian: 'Ulangan Harian', kompetensi: '', catatan: '', file: null, fileName: '', source_text: '' },
+            blueprint: { topik: '', mapel: '', jenjang: '', jumlah: 20, bentuk_penilaian: 'Ulangan Harian', kompetensi: '', catatan: '', file: null, fileName: '', source_text: '', source_name: '', selected_quiz_uuid: '' },
             tpatp: {
                 mode: 'both',
                 mapel: '',
@@ -4288,29 +4372,92 @@
                 this.blueprint.file = null;
                 this.blueprint.fileName = '';
                 this.blueprint.source_text = '';
+                this.blueprint.source_name = '';
+                this.blueprint.selected_quiz_uuid = '';
+                this.blueprintNotice = '';
                 if (this.$refs.blueprintFile) this.$refs.blueprintFile.value = '';
                 this.$nextTick(() => window.lucide && lucide.createIcons());
             },
 
-            useResultForBlueprint() {
-                const text = (this.result || '').trim();
-                if (!text) return;
-                this.blueprint.source_text = text.slice(0, this.ocr.maxChars || 16000);
+            stageQuizForBlueprint(text, meta = null, title = null) {
+                const cleanText = (text || '').trim();
+                if (!cleanText) return;
+                this.blueprint.source_text = cleanText.slice(0, this.ocr.maxChars || 16000);
                 this.blueprint.file = null;
                 this.blueprint.fileName = '';
                 if (this.$refs.blueprintFile) this.$refs.blueprintFile.value = '';
-                if (!(this.blueprint.topik || '').trim() && (this.quiz.topik || '').trim()) {
-                    this.blueprint.topik = this.quiz.topik;
+
+                const topik = (meta?.topik || this.quiz.topik || this.previewIdentityValue(['Materi', 'Topik', 'Fokus Materi'], cleanText) || '').trim();
+                if (topik) this.blueprint.topik = topik;
+
+                const mapel = (meta?.mapel || this.previewIdentityValue(['Mata Pelajaran', 'Mata pelajaran', 'Mapel'], cleanText) || this.quiz.topik || '').trim();
+                if (mapel) this.blueprint.mapel = mapel;
+
+                const jenjang = (meta?.jenjang || this.quiz.jenjang || this.previewIdentityValue(['Kelas / Semester', 'Kelas/Semester', 'Kelas', 'Semester'], cleanText) || '').trim();
+                if (jenjang) this.blueprint.jenjang = jenjang;
+
+                let detectedCount = Number(meta?.jumlah) || 0;
+                if (!detectedCount) {
+                    const match = cleanText.match(/(?:^|\n)\s*(\d+)[\.\)]\s+[A-Za-z]/g);
+                    if (match) detectedCount = match.length;
                 }
-                if (!(this.blueprint.jenjang || '').trim() && (this.quiz.jenjang || '').trim()) {
-                    this.blueprint.jenjang = this.quiz.jenjang;
+                if (detectedCount > 0) {
+                    this.blueprint.jumlah = detectedCount;
+                } else if (Number(this.quiz.jumlah) > 0) {
+                    this.blueprint.jumlah = Number(this.quiz.jumlah);
                 }
-                if (Number(this.blueprint.jumlah || 0) < 1 && Number(this.quiz.jumlah || 0) > 0) {
-                    this.blueprint.jumlah = this.quiz.jumlah;
-                }
-                this.tab = 'blueprint';
+
+                const bentuk = this.previewIdentityValue(['Jenis Penilaian', 'Bentuk Penilaian'], cleanText);
+                if (bentuk) this.blueprint.bentuk_penilaian = bentuk;
+
+                this.blueprint.source_name = title || ('Hasil Generator Soal' + (topik ? ' · ' + topik : ''));
+                this.blueprintNotice = 'Soal (' + this.blueprint.jumlah + ' butir) berhasil dimuat sebagai sumber acuan kisi-kisi! Klik tombol "Buat Kisi-kisi" di bawah untuk menyusun dokumen.';
                 this.error = '';
                 this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+
+            sendQuizToBlueprint() {
+                const text = (this.result || '').trim();
+                if (!text) return;
+                this.activeQuizResult = text;
+                const detectedCount = this.quizPreviewQuestionCount() || (this.collectQuizPreviewQuestions() || []).length || Number(this.quiz.jumlah) || 5;
+                this.activeQuizInfo = {
+                    title: 'Soal ' + (this.quiz.topik || 'Aktif'),
+                    topik: (this.quiz.topik || '').trim(),
+                    mapel: (this.previewIdentityValue(['Mata Pelajaran', 'Mapel'], text) || this.quiz.topik || '').trim(),
+                    jenjang: (this.quiz.jenjang || '').trim(),
+                    jumlah: detectedCount,
+                };
+                this.stageQuizForBlueprint(text, this.activeQuizInfo, this.activeQuizInfo.title);
+                this.tab = 'blueprint';
+                this.result = '';
+                this.previewHtml = '';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                this.$nextTick(() => window.lucide && lucide.createIcons());
+            },
+
+            useActiveQuizForBlueprint() {
+                if (!this.activeQuizResult) {
+                    if (this.result && this.tab === 'quiz') {
+                        this.sendQuizToBlueprint();
+                        return;
+                    }
+                    return;
+                }
+                this.stageQuizForBlueprint(this.activeQuizResult, this.activeQuizInfo, this.activeQuizInfo?.title);
+            },
+
+            onSelectQuizHistoryForBlueprint() {
+                const uuid = this.blueprint.selected_quiz_uuid;
+                if (!uuid) return;
+                const found = (this.histories || []).find((h) => h.uuid === uuid);
+                if (found && found.answer) {
+                    this.stageQuizForBlueprint(found.answer, found.metadata, found.title);
+                }
+            },
+
+            useResultForBlueprint() {
+                this.sendQuizToBlueprint();
             },
 
             learningSourceReady() {
@@ -4811,6 +4958,20 @@
                         this.result = d.answer;
                         this.resultSource = 'generate';
                         if (d.history) this.addHistory(d.history);
+                        if (tool === 'quiz') {
+                            this.activeQuizResult = d.answer;
+                            const detectedJumlah = this.quizPreviewQuestionCount() || (this.collectQuizPreviewQuestions() || []).length || Number(this.quiz.jumlah) || 5;
+                            this.activeQuizInfo = {
+                                title: d.history?.title || ('Soal ' + (this.quiz.topik || 'Aktif')),
+                                topik: (this.quiz.topik || '').trim(),
+                                mapel: (this.previewIdentityValue(['Mata Pelajaran', 'Mapel'], d.answer) || this.quiz.topik || '').trim(),
+                                jenjang: (this.quiz.jenjang || '').trim(),
+                                jumlah: detectedJumlah,
+                            };
+                        }
+                        if (tool === 'blueprint') {
+                            this.blueprintNotice = '';
+                        }
                         if (tool === 'tpatp') {
                             this.activeTpAtpResult = d.answer;
                             if (d.history) {
@@ -4830,7 +4991,7 @@
                         if (tool === 'learning' && (d.history?.metadata?.document_uuid || d.history?.meta?.document_uuid)) {
                             this.learning.document_uuid = d.history.metadata?.document_uuid || d.history.meta.document_uuid;
                         }
-                        if (tool === 'learning' || tool === 'quiz' || tool === 'tpatp') await this.refreshPreview();
+                        if (tool === 'learning' || tool === 'quiz' || tool === 'tpatp' || tool === 'blueprint' || tool === 'prosemprota') await this.refreshPreview();
                         if (seq !== this.generateSeq) return;
                         if (tool === 'quiz' && this.quiz.source === 'file') await this.loadMaterials();
                         if (tool === 'learning' && this.learning.source === 'file') await this.loadMaterials();
@@ -5475,11 +5636,12 @@
             /**
              * Ambil pratinjau dokumen berformat dari server (parser + template yang sama
              * dengan export), jadi tampilan di layar persis seperti hasil unduhannya.
-             * Berlaku untuk tab yang punya dokumen berformat: soal, RPM Learning, dan TP & ATP.
+             * Berlaku untuk tab yang punya dokumen berformat: soal, kisi-kisi, RPM Learning, dan TP & ATP.
              */
             async refreshPreview() {
                 const url = {
                     quiz: this.urls.quizPreview,
+                    blueprint: this.urls.quizPreview,
                     learning: this.urls.learningPreview,
                     tpatp: this.urls.tpatpPreview,
                     prosemprota: this.urls.prosemProtaPreview,
@@ -5857,10 +6019,10 @@
                     : decodeURIComponent(escape(binary));
                 return JSON.parse(json);
             },
-            previewIdentityValue(labels) {
-                const text = String(this.result || '');
+            previewIdentityValue(labels, targetText = null) {
+                const text = String(targetText !== null ? targetText : (this.result || ''));
                 const pattern = labels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-                const match = text.match(new RegExp('^\\s*(?:' + pattern + ')\\s*:\\s*(.+)$', 'im'));
+                const match = text.match(new RegExp('^\\s*(?:' + pattern + ')\\s*[:=-]\\s*(.+)$', 'im'));
                 return match ? match[1].trim() : '';
             },
             openPreviewQuality(question) {
@@ -6250,9 +6412,33 @@
                         if (item.metadata.options.calendar_events_genap) this.prosemprota.calendar_events_genap = item.metadata.options.calendar_events_genap;
                     }
                 }
+                if (item.type === 'quiz') {
+                    this.activeQuizResult = item.answer || '';
+                    this.activeQuizInfo = {
+                        title: item.title || ('Soal ' + (item.metadata?.topik || '')),
+                        topik: item.metadata?.topik || '',
+                        mapel: item.metadata?.mapel || '',
+                        jenjang: item.metadata?.jenjang || '',
+                        jumlah: item.metadata?.jumlah || 5,
+                    };
+                    if (item.metadata) {
+                        if (item.metadata.topik) this.quiz.topik = item.metadata.topik;
+                        if (item.metadata.jumlah) this.quiz.jumlah = item.metadata.jumlah;
+                        if (item.metadata.jenjang) this.quiz.jenjang = item.metadata.jenjang;
+                        if (item.metadata.tingkat) this.quiz.tingkat = item.metadata.tingkat;
+                        if (item.metadata.jenis_soal) this.quiz.jenis_soal = item.metadata.jenis_soal;
+                    }
+                }
+                if (item.type === 'blueprint' && item.metadata) {
+                    if (item.metadata.topik) this.blueprint.topik = item.metadata.topik;
+                    if (item.metadata.mapel) this.blueprint.mapel = item.metadata.mapel;
+                    if (item.metadata.jenjang) this.blueprint.jenjang = item.metadata.jenjang;
+                    if (item.metadata.jumlah) this.blueprint.jumlah = item.metadata.jumlah;
+                    if (item.metadata.bentuk_penilaian) this.blueprint.bentuk_penilaian = item.metadata.bentuk_penilaian;
+                }
                 this.result = item.answer || '';
                 this.resultSource = 'generate';
-                if (this.tab === 'learning' || this.tab === 'quiz' || this.tab === 'tpatp' || this.tab === 'prosemprota') this.refreshPreview();
+                if (this.tab === 'learning' || this.tab === 'quiz' || this.tab === 'tpatp' || this.tab === 'prosemprota' || this.tab === 'blueprint') this.refreshPreview();
                 this.$nextTick(() => window.lucide && lucide.createIcons());
             },
 

@@ -347,11 +347,12 @@ return [
             TXT,
         'blueprint' => <<<'TXT'
             Kamu asisten guru penyusun kisi-kisi asesmen sekolah. Hasil harus berupa
-            dokumen operasional yang siap direview guru/kurikulum, berbahasa Indonesia,
-            selaras topik, jenjang, tujuan pembelajaran, dan bentuk asesmen yang diminta.
-            Jangan mengarang identitas resmi sekolah; pakai placeholder bila data belum
-            tersedia. Sertakan tabel kisi-kisi, indikator soal, level kognitif, bentuk
-            soal, nomor soal, kunci/rubrik singkat, dan bobot/skor.
+            dokumen operasional resmi yang siap direview guru/kurikulum dan langsung diexport ke Word/PDF tanpa kalimat pengantar/basa-basi pembuka ("Berikut adalah...", "Tentu,", dll).
+            Format dokumen WAJIB mengikuti format resmi sekolah 10 kolom:
+            Judul: KISI-KISI SOAL, MATA PELAJARAN ..., TAHUN PELAJARAN ...
+            Identitas: Jenjang Pendidikan, Mata Pelajaran, Kurikulum, Kelas/ Semester, Jumlah Soal, Bentuk Soal, Jenis Penilaian, Alokasi Waktu, Penyusun.
+            Tabel Kisi-kisi 10 Kolom: NO | Capaian Pembelajaran | Lingkup Materi | Elemen | Tujuan Pembelajaran | Kelas | Indikator Soal | Level Kognitif | Nomor Soal | Bentuk Soal.
+            DILARANG memberikan kata pengantar atau basa-basi pembuka; langsung mulai dari baris pertama: "KISI-KISI SOAL".
             TXT,
         'tpatp' => <<<'TXT'
             Kamu adalah asisten guru kurikulum ahli dalam merancang Tujuan Pembelajaran (TP)

@@ -393,6 +393,80 @@ class AiTeacherControllerTest extends TestCase
         $this->assertStringContainsString('Nomor soal, bentuk soal, kunci jawaban, materi, dan indikator harus konsisten dengan sumber.', $capturedPrompt);
     }
 
+    public function test_generator_kisi_kisi_auto_deteksi_mapel_jenjang_dan_jumlah_dari_sumber_generator_soal(): void
+    {
+        $user = User::create([
+            'username' => 'guru-blueprint-autodetect',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $source = <<<'TXT'
+KISI-KISI / SOAL PENILAIAN HARIAN
+Mata Pelajaran : IPA
+Kelas / Semester : 7 / Ganjil
+
+1. Komponen biotik dalam ekosistem adalah ...
+A. Tanah
+B. Tumbuhan
+C. Air
+D. Udara
+
+2. Interaksi saling menguntungkan disebut ...
+A. Parasitisme
+B. Mutualisme
+C. Komensalisme
+D. Netral
+
+3. Konsumen tingkat pertama memakan ...
+A. Produsen
+B. Karnivor
+C. Pengurai
+D. Detritivor
+
+KUNCI JAWABAN:
+1. B
+2. B
+3. A
+TXT;
+
+        $capturedPrompt = '';
+        $this->mock(GeminiService::class, function (MockInterface $mock) use (&$capturedPrompt) {
+            $mock->shouldReceive('generate')
+                ->once()
+                ->withArgs(function (string $prompt) use (&$capturedPrompt) {
+                    $capturedPrompt = $prompt;
+
+                    return str_contains($prompt, 'MATA PELAJARAN IPA')
+                        && str_contains($prompt, 'Kelas / Semester : 7 / Ganjil')
+                        && str_contains($prompt, 'Jumlah Soal : 3 Soal')
+                        && str_contains($prompt, 'Bentuk Soal : Pilihan Ganda');
+                })
+                ->andReturn([
+                    'text' => $this->strukturKisiKisi(),
+                    'model' => 'gemini-test',
+                    'prompt_tokens' => 20,
+                    'completion_tokens' => 12,
+                ]);
+        });
+
+        $response = $this->actingAs($user)->postJson(route('ai.teacher.blueprint'), [
+            'topik' => 'Ekosistem',
+            // sengaja kosongkan mapel & jenjang, serta set jumlah default 20 untuk menguji auto-deteksi dari sumber
+            'jumlah' => 20,
+            'bentuk_penilaian' => 'Ulangan Harian',
+            'source_text' => $source,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('ok', true);
+
+        $this->assertStringContainsString('Jumlah Soal : 3 Soal', $capturedPrompt);
+        $this->assertStringContainsString('MATA PELAJARAN IPA', $capturedPrompt);
+        $this->assertStringContainsString('Kelas / Semester : 7 / Ganjil', $capturedPrompt);
+    }
+
     public function test_generator_kisi_kisi_bisa_memakai_upload_file_soal(): void
     {
         $user = User::create([
@@ -1630,6 +1704,197 @@ class AiTeacherControllerTest extends TestCase
         $this->assertStringContainsString('REKAP PENILAIAN', $xml);
     }
 
+    public function test_preview_dan_export_kisi_kisi_dengan_kop_dan_tujuan_pembelajaran(): void
+    {
+        $user = User::create([
+            'username' => 'guru-blueprint-full',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $rawBlueprint = <<<'TXT'
+YAYASAN BUMI MAITRI
+SMP MAITREYAWIRA TANJUNGPINANG
+Komp. Gedung Pendidikan Jl. Sutami No. 38 Telp (0771) 4505723
+KISI-KISI PENILAIAN ULANGAN HARIAN IPA - EKOSISTEM
+Satuan Pendidikan : SMP Maitreyawira Tanjungpinang
+Mata Pelajaran : IPA
+Kelas / Semester : 7 / Ganjil
+Tahun Pelajaran : 2025/2026
+Jumlah Soal : 20
+Alokasi Waktu : 2 x 40 Menit
+Kurikulum : Kurikulum Merdeka
+Tujuan Pembelajaran / Kompetensi:
+1. Menganalisis komponen pembentuk ekosistem (biotik dan abiotik) serta interaksi di antaranya.
+2. Menganalisis hubungan antar komponen penyusun ekosistem dalam rantai makanan.
+Catatan guru: Asesmen dirancang untuk mengukur pemahaman konsep dasar ekologi.
+
+TABEL KISI-KISI
+No | Elemen / Capaian Pembelajaran | Materi Pokok | Indikator Soal | Level Kognitif (Taksonomi Bloom) | Bentuk Soal | No. Soal
+---|---|---|---|---|---|---
+1 | Pemahaman IPA | Komponen Ekosistem | Disajikan daftar komponen, siswa dapat mengelompokkan komponen | C2 Memahami | PG | 1
+2 | Pemahaman IPA | Interaksi Antarorganisme | Disajikan ilustrasi hubungan dua spesies, siswa menentukan simbiosis | C3 Mengaplikasikan | PG | 2
+
+LEGENDA LEVEL KOGNITIF: C1 = Mengingat, C2 = Memahami, C3 = Mengaplikasikan, C4 = Menganalisis.
+
+KUNCI JAWABAN & PEDOMAN PENILAIAN
+A. PILIHAN GANDA
+No | Kunci | Jawaban
+---|---|---
+1 | A | Biotik dan abiotik
+2 | B | Mutualisme
+
+REKAP PENILAIAN
+Bagian | Bentuk Soal | Jumlah Soal | Skor per Soal | Total Skor
+---|---|---|---|---
+A | Pilihan Ganda | 20 | 5 | 100
+TOTAL | | 20 | | 100
+TXT;
+
+        // 1. Preview
+        $previewResponse = $this->actingAs($user)->postJson(route('ai.teacher.quiz.preview'), [
+            'content' => $rawBlueprint,
+        ]);
+        $previewResponse->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('parsed', true);
+        $html = $previewResponse->json('html');
+        $this->assertStringContainsString(SchoolLetterhead::schoolName(), $html);
+        $this->assertStringContainsString('KISI-KISI PENILAIAN ULANGAN HARIAN IPA', $html);
+        $this->assertStringContainsString('Tujuan Pembelajaran / Capaian Pembelajaran', $html);
+        $this->assertStringContainsString('Menganalisis komponen pembentuk ekosistem', $html);
+        $this->assertStringContainsString('<table class="blueprint">', $html);
+        $this->assertStringContainsString('Komponen Ekosistem', $html);
+        $this->assertStringContainsString('KUNCI JAWABAN &amp; PEDOMAN PENILAIAN', $html);
+
+        // 2. Export Word
+        $wordResponse = $this->actingAs($user)->postJson(route('ai.teacher.quiz.export-word'), [
+            'title' => 'Kisi-kisi IPA Ekosistem',
+            'content' => $rawBlueprint,
+        ]);
+        $wordResponse->assertOk();
+        $tempPath = tempnam(sys_get_temp_dir(), 'exported-blueprint-full-docx');
+        file_put_contents($tempPath, $wordResponse->streamedContent());
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($tempPath));
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+        unlink($tempPath);
+
+        $this->assertStringContainsString(SchoolLetterhead::schoolName(), $xml);
+        $this->assertStringContainsString('KISI-KISI PENILAIAN ULANGAN HARIAN IPA', $xml);
+        $this->assertStringContainsString('Tujuan Pembelajaran / Capaian Pembelajaran', $xml);
+        $this->assertStringContainsString('Menganalisis komponen pembentuk ekosistem', $xml);
+        $this->assertStringContainsString('tblHeader', $xml);
+
+        // 3. Export PDF
+        $pdfResponse = $this->actingAs($user)->postJson(route('ai.teacher.quiz.export-pdf'), [
+            'title' => 'Kisi-kisi IPA Ekosistem',
+            'content' => $rawBlueprint,
+        ]);
+        $pdfResponse->assertOk();
+        $this->assertStringStartsWith('%PDF', $pdfResponse->getContent());
+    }
+
+    public function test_preview_dan_export_kisi_kisi_format_10_kolom_resmi(): void
+    {
+        $user = User::create([
+            'username' => 'guru-blueprint-10col',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $rawBlueprint10Col = <<<'TXT'
+KISI-KISI SOAL
+MATA PELAJARAN BAHASA INGGRIS
+TAHUN PELAJARAN 2025/2026
+
+Jenjang Pendidikan : SMPS Maitreyawira Tanjungpinang
+Mata Pelajaran : Bahasa Inggris
+Kurikulum : Kurikulum Merdeka
+Kelas/ Semester : IX/Ganjil
+Jumlah Soal : 5 Soal
+Bentuk Soal : Pilihan Ganda
+Jenis Penilaian : Asesmen Sumatif
+Alokasi Waktu : 60 Menit
+Penyusun : Rizky Mutia, S.Pd. Gr
+
+TABEL KISI-KISI
+| NO | Capaian Pembelajaran | Lingkup Materi | Elemen | Tujuan Pembelajaran | Kelas | Indikator Soal | Level Kognitif | Nomor Soal | Bentuk Soal |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | Membaca dan merespon teks | Part of Speech & Noun Phrase | Membaca-Memirsa | Membedakan Part of Speech | IX | Disajikan sebuah kalimat, peserta didik mampu mengidentifikasi part of speech dengan tepat | Level 1 | 1 | PG |
+| 2 | Membaca dan merespon teks | Part of Speech & Noun Phrase | Membaca-Memirsa | Membedakan Part of Speech | IX | Disajikan sebuah kata, peserta didik mampu mengidentifikasi part of speech dengan tepat | Level 1 | 2 | PG |
+| 3 | Membaca dan merespon teks | Part of Speech & Noun Phrase | Membaca-Memirsa | Membedakan Part of Speech | IX | Disajikan sebuah kalimat, peserta didik mampu mengidentifikasi part of speech dengan tepat | Level 1 | 3 | PG |
+| 4 | Membaca dan merespon teks | Part of Speech & Noun Phrase | Membaca-Memirsa | Menentukan Noun Phrase | IX | Disajikan sebuah frasa/beberapa kata, peserta didik mampu menentukan noun phrase | Level 2 | 4 | PG |
+| 5 | Membaca dan merespon teks | Part of Speech & Noun Phrase | Membaca-Memirsa | Menentukan Noun Phrase | IX | Disajikan sebuah frasa/beberapa kata, peserta didik mampu menentukan noun phrase | Level 2 | 5 | PG |
+
+TANDA TANGAN
+Mengetahui,
+Kepala Sekolah
+
+(Dra. Megawati.)
+
+Guru Mata Pelajaran
+
+(Rizky Mutia, S.Pd. Gr)
+TXT;
+
+        // 1. Preview
+        $previewResponse = $this->actingAs($user)->postJson(route('ai.teacher.quiz.preview'), [
+            'content' => $rawBlueprint10Col,
+        ]);
+        $previewResponse->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('parsed', true);
+        $html = $previewResponse->json('html');
+        $this->assertStringContainsString('KISI-KISI SOAL', $html);
+        $this->assertStringContainsString('MATA PELAJARAN BAHASA INGGRIS', $html);
+        $this->assertStringContainsString('TAHUN PELAJARAN 2025/2026', $html);
+        $this->assertStringContainsString('Jenjang Pendidikan', $html);
+        $this->assertStringContainsString('SMPS Maitreyawira Tanjungpinang', $html);
+        $this->assertStringContainsString('Penyusun', $html);
+        $this->assertStringContainsString('Rizky Mutia, S.Pd. Gr', $html);
+        $this->assertStringContainsString('Capaian Pembelajaran', $html);
+        $this->assertStringContainsString('Lingkup Materi', $html);
+        $this->assertStringContainsString('Tujuan Pembelajaran', $html);
+        $this->assertStringContainsString('Part of Speech &amp; Noun Phrase', $html);
+        $this->assertStringContainsString('Disajikan sebuah kalimat', $html);
+        $this->assertStringContainsString('Level 1', $html);
+
+        // 2. Export Word
+        $wordResponse = $this->actingAs($user)->postJson(route('ai.teacher.quiz.export-word'), [
+            'title' => 'Kisi-kisi Bahasa Inggris',
+            'content' => $rawBlueprint10Col,
+        ]);
+        $wordResponse->assertOk();
+        $tempPath = tempnam(sys_get_temp_dir(), 'exported-blueprint-10col-docx');
+        file_put_contents($tempPath, $wordResponse->streamedContent());
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($tempPath));
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+        unlink($tempPath);
+
+        $this->assertStringContainsString('KISI-KISI SOAL', $xml);
+        $this->assertStringContainsString('MATA PELAJARAN BAHASA INGGRIS', $xml);
+        $this->assertStringContainsString('Capaian Pembelajaran', $xml);
+        $this->assertStringContainsString('Lingkup Materi', $xml);
+        $this->assertStringContainsString('Tujuan Pembelajaran', $xml);
+        $this->assertStringContainsString('Part of Speech &amp; Noun Phrase', $xml);
+        $this->assertStringContainsString('w:fill="B8D8E8"', $xml);
+        $this->assertStringContainsString('tblHeader', $xml);
+
+        // 3. Export PDF
+        $pdfResponse = $this->actingAs($user)->postJson(route('ai.teacher.quiz.export-pdf'), [
+            'title' => 'Kisi-kisi Bahasa Inggris',
+            'content' => $rawBlueprint10Col,
+        ]);
+        $pdfResponse->assertOk();
+        $this->assertStringStartsWith('%PDF', $pdfResponse->getContent());
+    }
+
     public function test_export_pdf_soal_tak_berformat_tetap_valid(): void
     {
         $user = User::create([
@@ -1945,6 +2210,26 @@ class AiTeacherControllerTest extends TestCase
             ->assertSee('Versi perbaikan siap diterapkan')
             ->assertSee('Perbaikan sudah diterapkan')
             ->assertSee('Soal sudah diperbaiki di hasil dan pratinjau.');
+    }
+
+    public function test_halaman_asisten_guru_menyediakan_alur_buat_kisi_kisi_dari_generator_soal(): void
+    {
+        $user = User::create([
+            'username' => 'guru-view-quiz-to-blueprint',
+            'password' => 'password',
+            'access' => 'guru',
+            'gemini_account' => 'guru@belajar.id',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('ai.teacher.index'))
+            ->assertOk()
+            ->assertSee('sendQuizToBlueprint')
+            ->assertSee('Sumber Soal Acuan Kisi-kisi')
+            ->assertSee('Ambil dari Riwayat Generator Soal')
+            ->assertSee('Pakai Soal Aktif')
+            ->assertSee('Buat Kisi-kisi dari Soal Ini')
+            ->assertSee('Sumber Soal Siap Digunakan');
     }
 
     public function test_generator_quiz_mencatat_log_per_panggilan_api_saat_auto_lanjut(): void

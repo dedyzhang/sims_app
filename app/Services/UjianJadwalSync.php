@@ -25,6 +25,7 @@ class UjianJadwalSync
     {
         $jadwal = $ujian->jadwalUjian()->get(); // relasi hasMany UjianJadwal, lihat Ujian::jadwalUjian()
         if ($jadwal->isEmpty()) {
+            $ujian->clearKelasCache();
             return;
         }
 
@@ -32,5 +33,6 @@ class UjianJadwalSync
         $selesai = $jadwal->map(fn ($j) => Carbon::parse($j->tanggal->toDateString() . ' ' . $j->jam_selesai))->max();
 
         $ujian->kelas()->update(['dibuka_mulai' => $mulai, 'dibuka_sampai' => $selesai]);
+        $ujian->clearKelasCache();
     }
 }

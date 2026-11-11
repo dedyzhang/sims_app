@@ -78,10 +78,10 @@ return [
         ],
         'piket-guru' => [
             'title'       => 'Piket Guru & Substitusi Kelas',
-            'badge'       => 'Guru / Piket',
+            'badge'       => 'Admin / Guru Piket',
             'description' => 'Alur pelaporan guru tidak hadir, penugasan guru pengganti harian, dan distribusi materi kelas.',
-            'role'        => 'guru',
-            'target_url'  => '/piket',
+            'role'        => 'admin',
+            'target_url'  => '/piket/penugasan',
             'icon'        => 'user-group',
         ],
         'kalender-absensi' => [
@@ -97,7 +97,7 @@ return [
             'badge'       => 'Bendahara / Keuangan',
             'description' => 'Pencatatan pembayaran SPP siswa, monitoring tunggakan, rekap kwitansi, dan kas masuk.',
             'role'        => 'bendahara',
-            'target_url'  => '/tagihan-spp',
+            'target_url'  => '/keuangan',
             'icon'        => 'banknotes',
         ],
     ],

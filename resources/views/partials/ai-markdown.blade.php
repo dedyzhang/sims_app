@@ -59,6 +59,7 @@
         let listType = null;
         let listItems = [];
         let quote = [];
+        let tableLines = [];
         let inCode = false;
         let code = [];
 
@@ -78,11 +79,44 @@
             blocks.push('<blockquote>' + quote.map(inline).join('<br>') + '</blockquote>');
             quote = [];
         };
+        const closeTable = () => {
+            if (!tableLines.length) return;
+            const tLines = tableLines;
+            tableLines = [];
+            const rows = [];
+            let headers = null;
+            for (const tl of tLines) {
+                let parts = tl.replace(/^\|/, '').replace(/\|$/, '').split('|').map(p => p.trim());
+                const isSep = parts.every(p => !p || /^-+$/.test(p));
+                if (isSep) continue;
+                if (!headers) {
+                    headers = parts;
+                } else {
+                    rows.push(parts);
+                }
+            }
+            if (!headers) return;
+            let html = '<div class="overflow-x-auto my-3"><table class="w-full text-xs border-collapse border border-slate-300 dark:border-slate-700">';
+            html += '<thead><tr class="bg-slate-100 dark:bg-slate-800">';
+            for (const h of headers) {
+                html += '<th class="border border-slate-300 dark:border-slate-700 px-2.5 py-1.5 font-bold text-left">' + inline(h) + '</th>';
+            }
+            html += '</tr></thead><tbody>';
+            for (const r of rows) {
+                html += '<tr class="odd:bg-white even:bg-slate-50 dark:odd:bg-slate-900 dark:even:bg-slate-800/50">';
+                for (let i = 0; i < headers.length; i++) {
+                    html += '<td class="border border-slate-300 dark:border-slate-700 px-2.5 py-1.5">' + inline(r[i] || '') + '</td>';
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table></div>';
+            blocks.push(html);
+        };
         const closeCode = () => {
             blocks.push('<pre><code>' + escapeHtml(code.join('\n')) + '</code></pre>');
             code = [];
         };
-        const closeFlow = () => { closeParagraph(); closeList(); closeQuote(); };
+        const closeFlow = () => { closeParagraph(); closeList(); closeQuote(); closeTable(); };
 
         for (const line of lines) {
             const trimmed = line.trim();
@@ -101,6 +135,13 @@
             if (inCode) { code.push(line); continue; }
 
             if (trimmed === '') { closeFlow(); continue; }
+
+            if (trimmed.includes('|') && trimmed.split('|').length >= 3) {
+                closeParagraph(); closeList(); closeQuote();
+                tableLines.push(trimmed);
+                continue;
+            }
+            closeTable();
 
             const heading = trimmed.match(/^#{1,4}\s+(.+)$/);
             if (heading) {

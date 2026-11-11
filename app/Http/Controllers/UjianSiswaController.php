@@ -166,6 +166,13 @@ class UjianSiswaController extends Controller implements HasMiddleware
         return $this->retryOnDbBusy(function () use ($request, $ujian) {
             $siswa = $this->siswaAtauGagal($request);
             $ujianKelas = $ujian->getCachedKelas()->firstWhere('id_kelas', $siswa->id_kelas);
+
+            // Self-healing: jika menurut cache ujian belum dimulai atau sudah berakhir, periksa langsung ke database
+            if ($ujianKelas && ($ujianKelas->belumDimulai() || ($ujianKelas->dibuka_sampai && now()->gt($ujianKelas->dibuka_sampai)))) {
+                $ujian->clearKelasCache();
+                $ujianKelas = $ujian->kelas()->firstWhere('id_kelas', $siswa->id_kelas);
+            }
+
             abort_unless($ujianKelas, 404, 'Ujian ini tidak ditetapkan untuk kelas Anda.');
             abort_unless($ujian->isPublished() || $ujian->isClosed(), 404);
 
@@ -244,6 +251,16 @@ class UjianSiswaController extends Controller implements HasMiddleware
             abort_unless($ujianKelas, 404);
             $ujian->loadMissing('paket');
             $ujianKelas->setRelation('ujian', $ujian);
+
+            if ($request->user()->cannot('take', $ujianKelas)) {
+                // Self-healing: jika ditolak, bersihkan cache dan periksa data database terbaru jika admin baru ubah jadwal
+                $ujian->clearKelasCache();
+                $freshUk = $ujian->kelas()->firstWhere('id_kelas', $siswa->id_kelas);
+                if ($freshUk) {
+                    $freshUk->setRelation('ujian', $ujian);
+                    $ujianKelas = $freshUk;
+                }
+            }
 
             if ($request->user()->cannot('take', $ujianKelas)) {
                 $pesan = 'Ujian belum dibuka untuk kelas Anda atau waktu pelaksanaan belum tiba.';

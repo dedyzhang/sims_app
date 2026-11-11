@@ -2185,6 +2185,22 @@ class AiTeacherController extends Controller
             $sourceType = 'generated_quiz';
         }
 
+        if ($sourceText !== '') {
+            if ($mapel === '[Mata Pelajaran]' && preg_match('/(?:Mata\s+Pelajaran|Mapel)\s*[:=-]\s*([^\r\n]+)/i', $sourceText, $m)) {
+                $mapel = trim($m[1]);
+            }
+            if ($jenjang === '[Kelas / Semester]' && preg_match('/(?:Kelas\s*\/\s*Semester|Kelas\/Semester|Kelas)\s*[:=-]\s*([^\r\n]+)/i', $sourceText, $m)) {
+                $jenjang = trim($m[1]);
+            }
+            if (preg_match_all('/(?:^|\n)\s*(\d+)[\.\)]\s+[A-Za-z]/u', $sourceText, $matches)) {
+                $detectedNumbers = array_map('intval', $matches[1]);
+                $detectedCount = count(array_unique($detectedNumbers));
+                if ($detectedCount > 0 && ($data['jumlah'] === 20 || $data['jumlah'] > $detectedCount)) {
+                    $data['jumlah'] = $detectedCount;
+                }
+            }
+        }
+
         $sourceBlock = '';
         if ($sourceText !== '') {
             $sourceBlock = <<<TXT
@@ -2201,58 +2217,90 @@ ATURAN KHUSUS BERDASARKAN SUMBER:
 TXT;
         }
 
+        $schoolName = SchoolLetterhead::schoolName();
+        $guruName = auth()->user()?->name ?? 'Guru Mata Pelajaran';
+        $tahunPelajaran = now()->month >= 7
+            ? now()->year.'/'.(now()->year + 1)
+            : (now()->year - 1).'/'.now()->year;
+
+        $hasPg = $sourceText !== '' ? (bool) preg_match('/(?:^|\n)\s*[A-E]\.\s+/u', $sourceText) : true;
+        $hasEssay = $sourceText !== '' ? (bool) preg_match('/(?:Uraian|Esai|Essay|Jawablah)/iu', $sourceText) : false;
+        $bentukSoal = ($hasPg && $hasEssay) ? 'Pilihan Ganda dan Uraian' : ($hasEssay ? 'Uraian' : 'Pilihan Ganda');
+
+        $mapelUpper = mb_strtoupper($mapel, 'UTF-8');
+        $bentukUpper = mb_strtoupper((string) $data['bentuk_penilaian'], 'UTF-8');
+
         $prompt = <<<TXT
-Buat kisi-kisi asesmen sekolah siap pakai BESERTA kunci jawabannya.
-Model export harus sama seperti contoh PDF "Kisi-Kisi_Guru_Beserta_jawabannya.pdf": halaman awal berisi header kisi-kisi, identitas asesmen, tabel kisi-kisi; halaman berikutnya berisi Kunci Jawaban per bentuk soal dan Rekap Penilaian.
+Buat dokumen KISI-KISI PENILAIAN / KISI-KISI SOAL asesmen sekolah BESERTA kunci jawaban dan rekap penilaian yang siap pakai dan langsung diexport ke Word dan PDF.
+Model dokumen WAJIB persis seperti format acuan resmi sekolah: judul terpusat, identitas vertikal dengan titik dua sejajar, dan TABEL KISI-KISI 10 KOLOM.
 
-{$kop}
-KISI-KISI PENILAIAN {$data['bentuk_penilaian']}
-{$mapel}
+JANGAN TULIS KATA PENGANTAR/BASA-BASI PEMBUKA SAMA SEKALI (seperti "Berikut adalah...", "Tentu,", dll). LANGSUNG MULAI DARI BARIS PERTAMA:
 
-Satuan Pendidikan : [Satuan Pendidikan]
+KISI-KISI SOAL
+MATA PELAJARAN {$mapelUpper}
+TAHUN PELAJARAN {$tahunPelajaran}
+
+Jenjang Pendidikan : {$schoolName}
 Mata Pelajaran : {$mapel}
+Kurikulum : Kurikulum Merdeka
 Kelas / Semester : {$jenjang}
-Tahun Pelajaran : [Tahun Pelajaran]
-Topik / Materi : {$topik}
+Jumlah Soal : {$data['jumlah']} Soal
+Bentuk Soal : {$bentukSoal}
 Bentuk Penilaian : {$data['bentuk_penilaian']}
-Jumlah Soal : {$data['jumlah']}
-Alokasi Waktu : [Alokasi Waktu]
-Kurikulum : [Kurikulum]
+Jenis Penilaian : {$data['bentuk_penilaian']}
+Alokasi Waktu : 60 Menit
+Penyusun : {$guruName}
 
-Tujuan Pembelajaran / Kompetensi:
-{$kompetensi}
+TABEL KISI-KISI
+| NO | Capaian Pembelajaran | Lingkup Materi | Elemen | Tujuan Pembelajaran | Kelas | Indikator Soal | Level Kognitif | Nomor Soal | Bentuk Soal |
+|---|---|---|---|---|---|---|---|---|---|
+... (isi persis {$data['jumlah']} baris data dengan delimiter pipe "|")
 
-Catatan guru:
+LEGENDA LEVEL KOGNITIF:
+Level 1 = C1 (Mengingat), C2 (Memahami)
+Level 2 = C3 (Mengaplikasikan)
+Level 3 = C4 (Menganalisis), C5 (Mengevaluasi), C6 (Mencipta)
+
+CATATAN:
 {$catatan}
+
+TANDA TANGAN:
+Mengetahui,
+Kepala Sekolah
+
+([Nama Kepala Sekolah])
+
+Guru Mata Pelajaran
+
+({$guruName})
+
+KUNCI JAWABAN {$bentukUpper} - {$mapelUpper}
+Kelas / Semester : {$jenjang} | Tahun Pelajaran : {$tahunPelajaran}
+
+A. PILIHAN GANDA (Soal No. 1 - {$data['jumlah']})
+| No | Kunci | Jawaban |
+|---|---|---|
+...
+
+REKAP PENILAIAN
+| Bagian | Bentuk Soal | Jumlah Soal | Skor per Soal | Total Skor |
+|---|---|---|---|---|
+| A | Pilihan Ganda | {$data['jumlah']} | 5 | 100 |
+| TOTAL | | {$data['jumlah']} | | 100 |
 {$sourceBlock}
 
-FORMAT WAJIB:
-1. Judul dua baris: "KISI-KISI PENILAIAN [BENTUK]" lalu nama mata pelajaran/topik.
-2. Identitas memakai label persis: Satuan Pendidikan, Mata Pelajaran, Kelas / Semester, Tahun Pelajaran, Jumlah Soal, Alokasi Waktu, Kurikulum.
-3. Tulis marker "TABEL KISI-KISI", lalu tabel dengan delimiter "|" dan kolom persis:
-No | Elemen / Capaian Pembelajaran | Materi Pokok | Indikator Soal | Level Kognitif (Taksonomi Bloom) | Bentuk Soal | No. Soal
-4. Tulis "LEGENDA LEVEL KOGNITIF", "CATATAN", dan "TANDA TANGAN".
-5. Tulis halaman kunci dengan judul "KUNCI JAWABAN [BENTUK] - [MATA PELAJARAN]" dan subjudul kelas/semester/tahun.
-6. Kelompokkan kunci per bagian:
-A. PILIHAN GANDA (Soal No. ...)
-No | Kunci | Jawaban
-B. BENAR / SALAH (Soal No. ...)
-No | Kunci | Penjelasan / Alasan
-C. PILIHAN GANDA KOMPLEKS (Soal No. ...)
-No | Kunci (Jawaban Benar) | Uraian Jawaban yang Benar
-D. MENJODOHKAN (Soal No. ...)
-Soal | Istilah / Konsep | Pasangan yang Tepat
-7. Tulis "REKAP PENILAIAN", lalu tabel:
-Bagian | Bentuk Soal | Jumlah Soal | Skor per Soal | Total Skor
-
-ATURAN:
+FORMAT & ATURAN WAJIB:
+- Output WAJIB langsung dimulai dari baris pertama: "KISI-KISI SOAL".
+- Judul tiga baris terpusat: "KISI-KISI SOAL", "MATA PELAJARAN ...", dan "TAHUN PELAJARAN ...".
+- Identitas memakai label persis: Jenjang Pendidikan, Mata Pelajaran, Kurikulum, Kelas / Semester, Jumlah Soal, Bentuk Soal, Jenis Penilaian, Alokasi Waktu, Penyusun.
+- Tulis marker "TABEL KISI-KISI", lalu tabel 10 kolom dengan delimiter pipe "|" persis:
+  NO | Capaian Pembelajaran | Lingkup Materi | Elemen | Tujuan Pembelajaran | Kelas | Indikator Soal | Level Kognitif | Nomor Soal | Bentuk Soal
 - Total nomor soal harus {$data['jumlah']}.
-- Indikator harus operasional dan bisa diuji.
-- Level kognitif gunakan C1-C6 atau label setara bila lebih sesuai.
-- Jangan mengarang data resmi sekolah di luar input.
-- Jika ada SUMBER SOAL WAJIB DIIKUTI, jangan mengarang soal/kunci baru di luar sumber itu.
-- Wajib sertakan kunci jawaban dan rekap penilaian.
-- Tulis teks polos; tabel WAJIB memakai delimiter "|" agar bisa diexport sama persis model PDF.
+- Kolom Capaian Pembelajaran, Lingkup Materi, Elemen, dan Tujuan Pembelajaran harus operasional dan selaras dengan topik "{$topik}".
+- Kolom Level Kognitif isi dengan "Level 1", "Level 2", atau "Level 3" (sertakan C1-C6 bila relevan).
+- Wajib sertakan TANDA TANGAN, KUNCI JAWABAN, dan REKAP PENILAIAN.
+- Jika ada SUMBER SOAL WAJIB DIIKUTI, jangan mengarang soal/kunci baru di luar sumber.
+- Tulis teks polos dengan delimiter pipe "|" pada setiap tabel agar export Word dan PDF sama persis seperti model acuan.
 TXT;
 
         $title = 'Kisi-kisi '.$topik;
@@ -2272,6 +2320,8 @@ TXT;
                     'jenjang' => $data['jenjang'] ?? null,
                     'jumlah' => $data['jumlah'],
                     'bentuk_penilaian' => $data['bentuk_penilaian'],
+                    'kompetensi' => $kompetensi ?: null,
+                    'catatan' => $catatan ?: null,
                     'source' => $sourceType,
                     'source_file' => $sourceName ?: null,
                     'source_chars' => $sourceText !== '' ? mb_strlen($sourceText) : 0,
@@ -2885,7 +2935,7 @@ TXT;
     private function validatedQuizExport(Request $request): array
     {
         return $request->validate([
-            'content' => ['required', 'string', 'max:50000'],
+            'content' => ['required', 'string', 'max:100000'],
             'title' => ['nullable', 'string', 'max:120'],
             'interactive_quality' => ['nullable', 'boolean'],
         ]);
