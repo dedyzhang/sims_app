@@ -1500,3 +1500,16 @@ if (config('demo.enabled', false)) {
 
 
 
+
+// Survei pembelajaran: QR mengarah ke route ber-auth; otorisasi per target ditegakkan controller.
+Route::middleware(['auth', \App\Http\Middleware\EnsureFaceRegistered::class])->prefix('survei-pembelajaran')->name('survei.')->controller(\App\Http\Controllers\SurveiPembelajaranController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+    Route::get('/periode/{periode}', 'periode')->name('periode');
+    Route::post('/periode/{periode}/tutup', 'tutup')->name('tutup');
+    Route::get('/periode/{periode}/export', 'export')->name('export');
+    Route::get('/masuk/{periode}', 'masuk')->name('masuk');
+    Route::get('/isi/{target}', 'isi')->name('isi');
+    Route::post('/isi/{target}', 'kirim')->middleware('throttle:30,1')->name('kirim');
+    Route::get('/hasil/{target}', 'hasil')->name('hasil');
+});

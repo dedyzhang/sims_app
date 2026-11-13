@@ -328,6 +328,15 @@ class LoginController extends Controller
             return route('ujian.siswa.index');
         }
 
+        // Kembalikan siswa ke QR survei yang diminta, tanpa menerima redirect ke host lain.
+        if ($user->access === 'siswa') {
+            $intended = session()->get('url.intended');
+            $path = is_string($intended) ? parse_url($intended, PHP_URL_PATH) : null;
+            if (is_string($path) && preg_match('~(?:^|/)survei-pembelajaran/masuk/([0-9a-fA-F-]{36})$~', $path, $matches)) {
+                session()->forget('url.intended');
+                return route('survei.masuk', ['periode' => $matches[1]]);
+            }
+        }
         return route('dashboard');
     }
 }

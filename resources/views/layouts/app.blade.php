@@ -707,6 +707,10 @@
                     }
                 }
 
+                if ($isAdmin || auth()->user()?->siswa || auth()->user()?->guru) {
+                    $groups['survei'] = ['Survei', 'clipboard-list', [['survei.index', ['survei.*'], 'clipboard-list', 'Survei Pembelajaran']]];
+                }
+
                 // ── Akademik ──
                 $akademik = [];
                 if ($modulOn('akademik')) {

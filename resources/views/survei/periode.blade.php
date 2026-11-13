@@ -1,0 +1,10 @@
+@extends('layouts.app')
+@section('title','Detail Survei')
+@section('content')
+<div class="max-w-5xl space-y-5"><a href="{{ route('survei.index') }}" class="text-blue-700 underline">← Daftar survei</a>
+<h1 class="page-title">{{ $periode->judul }}</h1><p>{{ $periode->mulai->format('d/m/Y H:i') }} – {{ $periode->selesai->format('d/m/Y H:i') }} · {{ $periode->ditutup ? 'Ditutup' : ($periode->terbuka() ? 'Terbuka' : 'Belum terbuka / berakhir') }}</p>
+<div class="card p-5 space-y-3"><h2 class="font-bold">Bagikan ke siswa</h2><p>Scan QR atau buka tautan. Siswa harus masuk dengan akun SIMS dan hanya dapat mengisi survei kelasnya.</p><div class="bg-white p-3 inline-block">{!! \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')->size(220)->margin(2)->generate(route('survei.masuk',$periode)) !!}</div><p class="break-all"><a class="text-blue-700 underline" href="{{ route('survei.masuk',$periode) }}">{{ route('survei.masuk',$periode) }}</a></p></div>
+@if(!$periode->ditutup)<form action="{{ route('survei.tutup',$periode) }}" method="post" onsubmit="return confirm('Tutup survei sekarang? Siswa tidak dapat lagi mengirim jawaban.')">@csrf<button class="rounded-lg bg-red-700 text-white px-4 py-2">Tutup survei</button></form>@endif
+@if($periode->ditutup || now()->greaterThan($periode->selesai))<a href="{{ route('survei.export',$periode) }}" class="text-blue-700 underline">Unduh rekap CSV</a>@endif
+<div class="card p-5"><h2 class="font-bold">Sasaran survei</h2><p class="text-sm mb-3">Jumlah respons belum menunjukkan identitas. Hasil hanya terbuka setelah survei ditutup dan minimal lima siswa mengisi.</p>@foreach($targets as $t)<div class="py-3 border-b"><strong>{{ $t->kelas_nama }} · {{ $t->guru_nama }}</strong> — {{ $t->jenis === 'wali' ? 'Wali kelas' : $t->pelajaran_nama }} · {{ $t->respons_count }} respons @if($periode->ditutup || now()->greaterThan($periode->selesai))<a class="text-blue-700 underline" href="{{ route('survei.hasil',$t) }}">Lihat hasil</a>@endif</div>@endforeach</div></div>
+@endsection
