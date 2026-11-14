@@ -38,6 +38,12 @@ class EnsureFaceRegistered
             return $next($request);
         }
 
+        // Survei tetap memaksa akun menyelesaikan ganti password, termasuk orang tua
+        // yang pada halaman lain dikecualikan dari kewajiban pendaftaran wajah.
+        if (str_starts_with($name, 'survei.') && $user->must_change_password) {
+            return redirect()->route('ganti.password');
+        }
+
         // HANYA orang tua yang dikecualikan dari daftar wajah
         if (in_array($user->access, ['orangtua', 'ortu'], true)) {
             return $next($request);
@@ -48,6 +54,12 @@ class EnsureFaceRegistered
         // Rute ganti password sudah di-whitelist di atas, jadi tidak loop.
         if ($user->must_change_password) {
             return redirect()->route('ganti.password');
+        }
+
+        // Survei dapat diakses tanpa pendaftaran wajah agar kelas tidak terhambat,
+        // tetapi tetap melewati gate autentikasi dan wajib ganti password di atas.
+        if (str_starts_with($name, 'survei.')) {
+            return $next($request);
         }
 
         // Mode Ujian: Siswa tidak diblokir oleh pemindaian wajah (face recognition)

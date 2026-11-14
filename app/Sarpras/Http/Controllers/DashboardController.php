@@ -5,6 +5,7 @@ namespace App\Sarpras\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Sarpras\Models\Aset;
 use App\Sarpras\Models\Denah;
+use App\Sarpras\Models\DenahRuangan;
 use App\Sarpras\Models\JadwalPemeliharaan;
 use App\Sarpras\Models\LaporanKerusakan;
 use App\Sarpras\Models\Peminjaman;
@@ -12,6 +13,7 @@ use App\Sarpras\Models\Perbaikan;
 use App\Sarpras\Models\Pengadaan;
 use App\Sarpras\Support\Rupiah;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -30,8 +32,12 @@ class DashboardController extends Controller
             $nilaiBuku = Rupiah::add($nilaiBuku, $aset->nilaiBuku($today));
         }
 
-        $kerusakanTerbukaQuery = LaporanKerusakan::query()
-            ->whereIn('status', ['dilaporkan', 'diterima']);
+        // Satu agregat untuk semua angka kerusakan terbuka (total, darurat, perlu diterima).
+        $kerusakanTerbukaRekap = LaporanKerusakan::query()
+            ->whereIn('status', ['dilaporkan', 'diterima'])
+            ->selectRaw('status, urgensi, count(*) as jml')
+            ->groupBy('status', 'urgensi')
+            ->get();
 
         $perbaikanBerjalanQuery = Perbaikan::query()
             ->whereIn('status', ['antri', 'dikerjakan']);
@@ -48,33 +54,45 @@ class DashboardController extends Controller
         $pengadaanPending = (clone $pengadaanPendingQuery)->count();
         $perbaikanBerjalan = (clone $perbaikanBerjalanQuery)->count();
         $jadwalJatuhTempo = (clone $jadwalJatuhTempoQuery)->count();
-        $kerusakanTerbuka = (clone $kerusakanTerbukaQuery)->count();
+        $kerusakanTerbuka = (int) $kerusakanTerbukaRekap->sum('jml');
+
+        // Ruangan dipakai booking & aset perlu tindakan: muat sekali untuk keduanya.
+        $bookingHariIni = Peminjaman::with(['peminjam:uuid,username', 'peminjam.guru:uuid,id_login,nama', 'peminjam.siswa:uuid,id_login,nama'])
+            ->whereNotNull('ruangan_id')
+            ->whereIn('status', ['diajukan', 'dipinjam'])
+            ->whereDate('mulai', $today)
+            ->orderBy('mulai')
+            ->get();
+        $asetPerluTindakan = Aset::with('kategori:id,nama')
+            ->where(function ($query) {
+                $query->whereIn('kondisi', ['rusak_ringan', 'rusak_berat', 'hilang'])
+                    ->orWhereIn('status', ['perbaikan', 'dipinjam']);
+            })
+            ->latest()
+            ->limit(6)
+            ->get(['id', 'kode', 'nama', 'kategori_id', 'ruangan_id', 'kondisi', 'status']);
+        $this->muatRuanganBersama($bookingHariIni, $asetPerluTindakan);
 
         $data = [
-            'totalAset' => Aset::count(),
+            'totalAset' => (int) $asetPerKondisi->sum(),
             'asetPerKondisi' => $asetPerKondisi,
             'nilaiBukuRp' => Rupiah::format($nilaiBuku),
             'kerusakanTerbuka' => $kerusakanTerbuka,
-            'kerusakanDarurat' => (clone $kerusakanTerbukaQuery)->whereIn('urgensi', ['tinggi', 'darurat'])->count(),
+            'kerusakanDarurat' => (int) $kerusakanTerbukaRekap->whereIn('urgensi', ['tinggi', 'darurat'])->sum('jml'),
             'persetujuanMenunggu' => $peminjamanMenunggu + $pengadaanPending,
             'peminjamanMenunggu' => $peminjamanMenunggu,
             'bookingMenunggu' => 0,
             'pengadaanPending' => $pengadaanPending,
             'perbaikanBerjalan' => $perbaikanBerjalan,
             'jadwalJatuhTempo' => $jadwalJatuhTempo,
-            'asetBerisiko' => Aset::whereIn('kondisi', ['rusak_ringan', 'rusak_berat', 'hilang'])->count(),
-            'kerusakanTerbaru' => LaporanKerusakan::with(['pelapor:uuid,username', 'aset:id,nama'])
+            'asetBerisiko' => (int) $asetPerKondisi->only(['rusak_ringan', 'rusak_berat', 'hilang'])->sum(),
+            'kerusakanTerbaru' => LaporanKerusakan::with('aset:id,nama')
                 ->latest()->limit(5)->get(),
-            'bookingHariIni' => Peminjaman::with(['ruangan:id,nama,kode', 'peminjam'])
-                ->whereNotNull('ruangan_id')
-                ->whereIn('status', ['diajukan', 'dipinjam'])
-                ->whereDate('mulai', $today)
-                ->orderBy('mulai')
-                ->get(),
+            'bookingHariIni' => $bookingHariIni,
             'antreanKerja' => [
                 [
                     'label' => 'Laporan baru perlu diterima',
-                    'count' => LaporanKerusakan::where('status', 'dilaporkan')->count(),
+                    'count' => (int) $kerusakanTerbukaRekap->where('status', 'dilaporkan')->sum('jml'),
                     'icon' => 'siren',
                     'tone' => 'rose',
                     'url' => route('sarpras.kerusakan.index', ['status' => 'dilaporkan']),
@@ -101,14 +119,7 @@ class DashboardController extends Controller
                     'url' => route('sarpras.perbaikan.index'),
                 ],
             ],
-            'asetPerluTindakan' => Aset::with(['kategori:id,nama', 'ruangan:id,nama,kode'])
-                ->where(function ($query) {
-                    $query->whereIn('kondisi', ['rusak_ringan', 'rusak_berat', 'hilang'])
-                        ->orWhereIn('status', ['perbaikan', 'dipinjam']);
-                })
-                ->latest()
-                ->limit(6)
-                ->get(['id', 'kode', 'nama', 'kategori_id', 'ruangan_id', 'kondisi', 'status']),
+            'asetPerluTindakan' => $asetPerluTindakan,
             'jadwalMendatang' => JadwalPemeliharaan::with('aset:id,kode,nama')
                 ->where('aktif', true)
                 ->whereNotNull('tgl_berikutnya')
@@ -116,11 +127,11 @@ class DashboardController extends Controller
                 ->orderBy('tgl_berikutnya')
                 ->limit(6)
                 ->get(),
-            'pengadaanTerbaru' => Pengadaan::with('pengaju:uuid,username')
+            'pengadaanTerbaru' => Pengadaan::query()
                 ->whereIn('status', ['diajukan', 'disetujui'])
                 ->latest()
                 ->limit(5)
-                ->get(['id', 'kode', 'judul', 'status', 'total_estimasi', 'diajukan_oleh', 'created_at']),
+                ->get(['id', 'kode', 'judul', 'status', 'total_estimasi', 'created_at']),
             'denahPeta' => Denah::withCount('ruangan')
                 ->orderBy('gedung')
                 ->orderBy('lantai')
@@ -136,5 +147,20 @@ class DashboardController extends Controller
         ];
 
         return view('sarpras.dashboard', $data);
+    }
+
+    /** Pasang relasi `ruangan` ke beberapa koleksi dengan satu query DenahRuangan. */
+    private function muatRuanganBersama(Collection ...$koleksi): void
+    {
+        $ids = collect($koleksi)->flatMap->pluck('ruangan_id')->filter()->unique()->values();
+        $ruangan = $ids->isEmpty()
+            ? collect()
+            : DenahRuangan::whereIn('id', $ids)->get(['id', 'nama', 'kode'])->keyBy('id');
+
+        foreach ($koleksi as $items) {
+            foreach ($items as $item) {
+                $item->setRelation('ruangan', $ruangan->get($item->ruangan_id));
+            }
+        }
     }
 }

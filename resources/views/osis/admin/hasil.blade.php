@@ -36,7 +36,7 @@ function osisHasil(url) {
     return {
         async init() {
             await this.muat();
-            window.simsPollInterval(() => this.muat(), 15000, 'osis_hasil'); // skip saat tab background
+            window.simsPollInterval(() => this.muat(), 15000, 'osis_hasil', 'osis-admin-hasil'); // skip saat tab background
         },
         async muat() {
             const r = await fetch(url, { headers: { Accept: 'application/json' } });

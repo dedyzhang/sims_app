@@ -96,10 +96,8 @@ class ProfileController extends Controller
 
     public function preferenceEdit()
     {
-        $pref = auth()->user()->preference()->firstOrCreate(
-            ['user_uuid' => auth()->id()],
-            UserPreference::defaults()
-        );
+        // Nilai DB terkini untuk form, dimemo di user agar layout tidak query preferensi lagi.
+        $pref = auth()->user()->prefTampilan(segar: true);
         return view('profile.preference', compact('pref'));
     }
 
@@ -115,7 +113,7 @@ class ProfileController extends Controller
             'theme_mode'       => 'required|in:light,dark',
             'motif'            => 'nullable|in:botanical,ocean,forest,sunset,robot,space,minimal,nightocean,rainbow',
             'ui_style'         => 'nullable|in:soft,corporate',
-            'dashboard_theme'  => 'nullable|in:windows11,macos',
+            'dashboard_theme'  => 'nullable|in:windows11,macos,fluent,macos-minimal,bento',
             'font_size'        => 'required|in:sm,md,lg',
             'compact_mode'     => 'boolean',
         ]);

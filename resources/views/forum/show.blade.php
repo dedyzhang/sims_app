@@ -177,8 +177,7 @@
         } catch (e) { /* diam */ }
     }
 
-    setInterval(poll, 30000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+    window.simsPollInterval(poll, 30000, 'forum_komentar', 'forum-presence');
 
     // Realtime Forum Comments Polling & AJAX Submissions
     async function refreshForumComments() {

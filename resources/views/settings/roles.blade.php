@@ -21,7 +21,8 @@
             <div>
                 <strong>Catatan:</strong><br>
                 1. Peran <strong>Superadmin</strong> dan <strong>Admin</strong> selalu memiliki akses penuh secara bawaan.<br>
-                2. Hak akses "Melihat/Mengubah Nilai" ini akan menimpa batasan bawaan sistem jika dicentang.
+                2. Hak akses "Melihat/Mengubah Nilai" ini akan menimpa batasan bawaan sistem jika dicentang.<br>
+                3. Surveyor yang sudah ditunjuk: <strong>Waka Humas</strong> dan <strong>Waka Sarpras</strong>. Centang peran lain bila perlu. Siswa dan orang tua tidak bisa. Admin pembuat periode tetap bisa memandu tanpa centang ini.
             </div>
         </div>
 
@@ -34,7 +35,12 @@
                         <tr>
                             <th class="p-4 font-semibold whitespace-nowrap">Hak Akses / Izin</th>
                             @foreach($roles as $role)
-                            <th class="p-4 font-semibold text-center whitespace-nowrap capitalize">{{ $role }}</th>
+                            <th class="p-4 font-semibold text-center whitespace-nowrap">
+                                <span class="capitalize">{{ $role }}</span>
+                                @if(\App\Support\Forum::ROLE_LABELS[$role] ?? null)
+                                    <span class="block text-xs font-normal text-slate-400">{{ \App\Support\Forum::ROLE_LABELS[$role] }}</span>
+                                @endif
+                            </th>
                             @endforeach
                         </tr>
                     </thead>
@@ -47,11 +53,15 @@
                                 $isChecked = in_array($permKey, $granted[$role] ?? []);
                             @endphp
                             <td class="p-4 text-center">
+                                @if(in_array($permKey, ['view_survei', 'jadi_surveyor'], true) && in_array($role, ['siswa', 'orangtua'], true))
+                                    <span aria-label="Tidak tersedia untuk peran ini">—</span>
+                                @else
                                 <label class="inline-flex items-center cursor-pointer">
                                     <input type="checkbox" name="perms[{{ $role }}][{{ $permKey }}]" value="1" 
                                            class="form-checkbox text-primary rounded border-slate-300 dark:border-slate-600 dark:bg-slate-800 focus:ring-primary w-5 h-5 transition"
                                            {{ $isChecked ? 'checked' : '' }}>
                                 </label>
+                                @endif
                             </td>
                             @endforeach
                         </tr>

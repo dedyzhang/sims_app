@@ -1,0 +1,40 @@
+/* Optional dashboard skins. Existing Windows / Mac themes remain untouched. */
+.edu-dashboard:is(.dashboard-theme-fluent,.dashboard-theme-macos-minimal,.dashboard-theme-bento) {
+    --surface: #fff; --edge: #dce3ed; --ink: #17243b; --muted: #526176;
+    --radius: 18px; --lift: 0 4px 18px #19345a08;
+    padding: clamp(12px, 2vw, 24px); border-radius: 24px;
+    background: #edf3fb;
+}
+.edu-dashboard.dashboard-theme-macos-minimal { background: #f3f3f5; --edge: #e4e4e8; --radius: 20px; --ink: #25252b; --lift: 0 8px 24px #00000005; }
+.edu-dashboard.dashboard-theme-bento { background: #f3f1eb; --edge: #e7e3d9; --radius: 26px; --ink: #343c33; --lift: none; }
+.edu-dashboard:is(.dashboard-theme-fluent,.dashboard-theme-macos-minimal,.dashboard-theme-bento) :is(.card,.google-info-card,.google-side-panel,.google-quote-card,.google-chip) {
+    background: var(--surface); border: 1px solid var(--edge); border-radius: var(--radius); box-shadow: var(--lift); backdrop-filter: none;
+}
+.edu-dashboard:is(.dashboard-theme-fluent,.dashboard-theme-macos-minimal,.dashboard-theme-bento) .card-batik.edu-hero {
+    background: var(--surface) !important; border: 1px solid var(--edge) !important; border-radius: var(--radius) !important; box-shadow: var(--lift) !important;
+}
+.edu-dashboard:is(.dashboard-theme-fluent,.dashboard-theme-macos-minimal,.dashboard-theme-bento) .google-title span { color: var(--ink); }
+.edu-dashboard:is(.dashboard-theme-fluent,.dashboard-theme-macos-minimal,.dashboard-theme-bento) .google-accent-bar { background: var(--cp); height: 3px; }
+.edu-dashboard:is(.dashboard-theme-fluent,.dashboard-theme-macos-minimal,.dashboard-theme-bento) .qlink { --gc: var(--cp) !important; }
+.edu-dashboard.dashboard-theme-macos-minimal .google-accent-bar { display: none; }
+.edu-dashboard.dashboard-theme-macos-minimal .qlink { border-radius: 20px; box-shadow: 0 6px 16px #00000008; }
+.edu-dashboard.dashboard-theme-bento .dash-block:nth-child(3n + 1) { --surface: #eef4e8; }
+.edu-dashboard.dashboard-theme-bento .dash-block:nth-child(3n + 2) { --surface: #eef0fb; }
+.edu-dashboard.dashboard-theme-bento .dash-block:nth-child(3n) { --surface: #fff4e3; }
+.edu-dashboard.dashboard-theme-bento .dash-block .card { padding: 1.25rem; }
+.dark .edu-dashboard:is(.dashboard-theme-fluent,.dashboard-theme-macos-minimal,.dashboard-theme-bento) {
+    background: #111827; --surface: #1e293b; --edge: #354155; --ink: #f1f5f9; --muted: #b7c4d7; --lift: none;
+}
+.dark .edu-dashboard.dashboard-theme-bento .dash-block:nth-child(3n + 1) { --surface: #23352d; }
+.dark .edu-dashboard.dashboard-theme-bento .dash-block:nth-child(3n + 2) { --surface: #292f46; }
+.dark .edu-dashboard.dashboard-theme-bento .dash-block:nth-child(3n) { --surface: #393125; }
+@media (max-width: 640px) {
+    .edu-dashboard:is(.dashboard-theme-fluent,.dashboard-theme-macos-minimal,.dashboard-theme-bento) { padding: 10px; border-radius: 18px; --radius: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .edu-dashboard:is(.dashboard-theme-fluent,.dashboard-theme-macos-minimal,.dashboard-theme-bento) * { animation: none !important; transition: none !important; }
+}
+@media (min-width: 768px) {
+    .edu-dashboard.dashboard-theme-macos-minimal .grid:has(> .qlink) { display: flex; justify-content: center; flex-wrap: wrap; padding: 12px; border-radius: 26px; border: 1px solid var(--edge); background: var(--surface); }
+    .edu-dashboard.dashboard-theme-macos-minimal .qlink { flex: 0 1 112px; min-width: 90px; }
+}

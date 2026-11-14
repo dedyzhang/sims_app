@@ -183,6 +183,7 @@ class GuruController extends Controller
         'walikelas' => 'Wali Kelas',
         'kurikulum' => 'Kurikulum',
         'kesiswaan' => 'Kesiswaan',
+        'humas'     => 'Waka Humas',
         'sarpras'   => 'Sarana & Prasarana',
         'bendahara' => 'Bendahara',
         'tendik'    => 'Tendik',
