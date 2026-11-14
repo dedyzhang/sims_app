@@ -28,12 +28,18 @@ class TickerStats
     public static function clear(): void
     {
         Cache::forget(self::CACHE_KEY);
+        request()->attributes->remove(self::CACHE_KEY.'.request');
     }
 
     /** Angka mentah ter-cache. */
     public static function raw(): array
     {
-        return Cache::remember(self::CACHE_KEY, self::TTL, function () {
+        $memoKey = self::CACHE_KEY.'.request';
+        if (request()->attributes->has($memoKey)) {
+            return request()->attributes->get($memoKey);
+        }
+
+        $stats = Cache::remember(self::CACHE_KEY, self::TTL, function () {
             $nowSub3 = now()->subMinutes(3);
 
             $aset = class_exists(\App\Sarpras\Models\Aset::class)
@@ -57,18 +63,21 @@ class TickerStats
                 'peminjaman'     => $peminjaman,
                 'semesterLabel'  => $semester ? 'SEMESTER ' . $semester->semester . ' (' . $semester->tahun . ')' : 'TIDAK AKTIF',
                 'onlineSiswa'    => User::where('access', 'siswa')->where('last_seen_at', '>=', $nowSub3)->count(),
-                'onlineGuru'     => User::whereIn('access', ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'sekretaris', 'kepala', 'sarpras', 'sapras', 'bendahara', 'tendik'])->where('last_seen_at', '>=', $nowSub3)->count(),
+                'onlineGuru'     => User::whereIn('access', ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'humas', 'sekretaris', 'kepala', 'sarpras', 'sapras', 'bendahara', 'tendik'])->where('last_seen_at', '>=', $nowSub3)->count(),
                 'onlineOrangTua' => User::where('access', 'orangtua')->where('last_seen_at', '>=', $nowSub3)->count(),
                 'onlineAdmin'    => User::whereIn('access', ['superadmin', 'admin'])->where('last_seen_at', '>=', $nowSub3)->count(),
             ];
         });
+        request()->attributes->set($memoKey, $stats);
+
+        return $stats;
     }
 
     /** Flag bagian mana yang tampil untuk sebuah role. */
     public static function flags(?string $role): array
     {
         $management = UserRole::matches((string) $role, 'superadmin', 'admin', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sekretaris');
-        $teacher    = UserRole::matches((string) $role, 'superadmin', 'admin', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sekretaris', 'walikelas', 'guru', 'tendik', 'bendahara');
+        $teacher    = UserRole::matches((string) $role, 'superadmin', 'admin', 'kepala', 'kurikulum', 'kesiswaan', 'humas', 'sarpras', 'sekretaris', 'walikelas', 'guru', 'tendik', 'bendahara');
 
         return [
             'management' => $management,

@@ -1,0 +1,38 @@
+/* Flat 2D ticker: only the track transform animates. No filters, shadows or JS frame loop. */
+.sims-net { display: flex; align-items: stretch; flex-shrink: 0; min-height: 32px; min-width: 0; overflow: hidden; background: var(--net-bg, var(--ui-panel, #fff)); color: var(--net-ink, var(--ui-text, #253249)); border-top: 1px solid var(--ui-edge, #d8e0eb); font: 11px/1.5 system-ui, sans-serif; }
+.sims-net-brand { display: flex; align-items: center; flex-shrink: 0; padding: 0 12px; font-weight: 700; letter-spacing: .05em; border-right: 2px solid var(--ui-trim, #f4c542); }
+.sims-net-stats { flex: 1; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.sims-net-track { display: flex; width: max-content; }
+.sims-net-group { display: flex; align-items: center; justify-content: space-around; flex-shrink: 0; min-width: var(--sims-net-viewport, 0px); gap: 24px; padding: 5px 24px 5px 14px; box-sizing: border-box; }
+.sims-net-stat { display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+.sims-net-label { color: var(--net-muted, var(--ui-muted, #52627a)); }
+.sims-net-stat strong { font-weight: 600; font-variant-numeric: tabular-nums; }
+.sims-net-stats:focus-visible { outline: 2px solid var(--cp, #2563eb); outline-offset: -2px; }
+.sims-net-pause { flex-shrink: 0; min-width: 52px; padding: 0 10px; border: 0; border-left: 1px solid var(--ui-edge, #d8e0eb); background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.sims-net-pause[hidden] { display: none; }
+.sims-net-pause:focus-visible { outline: 2px solid var(--cp, #2563eb); outline-offset: -3px; }
+.sims-net-copy { display: none; }
+@keyframes sims-net-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.sims-net[data-moving="true"][data-reduced="false"] .sims-net-stats { overflow-x: hidden; }
+.sims-net[data-moving="true"][data-reduced="false"] .sims-net-copy { display: flex; }
+.sims-net[data-moving="true"][data-reduced="false"] .sims-net-track { animation: sims-net-scroll var(--sims-net-duration, 45s) linear infinite; }
+.sims-net[data-moving="true"]:is([data-paused="true"],[data-hidden="true"]) .sims-net-track { animation-play-state: paused; }
+/* Keyboard readers can inspect the original sequence with native horizontal scroll. */
+.sims-net:focus-within .sims-net-stats:focus { overflow-x: auto; }
+.sims-net:focus-within .sims-net-stats:focus .sims-net-track { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .sims-net[data-moving="true"][data-reduced]:not([data-force-motion="true"]) .sims-net-track { animation: none; transform: none; }
+    .sims-net[data-moving="true"][data-reduced]:not([data-force-motion="true"]) .sims-net-copy { display: none; }
+    .sims-net[data-moving="true"][data-reduced]:not([data-force-motion="true"]) .sims-net-stats { overflow-x: auto; }
+}
+@media (max-width: 640px) { .sims-net-brand { padding: 0 8px; font-size: 10px; } .sims-net-group { gap: 18px; } .sims-net-pause { min-width: 44px; } }
+@media print { .sims-net { display: none; } }
+
+/* Theme colours react to the dashboard selection without JS or server calls. */
+body[data-ui-theme="windows11"] .sims-net { --net-bg: #edf3ff; --net-ink: #1f3d70; --net-muted: #526681; }
+body[data-ui-theme="fluent"] .sims-net { --net-bg: #17325b; --net-ink: #edf3ff; --net-muted: #bdcee6; }
+body[data-ui-theme="macos"] .sims-net { --net-bg: #f5edf6; --net-ink: #493a53; --net-muted: #6d5c73; }
+body[data-ui-theme="macos-minimal"] .sims-net { --net-bg: #edf2e8; --net-ink: #354a3c; --net-muted: #586b5d; }
+body[data-ui-theme="bento"] .sims-net { --net-bg: #f4eedc; --net-ink: #494535; --net-muted: #6f6851; }
+.dark body[data-ui-theme] .sims-net { --net-bg: var(--ui-sidebar, #17202e); --net-ink: var(--ui-text, #edf2fa); --net-muted: var(--ui-muted, #bac6d8); }

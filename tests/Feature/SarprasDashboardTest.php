@@ -111,7 +111,21 @@ class SarprasDashboardTest extends TestCase
             'aktif' => true,
         ]);
 
-        $this->actingAs($admin)
+        LaporanKerusakan::create([
+            'kode' => 'KR-DASH-002',
+            'aset_id' => $aset->id,
+            'pelapor_id' => $admin->uuid,
+            'deskripsi' => 'Kabel longgar',
+            'urgensi' => 'rendah',
+            'status' => 'diterima',
+        ]);
+
+        $queries = [];
+        \Illuminate\Support\Facades\DB::listen(function ($q) use (&$queries) {
+            $queries[] = $q->sql.' | '.json_encode($q->bindings);
+        });
+
+        $response = $this->actingAs($admin)
             ->get('/sarpras')
             ->assertOk()
             ->assertSee('Dashboard Sarana &amp; Prasarana', false)
@@ -122,8 +136,19 @@ class SarprasDashboardTest extends TestCase
             ->assertSee('Jadwal Ruangan Hari Ini')
             ->assertSee('Proyektor Lab')
             ->assertSee('Pengadaan LCD')
-            ->assertSee('Rapat sarpras')
-            ->assertSee('Peminjaman Ruangan');
+            ->assertSee('Rapat sarpras - sap_dashboard')
+            ->assertSee('Lab Komputer')
+            ->assertSee('Peminjaman Ruangan')
+            ->assertViewHas('totalAset', 1)
+            ->assertViewHas('asetBerisiko', 1)
+            ->assertViewHas('kerusakanTerbuka', 2)
+            ->assertViewHas('kerusakanDarurat', 1);
+        $this->assertSame(1, $response->viewData('antreanKerja')[0]['count']);
+        $this->assertSame('Lab Komputer', $response->viewData('asetPerluTindakan')->first()->ruangan?->nama);
+
+        // Tidak ada query identik (SQL + binding) yang dijalankan dua kali dalam satu render.
+        $duplikat = array_filter(array_count_values($queries), fn ($n) => $n > 1);
+        $this->assertSame([], $duplikat);
     }
 
     public function test_laporan_aktivitas_menampilkan_halaman_log(): void

@@ -18,7 +18,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
@@ -79,7 +78,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // Bagikan nama & identitas sekolah ke layout, login, dan form kegiatan (dari Pengaturan)
-        View::composer(['layouts.app', 'auth.login', 'kegiatan.daftar', 'kegiatan.hadir'], function ($view) {
+        View::composer(['layouts.app', 'auth.login', 'kegiatan.daftar', 'kegiatan.hadir', 'survei.form', 'survei.token'], function ($view) {
             $nama = 'Edutive';
             $alamat = null;
             $logoUrl = null;
@@ -93,28 +92,26 @@ class AppServiceProvider extends ServiceProvider
             $loginBgFocusY = 50.0;
             $loginBgZoom = 100.0;
             try {
-                if (Schema::hasTable('settings')) {
-                    $nama   = Setting::get('nama_sekolah', 'Edutive') ?: 'Edutive';
-                    $alamat = Setting::get('alamat_sekolah');
-                    $logoPath = Setting::get('sekolah_logo');
-                    if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
-                        $logoUrl = asset('storage/' . $logoPath);
-                        $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
-                    }
-
-                    $loginBgType = Setting::get('login_bg_type', 'default') ?: 'default';
-                    $loginBgColor = Setting::get('login_bg_color', '#1e3a8a') ?: '#1e3a8a';
-                    $bgPath = Setting::get('login_bg_image');
-                    if ($bgPath && file_exists(storage_path('app/public/' . $bgPath))) {
-                        $loginBgImageUrl = asset('storage/' . $bgPath);
-                    }
-                    if ($loginBgType === 'image' && !$loginBgImageUrl) {
-                        $loginBgType = 'default';
-                    }
-                    $loginBgFocusX = (float) (Setting::get('login_bg_focus_x', 50) ?: 50);
-                    $loginBgFocusY = (float) (Setting::get('login_bg_focus_y', 50) ?: 50);
-                    $loginBgZoom = (float) (Setting::get('login_bg_zoom', 100) ?: 100);
+                $nama   = Setting::get('nama_sekolah', 'Edutive') ?: 'Edutive';
+                $alamat = Setting::get('alamat_sekolah');
+                $logoPath = Setting::get('sekolah_logo');
+                if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
+                    $logoUrl = asset('storage/' . $logoPath);
+                    $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
                 }
+
+                $loginBgType = Setting::get('login_bg_type', 'default') ?: 'default';
+                $loginBgColor = Setting::get('login_bg_color', '#1e3a8a') ?: '#1e3a8a';
+                $bgPath = Setting::get('login_bg_image');
+                if ($bgPath && file_exists(storage_path('app/public/' . $bgPath))) {
+                    $loginBgImageUrl = asset('storage/' . $bgPath);
+                }
+                if ($loginBgType === 'image' && !$loginBgImageUrl) {
+                    $loginBgType = 'default';
+                }
+                $loginBgFocusX = (float) (Setting::get('login_bg_focus_x', 50) ?: 50);
+                $loginBgFocusY = (float) (Setting::get('login_bg_focus_y', 50) ?: 50);
+                $loginBgZoom = (float) (Setting::get('login_bg_zoom', 100) ?: 100);
             } catch (\Throwable $e) {
                 // tabel belum ada (mis. saat migrate) — pakai default
             }

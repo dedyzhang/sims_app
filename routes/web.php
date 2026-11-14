@@ -98,6 +98,7 @@ use App\Http\Controllers\UjianRuanganScanController;
 use App\Http\Controllers\UjianSiswaController;
 use App\Http\Controllers\UjianSoalController;
 use App\Http\Middleware\EnsureFaceRegistered;
+use App\Http\Middleware\NonaktifSaatModeUjian;
 use App\Http\Middleware\EnsureKioskOrPermission;
 use App\Support\TickerStats;
 use Illuminate\Support\Facades\Route;
@@ -272,7 +273,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Asisten Guru (Fase 3) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     // Panel tool guru (soal/rangkum/feedback). Guru mapel, wali kelas, Kepala, semua Waka, admin.
-    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,sarpras,admin', 'modul:asisten_guru'])->prefix('ai/teacher')->name('ai.teacher.')->group(function () {
+    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,humas,sarpras,admin', 'modul:asisten_guru'])->prefix('ai/teacher')->name('ai.teacher.')->group(function () {
         Route::controller(AiTeacherController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/quota', 'quota')->name('quota');
@@ -421,6 +422,11 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
 
     // Statistik real-time untuk ticker SIMS-NET (angka dari cache TickerStats).
     Route::get('/dashboard/ticker-stats', function () {
+        // Tab yang dibuka sebelum Mode Ujian aktif masih polling: beri sinyal berhenti tanpa query statistik.
+        if (\App\Support\ModeUjian::aktif()) {
+            return response()->json(['mode_ujian' => true]);
+        }
+
         return response()->json(
             \App\Support\TickerStats::forRole(auth()->user()->access ?? '')
         );
@@ -713,7 +719,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
     });
 
     // ─── RPM Digital (Rencana Pembelajaran Mendalam) ───
-    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,sarpras,sapras,admin', 'modul:akademik'])
+    Route::middleware(['role:guru,walikelas,kepala,kurikulum,kesiswaan,humas,sarpras,sapras,admin', 'modul:akademik'])
         ->prefix('akademik/rpm-digital')
         ->name('rpm.')
         ->controller(RpmDigitalController::class)
@@ -1500,3 +1506,37 @@ if (config('demo.enabled', false)) {
 
 
 
+
+// Survei memakai auth + gate ganti password; middleware mengecualikan survei hanya dari kewajiban daftar wajah.
+// Mode Ujian adalah saklar induk: selama aktif, seluruh modul survei mati untuk semua peran.
+Route::middleware(['auth', EnsureFaceRegistered::class, NonaktifSaatModeUjian::class.':Survei Pembelajaran'])->prefix('survei-pembelajaran')->name('survei.')->controller(\App\Http\Controllers\SurveiPembelajaranController::class)->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+    Route::get('/periode/{periode}', 'periode')->name('periode');
+    Route::post('/periode/{periode}/tutup', 'tutup')->name('tutup');
+    Route::post('/periode/{periode}/sesi', 'mulaiSesi')->middleware('throttle:15,1,survei-sesi')->name('sesi.mulai');
+    Route::post('/periode/{periode}/wajib-seb', 'wajibkanSeb')->name('seb.wajib');
+    Route::post('/periode/{periode}/wajib-kios', 'wajibkanKios')->name('kios.wajib');
+    Route::post('/periode/{periode}/sesi/{sesiId}/token', 'gantiToken')->whereUuid('sesiId')->middleware('throttle:15,1,survei-sesi')->name('sesi.token');
+    Route::post('/periode/{periode}/sesi/{sesiId}/akhiri', 'akhiriSesi')->whereUuid('sesiId')->name('sesi.akhiri');
+    Route::get('/periode/{periode}/export', 'export')->name('export');
+    Route::get('/periode/{periode}/analisis', 'analisis')->name('analisis');
+    Route::get('/periode/{periode}/laporan-guru', 'laporanGuru')->name('laporan-guru');
+    Route::get('/periode/{periode}/responden', 'responden')->name('responden');
+    Route::get('/periode/{periode}/laporan/{kelasId}', 'laporanKelas')->whereUuid('kelasId')->name('laporan-kelas');
+    Route::get('/masuk/{periode}', 'masuk')->name('masuk');
+    Route::get('/periode/{periode}/isi', 'form')->name('form');
+    Route::post('/periode/{periode}/token', 'bukaDenganToken')->middleware('throttle:8,1,survei-token')->name('token');
+    Route::post('/periode/{periode}/verifikasi-seb', 'verifikasiSeb')->middleware('throttle:10,1,survei-seb')->name('seb.verifikasi');
+    Route::post('/periode/{periode}/verifikasi-kios', 'verifikasiKios')->middleware('throttle:10,1,survei-kios')->name('kios.verifikasi');
+    Route::get('/periode/{periode}/selesai-kios', 'selesaiKios')->name('kios.selesai');
+    Route::get('/selesai/{kode}', 'keluarSeb')->whereUuid('kode')->name('seb.keluar');
+    Route::post('/periode/{periode}/isi', 'kirimBatch')->middleware('throttle:30,1')->name('kirim-batch');
+    Route::get('/isi/{target}', 'isi')->name('isi');
+    Route::post('/isi/{target}', 'kirim')->middleware('throttle:30,1')->name('kirim');
+    Route::get('/hasil/{target}', 'hasil')->name('hasil');
+});
+Route::post('/survei-pembelajaran/periode/{periode}/ganti-akun/{tujuan}', [LoginController::class, 'switchSurveyAccount'])
+    ->whereIn('tujuan', ['isi', 'analisis'])
+    ->middleware(['auth', EnsureFaceRegistered::class, NonaktifSaatModeUjian::class.':Survei Pembelajaran'])
+    ->name('survei.ganti-akun');

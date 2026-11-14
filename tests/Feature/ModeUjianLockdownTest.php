@@ -206,6 +206,65 @@ class ModeUjianLockdownTest extends TestCase
             ->assertRedirect();
     }
 
+    public function test_tampilan_survei_dan_sarpras_terkunci_untuk_siswa_saat_mode_ujian(): void
+    {
+        ModeUjian::aktifkan();
+        $ujianSaya = route('ujian.siswa.index');
+
+        $this->actingAs($this->siswaUser);
+        foreach (['survei.index', 'profile.preference', 'sarpras.dashboard', 'dashboard'] as $rute) {
+            $this->get(route($rute))->assertRedirect($ujianSaya);
+        }
+        $this->postJson(route('profile.style'), ['ui_style' => 'corporate'])->assertStatus(403);
+
+        // Halaman ujian siswa tanpa tema/wallpaper, dock riwayat, tombol personalisasi, maupun ticker.
+        $this->get($ujianSaya)->assertOk()
+            ->assertSee('data-appearance-enabled="0"', false)
+            ->assertDontSee('sims-theme-dock', false)
+            ->assertDontSee('Tema dan wallpaper')
+            ->assertDontSee('data-sims-ticker', false);
+    }
+
+    public function test_ticker_berhenti_dan_survei_mati_total_untuk_staf_saat_mode_ujian(): void
+    {
+        $periode = \App\Survei\Periode::create([
+            'judul' => 'Survei Semester', 'mulai' => now()->subDay(), 'selesai' => now()->addDay(),
+            'dibuat_oleh' => $this->adminUser->uuid,
+            'pertanyaan' => ['mapel' => \App\Survei\Pertanyaan::untuk('mapel'), 'wali' => \App\Survei\Pertanyaan::untuk('wali')],
+        ]);
+        $kelasId = Siswa::where('id_login', $this->siswaUser->uuid)->value('id_kelas');
+        $periode->targets()->create(['kelas_id' => $kelasId, 'guru_id' => Guru::value('uuid'), 'jenis' => 'wali', 'kelas_nama' => 'Kelas 8 B', 'guru_nama' => 'Guru Mode Ujian']);
+        $detail = route('survei.periode', $periode);
+
+        ModeUjian::aktifkan();
+        $this->actingAs($this->adminUser);
+
+        // Tab staf yang dibuka sebelum Mode Ujian menerima sinyal berhenti, bukan statistik.
+        $this->getJson(route('dashboard.ticker-stats'))->assertOk()->assertExactJson(['mode_ujian' => true]);
+        $this->get(route('dashboard'))->assertOk()
+            ->assertDontSee('data-sims-ticker', false)
+            ->assertDontSee('Survei Pembelajaran');
+
+        // Mode Ujian = saklar induk: seluruh rute survei mati untuk staf juga.
+        $pesan = 'Survei Pembelajaran dinonaktifkan selama Mode Ujian aktif.';
+        foreach ([route('survei.index'), $detail, route('survei.analisis', $periode), route('survei.masuk', $periode)] as $url) {
+            $this->get($url)->assertRedirect(route('dashboard'))->assertSessionHas('info_mode_ujian', $pesan);
+        }
+        $this->post(route('survei.sesi.mulai', $periode), ['kelas_sesi' => [$kelasId]])
+            ->assertRedirect(route('dashboard'));
+        $this->post(route('survei.tutup', $periode))->assertRedirect(route('dashboard'));
+        $this->postJson(route('survei.kios.verifikasi', $periode))->assertStatus(423)->assertJson(['mode_ujian' => true]);
+        $this->assertSame(0, $periode->sesi()->count());
+        $this->assertFalse((bool) $periode->fresh()->ditutup);
+
+        // Sarpras tetap bisa dipakai staf.
+        $this->get(route('sarpras.dashboard'))->assertOk();
+
+        ModeUjian::nonaktifkan();
+        $this->post(route('survei.sesi.mulai', $periode), ['kelas_sesi' => [$kelasId]])->assertRedirect($detail);
+        $this->assertSame(1, $periode->sesi()->count());
+    }
+
     public function test_guru_dan_admin_tidak_terkunci_saat_mode_ujian_aktif(): void
     {
         ModeUjian::aktifkan();

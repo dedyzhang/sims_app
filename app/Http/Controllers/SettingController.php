@@ -23,7 +23,7 @@ use Illuminate\Support\Str;
 class SettingController extends Controller
 {
     /** Role & permission yang sah untuk matriks hak akses (satu sumber kebenaran). */
-    private const VALID_ROLES = ['kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'bendahara', 'tendik', 'guru', 'orangtua', 'siswa'];
+    private const VALID_ROLES = ['kepala', 'kurikulum', 'kesiswaan', 'humas', 'sarpras', 'bendahara', 'tendik', 'guru', 'orangtua', 'siswa'];
 
     private const PERMISSION_LABELS = [
         'manage_users' => 'Mengelola Data Siswa & Guru (Data Master)',
@@ -42,6 +42,8 @@ class SettingController extends Controller
         'manage_perangkat' => 'Memantau Perangkat Ajar Guru',
         'manage_rapat' => 'Mengelola Agenda Rapat (Notulen)',
         'manage_kaih' => 'Mengelola Kuesioner & Rekap 7 KAIH',
+        'view_survei' => 'Melihat Rekap Survei Pembelajaran',
+        'jadi_surveyor' => 'Memandu Sesi Survei (Surveyor)',
         'manage_ujian' => 'Membuat, Mengelola & Menilai Ujian (PTS/PAS/UAS/Harian)',
         'manage_osis' => 'Mengelola Pemilihan Ketua OSIS (Paslon, Token QR, Live & Hasil)',
     ];
@@ -809,6 +811,9 @@ class SettingController extends Controller
                     continue;
                 }
                 foreach ($rolePerms as $permission => $val) {
+                    if (in_array($permission, ['view_survei', 'jadi_surveyor'], true) && in_array($role, ['siswa', 'orangtua'], true)) {
+                        continue;
+                    }
                     if ($val && in_array($permission, $validPermissions, true)) {
                         RolePermission::create([
                             'role' => $role,

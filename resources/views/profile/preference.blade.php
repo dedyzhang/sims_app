@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Kustomisasi Tampilan')
+@section('title', 'Personalisasi')
 
 @push('styles')
 <style>
@@ -23,9 +23,9 @@
         <div>
             <h1 class="page-title flex items-center gap-2">
                 <span class="grid place-items-center w-9 h-9 rounded-xl text-white" style="background:linear-gradient(135deg,var(--cp),var(--cps))"><i data-lucide="palette" class="w-5 h-5"></i></span>
-                Studio Tampilan
+                Personalisasi
             </h1>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Atur warna, sidebar, dan tema. Perubahan tampil <span class="font-semibold text-slate-700 dark:text-slate-300">langsung</span> sebelum disimpan.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1.5">Atur tema aplikasi, sidebar, tombol, dan wallpaper pribadi. Perubahan tampil <span class="font-semibold text-slate-700 dark:text-slate-300">langsung</span> sebelum disimpan.</p>
         </div>
         <button @click="reset()" class="btn-ghost flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
             <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset Default
@@ -82,13 +82,13 @@
             </div>
 
 
-            {{-- Tema Dashboard --}}
+            {{-- Tema Aplikasi --}}
             <div class="card p-5">
                 <div class="flex items-center gap-2 mb-1">
                     <i data-lucide="monitor-cog" class="w-[18px] h-[18px] text-primary"></i>
-                    <h2 class="font-bold text-slate-800 dark:text-slate-100">Tema Dashboard</h2>
+                    <h2 class="font-bold text-slate-800 dark:text-slate-100">Tema Aplikasi</h2>
                 </div>
-                <p class="text-xs text-slate-400 mb-4">Pilih rasa tampilan khusus halaman dashboard.</p>
+                <p class="text-xs text-slate-400 mb-4">Ubah susunan sidebar, header, tombol, form, tabel, dan kartu di seluruh aplikasi.</p>
                 <div class="grid sm:grid-cols-2 gap-3">
                     <button type="button" @click="setDashboardTheme('windows11')"
                             class="theme-card relative rounded-2xl p-3 border-2 text-left overflow-hidden transition"
@@ -107,7 +107,7 @@
                             <p class="text-[13px] font-bold text-slate-700 dark:text-slate-200">Windows 11</p>
                             <i x-show="dashboard_theme==='windows11'" data-lucide="check-circle-2" class="w-4 h-4 text-primary"></i>
                         </div>
-                        <p class="text-[11px] text-slate-400">Fluent, rapi, radius sedang</p>
+                        <p class="text-[11px] text-slate-400">Fajar biru, jendela ringkas, taskbar bawah</p>
                     </button>
                     <button type="button" @click="setDashboardTheme('macos')"
                             class="theme-card relative rounded-2xl p-3 border-2 text-left overflow-hidden transition"
@@ -127,10 +127,19 @@
                             <p class="text-[13px] font-bold text-slate-700 dark:text-slate-200">Mac OS</p>
                             <i x-show="dashboard_theme==='macos'" data-lucide="check-circle-2" class="w-4 h-4 text-primary"></i>
                         </div>
-                        <p class="text-[11px] text-slate-400">Glass, halus, radius besar</p>
+                        <p class="text-[11px] text-slate-400">Senja pesisir, jendela mengambang, dock</p>
                     </button>
+                @foreach(['fluent' => ['Fluent', 'Arsitektur malam, navigasi navy, kontrol rapat'], 'macos-minimal' => ['macOS Minimal', 'Bukit berkabut, panel kertas, tata letak lega'], 'bento' => ['Bento', 'Taman bentuk, kartu berbingkai, tombol besar']] as $themeId => [$themeName, $themeDescription])
+                    <button type="button" @click="setDashboardTheme('{{ $themeId }}')" :aria-pressed="dashboard_theme==='{{ $themeId }}'"
+                        class="theme-card rounded-2xl p-3 border-2 text-left" :class="dashboard_theme==='{{ $themeId }}' ? 'border-primary' : 'border-slate-100 dark:border-slate-700'">
+                        <div aria-hidden="true" class="theme-scene-preview" data-scene="{{ $themeId }}" style="background-image:url('{{ asset('images/themes/'.$themeId.'.svg') }}')"><span></span><span></span></div>
+                        <p class="text-sm font-bold text-slate-700 dark:text-slate-200">{{ $themeName }} <span x-show="dashboard_theme==='{{ $themeId }}'">✓</span></p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ $themeDescription }}</p>
+                    </button>
+                @endforeach
                 </div>
             </div>
+            @include('profile.wallpaper')
             {{-- Tema lengkap (motif + warna) --}}
             <div class="card p-5">
                 <div class="flex items-center gap-2 mb-1">
@@ -269,7 +278,7 @@
                     {{-- mini app shell --}}
                     <div class="flex h-[380px] preview-shell">
                         {{-- mini sidebar --}}
-                        <div class="w-[90px] flex flex-col p-2.5 gap-1.5 flex-shrink-0" :style="'background:'+sidebar_bg+';color:'+sidebar_text">
+                        <div class="preview-sidebar w-[90px] flex flex-col p-2.5 gap-1.5 flex-shrink-0" :style="'background:'+sidebar_bg+';color:'+sidebar_text">
                             <div class="flex items-center gap-1.5 mb-2 px-1">
                                 <div class="w-6 h-6 rounded-lg grid place-items-center flex-shrink-0" :style="'background:linear-gradient(135deg,'+primary_color+','+secondary_color+')'">
                                     <span class="text-white text-[10px] font-black">E</span>
@@ -395,6 +404,13 @@ function prefStudio(data) {
             r.style.setProperty('--ca', this.accent_color);
             r.style.setProperty('--sbg', this.sidebar_bg);
             r.style.setProperty('--stx', this.sidebar_text);
+            if (this.sidebar_bg.toLowerCase() !== '#ffffff') {
+                r.style.setProperty('--sims-sidebar-bg', this.sidebar_bg);
+                r.style.setProperty('--sims-sidebar-text', this.sidebar_text);
+            } else {
+                r.style.removeProperty('--sims-sidebar-bg');
+                r.style.removeProperty('--sims-sidebar-text');
+            }
             const fm = { sm:['11px','13px','15px'], md:['12px','14px','16px'], lg:['13px','15px','17px'] }[this.font_size];
             r.style.setProperty('--fsm', fm[0]); r.style.setProperty('--fmd', fm[1]); r.style.setProperty('--flg', fm[2]);
         },
@@ -422,7 +438,7 @@ function prefStudio(data) {
             this.setMode(this.theme_mode);
             if (window.setMotif) window.setMotif(this.motif);
             if (window.setStyle) window.setStyle(this.ui_style);
-            if (window.setDashboardTheme) window.setDashboardTheme(this.dashboard_theme);
+            if (window.setDashboardTheme) window.setDashboardTheme(this.dashboard_theme, false);
             this.$nextTick(()=>lucide.createIcons());
         },
 
@@ -435,7 +451,7 @@ function prefStudio(data) {
                     body: JSON.stringify({ _method:'PUT', ...this._state() })
                 });
                 const d = await res.json();
-                if (res.ok) { this._saved = JSON.stringify(this._state()); showToast(d.message || 'Tema disimpan!'); }
+                if (res.ok) { this._saved = JSON.stringify(this._state()); document.body.dataset.savedUiTheme = this.dashboard_theme; window.setDashboardTheme(this.dashboard_theme, false); showToast(d.message || 'Tema disimpan!'); }
                 else { showToast(Object.values(d.errors||{})[0]?.[0] || 'Gagal menyimpan', 'error'); }
             } catch { showToast('Gagal menghubungi server', 'error'); }
             this.saving = false;
@@ -443,10 +459,10 @@ function prefStudio(data) {
 
         reset() {
             $.confirm({ title:'Reset ke default?', content:'Semua kustomisasi warna akan dikembalikan ke bawaan.', type:'orange',
-                buttons:{ ya:{ text:'Ya, Reset', btnClass:'btn-blue', action:()=> window.location='{{ route('profile.preference.reset') }}' }, batal:{text:'Batal'} } });
+                buttons:{ ya:{ text:'Ya, Reset', btnClass:'btn-blue', action:()=> { window.setDashboardTheme('windows11', false); window.location='{{ route('profile.preference.reset') }}'; } }, batal:{text:'Batal'} } });
         },
 
-        init() { this.apply(); this.$nextTick(()=>lucide.createIcons()); }
+        init() { this.dashboard_theme = document.body.dataset.uiTheme || this.dashboard_theme; this.apply(); this.$nextTick(()=>lucide.createIcons()); }
     }
 }
 </script>

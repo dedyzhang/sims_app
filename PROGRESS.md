@@ -341,15 +341,226 @@ Ref: `docs/sarpras/PRD.md`, `docs/sarpras/features/01-refactor-simplify.md`
 - [x] Tes `php artisan test --filter=Sarpras`
 - [x] Panduan: `docs/PANDUAN_PENGGUNAAN_SIMS_APP.md` §17 + `resources/panduan/visual.html` kartu Sarpras (6 menu, tanpa booking/kanvas).
 
+---
+
+## Survei Pembelajaran — dijalankan lokal 2026-11-13
+
+Modul survei siswa tentang guru/wali kelas, masuk lewat QR + akun SIMS, sesi token kelas, hasil agregat setelah ditutup.
+
+- [x] Periode, sasaran dari Jadwal/Walikelas, QR `survei.masuk`, satu kirim per siswa
+- [x] Sesi token 6 digit (wajib), SEB/Kios opsional (default mati)
+- [x] Analisis guru, PDF kelas, CSV, daftar responden (pembuat periode)
+- [x] `php artisan test --filter=SurveiPembelajaranTest` → **17 passed / 334 assertions**
+- [x] Alur lokal sqlite: admin buat periode → mulai sesi → siswa token + kirim → tutup → analisis
+- [ ] Commit & deploy server sekolah — **tunggu approval FL**
+- [ ] Konfigurasi SEB/Kios produksi (`SURVEI_SEB_*`, `SURVEI_KIOS_PUBLIC_KEYS`)
+
+
  # # #   F a s e   4 :   A b s e n s i   K e g i a t a n 
  -   [ x ]   T a s k   1 - 5 :   U I   T i r u a n   H a l a m a n   K e g i a t a n ,   D a f t a r ,   S c a n   H a d i r 
  -   [   ]   T a s k   6 :   M i g r a t i o n   &   M o d e l 
  -   [   ]   T a s k   7 - 1 0 :   C o n t r o l l e r   &   R o u t e   ( P r o s e s   B i s n i s ) 
- -   [   ]   T a s k   1 1 :   A u t h o r i z a t i o n   &   L a p o r a n   P D F  
+ -   [   ]   T a s k   1 1 :   A u t h o r i z a t i o n   &   L a p o r a n   P D F 
+ 
  
  # # #   F a s e   4 :   A b s e n s i   K e g i a t a n 
  -   [ x ]   T a s k   1 - 5 :   U I   T i r u a n 
  -   [ x ]   T a s k   6 :   M i g r a t i o n   &   M o d e l 
  -   [ x ]   T a s k   7 - 1 0 :   C o n t r o l l e r   &   R o u t e   ( P r o s e s   B i s n i s ) 
- -   [ x ]   T a s k   1 2 :   S e e d e r  
+ -   [ x ]   T a s k   1 2 :   S e e d e r 
  
+ 
+## Eksperimen tema aplikasi — 2026-11-14 (lokal, tanpa commit/push)
+
+- [x] Pilihan Windows 11, Mac OS, Fluent, macOS Minimal, Bento.
+- [x] Tema seluruh layout aplikasi: sidebar, header, tombol, form, tabel, kartu, dialog; preferensi tersimpan per pengguna.
+- [x] Pratinjau tema mengikuti navigasi tab; simpan/batal/reset melalui Studio Tampilan.
+- [x] Spotlight dari katalog navigasi akun: Ctrl/Cmd+K, panah/Enter/Esc, tombol mobile.
+- [x] Wallpaper pribadi JPG/PNG/WebP: validasi format/ukuran, optimasi foto, posisi, ukuran, redup, buram, simpan/batal/hapus.
+- [x] Wallpaper disimpan dalam IndexedDB per akun pada browser ini; tidak dikirim ke server sekolah.
+- [x] Wallpaper bawaan Aurora/Taman/Senja, tema terang/gelap, reduced motion, pembatasan personalisasi di kiosk/mode ujian siswa.
+- [x] ProfilePreferenceTest: 6 lulus / 53 assertions; tes frontend wallpaper: 4 lulus.
+- [x] Build Vite dan kompilasi Blade berhasil pada sesi implementasi; diff check bersih.
+- [x] Pemeriksaan Safari pada akun demo: dashboard/profil, perubahan sidebar/header, unggah gambar contoh, simpan dan reload wallpaper, mode gelap, pencarian Spotlight.
+- [ ] Pemeriksaan perangkat HP fisik belum dilakukan.
+
+Catatan: tautan Jadwal Mengajar pada akun demo menghasilkan 403 dari otorisasi existing. Hak akses tidak diubah dalam eksperimen UI ini.
+
+- [x] Perbaikan kontras Bento + sidebar gelap/Analyzer: teks, ikon, dan panah tombol grup mengikuti warna panel; hover tetap terbaca.
+- [x] Hover/fokus menu sidebar memakai latar sidebar aktual (termasuk Analyzer/kustom); ikon mengikuti warna teks menu agar kontras konsisten.
+
+## Penyempurnaan identitas tema dan performa — 2026-11-14
+
+- [x] Lima wallpaper SVG lokal khusus tema; opsi Ikuti tema aplikasi dan override foto pribadi.
+- [x] Komposisi berbeda: Windows/taskbar, Fluent/navy, macOS/jendela+dock, Minimal/panel kertas, Bento/kartu berbingkai.
+- [x] Label pemilih Gaya Tampilan; halaman pengaturan Personalisasi; pratinjau tema diperbarui.
+- [x] Dock memakai registry navigasi existing, tanpa query atau endpoint baru.
+- [x] Polling ticker 60 detik sesuai TTL cache; satu timer berkunci, guard request berjalan, jeda tab tersembunyi, tidak aktif saat kiosk/mode ujian.
+- [x] Memo TickerStats per-request mencegah pembacaan cache/database berulang; clear menghapus memo juga.
+- [x] 17 tes fitur terkait preferensi/role/tampilan lulus; 8 tes frontend wallpaper/polling lulus; build berhasil.
+- [x] Safari: wallpaper macOS, bingkai, dock, label baru, dan isi dashboard terlihat.
+- [ ] Pemeriksaan query seluruh modul aplikasi dan HP fisik belum dilakukan.
+
+## Penyatuan bingkai aplikasi — 2026-11-14
+
+- [x] Sidebar, header, dan konten berada dalam satu bingkai; celah dan bayangan antarbagian dihapus.
+- [x] Dock Windows/macOS dipindahkan ke alur layout di bawah konten, tanpa posisi mengambang atau menutup halaman.
+- [x] Pemilih Gaya Tampilan menyatu sebagai toolbar halaman; wallpaper dan karakter tema dipertahankan.
+- [x] Mobile memakai bingkai penuh layar dan sidebar overlay existing.
+- [x] Perubahan hanya layout/CSS, tanpa penambahan query atau timer polling.
+- [x] Fluent mode terang: latar sidebar memakai --sbg navy yang berpasangan dengan teks terang; wallpaper tidak lagi menggantinya dengan panel pucat.
+- [x] Windows/Fluent: kembalikan identitas sidebar biru dan tambahkan lis kuning pada pemisah sidebar/header, indikator aktif, ikon aktif, dan pratinjau; kontras hover mengikuti palet biru.
+
+## Review performa dan SIMS-NET ringan — 2026-11-14
+
+- [x] Review kode tema/wallpaper/footer; temuan dan batas pengukuran di docs/REVIEW-PERFORMA-TEMA-SIMS-NET.md.
+- [x] SIMS-NET statis, satu salinan statistik, geser horizontal; hapus animasi marquee/ping dan shadow besar.
+- [x] Tetap polling tunggal 60 detik, cache/memo statistik existing, pembaruan textContent hanya jika berubah.
+- [x] URL Blob wallpaper dipakai ulang selama foto sama; slider tidak lagi mengganti URL gambar.
+- [x] Tes terarah, build Vite, dan kompilasi Blade lulus; tanpa migration/dependensi baru.
+- [ ] Benchmark GPU/HP fisik dan uji beban banyak pengguna belum dilakukan.
+
+## SIMS-NET ticker bursa 2D — 2026-11-14
+
+- [x] Riset sumber primer web.dev/MDN/W3C; rekomendasi di docs/RISET-SIMS-NET-TICKER-2D.md.
+- [x] CSS translateX linear, kecepatan sekitar 32 px/detik; satu track dan satu salinan visual aria-hidden di browser.
+- [x] Tombol Jeda/Lanjut, hover/fokus, hidden tab, dan reduced motion; jeda manual melewati polling data.
+- [x] Tanpa library, loop frame JS, query tambahan, atau interval data baru; polling tetap 60 detik.
+- [x] Tes animasi/polling/wallpaper, fitur ticker, kompilasi Blade, dan build diperiksa.
+- [ ] Pengukuran FPS/GPU dan HP fisik belum dilakukan.
+
+## Perbaikan ticker diam dan integrasi tema — 2026-11-14
+
+- [x] Safari terkonfirmasi memakai reduced motion; kontrol Gerakkan tetap tersedia sebagai pilihan eksplisit khusus ticker.
+- [x] Pilihan gerak diingat per akun dalam tab via sessionStorage dan bertahan setelah refresh, tanpa mengubah pengaturan OS.
+- [x] Tombol Lanjut tidak lagi tertahan karena fokus/hover pada tombol; fokus keyboard di area statistik tetap menyediakan pembacaan diam.
+- [x] Skrip lokal ticker dimuat tepat setelah markup, terpisah dari antrean defer CDN.
+- [x] Palet Windows/Fluent/macOS/Minimal/Bento serta mode gelap mengikuti tema melalui CSS; tinggi bar 32 px tanpa blur/shadow/3D.
+- [x] Animasi CSS 2D tanpa request/query/timer frame baru; polling existing tetap 60 detik.
+- [x] 12 tes frontend lulus; 6 tes fitur terkait diperiksa; Safari: Gerakkan → Jeda dan status aktif bertahan setelah refresh.
+
+## Riwayat menu dan favorit pada bar bawah — 2026-11-14
+
+- [x] Ganti pintasan tetap dengan gabungan favorit + riwayat menu, maksimal 10 entri unik.
+- [x] Bintang dapat dipasang/dilepas; favorit didahulukan dan dipertahankan saat riwayat berganti; favorit maksimal 10.
+- [x] Gunakan registry navigasi sesuai akses dan penyimpanan browser existing; subhalaman dipetakan ke menu induknya.
+- [x] Riwayat sidebar existing tetap tersedia; dock di desktop seluruh tema, dapat digeser horizontal.
+- [x] Tanpa endpoint, query, dependency, atau polling baru. Tes riwayat/favorit 3 lulus, tes preferensi dan build diperiksa.
+
+
+## Detail survei compact — 2026-11-14
+
+- [x] Panel sesi dan QR berdampingan di desktop; lebar konten mengikuti area utama, dengan susunan satu kolom pada layar sempit.
+- [x] Kelompok tingkat kelas memakai grid rapat, pilihan kelas lebih kecil, serta tombol Semua/Lepas tetap berfungsi.
+- [x] Total siswa yang sudah mengirim terlihat pada ringkasan; rincian per kelas dan tabel sasaran dapat dibuka saat diperlukan.
+- [x] QR 160 px dengan warna hitam/putih eksplisit tetap terlihat pada mode terang maupun gelap; tautan masuk tetap tersedia.
+- [x] Perubahan hanya Blade/CSS: tanpa endpoint, query, polling, dependency, migration, atau perubahan otorisasi baru.
+- [x] Dua tes alur survei lulus (112 assertion), Blade cache dan build berhasil; Safari memverifikasi pilihan 3 kelas, lepas pilihan, rincian, serta mode terang/gelap. Tidak memulai sesi atau mengirim respons demo.
+- [x] Perubahan tetap lokal, tanpa commit atau push.
+
+
+## Sasaran survei per kelas — 2026-11-14
+
+- [x] Khusus bagian Sasaran survei: ganti tabel panjang dengan grid ringkasan kelas yang langsung terlihat.
+- [x] Header menampilkan total sasaran dan kelas; rincian guru, mata pelajaran, respons, serta tautan hasil dibuka per kelas.
+- [x] Gunakan koleksi targets existing dan elemen details native, tanpa query, polling, atau JavaScript baru; aturan akses hasil dipertahankan.
+- [x] Tes render survei lulus (16 assertion), diff bersih; Safari memverifikasi 20 sasaran dalam 10 kelas dan rincian kelas 7 A dapat dibuka/ditutup.
+- [x] Perubahan tetap lokal tanpa commit atau push.
+
+
+## Rekap otomatis skor dan catatan per guru — 2026-11-14
+
+- [x] Perluas analisis existing dengan nilai skala 100 (skor × 20), cakupan kelas/isian, dan rincian indikator; skor berbobot dan pemisahan mapel/wali dipertahankan.
+- [x] Rekap catatan berdasarkan sasaran guru, peran, serta pertanyaan; tulisan sama digabung dengan jumlah kemunculan, tanpa AI atau perubahan maksud teks.
+- [x] Komentar tetap khusus admin pembuat periode; petugas berizin memperoleh versi skor tanpa komentar. Kelompok kecil tidak ikut rekap; identitas akun siswa tidak dimuat.
+- [x] Tambahkan unduhan PDF seluruh guru untuk bahan kepala sekolah/waka, tombol pada analisis, Cache-Control no-store, dan audit unduhan.
+- [x] Dua SELECT untuk seluruh rekap, tanpa N+1/polling/dependency baru. Tanpa migration, perubahan RBAC, atau perubahan data/rapor siswa.
+- [x] 22 tes survei lulus (493 assertion), build berhasil, sintaks/diff diperiksa. Lima halaman PDF data uji dirender dan ditinjau secara visual.
+- [x] Panduan fitur/perhitungan/akses tersedia di docs/REKAP-SKOR-DAN-CATATAN-GURU.md. Tidak ada commit atau push.
+
+
+## Contoh rekap guru — 2026-11-14
+
+- [x] Buat output/pdf/Contoh-Rekap-Survei-Guru.pdf dari template dan perhitungan aplikasi dengan model fiktif di memori (tanpa perubahan data survei).
+- [x] Contoh 2 kelas, 12 isian, 120 jawaban: skor 4,30/5 = 86/100, 24 catatan dikelompokkan menjadi 4 tulisan. Tiga halaman diperiksa secara visual.
+
+
+## Format laporan evaluasi guru — 2026-11-14
+
+- [x] Susun ulang PDF dengan kop, identitas guru/peran, nilai utama, tabel indikator, ringkasan pembinaan, catatan/frekuensi, rencana tindakan, refleksi, dan ruang paraf.
+- [x] Periksa panduan Kemendikdasmen; tandai sebagai evaluasi pendukung berbasis survei siswa, tanpa klaim formulir atau predikat PKG resmi.
+- [x] Pisahkan hasil dan tindak lanjut; contoh satu guru sekarang dua halaman A4. Tambahkan nomor halaman pada unduhan PDF aplikasi.
+- [x] Skor dan catatan contoh tetap 86/100 serta 24 catatan. Privasi, query, polling, dan otorisasi tidak berubah.
+- [x] Tes laporan lulus (42 assertion), diff/sintaks diperiksa, dan kedua halaman contoh dirender serta diperiksa secara visual.
+- [x] Perubahan tetap lokal, tanpa commit atau push.
+
+
+## Tindak lanjut review kode lintas Claude — 2026-11-14
+
+- [x] Rute survei tetap melewati auth dan gate wajib ganti password; pendaftaran wajah dikecualikan khusus nama route survei dan alasannya didokumentasikan.
+- [x] Abaikan artefak lokal `output/` dan `tmp/` dari Git; hapus view survei lama yang tidak lagi dirender, pertahankan route redirect kompatibilitas.
+- [x] PDF laporan per kelas kini menampilkan nomor halaman seperti laporan per guru.
+- [x] Perubahan lokal saja; tanpa commit atau push.
+
+
+## Audit query dan polling — 2026-11-14
+
+- [x] Dashboard komposisi memakai agregat siswa yang sudah dihitung controller; hilangkan dua hitungan gender ulang.
+- [x] Komentar kelas tidak membuat interval saat dinonaktifkan; fallback aktif memakai scheduler berkunci. Forum memakai scheduler dengan guard tab tersembunyi/permintaan berjalan.
+- [x] Semua pemanggil simsPollInterval memakai key unik; inbox chatbot tidak menggandakan listener Firebase, fallback interval terdeduplikasi, dan request antrean/pesan dijaga agar tidak overlap. Poll chatbot siswa juga memakai guard in-flight.
+- [x] Tes dashboard/survei/chatbot: 26 lulus / 553 assertions; tes frontend polling: 5 lulus; PHP lint dan diff check bersih.
+- [x] Tidak mengubah migration, data, atau matriks izin; tanpa commit/push.
+
+## Penyelesaian sisa review lintas Claude — 2026-11-14
+
+- [x] Verifikasi ulang temuan #1–#5: pengecualian wajah survei terdokumentasi, view `isi` lama terhapus, `output/`/`tmp/` di-ignore, nomor halaman PDF kelas ada, theme-picker tampil di dashboard siswa/orang tua.
+- [x] Tombol "Tutup periode survei" kini hanya tampil untuk admin (periode bertoken: hanya pembuat), sama dengan otorisasi `tutup()`.
+- [x] Variabel `SURVEI_SEB_*`/`SURVEI_KIOS_*` di `.env.example` dipindah ke blok sendiri di akhir file.
+- [x] Tambah 2 test: rute survei bebas gate wajah tetapi tetap wajib ganti password (termasuk orang tua); tombol tutup tersembunyi bagi surveyor non-admin. `SurveiPembelajaranTest` → **24 passed / 509 assertions**.
+- [x] Perubahan lokal saja; tanpa commit atau push.
+
+## Audit query & polling duplikat dashboard/survei — 2026-11-14
+
+- [x] Probe sementara per request (SQL + binding identik) atas seluruh `SurveiPembelajaranTest` dan test dashboard/tampilan; dashboard admin/humas/siswa juga diukur di DB lokal (cache dingin & hangat). Probe sudah dihapus.
+- [x] `Langganan::current()`: saat belum ada baris lisensi, `Cache::remember` tidak menyimpan null sehingga middleware + banner query 2× per request admin. Kini menyimpan penanda `false`.
+- [x] Halaman Personalisasi memuat `user_preferences` 2× (controller + layout); kini `prefTampilan(segar: true)` sekali dan dimemo untuk layout.
+- [x] `simsPollInterval`: guard cadence tanpa toleransi bisa melewatkan tick sah karena jitter timer (60 dtk jadi 120 dtk); tambah toleransi `min(1 dtk, ms/10)` + test frontend jitter.
+- [x] Hasil di browser (admin): dashboard 32 query, survei 8–10 query, Personalisasi 7 query, semuanya tanpa duplikat; satu timer polling (`footer-ticker`), halaman survei tanpa polling.
+- [x] Test: 212 lulus pada filter Survei/Dashboard/Profile/Setting/Ticker/Sarpras/ModeUjian/Auth; frontend 19/19. Kegagalan yang sudah ada sebelumnya dan tidak terkait: `LanggananTest` (3), `UjianAuthoringTest` (5, "mode skor field is required").
+- [x] Dashboard Sarpras dirapikan: total aset & aset berisiko dari agregat kondisi yang sudah ada; tiga hitungan kerusakan terbuka jadi satu agregat `status, urgensi`; eager-load `pelapor`/`pengaju` yang tidak dipakai view dihapus; `ruangan` untuk booking + aset perlu tindakan dimuat sekali.
+- [x] Bug tampilan: kartu "Jadwal Ruangan Hari Ini" memanggil relasi `pemohon` yang tidak ada di `Peminjaman`, jadi nama peminjam selalu "-". Kini `peminjam->name` dengan eager-load guru/siswa (tanpa N+1).
+- [x] `SarprasDashboardTest` diperkuat: cek angka ringkasan, nama peminjam/ruangan, dan tidak ada query identik dalam satu render (gagal di kode lama). Sarpras/Ticker/Dashboard: 79 lulus. Browser: `/sarpras` 20 query, 0 duplikat.
+- [x] Perubahan lokal saja; tanpa commit atau push.
+
+## Pemilih tema dashboard minimalis — 2026-11-14
+
+- [x] Hapus judul "Ruang kerja sekolah / Hari ini di SIMS" dan kalimat penjelas pratinjau; pemilih Gaya Tampilan kini kapsul kecil rata kanan (ikon palet + pilihan tema, label `sr-only`, petunjuk simpan di tooltip).
+- [x] `theme-experiences.css`: toolbar dashboard tanpa garis bawah/padding.
+- [x] Dicek di browser: terang/gelap, lebar HP 375 px tanpa scroll horizontal, pratinjau tema tetap berfungsi. Test dashboard/preferensi & frontend lulus. Tanpa commit/push.
+
+## Dock "Baru dibuka" tanpa petunjuk favorit — 2026-11-14
+
+- [x] Hapus baris "★ Favorit di depan" dan label "Baru dibuka" (beserta CSS-nya) dari dock riwayat; dock kini hanya berisi item aplikasi.
+- [x] Nama aplikasi di dock tampil utuh (tanpa batas 100 px/ellipsis); item di tengah dengan `justify-content: safe center`, bisa digeser horizontal bila penuh. Dicek 10 item di 1024 px: tidak ada nama terpotong, item pertama tidak terpotong.
+- [x] Label kembar di registri navigasi (dock/Baru dibuka/Favorit) diberi nama grup, mis. "Dashboard · Sarana & Prasarana", "Data Guru · Cetak Data"; sidebar grup tetap label asli.
+- [x] Dicek di browser 1280 px tema macOS; test frontend 19/19 dan 61 test layout/dashboard/survei lulus. Tanpa commit/push.
+
+## Kepatuhan Mode Ujian untuk tampilan, survei, sarpras — 2026-11-14
+
+- [x] Audit: siswa saat Mode Ujian sudah dikunci ke `ujian.*` (survei, dashboard, Personalisasi, Sarpras dialihkan); tema/wallpaper, dock, spotlight, ticker, Firebase, dan semua widget polling sudah nonaktif.
+- [x] Header: ikon "Tema dan wallpaper" dan toggle gaya Soft/Analyzer disembunyikan bagi siswa saat Mode Ujian (dulu tampil tetapi permintaannya ditolak 403).
+- [x] Ticker SIMS-NET: endpoint `dashboard.ticker-stats` mengembalikan `{mode_ujian:true}` tanpa query statistik; tab staf yang terbuka sebelum Mode Ujian menghentikan timer `footer-ticker` dan menyembunyikan ticker.
+- [x] Survei (keputusan FL: Mode Ujian = saklar induk): middleware `NonaktifSaatModeUjian` di 26 rute survei mematikan modul untuk SEMUA peran — staf diarahkan ke dashboard dengan toast "Informasi" (flash `info_mode_ujian`), JSON 423; siswa tetap dialihkan ke ruang ujian. Menu Survei disembunyikan dari sidebar. Keputusan FL: Sarpras dan tema/tampilan staf tetap aktif selama Mode Ujian.
+- [x] Test: 2 test baru di `ModeUjianLockdownTest` + 1 test frontend; 191 test terkait lulus, frontend 20/20. Diverifikasi di browser (Mode Ujian dinyalakan lalu dimatikan lagi di DB lokal). Tanpa commit/push.
+- [x] Siswa yang sedang mengisi survei di SEB/SIMS Kios saat Mode Ujian dinyalakan dialihkan ke ruang ujian (survei mati total, sesuai keputusan FL).
+- [x] Test diperbarui; 252 test terkait lulus, frontend 20/20; dicek di browser lalu Mode Ujian lokal dimatikan lagi.
+
+## Perbaikan tombol "Mulai layar penuh" survei macet — 2026-11-14
+
+- [x] Akar masalah: `survei-fokus.js` menonaktifkan tombol lalu menunggu `requestFullscreen()`; di browser/WebView yang janjinya tidak pernah selesai, tombol abu-abu selamanya (halaman tampak freeze). iPhone tidak mendukung layar penuh sama sekali sehingga siswa tidak pernah bisa mengisi.
+- [x] Permintaan layar penuh dibatasi 2,5 detik; bila tidak didukung/ditolak/habis waktu, survei tetap dibuka dalam mode fokus tanpa layar penuh (tetap dijeda saat pindah tab/aplikasi). Perangkat tanpa dukungan langsung melihat tombol "Mulai survei". SEB/SIMS Kios tidak berubah.
+- [x] Test frontend baru `tests/Frontend/survei-fokus.test.cjs` (5 kasus); frontend 25/25, `SurveiPembelajaranTest` 24/24. Diverifikasi di browser sebagai siswa uji `siswa_coba_7a` (akun lokal, kredensial di `tmp/akun-demo-survei.txt`). Tanpa commit/push.
+
+## Teks tautan-tombol rata tengah — 2026-11-14
+
+- [x] Tema memberi `min-height` 40–44 px pada `.btn-*`; tautan `<a class="btn-primary">` (mis. "Unduh PDF rekap guru") teksnya menempel kiri-atas. `sims-appearance.css`: tautan bergaya tombol jadi `inline-flex` + rata tengah, dengan `:where()` (specificity 0) agar utilitas Tailwind tetap menang. Dicek di browser + 10 halaman tanpa regresi. Tanpa commit/push.
