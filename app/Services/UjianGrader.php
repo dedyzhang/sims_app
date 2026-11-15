@@ -141,6 +141,8 @@ class UjianGrader
         $jawabanList = UjianJawaban::where('id_attempt', $attempt->uuid)->get();
 
         $skorObjektif = 0;
+        $updates = [];
+        $now = now()->toDateTimeString();
 
         foreach ($jawabanList as $jawaban) {
             $soal = $soalById->get($jawaban->id_soal);
@@ -150,8 +152,27 @@ class UjianGrader
             }
 
             $hasil = $this->scoreObjective($soal, $jawaban);
-            $jawaban->update(['is_benar' => $hasil['is_benar'], 'skor_diperoleh' => $hasil['skor']]);
+            $jawaban->is_benar = $hasil['is_benar'];
+            $jawaban->skor_diperoleh = $hasil['skor'];
             $skorObjektif += $hasil['skor'];
+
+            $updates[] = [
+                'uuid'           => $jawaban->uuid,
+                'id_attempt'     => $attempt->uuid,
+                'id_soal'        => $jawaban->id_soal,
+                'is_benar'       => $hasil['is_benar'] ? 1 : 0,
+                'skor_diperoleh' => $hasil['skor'],
+                'updated_at'     => $now,
+            ];
+        }
+
+        // Optimasi Performa: Simpan seluruh skor objektif dalam 1 bulk upsert alih-alih 50 UPDATE query terpisah
+        if (!empty($updates)) {
+            UjianJawaban::upsert(
+                $updates,
+                ['id_attempt', 'id_soal'],
+                ['is_benar', 'skor_diperoleh', 'updated_at']
+            );
         }
 
         $adaEsaiBelumDinilai = $this->adaEsaiBelumDinilai($soalById, $jawabanList);
@@ -164,6 +185,26 @@ class UjianGrader
         }
 
         $attempt->update($update);
+    }
+
+    /**
+     * Hitung nilai massal untuk siswa yang berstatus 'submitted' pada satu kelas tertentu.
+     * Dipanggil on-demand saat unduh analisis per kelas agar server tidak menghitung seluruh kelas lain.
+     */
+    public function finalisasiObjektifKelas(\App\Models\UjianKelas $ujianKelas): int
+    {
+        $attempts = UjianAttempt::where('id_ujian_kelas', $ujianKelas->uuid)
+            ->where('status', UjianAttempt::STATUS_SUBMITTED)
+            ->whereNull('skor_objektif')
+            ->get();
+
+        $count = 0;
+        foreach ($attempts as $attempt) {
+            $this->finalisasiObjektif($attempt);
+            $count++;
+        }
+
+        return $count;
     }
 
     /**

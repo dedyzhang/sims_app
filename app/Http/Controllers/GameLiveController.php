@@ -29,8 +29,8 @@ class GameLiveController extends Controller implements HasMiddleware
     private const REVEAL_SECONDS = 4;
     private const STANDINGS_SECONDS = 6;
 
-    /** Siswa dianggap online jika last_seen dalam window ini (poll live ~3 detik). */
-    private const ONLINE_SECONDS = 12;
+    /** Siswa dianggap online jika last_seen dalam window ini (poll live ~3-4 detik). */
+    private const ONLINE_SECONDS = 30;
 
     private const ACTIVE_STATUSES = ['lobby', 'question', 'reveal', 'standings'];
 
@@ -220,13 +220,18 @@ class GameLiveController extends Controller implements HasMiddleware
             // Siswa yg buka halaman ini (dan terus polling) dianggap "masuk" ke sesi — dipakai
             // sbg penyebut auto-advance "semua yg hadir sudah jawab". joined_at TIDAK direset
             // tiap poll, cuma last_seen_at.
-            if (auth()->user()->access === 'siswa') {
+            if (auth()->user()->access === 'siswa' || (!auth()->user()->can('manage', $quiz) && auth()->user()->uuid !== $session->host_id)) {
                 $participant = GameLiveParticipant::firstOrNew(['session_id' => $session->uuid, 'user_id' => auth()->user()->uuid]);
-                if (!$participant->exists) {
+                $isNew = !$participant->exists;
+                if ($isNew) {
                     $participant->joined_at = now();
+                    $participant->last_seen_at = now();
+                    $participant->save();
+
+                    try {
+                        app(\App\Services\FirebaseRtdbService::class)->pingArena($session->uuid);
+                    } catch (\Throwable $e) {}
                 }
-                $participant->last_seen_at = now();
-                $participant->save();
             }
 
             $session = $this->autoAdvanceIfNeeded($session, $quiz, $classroom, $grader);
@@ -648,7 +653,6 @@ class GameLiveController extends Controller implements HasMiddleware
                 : 0;
         }
 
-        $onlineCutoff = now()->subSeconds(self::ONLINE_SECONDS);
         $participants = $session->isActive()
             ? GameLiveParticipant::where('session_id', $session->uuid)
                 ->with([
@@ -658,13 +662,11 @@ class GameLiveController extends Controller implements HasMiddleware
                 ])
                 ->orderBy('joined_at')
                 ->get()
-                ->map(function (GameLiveParticipant $p) use ($onlineCutoff) {
-                    $online = $p->last_seen_at && $p->last_seen_at->gte($onlineCutoff);
-
+                ->map(function (GameLiveParticipant $p) {
                     return [
                         'user_id' => $p->user_id,
                         'name' => $p->user?->displayName() ?? 'Siswa',
-                        'online' => $online,
+                        'online' => (bool) $p->joined_at,
                         'joined_at' => optional($p->joined_at)?->toIso8601String(),
                     ];
                 })

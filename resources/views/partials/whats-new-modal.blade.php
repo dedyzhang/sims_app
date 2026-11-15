@@ -4,7 +4,7 @@
      bila user mencentang "Jangan tampilkan lagi". --}}
 @php
     $pendingUpdate = null;
-    if (auth()->check()) {
+    if (auth()->check() && !session('is_demo_session', false)) {
         $pendingUpdate = \App\Models\AppUpdate::pendingFor(auth()->user());
     }
 @endphp

@@ -261,27 +261,33 @@ class UjianController extends Controller implements HasMiddleware
         // Daftar guru yg cocok (via Ngajar) vs guru lainnya di luar data ngajar utk tiap kelas ter-assign
         $idKelasUjian = $ujian->kelas->pluck('id_kelas')->filter()->all();
 
+        // Optimasi performa: Ambil semua data Ngajar mapel ini beserta relasi guru & kelas dalam 1 single query
+        $allNgajarMapel = $ujian->id_pelajaran
+            ? Ngajar::with(['guru', 'kelas'])->where('id_pelajaran', $ujian->id_pelajaran)->get()
+            : collect();
+
         $guruPengampuOpsi = $ujian->id_pelajaran
-            ? $ujian->kelas->mapWithKeys(function ($uk) use ($ujian, $semuaGuru, $idKelasUjian) {
+            ? $ujian->kelas->mapWithKeys(function ($uk) use ($allNgajarMapel, $semuaGuru, $idKelasUjian) {
                 $tingkat = $uk->kelas?->tingkat;
 
                 // Guru mapel resmi: guru yang mengajar mapel ini di kelas ini, atau di tingkat yang sama, atau di kelas-kelas ujian ini
-                $ngajarGurus = Ngajar::with('guru')
-                    ->where('id_pelajaran', $ujian->id_pelajaran)
-                    ->where(function ($q) use ($uk, $tingkat, $idKelasUjian) {
-                        $q->where('id_kelas', $uk->id_kelas);
-                        if (!empty($idKelasUjian)) {
-                            $q->orWhereIn('id_kelas', $idKelasUjian);
-                        }
-                        if ($tingkat) {
-                            $q->orWhereHas('kelas', fn ($kq) => $kq->where('tingkat', $tingkat));
-                        }
-                    })
-                    ->get()->pluck('guru')->filter()->unique('uuid')->values();
+                $matchedNgajar = $allNgajarMapel->filter(function ($n) use ($uk, $tingkat, $idKelasUjian) {
+                    if ($n->id_kelas === $uk->id_kelas) {
+                        return true;
+                    }
+                    if (!empty($idKelasUjian) && in_array($n->id_kelas, $idKelasUjian, true)) {
+                        return true;
+                    }
+                    if ($tingkat && $n->kelas?->tingkat == $tingkat) {
+                        return true;
+                    }
+                    return false;
+                });
+
+                $ngajarGurus = $matchedNgajar->pluck('guru')->filter()->unique('uuid')->values();
 
                 // Guru yang mengajar kelas ini secara langsung diutamakan di urutan teratas
-                $guruKelasIniIds = Ngajar::where('id_pelajaran', $ujian->id_pelajaran)
-                    ->where('id_kelas', $uk->id_kelas)
+                $guruKelasIniIds = $allNgajarMapel->where('id_kelas', $uk->id_kelas)
                     ->pluck('id_guru')->all();
 
                 $ngajarGurus = $ngajarGurus->sortBy(function ($g) use ($guruKelasIniIds) {
@@ -731,22 +737,77 @@ class UjianController extends Controller implements HasMiddleware
 
     /** Rekap skor per siswa lintas kelas + status transfer ke buku nilai. */
     /**
-     * Roster-driven (bukan cuma attempt yg submitted/dinilai) — SEMUA siswa kelas ter-assign
-     * tampil (belum mulai/sedang mengerjakan/terkumpul/dinilai), sesuai konvensi laporan resmi
-     * sekolah sendiri (lihat Excel Analisis Fase 6, siswa yg absen tetap dapat baris "-").
-     * Dukung filter ?kelas=uuid utk ujian multi-kelas (PTS/PAS lintas tingkat).
+     * Roster-driven: Ditampilkan per kelas (Class-first) agar server tidak berat saat ujian multi-kelas.
+     * Jika kelas belum dipilih, tampilkan ringkasan cepat per-kelas. Begitu kelas dibuka, baru muat siswa kelas tsb.
      */
     public function hasil(Request $request, Ujian $ujian, UjianRoster $rosterService)
     {
         $this->authorize('manage', $ujian);
 
-        // Deferred Grading: Kalkulasi nilai otomatis untuk attempt yang berstatus submitted
+        $ujianKelasList = $ujian->kelas()->with('kelas', 'guruPengampu')->get()
+            ->sortBy(fn ($uk) => [$uk->kelas?->tingkat, $uk->kelas?->kelas])
+            ->values();
+
+        $kelasFilter = $request->string('kelas')->toString();
+
+        // Jika hanya ada 1 kelas pada ujian ini, otomatis langsung buka kelas tersebut
+        if (! $kelasFilter && $ujianKelasList->count() === 1) {
+            $kelasFilter = $ujianKelasList->first()->id_kelas;
+        }
+
+        // TAMPILAN 1: PILIH KELAS (Ringkasan per-kelas agar server ringan & tidak meload ratusan siswa sekaligus)
+        if (! $kelasFilter) {
+            $idKelasList = $ujianKelasList->pluck('id_kelas')->filter()->all();
+            $idUjianKelasList = $ujianKelasList->pluck('uuid')->all();
+
+            $siswaCounts = Siswa::whereIn('id_kelas', $idKelasList)
+                ->selectRaw('id_kelas, count(*) as total')
+                ->groupBy('id_kelas')
+                ->pluck('total', 'id_kelas');
+
+            $attemptStats = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelasList)
+                ->selectRaw('id_ujian_kelas, status, count(*) as total')
+                ->groupBy('id_ujian_kelas', 'status')
+                ->get()
+                ->groupBy('id_ujian_kelas');
+
+            $transferCounts = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelasList)
+                ->where('status_transfer_nilai', 'berhasil')
+                ->selectRaw('id_ujian_kelas, count(*) as total')
+                ->groupBy('id_ujian_kelas')
+                ->pluck('total', 'id_ujian_kelas');
+
+            $kelasSummary = $ujianKelasList->map(function ($uk) use ($siswaCounts, $attemptStats, $transferCounts) {
+                $totalSiswa = $siswaCounts->get($uk->id_kelas, 0);
+                $stats = $attemptStats->get($uk->uuid, collect())->keyBy('status');
+                $dinilai = $stats->get(UjianAttempt::STATUS_DINILAI)?->total ?? 0;
+                $submitted = $stats->get(UjianAttempt::STATUS_SUBMITTED)?->total ?? 0;
+                $inProgress = $stats->get(UjianAttempt::STATUS_IN_PROGRESS)?->total ?? 0;
+                $tertransfer = $transferCounts->get($uk->uuid, 0);
+
+                $totalAttemptAktif = $dinilai + $submitted + $inProgress;
+                $belumMulai = max(0, $totalSiswa - $totalAttemptAktif);
+
+                return [
+                    'ujianKelas'   => $uk,
+                    'kelas'        => $uk->kelas,
+                    'total_siswa'  => $totalSiswa,
+                    'dinilai'      => $dinilai,
+                    'submitted'    => $submitted,
+                    'in_progress'  => $inProgress,
+                    'belum_mulai'  => $belumMulai,
+                    'tertransfer'  => $tertransfer,
+                ];
+            });
+
+            return view('ujian.hasil.index', compact('ujian', 'ujianKelasList', 'kelasSummary', 'kelasFilter'));
+        }
+
+        // TAMPILAN 2: DAFTAR SISWA KELAS TERPILIH
+        // Deferred Grading: Kalkulasi nilai otomatis hanya dilakukan untuk attempt yang dibuka
         app(\App\Services\UjianGrader::class)->finalisasiObjektifSemua($ujian);
 
-        $ujianKelasList = $ujian->kelas()->with('kelas')->get();
-        $kelasFilter = $request->string('kelas')->toString();
-        $untukRoster = $kelasFilter ? $ujianKelasList->where('id_kelas', $kelasFilter)->values() : $ujianKelasList;
-
+        $untukRoster = $ujianKelasList->where('id_kelas', $kelasFilter)->values();
         $roster = $rosterService->untukKelas($untukRoster);
 
         // Dihitung SEKALI di sini (bukan per-baris di view) supaya skorSementara() tak N+1
@@ -857,7 +918,12 @@ class UjianController extends Controller implements HasMiddleware
     public function paksaSelesaiSemua(Request $request, Ujian $ujian)
     {
         $this->authorize('manage', $ujian);
-        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujian->kelas()->pluck('uuid'))
+        $kelasFilter = $request->string('kelas')->toString();
+        $idUjianKelas = $ujian->kelas()
+            ->when($kelasFilter, fn ($q) => $q->where('id_kelas', $kelasFilter))
+            ->pluck('uuid');
+
+        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelas)
             ->where('status', UjianAttempt::STATUS_IN_PROGRESS)
             ->get();
         
@@ -875,7 +941,12 @@ class UjianController extends Controller implements HasMiddleware
     public function resetSemua(Request $request, Ujian $ujian, UjianNilaiTransfer $transfer)
     {
         $this->authorize('manage', $ujian);
-        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujian->kelas()->pluck('uuid'))->get();
+        $kelasFilter = $request->string('kelas')->toString();
+        $idUjianKelas = $ujian->kelas()
+            ->when($kelasFilter, fn ($q) => $q->where('id_kelas', $kelasFilter))
+            ->pluck('uuid');
+
+        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelas)->get();
         
         $count = 0;
         DB::transaction(function () use ($attempts, &$count) {

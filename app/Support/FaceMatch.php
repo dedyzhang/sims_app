@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Guru;
 use App\Models\Siswa;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
@@ -164,7 +165,7 @@ class FaceMatch
     }
 
     /** Normalisasi satu vektor ke panjang 1 (dipakai sebelum cosine() bila vektor blm ternormalisasi). */
-    private static function normalizeVec(array $v): array
+    public static function normalizeVec(array $v): array
     {
         $norm = 0.0;
         foreach ($v as $x) {
@@ -176,6 +177,165 @@ class FaceMatch
         }
 
         return array_map(fn ($x) => $x / $norm, $v);
+    }
+
+    /** Bersihkan cache pool vektor wajah (dipanggil saat ada siswa/guru daftar ulang wajah). */
+    public static function clearPoolCache(?string $column = null): void
+    {
+        if ($column) {
+            Cache::forget('face_enrolled_pool_' . $column);
+        } else {
+            Cache::forget('face_enrolled_pool_face_descriptor');
+            Cache::forget('face_enrolled_pool_face_descriptor_if');
+        }
+    }
+
+    /** Ambil dan cache pool vektor wajah seluruh siswa & guru terdaftar. */
+    public static function getEnrolledPool(string $column): array
+    {
+        return Cache::remember('face_enrolled_pool_' . $column, 600, function () use ($column) {
+            $pool = [];
+            $siswaCols = ['uuid', 'nama', 'id_kelas', $column];
+            foreach (Siswa::whereNotNull($column)->get($siswaCols) as $s) {
+                $raw = (array) $s->{$column};
+                $samples = [];
+                foreach ($raw as $sample) {
+                    if (is_array($sample) && count($sample) >= 64) {
+                        $samples[] = self::normalizeVec(array_map('floatval', $sample));
+                    }
+                }
+                if (!empty($samples)) {
+                    $pool[] = [
+                        'uuid'     => $s->uuid,
+                        'nama'     => $s->nama,
+                        'tipe'     => 'siswa',
+                        'id_kelas' => $s->id_kelas,
+                        'samples'  => $samples,
+                    ];
+                }
+            }
+
+            $guruCols = ['uuid', 'nama', $column];
+            foreach (Guru::whereNotNull($column)->get($guruCols) as $g) {
+                $raw = (array) $g->{$column};
+                $samples = [];
+                foreach ($raw as $sample) {
+                    if (is_array($sample) && count($sample) >= 64) {
+                        $samples[] = self::normalizeVec(array_map('floatval', $sample));
+                    }
+                }
+                if (!empty($samples)) {
+                    $pool[] = [
+                        'uuid'     => $g->uuid,
+                        'nama'     => $g->nama,
+                        'tipe'     => 'guru',
+                        'id_kelas' => null,
+                        'samples'  => $samples,
+                    ];
+                }
+            }
+
+            return $pool;
+        });
+    }
+
+    /**
+     * Cari kecocokan wajah terbaik dari sebuah embedding wajah live terhadap seluruh siswa/guru
+     * terdaftar secara server-side.
+     *
+     * @param array<int, float> $embedding Vektor embedding dari wajah di depan kamera
+     * @param string|null $column Kolom descriptor ('face_descriptor' atau 'face_descriptor_if')
+     * @param string|null $idKelas Filter opsional id_kelas (jika kios dibatasi kelas tertentu)
+     * @return array{matched: bool, uuid?: string, nama?: string, tipe?: string, id_kelas?: ?string, score: float, gap?: float, reason?: string}
+     */
+    public static function findCandidate(array $embedding, ?string $column = null, ?string $idKelas = null): array
+    {
+        $column ??= FaceEngine::kolomDescriptor();
+        $isIf = $column === 'face_descriptor_if';
+
+        $threshold          = $isIf ? 0.38 : 0.66;
+        $confidentThreshold = $isIf ? 0.55 : 0.80;
+        $supportThreshold   = $isIf ? 0.35 : 0.62;
+        $margin             = $isIf ? 0.05 : 0.08;
+        $minSampleSupport   = 2;
+
+        $queryVec = self::normalizeVec(array_map('floatval', $embedding));
+        $pool = self::getEnrolledPool($column);
+
+        $bestPerson = null;
+        $bestSim = 0.0;
+        $secondSim = 0.0;
+        $bestMatch = null;
+
+        foreach ($pool as $p) {
+            if ($idKelas && $p['tipe'] === 'siswa' && $p['id_kelas'] !== $idKelas) {
+                continue;
+            }
+
+            $sims = [];
+            foreach ($p['samples'] as $samp) {
+                $sims[] = self::cosine($queryVec, $samp);
+            }
+            rsort($sims);
+
+            if (empty($sims)) {
+                continue;
+            }
+
+            $top1 = $sims[0] ?? 0.0;
+            $support = count(array_filter($sims, fn ($v) => $v >= $supportThreshold));
+            $match = [
+                'score'       => $top1,
+                'top1'        => $top1,
+                'support'     => $support,
+                'sampleCount' => count($sims),
+            ];
+
+            if ($match['score'] > $bestSim) {
+                $secondSim = $bestSim;
+                $bestSim = $match['score'];
+                $bestPerson = $p;
+                $bestMatch = $match;
+            } elseif ($match['score'] > $secondSim) {
+                $secondSim = $match['score'];
+            }
+        }
+
+        if (!$bestPerson || !$bestMatch) {
+            return [
+                'matched' => false,
+                'score'   => 0.0,
+                'reason'  => 'no_candidates',
+            ];
+        }
+
+        $gap = $bestSim - $secondSim;
+        $clearGap = ($gap >= $margin) || ($bestSim >= $confidentThreshold);
+        $sampleAgreement = ($bestMatch['sampleCount'] <= 1)
+            ? ($bestMatch['top1'] >= $threshold)
+            : ($bestMatch['support'] >= $minSampleSupport || $bestMatch['top1'] >= $confidentThreshold);
+
+        $strongMatch = ($bestSim >= $threshold) && $clearGap && $sampleAgreement;
+
+        if ($strongMatch) {
+            return [
+                'matched'  => true,
+                'uuid'     => $bestPerson['uuid'],
+                'nama'     => $bestPerson['nama'],
+                'tipe'     => $bestPerson['tipe'],
+                'id_kelas' => $bestPerson['id_kelas'],
+                'score'    => $bestSim,
+                'gap'      => $gap,
+            ];
+        }
+
+        return [
+            'matched'      => false,
+            'score'        => $bestSim,
+            'second_score' => $secondSim,
+            'gap'          => $gap,
+            'reason'       => $bestSim < $threshold ? 'low_score' : (!$clearGap ? 'small_margin' : 'low_support'),
+        ];
     }
 
     /**

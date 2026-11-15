@@ -70,7 +70,16 @@ class UjianRosterHasilTest extends TestCase
             'urutan_soal' => [], 'urutan_opsi' => [], 'status' => UjianAttempt::STATUS_IN_PROGRESS,
         ]);
 
-        $res = $this->actingAs($this->admin)->get(route('ujian.hasil.index', $this->ujian));
+        // Ujian multi-kelas tanpa ?kelas= menampilkan ringkasan pemilihan kelas terlebih dahulu (ringan)
+        $resSummary = $this->actingAs($this->admin)->get(route('ujian.hasil.index', $this->ujian));
+        $resSummary->assertOk();
+        $resSummary->assertSee('Ujian Multi-Kelas');
+        $resSummary->assertSee('Kelas 7A');
+        $resSummary->assertSee('Kelas 7B');
+        $resSummary->assertSee('Buka Hasil Siswa');
+
+        // Saat kelas dipilih (?kelas=), roster siswa kelas tersebut dimuat
+        $res = $this->actingAs($this->admin)->get(route('ujian.hasil.index', $this->ujian) . '?kelas=' . $this->kelasA->uuid);
         $res->assertOk();
         $res->assertSee('Belum Mulai');
         $res->assertSeeInOrder(['Siswa_belum_mulai', 'Siswa_sudah_mulai']);
@@ -85,6 +94,26 @@ class UjianRosterHasilTest extends TestCase
         $res->assertOk();
         $res->assertSee('Siswa_kelas_a');
         $res->assertDontSee('Siswa_kelas_b');
+    }
+
+    public function test_monitor_index_multi_kelas_menampilkan_pilih_kelas_terlebih_dahulu(): void
+    {
+        $this->buatSiswa('siswa_monitor_a', $this->kelasA);
+        $this->buatSiswa('siswa_monitor_b', $this->kelasB);
+
+        // Tanpa ?kelas= pada multi-kelas -> tampilkan kartu pemilihan kelas
+        $resSummary = $this->actingAs($this->admin)->get(route('ujian.monitor.index', $this->ujian));
+        $resSummary->assertOk();
+        $resSummary->assertSee('Ujian Multi-Kelas');
+        $resSummary->assertSee('Kelas 7A');
+        $resSummary->assertSee('Kelas 7B');
+        $resSummary->assertSee('Pantau Siswa Kelas Ini');
+
+        // Dengan ?kelas= -> tampilkan pemantauan kelas terpilih
+        $resDetail = $this->actingAs($this->admin)->get(route('ujian.monitor.index', $this->ujian) . '?kelas=' . $this->kelasA->uuid);
+        $resDetail->assertOk();
+        $resDetail->assertSee('Kembali ke Pilih Kelas');
+        $resDetail->assertSee('Kelas 7A');
     }
 
     public function test_monitor_poll_mengembalikan_siswa_belum_mulai_dan_kelas_opsi(): void
@@ -132,7 +161,7 @@ class UjianRosterHasilTest extends TestCase
             'skor_objektif' => 10, 'butuh_penilaian_manual' => true,
         ]);
 
-        $res = $this->actingAs($this->admin)->get(route('ujian.hasil.index', $this->ujian));
+        $res = $this->actingAs($this->admin)->get(route('ujian.hasil.index', $this->ujian) . '?kelas=' . $this->kelasA->uuid);
         $res->assertOk();
         // 1 soal poin 10, mode default rata_rata -> 10/10*100 = 100.0
         $res->assertSee('100.0');

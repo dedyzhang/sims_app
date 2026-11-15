@@ -20,6 +20,7 @@
 <div class="space-y-5" x-data="faceScan(@js($payload), @js([
     'kelasFilter' => $selectedKelas ?: '',
     'kelasOptions' => $kelasOptions ?? [],
+    'matchFaceUrl' => route('absensi.matchFace'),
     'telemetryUrl' => route('absensi.faceTelemetry'),
     'markBarcodeUrl' => route('absensi.markBarcode'),
     'tanggal' => $tanggal,
@@ -481,6 +482,7 @@ function faceScan(data, opts={}){
         guruSearch: '',
         kelasFilter: opts.kelasFilter || '',
         kelasOptions: opts.kelasOptions || [],
+        matchFaceUrl: opts.matchFaceUrl || '{{ route('absensi.matchFace') }}',
         telemetryUrl: opts.telemetryUrl || '',
         markBarcodeUrl: opts.markBarcodeUrl || '',
         tanggal: opts.tanggal || '',
@@ -495,6 +497,12 @@ function faceScan(data, opts={}){
         // hanya menentukan JALUR DETEKSI yg dipakai (loadHuman/human.detect vs loadInsightFace/
         // ifDetect); logika pencocokan (robustPersonSimilarity, gate, label) sama utk keduanya.
         faceEngine: opts.faceEngine || 'human',
+        _matchingBusy: false,
+        _lastMatchSentAt: 0,
+        _recentMatch: null,
+        _lastServerResult: null,
+        _lastNetErrAt: 0,
+        _pageDate: (new Date()).toISOString().split('T')[0],
         _lastQrTryAt:0, _lastQrCode:'', _lastQrCodeAt:0, _qrDetector:undefined,
         failStreak:0,
         diag:{ low_score:0, small_margin:0, low_support:0, small_face:0, low_face_score:0 },
@@ -506,10 +514,10 @@ function faceScan(data, opts={}){
         get enrolledSiswaCount(){ return this.enrolledCountSiswa; },
         get hadirCountSiswa(){ return this.attendees.filter(s=>s.type==='siswa' && s.marked && this.inKelasScope(s)).length; },
         // Saat QR aktif, semua siswa bisa absen (via kartu) — bukan cuma yang punya wajah terdaftar.
-        get enrolledCountSiswa(){ return this.attendees.filter(s=>s.type==='siswa' && (this.qrEnabled || (s.desc && s.desc.length)) && this.inKelasScope(s)).length; },
+        get enrolledCountSiswa(){ return this.attendees.filter(s=>s.type==='siswa' && (this.qrEnabled || s.has_face || (s.desc && s.desc.length)) && this.inKelasScope(s)).length; },
         get hadirCountGuru(){ return this.attendees.filter(s=>s.type==='guru' && s.marked).length; },
         // Mode QR saja: desc guru tidak dikirim server — tampilkan total guru di daftar, bukan 0.
-        get enrolledCountGuru(){ return this.attendees.filter(s=>s.type==='guru' && (!this.faceEnabled || (s.desc && s.desc.length))).length; },
+        get enrolledCountGuru(){ return this.attendees.filter(s=>s.type==='guru' && (!this.faceEnabled || s.has_face || (s.desc && s.desc.length))).length; },
         get totalHadir(){ return this.attendees.filter(s=>s.marked && (s.type==='guru' || this.inKelasScope(s))).length; },
         get totalEnrolled(){ return this.qrEnabled ? this.enrolledCountSiswa + this.enrolledCountGuru : this.enrolled.length; },
 
@@ -535,6 +543,9 @@ function faceScan(data, opts={}){
                 this.fs = !!document.fullscreenElement;
                 setTimeout(()=> window.lucide && lucide.createIcons(), 60);
             });
+            // Auto reload saat berganti hari melewati tengah malam agar absensi hari baru bersih
+            setInterval(() => this.checkDateRollover(), 30000);
+
             // Buka kamera otomatis HANYA di kiosk sungguhan (link rahasia tanpa login, layar tak
             // dijaga terus) — di situ tak ada orang yg bisa klik "Buka kamera". Di luar kiosk (staf
             // buka halaman ini lewat app biasa, termasuk dari HP) kamera+model AI JANGAN langsung
@@ -549,8 +560,16 @@ function faceScan(data, opts={}){
             }
         },
 
+        checkDateRollover(){
+            const today = (new Date()).toISOString().split('T')[0];
+            if(this._pageDate && this._pageDate !== today){
+                console.log('Pergantian tanggal terdeteksi (' + this._pageDate + ' -> ' + today + ') — memuat ulang halaman...');
+                window.location.reload();
+            }
+        },
+
         rebuildEnrolled(){
-            this.enrolled = this.attendees.filter(s=>s.desc && s.desc.length && this.inKelasScope(s));
+            this.enrolled = this.attendees.filter(s => (s.has_face || (s.desc && s.desc.length)) && this.inKelasScope(s));
             this._streak = {};
         },
         isFaceLocked(uuid){
@@ -581,12 +600,10 @@ function faceScan(data, opts={}){
             this._streak = {};
         },
         onKelasChange(){
-            this.rebuildEnrolled();
             const url = new URL(window.location.href);
             if(this.kelasFilter) url.searchParams.set('kelas', this.kelasFilter);
             else url.searchParams.delete('kelas');
-            history.replaceState({}, '', url);
-            setTimeout(()=> window.lucide && lucide.createIcons(), 40);
+            window.location.href = url.toString();
         },
 
         enterFs(){
@@ -897,59 +914,40 @@ function faceScan(data, opts={}){
                 if(!f.embedding || !f.box) return;
                 const b=f.box; // [x,y,w,h]
 
-                // Cari kandidat terbaik DAN kedua dengan skor robust per-orang.
-                // Satu sampel buruk tidak boleh membuat satu nama terus menang sebagai false positive.
-                let bestUuid=null, bestSim=0, secondSim=0, bestMatch=null;
-                for(const s of this.enrolled){
-                    if(this.isFaceLocked(s.uuid)) continue;
-                    const match = this.robustPersonSimilarity(f.embedding, s.desc);
-                    match.sampleCount = (s.desc || []).length;
-                    if(match.score>bestSim){ secondSim=bestSim; bestSim=match.score; bestUuid=s.uuid; bestMatch=match; }
-                    else if(match.score>secondSim){ secondSim=match.score; }
-                }
-
-                // ===== Gate berlapis (harus lolos SEMUA baru dianggap cocok) =====
                 const faceScore = (f.faceScore ?? f.score ?? f.boxScore ?? 1);
                 const bigEnough = Math.min(b[2], b[3]) >= (c.height * this.minFaceFrac);
-                const gap = bestSim - secondSim;
-                const clearGap  = gap >= this.effMargin || bestSim >= this.effConfidentThreshold;
-                const sampleAgreement = this.hasEnoughSampleAgreement(bestMatch);
-                const strongMatch = bestSim >= this.effThreshold && clearGap && sampleAgreement && bigEnough && faceScore >= this.minFaceScore;
 
                 let label, color;
-                if(strongMatch){
-                    const s=this.attendees.find(z=>z.uuid===bestUuid);
-                    label=(s?s.nama.split(' ')[0]:'?'); color='#10b981';
-                    seenThisFrame.add(bestUuid);
-                    this.failStreak = 0;
-                } else {
-                    this.failStreak++;
-                    const meta = { top1: bestMatch?.top1 ?? bestSim, gap, support: bestMatch?.support ?? 0 };
-                    if(!bigEnough){ this.recordDiag('small_face', meta); }
-                    else if(faceScore < this.minFaceScore){ this.recordDiag('low_face_score', meta); }
-                    else if(bestSim < this.effThreshold){ this.recordDiag('low_score', meta); }
-                    else if(!clearGap){ this.recordDiag('small_margin', meta); }
-                    else if(!sampleAgreement){ this.recordDiag('low_support', meta); }
 
-                    // Label sesuai gate yang SEBENARNYA gagal — sebelumnya kasus paling umum di
-                    // lapangan (wajah masih terlalu kecil/jauh dari kamera, bigEnough=false) malah
-                    // jatuh ke '—' polos tanpa petunjuk apa pun, sementara "Dekatkan wajah" (yang
-                    // seharusnya soal jarak) hanya muncul saat wajah SUDAH cukup besar. Pengguna
-                    // yang berdiri di jarak wajar dari kiosk tidak pernah diberi tahu utk mendekat.
-                    const top1Val = bestMatch?.top1 ?? bestSim;
-                    if(!bigEnough){
-                        label='Mendekat ke kamera'; color='#f59e0b';
-                    } else if(faceScore < this.minFaceScore){
-                        label='Tahan diam, perbaiki cahaya'; color='#f59e0b';
-                    } else if(top1Val >= this.effSupportThreshold){
-                        label='Perjelas wajah'; color='#f59e0b';
-                    } else if(top1Val >= 0.45){
-                        // Skor sedang (0.45–0.62) — kemungkinan besar orang yg SAMA tapi sudut/
-                        // cahaya kurang pas, BUKAN "tidak dikenali sama sekali". Dulu kasus ini
-                        // ikut jatuh ke '—' polos, tak beda dgn wajah yg benar2 tak dikenal.
-                        label='Coba lagi, hadap lurus'; color='#f59e0b';
+                if(!bigEnough){
+                    this.failStreak++;
+                    this.recordDiag('small_face');
+                    label='Mendekat ke kamera'; color='#f59e0b';
+                } else if(faceScore < this.minFaceScore){
+                    this.failStreak++;
+                    this.recordDiag('low_face_score');
+                    label='Tahan diam, perbaiki cahaya'; color='#f59e0b';
+                } else {
+                    // Wajah siap dicocokkan ke server
+                    if(this._recentMatch && (Date.now() - this._recentMatch.at < 2200)){
+                        label = (this._recentMatch.nama || '').split(' ')[0];
+                        color = '#10b981';
+                        this.failStreak = 0;
                     } else {
-                        label='—'; color='#94a3b8';
+                        // Kirim request pencocokan server jika belum sibuk
+                        if(!this._matchingBusy && (Date.now() - (this._lastMatchSentAt || 0) >= 280)){
+                            this._matchingBusy = true;
+                            this._lastMatchSentAt = Date.now();
+                            this.sendServerMatch(f.embedding);
+                        }
+
+                        if(this._lastServerResult && (Date.now() - (this._lastServerResult.at || 0) < 1800)){
+                            label = this._lastServerResult.label;
+                            color = this._lastServerResult.color;
+                        } else {
+                            label = 'Mengenali…';
+                            color = '#3b82f6';
+                        }
                     }
                 }
 
@@ -958,20 +956,127 @@ function faceScan(data, opts={}){
                 ctx.fillStyle=color; ctx.fillRect(b[0], b[1]-30, tw, 28);
                 ctx.fillStyle='#fff'; ctx.fillText(label, b[0]+7, b[1]-10);
             });
+        },
 
-            // ===== Hijau = langsung kunci & absen (1 frame), tanpa scan berulang =====
-            seenThisFrame.forEach(uuid=>{
-                if(this.isFaceLocked(uuid)) return;
-                this._streak[uuid] = (this._streak[uuid]||0) + 1;
-                if(this._streak[uuid] >= this.confirmFrames){
-                    this._faceLocked[uuid] = true;
-                    this.onMatch(uuid);
+        async sendServerMatch(embedding){
+            try {
+                const res = await fetch(this.matchFaceUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': $('meta[name=csrf-token]').attr('content') || '',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        embedding: Array.from(embedding),
+                        id_kelas: this.kelasFilter || null,
+                        mode: (this.hasGuru && this.qrEnabled) ? (this.scanMode === 'pulang' ? 'pulang' : 'masuk') : null,
+                        _kiosk: this.kioskToken || null
+                    })
+                });
+
+                if(!res.ok){
+                    throw new Error('HTTP ' + res.status);
                 }
-            });
-            // Luruh (bukan reset total) untuk yang tidak lolos gate frame ini — satu frame buram/silau
-            // tak boleh menghapus progres streak yang sudah bagus (itu yang bikin "kedetect lalu
-            // Perjelas wajah lagi" terasa lama). False positif sekejap tetap tak menumpuk krn meluruh turun.
-            for(const uuid in this._streak){ if(!seenThisFrame.has(uuid)) this._streak[uuid] = Math.max(0, (this._streak[uuid]||0) - 1); }
+
+                const d = await res.json();
+                this._matchingBusy = false;
+
+                if(!d || d.success === false){
+                    this._lastServerResult = { label: '—', color: '#94a3b8', at: Date.now() };
+                    if(d && d.blocked && d.message){
+                        this.rejectFeedback('Ditolak', d.message);
+                    }
+                    return;
+                }
+
+                if(!d.matched){
+                    this.failStreak++;
+                    if(d.reason === 'low_score'){
+                        this.recordDiag('low_score', { top1: d.score || 0 });
+                        this._lastServerResult = { label: 'Perjelas wajah', color: '#f59e0b', at: Date.now() };
+                    } else if(d.reason === 'small_margin'){
+                        this.recordDiag('small_margin', { gap: d.gap || 0 });
+                        this._lastServerResult = { label: 'Hadap lurus', color: '#f59e0b', at: Date.now() };
+                    } else {
+                        this._lastServerResult = { label: '—', color: '#94a3b8', at: Date.now() };
+                    }
+                    return;
+                }
+
+                // Cocok (matched: true)!
+                this.failStreak = 0;
+                const uuid = d.uuid;
+                this._recentMatch = { uuid, nama: d.nama, type: d.type, at: Date.now() };
+                this._lastServerResult = { label: d.nama.split(' ')[0], color: '#10b981', at: Date.now() };
+
+                let s = this.attendees.find(x => x.uuid === uuid);
+                if(s){
+                    if(d.type === 'guru'){
+                        if(d.mode === 'pulang') { s.pulangMarked = true; s.jam_pulang = d.jam; }
+                        else { s.marked = true; s.jam_masuk = d.jam; }
+                    } else {
+                        s.marked = true;
+                        s.jam_masuk = d.jam;
+                    }
+                    s.justMarked = true;
+                }
+
+                if(d.already_marked){
+                    // Sudah absen sebelumnya
+                    if(!this._faceLocked[uuid] || (Date.now() - this._faceLocked[uuid] > 8000)){
+                        this._faceLocked[uuid] = Date.now();
+                        this.rejectFeedback(d.nama, d.message || 'Sudah absen hari ini');
+                    }
+                    return;
+                }
+
+                // Sukses absen baru!
+                this._faceLocked[uuid] = Date.now();
+                const key = ++this._seq;
+                const jam = d.jam || this.nowHM();
+
+                this.playDing();
+                this.speak(d.mode === 'pulang' ? 'pulang' : 'masuk', d.nama);
+                this.afterFaceMarkSuccess();
+
+                this.lastMatch = {
+                    key,
+                    nama: d.nama,
+                    type: d.type,
+                    kelas: d.kelas || (d.type==='guru' ? 'Guru' : '-'),
+                    mode: d.mode || 'masuk',
+                    jam,
+                    terlambat: !!d.terlambat
+                };
+
+                this.recent.unshift({
+                    key,
+                    nama: d.nama.split(' ')[0],
+                    type: d.type,
+                    kelas: d.type==='guru' ? (d.mode==='pulang' ? 'Pulang' : 'Guru') : d.kelas,
+                    mode: d.mode || 'masuk',
+                    jam
+                });
+                if(this.recent.length > 5) this.recent.pop();
+
+                setTimeout(() => window.lucide && lucide.createIcons(), 40);
+                setTimeout(() => { if(this.lastMatch && this.lastMatch.key === key) this.lastMatch = null; }, 1700);
+                setTimeout(() => { if(s) s.justMarked = false; }, 1600);
+                setTimeout(() => { this.recent = this.recent.filter(x => x.key !== key); }, 6000);
+
+            } catch(e) {
+                this._matchingBusy = false;
+                console.error('Face match server error:', e);
+                this.onNetworkError('Koneksi ke server bermasalah');
+            }
+        },
+
+        onNetworkError(msg){
+            if(!this._lastNetErrAt || (Date.now() - this._lastNetErrAt >= 6000)){
+                this._lastNetErrAt = Date.now();
+                this.rejectFeedback('Gagal Tersimpan', (msg || 'Koneksi ke server bermasalah') + ' — coba lagi');
+            }
         },
 
         onMatch(uuid){

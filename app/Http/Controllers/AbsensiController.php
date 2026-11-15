@@ -330,6 +330,13 @@ class AbsensiController extends Controller
         $kelasList = Kelas::orderBy('tingkat')->orderBy('kelas')->get();
         $selectedKelas = $request->kelas ?: '';
 
+        // Lingkup hak akses kelas: jika bukan admin (misal walikelas / sekretaris), kunci ke kelasnya
+        $scopedKelas = $this->scopedKelasId();
+        if ($scopedKelas) {
+            $selectedKelas = $scopedKelas;
+            $kelasList = $kelasList->where('uuid', $scopedKelas)->values();
+        }
+
         // Apa yang dibaca kamera kiosk: wajah saja, QR kartu saja, atau keduanya (default).
         $scanKioskMode = \App\Models\Setting::get('scan_kiosk_mode', 'keduanya');
         if (! in_array($scanKioskMode, ['wajah', 'qr', 'keduanya'], true)) {
@@ -341,9 +348,9 @@ class AbsensiController extends Controller
         // TERPISAH face_descriptor_if (lihat App\Support\FaceEngine).
         $descCol = \App\Support\FaceEngine::kolomDescriptor();
 
-        // Mode wajah saja: hanya siswa yang sudah daftar wajah (filter kelas di UI JS).
-        // Mode dengan QR: SEMUA siswa — kartu pelajar berlaku juga untuk yang belum daftar wajah.
+        // Batasi siswa yang dikirim server sesuai filter kelas & lingkup hak akses (minimisasi data)
         $siswas = Siswa::with('kelas')
+            ->when($selectedKelas, fn ($q) => $q->where('id_kelas', $selectedKelas))
             ->when($scanKioskMode === 'wajah', fn ($q) => $q->whereNotNull($descCol))
             ->orderBy('nama')
             ->get()
@@ -353,16 +360,16 @@ class AbsensiController extends Controller
         $existingSiswa = Absensi::whereIn('id_siswa', $siswas->pluck('uuid'))
             ->whereDate('tanggal', $tanggal)->get()->keyBy('id_siswa');
 
-        // Semua guru yang SUDAH daftar wajah (utk mesin yg sedang aktif)
-        $gurus = Guru::whereNotNull($descCol)
-            ->orderBy('nama')
-            ->get();
+        // Guru hanya dikirim pada mode semua kelas (kiosk umum), bukan filter kelas siswa tertentu
+        $gurus = $selectedKelas
+            ? collect()
+            : Guru::whereNotNull($descCol)->orderBy('nama')->get();
 
-        $existingGuru = PresensiGuru::whereDate('tanggal', $tanggal)
-            ->get()
-            ->keyBy('id_guru');
+        $existingGuru = $gurus->isEmpty()
+            ? collect()
+            : PresensiGuru::whereDate('tanggal', $tanggal)->get()->keyBy('id_guru');
 
-        // payload untuk JS: siswa + guru + descriptors wajah
+        // payload untuk JS: siswa + guru (descriptor wajah tidak dikirim demi privasi & performa)
         $payloadSiswa = $siswas->map(fn ($s) => [
             'uuid'     => $s->uuid,
             'type'     => 'siswa',
@@ -371,8 +378,10 @@ class AbsensiController extends Controller
             'jk'       => $s->jk,
             'kelas'    => $s->kelas ? $s->kelas->tingkat.$s->kelas->kelas : '-',
             'id_kelas' => $s->id_kelas,
-            // Mode QR saja: descriptor tidak dipakai — jangan kirim (payload jauh lebih ringan).
-            'desc'     => $scanKioskMode === 'qr' ? [] : $s->{$descCol},
+            // Privasi biometrik & performa: descriptor wajah TIDAK dikirim ke browser.
+            // Pencocokan dilakukan server-side via matchFace.
+            'desc'     => [],
+            'has_face' => ! empty($s->{$descCol}),
             'status'   => $existingSiswa->get($s->uuid)?->status,
             'jam_masuk'=> substr((string) $existingSiswa->get($s->uuid)?->jam_masuk, 0, 5),
         ]);
@@ -382,8 +391,9 @@ class AbsensiController extends Controller
             'type'       => 'guru',
             'nama'       => $g->nama,
             'jk'         => $g->jk,
-            // QR kartu hanya untuk siswa — di mode QR saja, guru tidak bisa scan di halaman ini.
-            'desc'       => $scanKioskMode === 'qr' ? [] : $g->{$descCol},
+            // Privasi biometrik & performa: descriptor wajah TIDAK dikirim ke browser.
+            'desc'       => [],
+            'has_face'   => ! empty($g->{$descCol}),
             'nip'        => $g->nip ?: $g->nik,
             'status'     => $existingGuru->get($g->uuid)?->status,
             'pulangDone' => (bool) ($existingGuru->get($g->uuid)?->jam_pulang),
@@ -582,6 +592,217 @@ class AbsensiController extends Controller
         return response()->json($payload, $response->getStatusCode());
     }
 
+    /**
+     * Pencocokan wajah server-side (privasi biometrik & performa optimal).
+     * Menerima 1 vektor embedding wajah dari kamera, mencocokkannya ke database,
+     * dan langsung mencatat absensi jika cocok dalam satu transaksi atomik.
+     */
+    public function matchFace(Request $request)
+    {
+        $data = $request->validate([
+            'embedding' => 'required|array|min:64',
+            'id_kelas'  => 'nullable|string',
+            'mode'      => 'nullable|in:masuk,pulang',
+        ]);
+
+        $scanKioskMode = Setting::get('scan_kiosk_mode', 'keduanya');
+        if (! \App\Support\AbsensiGuru::bolehWajah() || $scanKioskMode === 'qr') {
+            return response()->json([
+                'success' => false,
+                'message' => \App\Support\AbsensiGuru::pesanKunci('Scan Wajah'),
+            ]);
+        }
+
+        $tanggal = now()->toDateString();
+        $match = \App\Support\FaceMatch::findCandidate($data['embedding'], null, $data['id_kelas'] ?? null);
+
+        if (! $match['matched']) {
+            return response()->json([
+                'success' => true,
+                'matched' => false,
+                'score'   => $match['score'] ?? 0,
+                'reason'  => $match['reason'] ?? 'low_score',
+            ]);
+        }
+
+        $uuid = $match['uuid'];
+        $tipe = $match['tipe'];
+
+        if ($tipe === 'guru') {
+            $guru = Guru::find($uuid);
+            if (! $guru) {
+                return response()->json(['success' => false, 'message' => 'Guru tidak ditemukan']);
+            }
+
+            $mode = $data['mode'] ?? null;
+            $existing = PresensiGuru::where('id_guru', $uuid)->whereDate('tanggal', $tanggal)->first();
+
+            if (! $mode) {
+                $mode = ($existing && $existing->jam_masuk && ! $existing->jam_pulang) ? 'pulang' : 'masuk';
+            }
+
+            if ($mode === 'pulang') {
+                if ($existing && $existing->jam_pulang) {
+                    return response()->json([
+                        'success'        => true,
+                        'matched'        => true,
+                        'already_marked' => true,
+                        'type'           => 'guru',
+                        'mode'           => 'pulang',
+                        'uuid'           => $uuid,
+                        'nama'           => $guru->nama,
+                        'jam'            => substr($existing->jam_pulang, 0, 5),
+                        'message'        => 'Sudah absen pulang hari ini',
+                    ]);
+                }
+
+                if ($guru->jam_pulang_wajib) {
+                    $sekarang = now()->format('H:i:s');
+                    if ($sekarang < $guru->jam_pulang_wajib) {
+                        return response()->json([
+                            'success' => false,
+                            'matched' => true,
+                            'blocked' => true,
+                            'message' => 'Belum jam pulang. Jadwal pulang Anda pukul ' . substr($guru->jam_pulang_wajib, 0, 5) . '.',
+                        ]);
+                    }
+                }
+
+                $row = $existing ?: new PresensiGuru(['id_guru' => $uuid, 'tanggal' => $tanggal]);
+                $row->jam_pulang = now()->format('H:i:s');
+                $row->keterangan = 'Scan wajah';
+                $row->save();
+
+                return response()->json([
+                    'success'        => true,
+                    'matched'        => true,
+                    'already_marked' => false,
+                    'type'           => 'guru',
+                    'mode'           => 'pulang',
+                    'uuid'           => $uuid,
+                    'nama'           => $guru->nama,
+                    'jam'            => substr($row->jam_pulang, 0, 5),
+                    'terlambat'      => false,
+                ]);
+            }
+
+            // Mode masuk guru
+            if ($existing && $existing->jam_masuk) {
+                return response()->json([
+                    'success'        => true,
+                    'matched'        => true,
+                    'already_marked' => true,
+                    'type'           => 'guru',
+                    'mode'           => 'masuk',
+                    'uuid'           => $uuid,
+                    'nama'           => $guru->nama,
+                    'jam'            => substr($existing->jam_masuk, 0, 5),
+                    'message'        => 'Sudah absen masuk hari ini',
+                ]);
+            }
+
+            $row = $existing ?: new PresensiGuru(['id_guru' => $uuid, 'tanggal' => $tanggal]);
+            $row->status = 'hadir';
+            $row->jam_masuk = now()->format('H:i:s');
+            $row->keterangan = 'Scan wajah';
+            $row->save();
+
+            $batasTerlambat = Setting::get('waktu_terlambat_guru', '07:00');
+            $terlambat = substr($row->jam_masuk, 0, 5) > $batasTerlambat;
+
+            return response()->json([
+                'success'        => true,
+                'matched'        => true,
+                'already_marked' => false,
+                'type'           => 'guru',
+                'mode'           => 'masuk',
+                'uuid'           => $uuid,
+                'nama'           => $guru->nama,
+                'jam'            => substr($row->jam_masuk, 0, 5),
+                'terlambat'      => $terlambat,
+            ]);
+        }
+
+        // Tipe SISWA
+        $siswa = Siswa::with('kelas')->find($uuid);
+        if (! $siswa) {
+            return response()->json(['success' => false, 'message' => 'Siswa tidak ditemukan']);
+        }
+
+        if (! \App\Support\KalenderAbsensi::absenSiswaDibuka($tanggal)) {
+            return response()->json([
+                'success' => false,
+                'matched' => true,
+                'blocked' => true,
+                'message' => 'Absensi siswa tidak dibuka untuk hari ini.',
+            ]);
+        }
+
+        if (! \App\Support\KaihSiswa::bolehAbsen($uuid, $tanggal)) {
+            return response()->json([
+                'success' => false,
+                'matched' => true,
+                'blocked' => true,
+                'message' => \App\Support\KaihSiswa::pesanTolak(),
+            ]);
+        }
+
+        $row = Absensi::firstOrNew([
+            'id_siswa' => $uuid,
+            'tanggal'  => $tanggal,
+        ]);
+
+        if ($row->exists && ! empty($row->jam_masuk)) {
+            return response()->json([
+                'success'        => true,
+                'matched'        => true,
+                'already_marked' => true,
+                'type'           => 'siswa',
+                'mode'           => 'masuk',
+                'uuid'           => $uuid,
+                'nama'           => $siswa->nama,
+                'kelas'          => $siswa->kelas ? $siswa->kelas->tingkat . $siswa->kelas->kelas : '-',
+                'jam'            => substr($row->jam_masuk, 0, 5),
+                'message'        => 'Sudah absen masuk sebelumnya',
+            ]);
+        }
+
+        $previousStatus = $row->exists ? $row->status : null;
+        $row->id_kelas     = $siswa->id_kelas;
+        $row->status       = 'hadir';
+        $row->keterangan   = 'Scan wajah';
+        $row->dicatat_oleh = auth()->id();
+        $scanPertama = empty($row->jam_masuk);
+        if (! $row->jam_masuk) {
+            $row->jam_masuk = now()->format('H:i:s');
+        }
+        if (! $row->exists) {
+            $row->id_semester = \App\Models\Semester::aktif()?->id;
+        }
+        $row->save();
+
+        $batas = Setting::get('waktu_terlambat', '07:30');
+        $terlambat = $row->terlambat($batas);
+        if ($scanPertama && $terlambat) {
+            \App\Http\Controllers\PoinController::autoTerlambat($uuid, $tanggal);
+        }
+        AttendanceParentNotifier::notifyIfStatusChanged($previousStatus, $row);
+
+        return response()->json([
+            'success'        => true,
+            'matched'        => true,
+            'already_marked' => false,
+            'type'           => 'siswa',
+            'mode'           => 'masuk',
+            'uuid'           => $uuid,
+            'nama'           => $siswa->nama,
+            'nis'            => $siswa->nis,
+            'kelas'          => $siswa->kelas ? $siswa->kelas->tingkat . $siswa->kelas->kelas : '-',
+            'jam'            => substr($row->jam_masuk, 0, 5),
+            'terlambat'      => $terlambat,
+        ]);
+    }
+
     /** Tandai 1 siswa hadir (AJAX dari scan wajah atau fallback kartu pelajar). */
     public function mark(Request $request)
     {
@@ -592,6 +813,11 @@ class AbsensiController extends Controller
             'status'   => 'nullable|in:hadir,izin,sakit,alpa',
             '_via'     => 'nullable|in:face,barcode',
         ]);
+
+        // Cegah bug tanggal basi jika kios menyala semalaman melewati tengah malam:
+        if (\App\Http\Middleware\EnsureKioskOrPermission::hasValidToken($request) || $request->has('_kiosk')) {
+            $data['tanggal'] = now()->toDateString();
+        }
 
         // Gate metode per-via — dulu semua yang lewat halaman scan dianggap "metode wajah",
         // sehingga kartu QR ikut tertolak saat cara_absensi_guru = barcode. Sekarang:

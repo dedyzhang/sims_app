@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\RetriesOnDbBusy;
+use App\Models\Siswa;
 use App\Models\Ujian;
 use App\Models\UjianAttempt;
 use App\Models\UjianPelanggaran;
@@ -16,6 +17,10 @@ use Illuminate\Support\Facades\DB;
  * Dashboard pemantauan live guru/panitia saat ujian berlangsung — status tiap
  * siswa, sisa waktu, pelanggaran, dan dua aksi reset: buka-kunci (lanjut dari
  * titik terakhir) vs reset-ulang (soft-cancel, mulai dari nol dgn token sama).
+ *
+ * Menggunakan pendekatan Class-First: Pada ujian multi-kelas, tampilkan kartu ringkasan
+ * per-kelas terlebih dahulu. Saat salah satu kelas dibuka, baru muat data pengerjaan
+ * siswa kelas tersebut secara live agar tidak membebani performa server.
  */
 class UjianMonitorController extends Controller
 {
@@ -23,11 +28,69 @@ class UjianMonitorController extends Controller
 
     public function index(Request $request, Ujian $ujian)
     {
-        return $this->retryOnDbBusy(function () use ($ujian) {
+        return $this->retryOnDbBusy(function () use ($request, $ujian) {
             $this->authorize('monitor', $ujian);
-            $ujian->load('kelas.kelas');
 
-            return view('ujian.monitor.index', compact('ujian'));
+            $ujianKelasList = $ujian->kelas()->with('kelas', 'guruPengampu')->get()
+                ->sortBy(fn ($uk) => [$uk->kelas?->tingkat, $uk->kelas?->kelas])
+                ->values();
+
+            $kelasFilter = $request->string('kelas')->toString();
+
+            // Jika hanya ada 1 kelas pada ujian ini, otomatis langsung buka kelas tersebut
+            if (! $kelasFilter && $ujianKelasList->count() === 1) {
+                $kelasFilter = $ujianKelasList->first()->id_kelas;
+            }
+
+            // TAMPILAN 1: PILIH KELAS (Ringkasan per-kelas agar server ringan & tidak meload ratusan siswa sekaligus)
+            if (! $kelasFilter) {
+                $idKelasList = $ujianKelasList->pluck('id_kelas')->filter()->all();
+                $idUjianKelasList = $ujianKelasList->pluck('uuid')->all();
+
+                $siswaCounts = Siswa::whereIn('id_kelas', $idKelasList)
+                    ->selectRaw('id_kelas, count(*) as total')
+                    ->groupBy('id_kelas')
+                    ->pluck('total', 'id_kelas');
+
+                $attemptStats = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelasList)
+                    ->selectRaw('id_ujian_kelas, status, count(*) as total')
+                    ->groupBy('id_ujian_kelas', 'status')
+                    ->get()
+                    ->groupBy('id_ujian_kelas');
+
+                $terkunciCounts = UjianAttempt::whereIn('id_ujian_kelas', $idUjianKelasList)
+                    ->where('dikunci', true)
+                    ->selectRaw('id_ujian_kelas, count(*) as total')
+                    ->groupBy('id_ujian_kelas')
+                    ->pluck('total', 'id_ujian_kelas');
+
+                $kelasSummary = $ujianKelasList->map(function ($uk) use ($siswaCounts, $attemptStats, $terkunciCounts) {
+                    $totalSiswa = $siswaCounts->get($uk->id_kelas, 0);
+                    $stats = $attemptStats->get($uk->uuid, collect())->keyBy('status');
+                    $dinilai = $stats->get(UjianAttempt::STATUS_DINILAI)?->total ?? 0;
+                    $submitted = $stats->get(UjianAttempt::STATUS_SUBMITTED)?->total ?? 0;
+                    $inProgress = $stats->get(UjianAttempt::STATUS_IN_PROGRESS)?->total ?? 0;
+                    $terkunci = $terkunciCounts->get($uk->uuid, 0);
+
+                    $totalAttemptAktif = $dinilai + $submitted + $inProgress;
+                    $belumMulai = max(0, $totalSiswa - $totalAttemptAktif);
+
+                    return [
+                        'ujianKelas'   => $uk,
+                        'kelas'        => $uk->kelas,
+                        'total_siswa'  => $totalSiswa,
+                        'in_progress'  => $inProgress,
+                        'selesai'      => $dinilai + $submitted,
+                        'terkunci'     => $terkunci,
+                        'belum_mulai'  => $belumMulai,
+                    ];
+                });
+
+                return view('ujian.monitor.index', compact('ujian', 'ujianKelasList', 'kelasSummary', 'kelasFilter'));
+            }
+
+            // TAMPILAN 2: DAFTAR SISWA KELAS TERPILIH
+            return view('ujian.monitor.index', compact('ujian', 'ujianKelasList', 'kelasFilter'));
         });
     }
 

@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow, noarchive">
     <title>Katalog & QR Code Demo Fitur — B'tive SIMS</title>
+    @if(!empty($logoUrl))
+        <link rel="icon" href="{{ $logoUrl }}?v=demo2">
+        <link rel="shortcut icon" href="{{ $logoUrl }}?v=demo2">
+    @elseif(file_exists(public_path('img/logo.png')))
+        <link rel="icon" type="image/png" href="{{ asset('img/logo.png') }}?v=demo2">
+        <link rel="shortcut icon" href="{{ asset('img/logo.png') }}?v=demo2">
+    @endif
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,6 +40,9 @@
     <header class="no-print bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center space-x-3">
+                @if(!empty($logoUrl))
+                    <img src="{{ $logoUrl }}" alt="Logo" class="w-7 h-7 object-contain rounded-md bg-white p-0.5 shadow-sm">
+                @endif
                 <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>
                     MODE DEMO AKTIF
@@ -53,14 +63,21 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <!-- Hero Section -->
-        <div class="mb-10 text-center sm:text-left sm:flex sm:items-end sm:justify-between border-b border-slate-200 pb-8">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                    Link &amp; QR Code Uji Coba Fitur
-                </h1>
-                <p class="mt-2 text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
-                    Setiap kartu di bawah memiliki link dan QR Code unik. Calon klien cukup scan atau klik untuk langsung merasakan fitur tanpa perlu memasukkan username &amp; password dummy.
-                </p>
+        <div class="mb-10 text-center sm:text-left sm:flex sm:items-center sm:justify-between border-b border-slate-200 pb-8 gap-6">
+            <div class="flex flex-col sm:flex-row items-center sm:items-center gap-4">
+                @if(!empty($logoUrl))
+                    <div class="w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm p-1.5 flex items-center justify-center shrink-0">
+                        <img src="{{ $logoUrl }}" alt="Logo" class="max-w-full max-h-full object-contain">
+                    </div>
+                @endif
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                        Link &amp; QR Code Uji Coba Fitur
+                    </h1>
+                    <p class="mt-2 text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
+                        Setiap kartu di bawah memiliki link dan QR Code unik. Calon klien cukup scan atau klik untuk langsung merasakan fitur tanpa perlu memasukkan username &amp; password dummy.
+                    </p>
+                </div>
             </div>
             <div class="no-print mt-4 sm:mt-0 flex items-center justify-center sm:justify-end gap-2 text-xs text-slate-500">
                 <span class="inline-block px-2.5 py-1 bg-white border border-slate-200 rounded-md font-mono text-[11px] text-slate-600 shadow-sm">

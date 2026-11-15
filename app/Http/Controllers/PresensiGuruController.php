@@ -101,6 +101,12 @@ class PresensiGuruController extends Controller
             'mode'    => 'nullable|in:masuk,pulang',
             '_via'    => 'nullable|in:face,barcode',
         ]);
+
+        // Cegah bug tanggal basi jika kios menyala semalaman melewati tengah malam:
+        if (\App\Http\Middleware\EnsureKioskOrPermission::hasValidToken($request) || $request->has('_kiosk')) {
+            $data['tanggal'] = now()->toDateString();
+        }
+
         $mode = $data['mode'] ?? 'masuk';
 
         // Gate metode per-via (pola sama dgn AbsensiController::mark siswa): via wajah butuh

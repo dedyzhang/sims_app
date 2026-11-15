@@ -76,12 +76,24 @@ class DemoController extends Controller
                 }
             }
 
-            // 7. Tandai sesi sebagai sesi demo aktif
+            // 7. Tandai sesi sebagai sesi demo aktif & cegah popup pembaruan
             session([
                 'is_demo_session' => true,
                 'demo_feature'    => $slug,
                 'demo_started_at' => now()->toIso8601String(),
             ]);
+
+            if (class_exists(\App\Models\AppUpdate::class)) {
+                try {
+                    $latestUpdate = \App\Models\AppUpdate::where('is_published', true)->latest('created_at')->first();
+                    if ($latestUpdate && $dummyUser->dismissed_update_id !== $latestUpdate->uuid) {
+                        $dummyUser->dismissed_update_id = $latestUpdate->uuid;
+                        $dummyUser->saveQuietly();
+                    }
+                } catch (\Throwable) {
+                    // Abaikan jika skema pembaruan belum termigrasi
+                }
+            }
 
             // 8. Redirect langsung ke fitur tujuan
             return redirect($feature['target_url'])

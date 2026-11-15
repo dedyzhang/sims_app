@@ -26,6 +26,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // → URL form jadi https, tak ada peringatan "not secure".
         $middleware->trustProxies(at: '*');
 
+        // Kiosk absensi: bebaskan CSRF untuk endpoint presensi live (karena diproteksi EnsureKioskOrPermission / token _kiosk dan agar kios berjalan nonstop tanpa terkena 419 Page Expired).
+        $middleware->validateCsrfTokens(except: [
+            'absensi/match-face',
+            'absensi/mark',
+            'absensi/mark-barcode',
+            'absensi/face-telemetry',
+            'absensi/cancel',
+            'presensi-guru/mark',
+            'presensi-guru/cancel',
+        ]);
+
         // RetryOnDatabaseException: lindungi request dari micro-spike / max_user_connections database.
         // Presence Forum: catat last_seen_at tiap request web (auth saja, dithrottle 60 dtk)
         // EnforceLangganan: kunci app (non-superadmin) saat lisensi langganan kadaluarsa.

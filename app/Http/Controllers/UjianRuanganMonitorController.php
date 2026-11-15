@@ -392,17 +392,18 @@ class UjianRuanganMonitorController extends Controller
             $candidateSiswaIds = $peserta->pluck('id_siswa')->filter()->unique();
             $allCandidateIds = $candidateLoginIds->merge($candidateSiswaIds)->unique()->values();
 
-            $attempts = UjianAttempt::where(function ($query) use ($ujianKelasHariIni, $allCandidateIds) {
+            $attempts = collect();
+            if ($allCandidateIds->isNotEmpty()) {
+                $attemptQuery = UjianAttempt::whereIn('id_siswa', $allCandidateIds)
+                    ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
+                    ->with(['ujianKelas.ujian.pelajaran', 'ujianKelas.kelas']);
+
                 if ($ujianKelasHariIni->isNotEmpty()) {
-                    $query->whereIn('id_ujian_kelas', $ujianKelasHariIni->pluck('uuid'));
+                    $attemptQuery->whereIn('id_ujian_kelas', $ujianKelasHariIni->pluck('uuid'));
                 }
-                if ($allCandidateIds->isNotEmpty()) {
-                    $query->orWhereIn('id_siswa', $allCandidateIds);
-                }
-            })
-            ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
-            ->with(['ujianKelas.ujian.pelajaran', 'ujianKelas.kelas'])
-            ->get();
+
+                $attempts = $attemptQuery->get();
+            }
             $attemptsBySiswa = $attempts->groupBy('id_siswa');
 
             $rows = collect();

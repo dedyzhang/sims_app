@@ -29,7 +29,7 @@ class GamePracticeSessionService
 {
     private const REVEAL_SECONDS = 4;
     private const STANDINGS_SECONDS = 6;
-    private const ONLINE_SECONDS = 12;
+    private const ONLINE_SECONDS = 30;
     private const ACTIVE_STATUSES = ['lobby', 'question', 'reveal', 'standings'];
     public const MAX_PARTICIPANTS = 60;
 
@@ -351,19 +351,16 @@ class GamePracticeSessionService
             $answeredCount = $this->answeredCountFor($session, $session->current_question_id);
         }
 
-        $onlineCutoff = now()->subSeconds(self::ONLINE_SECONDS);
         $participants = $session->isActive()
             ? GamePracticeParticipant::where('session_id', $session->uuid)
                 ->orderBy('joined_at')
                 ->get()
-                ->map(function (GamePracticeParticipant $p) use ($onlineCutoff) {
-                    $online = $p->last_seen_at && $p->last_seen_at->gte($onlineCutoff);
-
+                ->map(function (GamePracticeParticipant $p) {
                     return [
                         'participant_id' => $p->uuid,
                         'name'    => $p->guest_name,
                         'role'    => $p->claimed_role,
-                        'online'  => $online,
+                        'online'  => (bool) $p->joined_at,
                         'joined_at' => optional($p->joined_at)?->toIso8601String(),
                     ];
                 })
