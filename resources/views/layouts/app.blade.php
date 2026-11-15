@@ -87,10 +87,8 @@
             --ca:  {{ $pref->accent_color ?? '#e5996c' }};
             --sbg: {{ $pref->sidebar_bg ?? '#fceadb' }};
             --stx: {{ $pref->sidebar_text ?? '#57534e' }};
-            @if(($pref->sidebar_bg ?? '#ffffff') !== '#ffffff')
-            --sims-sidebar-bg: {{ $pref->sidebar_bg }};
-            --sims-sidebar-text: {{ $pref->sidebar_text ?? '#475569' }};
-            @endif
+            --sims-sidebar-bg: {{ $pref->sidebar_bg ?? '#fceadb' }};
+            --sims-sidebar-text: {{ $pref->sidebar_text ?? '#57534e' }};
             --sia: {{ $isSidebarDark ? '#ffffff' : ($pref->primary_color ?? '#7ba088') }};
             --fsm: {{ $fonts[0] }};
             --fmd: {{ $fonts[1] }};
@@ -1231,33 +1229,6 @@
                 $navSearchItems = collect($navSearchItems)->unique('route')->values()->all();
             @endphp
 
-            {{-- Cari menu (command-palette-lite) --}}
-            <div x-show="!mini" class="px-1 pb-2" x-cloak>
-                <label for="nav-menu-search" class="sr-only">Cari menu</label>
-                <div class="relative">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 opacity-50 pointer-events-none"></i>
-                    <input id="nav-menu-search" type="search" x-model="navSearchQuery" placeholder="Cari menu…"
-                           autocomplete="off"
-                           class="nav-search-input w-full pl-9 pr-3 py-2 text-sm rounded-xl" />
-                </div>
-                <div x-show="navSearchQuery.trim().length > 0" x-cloak
-                     class="nav-search-results mt-1.5 rounded-xl overflow-hidden shadow-sm">
-                    <template x-for="item in navSearchResults()" :key="item.route">
-                        <a :href="item.url" :data-nav-route="item.route"
-                           class="nav-link flex items-center gap-2.5 px-3 py-2 border-b border-black/[.04] dark:border-white/[.06] last:border-0">
-                            <i :data-lucide="item.icon" class="nav-icon w-4 h-4 flex-shrink-0"></i>
-                            <span class="min-w-0 flex-1">
-                                <span class="block text-[13px] font-semibold truncate" x-text="item.label"></span>
-                                <span class="block text-[10px] opacity-60 truncate" x-text="item.group"></span>
-                            </span>
-                        </a>
-                    </template>
-                    <p x-show="navSearchResults().length === 0" class="px-3 py-2.5 text-xs opacity-60">Menu tidak ditemukan.</p>
-                </div>
-            </div>
-
-            <div x-show="!navSearchQuery.trim().length">
-
             {{-- Menu utama (selalu tampil) --}}
             <button type="button" @click="toggleNavSection('nav')" x-show="!mini"
                     class="nav-section w-full flex items-center justify-between px-3 pt-2 pb-2 text-[11px] font-bold uppercase tracking-[.1em] hover:opacity-80 transition">
@@ -1303,12 +1274,17 @@
                     </button>
                     <div x-show="mini || navSectionOpen.recent" x-collapse>
                     <template x-for="item in navRecent" :key="item.route">
-                        <a :href="item.url" :data-nav-route="item.route" :data-tip="item.label"
-                           class="nav-link flex items-center gap-2.5 px-3 py-2"
-                           :class="isNavActive(item) ? 'active' : ''">
-                            <i :data-lucide="item.icon" class="nav-icon w-4 h-4 flex-shrink-0"></i>
-                            <span class="text-[13px] truncate" x-text="item.label"></span>
-                        </a>
+                        <div class="group/recent flex items-center justify-between">
+                            <a :href="item.url" :data-nav-route="item.route" :data-tip="item.label"
+                               class="nav-link flex-1 flex items-center gap-2.5 px-3 py-2"
+                               :class="isNavActive(item) ? 'active' : ''">
+                                <i :data-lucide="item.icon" class="nav-icon w-4 h-4 flex-shrink-0"></i>
+                                <span class="text-[13px] truncate" x-text="item.label"></span>
+                            </a>
+                            <button type="button" @click.stop.prevent="removeDockItem(item.route)" :title="'Hapus ' + item.label + ' dari daftar'" :aria-label="'Hapus ' + item.label + ' dari daftar'" class="hidden group-hover/recent:grid place-items-center w-6 h-6 mr-1 rounded text-slate-400 hover:text-rose-500 hover:bg-black/5 dark:hover:bg-white/10 transition">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
                     </template>
                     </div>
                 </div>
@@ -1528,7 +1504,6 @@
                           class="absolute right-2 top-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900"></span>
                     @endif
                 </a>
-            </div>
             </div>
             @endif
         </nav>
@@ -1900,6 +1875,16 @@
             navRecent: [],
             navDockRecent: [],
             dockFavoriteRoutes: [],
+            dockVisible: localStorage.getItem('sims_dock_visible') !== '0',
+            dockCustomOrder: (() => {
+                try {
+                    const val = JSON.parse(localStorage.getItem('sims_dock_order') || '[]');
+                    return Array.isArray(val) ? val : [];
+                } catch (_) { return []; }
+            })(),
+            dockDragSource: null,
+            dockDragOverRoute: null,
+            dockJustDragged: false,
             currentRoute: @json(Route::currentRouteName()),
             navExpanded: Object.assign(@json($navExpandedDefaults), (() => { try { return JSON.parse(localStorage.getItem('sims_nav_expanded') || '{}'); } catch (_) { return {}; } })()),
             toggleGroup(g){ this.openGroup = (this.openGroup === g ? '' : g); localStorage.setItem('sb_group', this.openGroup); this.$nextTick(()=>lucide.createIcons()); },
@@ -2018,14 +2003,87 @@
                 this.navFavorites = routes.filter(r => !(this.navPinnedRoutes || []).includes(r)).map(r => this.navRegistry[r]);
             },
             loadNavRecent(){
-                const routes = this.readNavRoutes('sims_nav_recent', 'sb_recent').slice(0, 10);
+                const routes = this.readNavRoutes('sims_nav_recent', 'sb_recent').slice(0, 6);
                 this.navDockRecent = routes.map(r => this.navRegistry[r]);
                 this.navRecent = routes.filter(r => !(this.navPinnedRoutes || []).includes(r)).map(r => this.navRegistry[r]).slice(0, 5);
             },
             dockItems(){
-                return [...new Set([...this.dockFavoriteRoutes, ...this.navDockRecent.map(item => item.route)])]
-                    .filter(route => Object.prototype.hasOwnProperty.call(this.navRegistry, route))
-                    .slice(0, 10).map(route => this.navRegistry[route]);
+                const allRoutes = [...new Set([...this.dockFavoriteRoutes, ...this.navDockRecent.map(item => item.route)])]
+                    .filter(route => Object.prototype.hasOwnProperty.call(this.navRegistry, route));
+                if (this.dockCustomOrder && this.dockCustomOrder.length) {
+                    allRoutes.sort((a, b) => {
+                        const idxA = this.dockCustomOrder.indexOf(a);
+                        const idxB = this.dockCustomOrder.indexOf(b);
+                        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                        if (idxA !== -1) return -1;
+                        if (idxB !== -1) return 1;
+                        return 0;
+                    });
+                }
+                return allRoutes.slice(0, 6).map(route => this.navRegistry[route]);
+            },
+            onDockDragStart(e, route){
+                this.dockDragSource = route;
+                this.dockJustDragged = true;
+                try {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', route);
+                } catch (_) {}
+            },
+            onDockDragOver(e, route){
+                if (this.dockDragSource && this.dockDragSource !== route) {
+                    try { e.dataTransfer.dropEffect = 'move'; } catch (_) {}
+                    this.dockDragOverRoute = route;
+                }
+            },
+            onDockDragLeave(e, route){
+                if (e.currentTarget && e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) {
+                    return;
+                }
+                if (this.dockDragOverRoute === route) {
+                    this.dockDragOverRoute = null;
+                }
+            },
+            onDockDragEnd(e){
+                this.dockDragSource = null;
+                this.dockDragOverRoute = null;
+                setTimeout(() => { this.dockJustDragged = false; }, 150);
+            },
+            onDockDrop(e, targetRoute){
+                const sourceRoute = this.dockDragSource || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : null);
+                this.dockDragSource = null;
+                this.dockDragOverRoute = null;
+                setTimeout(() => { this.dockJustDragged = false; }, 150);
+                if (!sourceRoute || sourceRoute === targetRoute) return;
+                this.reorderDockItems(sourceRoute, targetRoute);
+            },
+            onDockDropContainer(e){
+                if (e.target !== e.currentTarget) return;
+                const sourceRoute = this.dockDragSource || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : null);
+                this.dockDragSource = null;
+                this.dockDragOverRoute = null;
+                setTimeout(() => { this.dockJustDragged = false; }, 150);
+                if (!sourceRoute) return;
+                const currentRoutes = this.dockItems().map(item => item.route);
+                const sourceIdx = currentRoutes.indexOf(sourceRoute);
+                if (sourceIdx === -1 || sourceIdx === currentRoutes.length - 1) return;
+                currentRoutes.splice(sourceIdx, 1);
+                currentRoutes.push(sourceRoute);
+                this.dockCustomOrder = currentRoutes;
+                try { localStorage.setItem('sims_dock_order', JSON.stringify(currentRoutes)); } catch (_) {}
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            },
+            reorderDockItems(sourceRoute, targetRoute){
+                const currentRoutes = this.dockItems().map(item => item.route);
+                const sourceIdx = currentRoutes.indexOf(sourceRoute);
+                const targetIdx = currentRoutes.indexOf(targetRoute);
+                if (sourceIdx === -1 || targetIdx === -1 || sourceIdx === targetIdx) return;
+                currentRoutes.splice(sourceIdx, 1);
+                currentRoutes.splice(targetIdx, 0, sourceRoute);
+                const newOrder = [...new Set([...currentRoutes, ...(this.dockCustomOrder || [])])];
+                this.dockCustomOrder = newOrder;
+                try { localStorage.setItem('sims_dock_order', JSON.stringify(newOrder)); } catch (_) {}
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
             },
             isNavActive(item){
                 if (!item || !this.currentRoute) return false;
@@ -2052,6 +2110,26 @@
                 this.loadNavFavorites();
                 this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
             },
+            toggleDockVisibility(){
+                this.dockVisible = !this.dockVisible;
+                try { localStorage.setItem('sims_dock_visible', this.dockVisible ? '1' : '0'); } catch (_) {}
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            },
+            removeDockItem(route){
+                if (!route) return;
+                let recent = this.readNavRoutes('sims_nav_recent', 'sb_recent').filter(r => r !== route);
+                try { localStorage.setItem('sims_nav_recent', JSON.stringify(recent)); } catch (_) {}
+                let favs = this.readNavRoutes('sims_nav_favorites', 'sb_favorites').filter(r => r !== route);
+                try { localStorage.setItem('sims_nav_favorites', JSON.stringify(favs)); } catch (_) {}
+                if (Array.isArray(this.dockCustomOrder)) {
+                    this.dockCustomOrder = this.dockCustomOrder.filter(r => r !== route);
+                    try { localStorage.setItem('sims_dock_order', JSON.stringify(this.dockCustomOrder)); } catch (_) {}
+                }
+                this.loadNavFavorites();
+                this.loadNavRecent();
+                if (window.showToast) window.showToast('Halaman dihapus dari riwayat', 'info');
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            },
             toggleNavExpand(key){
                 this.navExpanded[key] = !this.navExpanded[key];
                 localStorage.setItem('sims_nav_expanded', JSON.stringify(this.navExpanded));
@@ -2069,7 +2147,7 @@
             },
             pushNavRecent(route){
                 if (!route || !Object.prototype.hasOwnProperty.call(this.navRegistry, route)) return;
-                const recent = [route, ...this.readNavRoutes('sims_nav_recent', 'sb_recent').filter(r => r !== route)].slice(0, 10);
+                const recent = [route, ...this.readNavRoutes('sims_nav_recent', 'sb_recent').filter(r => r !== route)].slice(0, 6);
                 try { localStorage.setItem('sims_nav_recent', JSON.stringify(recent)); } catch (_) { return; }
                 this.loadNavRecent();
             },
@@ -2108,7 +2186,7 @@
                     this.audio.preload = 'auto';
                     this.audio.volume = 0.6;
                 } catch (_) { this.audio = null; }
-                @unless($halamanSurvei)
+                @unless($halamanSurvei || $kioskChrome || !auth()->check())
                 // Performa Server: tahan juga fetch PERTAMA ini (bukan cuma pengulangannya) —
                 // inilah yg justru tembak tepat di detik-detik rawan (banyak orang login
                 // bersamaan), jauh sebelum interval sempat jalan. Mematikan 'notifikasi' ikut
@@ -2117,7 +2195,7 @@
                 if (!window.simsPollingNonaktif('notifikasi')) {
                     if (window.simsFirebase) {
                         window.simsFirebase.onReady(fb => {
-                            const triggerRef = fb.getRef(`users/{{ auth()->user()->uuid ?? '' }}/sync_trigger`);
+                            const triggerRef = fb.getRef(`users/{{ auth()->user()?->uuid ?? '' }}/sync_trigger`);
                             fb.onValue(triggerRef, (snapshot) => {
                                 if (snapshot.exists()) {
                                     this.fetchNotifications();

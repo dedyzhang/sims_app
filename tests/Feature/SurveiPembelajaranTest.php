@@ -26,6 +26,12 @@ class SurveiPembelajaranTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+    }
+
     private function user(string $name, string $role): User
     {
         return User::create(['username' => $name, 'password' => Hash::make('password'), 'access' => $role]);

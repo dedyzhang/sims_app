@@ -3,6 +3,7 @@
 .env
 .env.backup
 .env.production
+.env.testing
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -23,7 +24,9 @@
 /vendor
 # Database SQLite lokal — jangan ikut ter-commit (berisi data siswa asli).
 /database/database.sqlite
+/database/testing.sqlite
 # Backup database lokal — jangan ikut ter-commit.
+/database/*backup*.sqlite
 /database/*.backup-*.sqlite
 /database/*.sqlite-journal
 Homestead.json

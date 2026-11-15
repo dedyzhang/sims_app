@@ -14,13 +14,21 @@ class ProfilePreferenceTest extends TestCase
     #[\PHPUnit\Framework\Attributes\DataProvider('dashboardThemes')]
     public function test_user_can_save_dashboard_theme_preference(string $theme): void
     {
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+
         $user = User::create([
             'username' => 'theme_admin',
             'password' => Hash::make('password'),
             'access' => 'superadmin',
         ]);
 
-        $this->actingAs($user)->get(route('profile.preference'))->assertOk()->assertSee('macOS Minimal')->assertSee('Bento');
+        $this->actingAs($user)->get(route('profile.preference'))
+            ->assertOk()
+            ->assertSee('Awan Biru')
+            ->assertSee('Senja Pesisir')
+            ->assertSee('Samudera Malam')
+            ->assertSee('Hutan Asri')
+            ->assertSee('Kopi Karamel');
 
         $response = $this->actingAs($user)->putJson(route('profile.preference.update'), [
             'primary_color' => '#2563eb',
@@ -55,6 +63,7 @@ class ProfilePreferenceTest extends TestCase
 
     public function test_unknown_dashboard_theme_is_rejected(): void
     {
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
         $user = User::create(['username' => 'invalid_theme', 'password' => Hash::make('password'), 'access' => 'superadmin']);
         $this->actingAs($user)->putJson(route('profile.preference.update'), ['dashboard_theme' => 'unknown'])
             ->assertUnprocessable()->assertJsonValidationErrors('dashboard_theme');

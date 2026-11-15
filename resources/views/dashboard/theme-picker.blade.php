@@ -5,7 +5,7 @@
         <span class="sr-only">Gaya Tampilan</span>
         <select class="rounded-full border-0 bg-transparent py-1 pl-1 pr-7 text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-slate-300 dark:text-slate-200 dark:[color-scheme:dark] dark:focus:ring-slate-600"
             x-model="previewTheme" @change="window.setDashboardTheme(previewTheme)">
-            @foreach(['windows11'=>'Windows 11', 'macos'=>'Mac OS', 'fluent'=>'Fluent', 'macos-minimal'=>'macOS Minimal', 'bento'=>'Bento'] as $id=>$label)
+            @foreach(['windows11'=>'Awan Biru', 'macos'=>'Senja Pesisir', 'fluent'=>'Samudera Malam', 'macos-minimal'=>'Hutan Asri', 'bento'=>'Kopi Karamel'] as $id=>$label)
                 <option value="{{ $id }}">{{ $label }}</option>
             @endforeach
         </select>

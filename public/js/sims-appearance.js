@@ -25,6 +25,13 @@
             preset: ['theme', 'none', 'photo', ...Object.keys(presets)].includes(value.preset) ? value.preset : 'theme'
         };
     }
+    const themePalettes = {
+        'windows11': { cp:'#2563eb', cps:'#3b82f6', ca:'#f59e0b', sbg:'#ffffff', stx:'#475569' },
+        'macos': { cp:'#e07a5f', cps:'#f2a25c', ca:'#c75d8f', sbg:'#fdeee2', stx:'#6b4a3f' },
+        'fluent': { cp:'#132039', cps:'#203254', ca:'#e8a04e', sbg:'#132039', stx:'#cbd5e1' },
+        'macos-minimal': { cp:'#4a7c59', cps:'#6b9b6f', ca:'#c99a4b', sbg:'#e8f0e3', stx:'#3a4a36' },
+        'bento': { cp:'#3d2314', cps:'#5a3a22', ca:'#e67e22', sbg:'#2c180c', stx:'#e8d8ce' }
+    };
     function setTheme(theme, preview = true) {
         if (!enabled || !themes.includes(theme)) return;
         body.dataset.uiTheme = theme;
@@ -32,6 +39,31 @@
             [...root.classList].filter(c => c.startsWith('dashboard-theme-')).forEach(c => root.classList.remove(c));
             root.classList.add(`dashboard-theme-${theme}`);
         });
+        if (themePalettes[theme] && preview && typeof document.querySelector === 'function' && !document.querySelector('[x-data*="prefStudio"]')) {
+            const pal = themePalettes[theme];
+            const r = document.documentElement;
+            if (r && r.style) {
+                r.style.setProperty('--cp', pal.cp);
+                r.style.setProperty('--cps', pal.cps);
+                r.style.setProperty('--ca', pal.ca);
+                r.style.setProperty('--sbg', pal.sbg);
+                r.style.setProperty('--stx', pal.stx);
+                r.style.setProperty('--sims-sidebar-bg', pal.sbg);
+                r.style.setProperty('--sims-sidebar-text', pal.stx);
+            }
+            if (typeof document.querySelectorAll === 'function') {
+                document.querySelectorAll('.sidebar').forEach(s => {
+                    if (s && s.style) {
+                        s.style.setProperty('--sbg', pal.sbg);
+                        s.style.setProperty('--stx', pal.stx);
+                        s.style.setProperty('--sims-sidebar-bg', pal.sbg);
+                        s.style.setProperty('--sims-sidebar-text', pal.stx);
+                        s.style.background = pal.sbg;
+                        s.style.color = pal.stx;
+                    }
+                });
+            }
+        }
         try { if (preview) sessionStorage.setItem(previewKey, theme); else sessionStorage.removeItem(previewKey); } catch (_) {}
         applyWallpaper(currentWallpaper);
         window.dispatchEvent(new CustomEvent('sims-theme-changed', { detail: theme }));

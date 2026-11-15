@@ -27,8 +27,9 @@ body[data-appearance-enabled="1"][data-ui-theme="bento"] {
 .dark body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) { --ui-canvas: #19191f; --ui-sidebar: #24242d; --ui-panel: #292933; --ui-edge: #40404b; }
 .dark body[data-appearance-enabled="1"][data-ui-theme="bento"] { --ui-canvas: #181f1a; --ui-sidebar: #222c25; --ui-panel: #29352d; --ui-edge: #405345; }
 body[data-appearance-enabled="1"] .sidebar {
-    --sbg: var(--ui-sidebar); --stx: var(--ui-text);
-    background: var(--ui-sidebar) !important; color: var(--ui-text); border-right: 1px solid var(--ui-edge);
+    --sbg: var(--sims-sidebar-bg, var(--sbg, var(--ui-sidebar)));
+    --stx: var(--sims-sidebar-text, var(--stx, var(--ui-text)));
+    background: var(--sbg) !important; color: var(--stx) !important; border-right: 1px solid var(--ui-edge);
     box-shadow: none !important;
 }
 body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group) {
@@ -42,7 +43,7 @@ body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group,.nav-sublink
 body[data-appearance-enabled="1"] .sidebar .nav-link:not(.active):is(:hover,:focus-visible) {
     color: var(--stx) !important;
 }
-body[data-appearance-enabled="1"] .sidebar :is(.nav-link.active,.nav-group.has-active) { background: color-mix(in srgb, var(--cp) 13%, var(--ui-panel)) !important; color: var(--ui-text) !important; }
+body[data-appearance-enabled="1"] .sidebar :is(.nav-link.active,.nav-group.has-active) { background: color-mix(in srgb, var(--cp) 18%, var(--sbg, white)) !important; color: var(--stx, var(--ui-text)) !important; font-weight: 700; border-color: color-mix(in srgb, var(--cp) 30%, transparent) !important; }
 body[data-appearance-enabled="1"] .sidebar :is(.nav-icon,.nav-section,.nav-sublink-more) { color: var(--ui-muted) !important; }
 body[data-appearance-enabled="1"] .sidebar .nav-link.active .nav-icon { color: var(--cp) !important; }
 body[data-appearance-enabled="1"] .sidebar .nav-submenu { border-color: var(--ui-edge); }
@@ -111,7 +112,7 @@ body[data-appearance-enabled="1"].has-wallpaper #sims-wallpaper { display: block
 body[data-appearance-enabled="1"].has-wallpaper #sims-wallpaper-shade { display: block; background: rgb(0 0 0 / var(--wallpaper-shade, .35)); }
 body[data-appearance-enabled="1"].has-wallpaper .motif-set { display: none !important; }
 body[data-appearance-enabled="1"].has-wallpaper .sims-main { background: color-mix(in srgb, var(--ui-panel, white) 88%, transparent); }
-body[data-appearance-enabled="1"].has-wallpaper .sidebar { background: color-mix(in srgb, var(--ui-sidebar) 94%, transparent) !important; }
+body[data-appearance-enabled="1"].has-wallpaper .sidebar { background: color-mix(in srgb, var(--sbg) 94%, transparent) !important; }
 body[data-appearance-enabled="1"].has-wallpaper .sims-app-header { background: color-mix(in srgb, var(--ui-panel) 94%, transparent); }
 .wallpaper-choice[data-wallpaper="aurora"] { background: linear-gradient(120deg, #bae6fd, #ddd6fe); color: #253249; }
 .wallpaper-choice[data-wallpaper="garden"] { background: linear-gradient(120deg, #d9f99d, #99f6e4); color: #253249; }

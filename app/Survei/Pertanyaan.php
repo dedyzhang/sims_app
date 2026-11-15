@@ -34,7 +34,7 @@ final class Pertanyaan
         return $jenis === 'wali' ? self::KENDALA_WALI : self::KENDALA;
     }
 
-    public static function untuk(string $jenis): array
+    public static function defaultHardcoded(string $jenis): array
     {
         return $jenis === 'wali' ? [
             'Wali kelas hadir tepat waktu saat pembinaan pagi.',
@@ -57,9 +57,58 @@ final class Pertanyaan
         ];
     }
 
-    public static function dibalik(string $jenis): array
+    public static function untuk(string $jenis): array
+    {
+        try {
+            $custom = \App\Models\Setting::get('survei_pertanyaan_'.$jenis);
+            if ($custom) {
+                $decoded = json_decode((string) $custom, true);
+                if (is_array($decoded) && ! empty($decoded)) {
+                    return array_values(array_filter($decoded, fn ($item) => is_string($item) && trim($item) !== ''));
+                }
+            }
+        } catch (\Throwable) {}
+
+        return self::defaultHardcoded($jenis);
+    }
+
+    public static function defaultDibalik(string $jenis): array
     {
         return $jenis === 'mapel' ? [7, 8, 9] : [];
+    }
+
+    public static function dibalik(string $jenis): array
+    {
+        try {
+            $custom = \App\Models\Setting::get('survei_dibalik_'.$jenis);
+            if ($custom) {
+                $decoded = json_decode((string) $custom, true);
+                if (is_array($decoded)) {
+                    return array_map('intval', array_values($decoded));
+                }
+            }
+        } catch (\Throwable) {}
+
+        return self::defaultDibalik($jenis);
+    }
+
+    public static function simpanDefault(string $jenis, array $butir, array $dibalik = []): void
+    {
+        $filtered = array_values(array_filter($butir, fn ($item) => is_string($item) && trim($item) !== ''));
+        \App\Models\Setting::set('survei_pertanyaan_'.$jenis, json_encode($filtered));
+        \App\Models\Setting::set('survei_dibalik_'.$jenis, json_encode(array_map('intval', array_values($dibalik))));
+    }
+
+    public static function resetDefault(?string $jenis = null): void
+    {
+        if ($jenis === null || $jenis === 'mapel') {
+            \App\Models\Setting::set('survei_pertanyaan_mapel', json_encode(self::defaultHardcoded('mapel')));
+            \App\Models\Setting::set('survei_dibalik_mapel', json_encode(self::defaultDibalik('mapel')));
+        }
+        if ($jenis === null || $jenis === 'wali') {
+            \App\Models\Setting::set('survei_pertanyaan_wali', json_encode(self::defaultHardcoded('wali')));
+            \App\Models\Setting::set('survei_dibalik_wali', json_encode(self::defaultDibalik('wali')));
+        }
     }
 
     public static function skor(string $jenis, int $index, int $jawaban, ?array $dibalik = null): ?int

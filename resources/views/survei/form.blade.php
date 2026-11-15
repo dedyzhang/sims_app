@@ -3,8 +3,7 @@
 @section('hide_page_footer', '1')
 @include('survei.gaya')
 @section('content')
-<div class="survei-page mx-auto max-w-4xl space-y-5" data-daftar="{{ route('survei.index') }}" data-seb="{{ $periode->wajib_seb ? '1' : '0' }}"
-    @if($tantanganKios) data-periode-kios="{{ $periode->uuid }}" data-tantangan-kios="{{ $tantanganKios }}" @endif>
+<div class="survei-page mx-auto max-w-4xl space-y-5" data-daftar="{{ route('survei.index') }}">
     <header class="survei-hero">
         <div class="survei-identitas">
             <div class="survei-logo">
@@ -34,11 +33,11 @@
 
     <div id="survei-mode-fokus" class="card survei-akses" data-sudah-mulai="{{ $errors->any() ? '1' : '0' }}">
         <h2 id="survei-fokus-judul" class="font-semibold">{{ $errors->any() ? 'Lanjutkan survei' : 'Mulai survei' }}</h2>
-        <p id="survei-fokus-pesan" class="text-sm" role="status">{{ $periode->wajib_seb || $periode->wajib_kios ? 'Perangkat akan dibuka setelah semua jawaban berhasil dikirim.' : 'Siapkan waktu untuk menyelesaikan semua pertanyaan wajib dalam layar penuh.' }}</p>
+        <p id="survei-fokus-pesan" class="text-sm" role="status">Siapkan waktu untuk menyelesaikan semua pertanyaan wajib dalam layar penuh.</p>
         <button id="survei-fokus-mulai" type="button" class="survei-tombol survei-aksi-utama" disabled>
-            {{ $errors->any() ? 'Lanjutkan pengisian' : ($periode->wajib_seb || $periode->wajib_kios ? 'Mulai survei' : 'Mulai layar penuh') }}
+            {{ $errors->any() ? 'Lanjutkan pengisian' : 'Mulai layar penuh' }}
         </button>
-        <a id="survei-fokus-kembali" href="{{ route('survei.index') }}" class="survei-kembali" @if($periode->wajib_seb || $periode->wajib_kios) hidden @endif>Kembali ke daftar survei</a>
+        <a id="survei-fokus-kembali" href="{{ route('survei.index') }}" class="survei-kembali">Kembali ke daftar survei</a>
         <noscript><p>Aktifkan JavaScript untuk mulai mengisi survei.</p></noscript>
     </div>
 

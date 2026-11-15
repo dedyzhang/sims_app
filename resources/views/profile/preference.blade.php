@@ -93,43 +93,47 @@
                     <button type="button" @click="setDashboardTheme('windows11')"
                             class="theme-card relative rounded-2xl p-3 border-2 text-left overflow-hidden transition"
                             :class="dashboard_theme==='windows11' ? 'border-primary' : 'border-slate-100 dark:border-slate-700'">
-                        <div class="h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-50 mb-3 p-2">
-                            <div class="h-4 rounded-lg bg-white/90 border border-blue-100 mb-2 flex items-center justify-end px-1.5">
-                                <span class="w-3 h-3 rounded bg-blue-500"></span>
+                        <div class="h-20 rounded-xl overflow-hidden border border-blue-200 dark:border-slate-700 bg-gradient-to-br from-blue-50 to-sky-100 mb-3 p-2">
+                            <div class="h-4 rounded-lg bg-white/90 border border-blue-200 mb-2 flex items-center justify-end px-1.5">
+                                <span class="w-3 h-3 rounded bg-blue-600"></span>
                             </div>
                             <div class="grid grid-cols-3 gap-1.5">
                                 <span class="h-10 rounded-lg bg-white border border-blue-100 shadow-sm"></span>
-                                <span class="h-10 rounded-lg bg-sky-50 border border-sky-100 shadow-sm"></span>
+                                <span class="h-10 rounded-lg bg-sky-100/70 border border-sky-200 shadow-sm"></span>
                                 <span class="h-10 rounded-lg bg-white border border-blue-100 shadow-sm"></span>
                             </div>
                         </div>
                         <div class="flex items-center justify-between">
-                            <p class="text-[13px] font-bold text-slate-700 dark:text-slate-200">Windows 11</p>
+                            <p class="text-[13px] font-bold text-slate-700 dark:text-slate-200">Awan Biru</p>
                             <i x-show="dashboard_theme==='windows11'" data-lucide="check-circle-2" class="w-4 h-4 text-primary"></i>
                         </div>
-                        <p class="text-[11px] text-slate-400">Fajar biru, jendela ringkas, taskbar bawah</p>
+                        <p class="text-[11px] text-slate-400">Biru fajar cerah, jendela ringkas, taskbar navigasi</p>
                     </button>
                     <button type="button" @click="setDashboardTheme('macos')"
                             class="theme-card relative rounded-2xl p-3 border-2 text-left overflow-hidden transition"
                             :class="dashboard_theme==='macos' ? 'border-primary' : 'border-slate-100 dark:border-slate-700'">
-                        <div class="h-20 rounded-[22px] overflow-hidden border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-sky-50 via-white to-pink-50 mb-3 p-2">
+                        <div class="h-20 rounded-[22px] overflow-hidden border border-rose-200 dark:border-slate-700 bg-gradient-to-br from-orange-50 via-rose-50 to-pink-100 mb-3 p-2">
                             <div class="flex gap-1 mb-2">
-                                <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
-                                <span class="w-2.5 h-2.5 rounded-full bg-amber-300"></span>
-                                <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                                <span class="w-2.5 h-2.5 rounded-full bg-orange-400"></span>
                             </div>
                             <div class="grid grid-cols-2 gap-1.5">
-                                <span class="h-11 rounded-2xl bg-white/70 border border-white shadow-sm backdrop-blur"></span>
-                                <span class="h-11 rounded-2xl bg-white/55 border border-white shadow-sm backdrop-blur"></span>
+                                <span class="h-11 rounded-2xl bg-white/80 border border-white shadow-sm backdrop-blur"></span>
+                                <span class="h-11 rounded-2xl bg-white/60 border border-white shadow-sm backdrop-blur"></span>
                             </div>
                         </div>
                         <div class="flex items-center justify-between">
-                            <p class="text-[13px] font-bold text-slate-700 dark:text-slate-200">Mac OS</p>
+                            <p class="text-[13px] font-bold text-slate-700 dark:text-slate-200">Senja Pesisir</p>
                             <i x-show="dashboard_theme==='macos'" data-lucide="check-circle-2" class="w-4 h-4 text-primary"></i>
                         </div>
-                        <p class="text-[11px] text-slate-400">Senja pesisir, jendela mengambang, dock</p>
+                        <p class="text-[11px] text-slate-400">Senja pesisir hangat, jendela membulat mengambang, dock navigasi</p>
                     </button>
-                @foreach(['fluent' => ['Fluent', 'Arsitektur malam, navigasi navy, kontrol rapat'], 'macos-minimal' => ['macOS Minimal', 'Bukit berkabut, panel kertas, tata letak lega'], 'bento' => ['Bento', 'Taman bentuk, kartu berbingkai, tombol besar']] as $themeId => [$themeName, $themeDescription])
+                @foreach([
+                    'fluent' => ['Samudera Malam', 'Arsitektur malam tenang, navigasi navy pekat, kontrol rapat'],
+                    'macos-minimal' => ['Hutan Asri', 'Bukit berkabut alami, panel kertas tenang, tata letak lega'],
+                    'bento' => ['Kopi Karamel', 'Taman bentuk hangat, kartu berbingkai teratur, tombol tegas']
+                ] as $themeId => [$themeName, $themeDescription])
                     <button type="button" @click="setDashboardTheme('{{ $themeId }}')" :aria-pressed="dashboard_theme==='{{ $themeId }}'"
                         class="theme-card rounded-2xl p-3 border-2 text-left" :class="dashboard_theme==='{{ $themeId }}' ? 'border-primary' : 'border-slate-100 dark:border-slate-700'">
                         <div aria-hidden="true" class="theme-scene-preview" data-scene="{{ $themeId }}" style="background-image:url('{{ asset('images/themes/'.$themeId.'.svg') }}')"><span></span><span></span></div>
@@ -395,7 +399,29 @@ function prefStudio(data) {
                      theme_mode:this.theme_mode, motif:this.motif, ui_style:this.ui_style, dashboard_theme:this.dashboard_theme, font_size:this.font_size, compact_mode:this.compact_mode };
         },
         setStyleVal(s) { this.ui_style = s; if (window.setStyle) window.setStyle(s); },
-        setDashboardTheme(t) { this.dashboard_theme = t; if (window.setDashboardTheme) window.setDashboardTheme(t); },
+        setDashboardTheme(t) {
+            this.dashboard_theme = t;
+            const themePresetsMap = {
+                'windows11': { name:'Awan Biru', icon:'school', motif:'minimal', cp:'#2563eb', cps:'#3b82f6', ca:'#f59e0b', sbg:'#ffffff', stx:'#475569' },
+                'macos': { name:'Senja', icon:'sunset', motif:'sunset', cp:'#e07a5f', cps:'#f2a25c', ca:'#c75d8f', sbg:'#fdeee2', stx:'#6b4a3f' },
+                'fluent': { name:'Samudera Malam', icon:'anchor', motif:'nightocean', cp:'#132039', cps:'#203254', ca:'#e8a04e', sbg:'#132039', stx:'#cbd5e1' },
+                'macos-minimal': { name:'Hutan', icon:'trees', motif:'forest', cp:'#4a7c59', cps:'#6b9b6f', ca:'#c99a4b', sbg:'#e8f0e3', stx:'#3a4a36' },
+                'bento': { name:'Kopi Karamel', icon:'coffee', motif:'minimal', cp:'#3d2314', cps:'#5a3a22', ca:'#e67e22', sbg:'#2c180c', stx:'#e8d8ce' }
+            };
+            if (themePresetsMap[t]) {
+                const p = themePresetsMap[t];
+                this.primary_color = p.cp;
+                this.secondary_color = p.cps;
+                this.accent_color = p.ca;
+                this.sidebar_bg = p.sbg;
+                this.sidebar_text = p.stx;
+                this.motif = p.motif;
+                if (window.setMotif) window.setMotif(p.motif);
+            }
+            this.apply();
+            if (window.setDashboardTheme) window.setDashboardTheme(t);
+            this.$nextTick(() => lucide.createIcons());
+        },
 
         apply() {
             const r = document.documentElement;
@@ -404,13 +430,18 @@ function prefStudio(data) {
             r.style.setProperty('--ca', this.accent_color);
             r.style.setProperty('--sbg', this.sidebar_bg);
             r.style.setProperty('--stx', this.sidebar_text);
-            if (this.sidebar_bg.toLowerCase() !== '#ffffff') {
-                r.style.setProperty('--sims-sidebar-bg', this.sidebar_bg);
-                r.style.setProperty('--sims-sidebar-text', this.sidebar_text);
-            } else {
-                r.style.removeProperty('--sims-sidebar-bg');
-                r.style.removeProperty('--sims-sidebar-text');
-            }
+            r.style.setProperty('--sims-sidebar-bg', this.sidebar_bg);
+            r.style.setProperty('--sims-sidebar-text', this.sidebar_text);
+
+            document.querySelectorAll('.sidebar').forEach(s => {
+                s.style.setProperty('--sbg', this.sidebar_bg);
+                s.style.setProperty('--stx', this.sidebar_text);
+                s.style.setProperty('--sims-sidebar-bg', this.sidebar_bg);
+                s.style.setProperty('--sims-sidebar-text', this.sidebar_text);
+                s.style.background = this.sidebar_bg;
+                s.style.color = this.sidebar_text;
+            });
+
             const fm = { sm:['11px','13px','15px'], md:['12px','14px','16px'], lg:['13px','15px','17px'] }[this.font_size];
             r.style.setProperty('--fsm', fm[0]); r.style.setProperty('--fmd', fm[1]); r.style.setProperty('--flg', fm[2]);
         },

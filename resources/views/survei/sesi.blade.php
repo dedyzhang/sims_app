@@ -24,11 +24,7 @@
     @if($errors->any())
         <p class="survei-sesi-alert" role="alert">{{ $errors->first() }}</p>
     @endif
-    @if($periode->wajib_kios && ! $kiosSiap)
-        <p>Daftarkan perangkat SIMS Kios sebelum memulai sesi.</p>
-    @elseif($periode->wajib_seb && ! $sebSiap)
-        <p>Mode Safe Exam Browser dipilih. Hubungi pengelola SIMS untuk menyiapkan konfigurasi sebelum memulai sesi.</p>
-    @elseif($sesi)
+    @if($sesi)
         <p>Dimulai {{ $sesi->created_at->format('d/m/Y H:i') }}. Sesi berakhir ketika tombol Siap ditekan.</p>
         <div class="survei-sesi-kolom">
             <div class="survei-sesi-panel survei-sesi-panel-buka">
@@ -72,13 +68,6 @@
             </form>
         </div>
     @else
-        @if($pembuat && !$periode->wajib_seb && !$periode->wajib_kios)
-            <form method="post" action="{{ route('survei.seb.wajib', $periode) }}"
-                onsubmit="return confirm('Wajibkan Safe Exam Browser untuk periode ini?')">
-                @csrf
-                <button type="submit" class="survei-sesi-tombol">Wajibkan Safe Exam Browser</button>
-            </form>
-        @endif
         <form method="post" action="{{ route('survei.sesi.mulai', $periode) }}" class="survei-sesi-form"
             x-data="{
                 terpilih: 0,

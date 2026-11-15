@@ -9,12 +9,16 @@
             <h1 class="page-title">{{ $periode->judul }}</h1>
             <p class="survei-detail-waktu">{{ $periode->mulai->format('d/m/Y H:i') }} – {{ $periode->selesai->format('d/m/Y H:i') }}</p>
         </div>
-        <div class="survei-detail-status">
+        <div class="survei-detail-status flex items-center gap-2">
             <span class="survei-sesi-status {{ $periode->terbuka() ? 'survei-sesi-status-jalan' : '' }}">{{ $periode->ditutup ? 'Ditutup' : ($periode->terbuka() ? 'Terbuka' : 'Belum terbuka / berakhir') }}</span>
-            @if($periode->wajib_kios)
-                <span class="survei-sesi-status">Wajib SIMS Kios</span>
-            @elseif($periode->wajib_seb)
-                <span class="survei-sesi-status">Wajib Safe Exam Browser</span>
+            @if($pembuat || auth()->user()->isAdmin())
+                <form method="post" action="{{ route('survei.destroy', $periode) }}" onsubmit="return confirm('Apakah Anda yakin ingin menghapus seluruh periode survei “{{ $periode->judul }}”?\n\nSemua data sasaran, sesi token, dan seluruh jawaban siswa yang telah masuk akan DIHAPUS PERMANEN.')" class="inline">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="px-3 py-1 text-xs font-semibold rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition">
+                        Hapus Periode
+                    </button>
+                </form>
             @endif
         </div>
     </header>
@@ -77,6 +81,104 @@
             <small class="survei-sasaran-privasi">Jumlah respons tidak menampilkan identitas siswa.</small>
         </div>
     </details>
+
+    @if($pembuat || auth()->user()->isAdmin())
+    <details class="card survei-detail-sasaran mt-4">
+        <summary>
+            <span>Butir Pertanyaan Periode Ini <small>{{ count($periode->butir('mapel')) }} butir mapel · {{ count($periode->butir('wali')) }} butir wali</small></span>
+            <span class="survei-detail-petunjuk">Klik untuk melihat / mengubah butir soal</span>
+        </summary>
+        <div class="survei-detail-sasaran-isi p-4">
+            <form method="post" action="{{ route('survei.pertanyaan.update', $periode) }}" class="space-y-4"
+                  x-data="{
+                      tab: 'mapel',
+                      mapelList: @js($periode->butir('mapel')),
+                      waliList: @js($periode->butir('wali')),
+                      dibalikMapel: @js($periode->butirNegatif('mapel')),
+                      dibalikWali: @js($periode->butirNegatif('wali')),
+                      tambah(t) {
+                          if (t === 'mapel') this.mapelList.push('');
+                          else this.waliList.push('');
+                      },
+                      hapus(t, i) {
+                          if (t === 'mapel') {
+                              if (this.mapelList.length <= 1) { alert('Minimal 1 butir pertanyaan.'); return; }
+                              this.mapelList.splice(i, 1);
+                              this.dibalikMapel = this.dibalikMapel.filter(idx => idx !== i).map(idx => idx > i ? idx - 1 : idx);
+                          } else {
+                              if (this.waliList.length <= 1) { alert('Minimal 1 butir pertanyaan.'); return; }
+                              this.waliList.splice(i, 1);
+                              this.dibalikWali = this.dibalikWali.filter(idx => idx !== i).map(idx => idx > i ? idx - 1 : idx);
+                          }
+                      },
+                      toggleNegatif(t, i) {
+                          if (t === 'mapel') {
+                              const pos = this.dibalikMapel.indexOf(i);
+                              if (pos !== -1) this.dibalikMapel.splice(pos, 1);
+                              else this.dibalikMapel.push(i);
+                          } else {
+                              const pos = this.dibalikWali.indexOf(i);
+                              if (pos !== -1) this.dibalikWali.splice(pos, 1);
+                              else this.dibalikWali.push(i);
+                          }
+                      },
+                      isNegatif(t, i) {
+                          return t === 'mapel' ? this.dibalikMapel.includes(i) : this.dibalikWali.includes(i);
+                      }
+                  }">
+                @csrf
+                @method('PUT')
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                    <p class="text-xs text-slate-500">Ubah teks butir pertanyaan atau tambahkan butir baru untuk periode survei ini.</p>
+                    <div class="inline-flex rounded-lg p-1 bg-slate-200/80 dark:bg-slate-800">
+                        <button type="button" @click="tab = 'mapel'" :class="tab === 'mapel' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-400'" class="px-3 py-1 text-xs rounded-md">Guru Mapel (<span x-text="mapelList.length"></span>)</button>
+                        <button type="button" @click="tab = 'wali'" :class="tab === 'wali' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-400'" class="px-3 py-1 text-xs rounded-md">Wali Kelas (<span x-text="waliList.length"></span>)</button>
+                    </div>
+                </div>
+
+                <div x-show="tab === 'mapel'" class="space-y-2">
+                    <template x-for="(text, index) in mapelList" :key="'m-' + index">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 text-xs font-bold text-slate-500 text-right shrink-0" x-text="index + 1 + '.'"></span>
+                            <input type="text" :name="'pertanyaan_mapel[' + index + ']'" x-model="mapelList[index]" required class="form-input text-xs flex-1">
+                            <label class="text-[11px] text-slate-500 flex items-center gap-1 shrink-0 cursor-pointer">
+                                <input type="checkbox" :name="'dibalik_mapel[]'" :value="index" :checked="isNegatif('mapel', index)" @change="toggleNegatif('mapel', index)">
+                                <span>Skor dibalik</span>
+                            </label>
+                            <button type="button" @click="hapus('mapel', index)" class="text-rose-500 hover:text-rose-700 px-2 text-xs font-bold" title="Hapus butir ini">✕</button>
+                        </div>
+                    </template>
+                    <button type="button" @click="tambah('mapel')" class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline mt-1">+ Tambah Butir Soal Mapel</button>
+                </div>
+
+                <div x-show="tab === 'wali'" class="space-y-2" x-cloak>
+                    <template x-for="(text, index) in waliList" :key="'w-' + index">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 text-xs font-bold text-slate-500 text-right shrink-0" x-text="index + 1 + '.'"></span>
+                            <input type="text" :name="'pertanyaan_wali[' + index + ']'" x-model="waliList[index]" required class="form-input text-xs flex-1">
+                            <label class="text-[11px] text-slate-500 flex items-center gap-1 shrink-0 cursor-pointer">
+                                <input type="checkbox" :name="'dibalik_wali[]'" :value="index" :checked="isNegatif('wali', index)" @change="toggleNegatif('wali', index)">
+                                <span>Skor dibalik</span>
+                            </label>
+                            <button type="button" @click="hapus('wali', index)" class="text-rose-500 hover:text-rose-700 px-2 text-xs font-bold" title="Hapus butir ini">✕</button>
+                        </div>
+                    </template>
+                    <button type="button" @click="tambah('wali')" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline mt-1">+ Tambah Butir Soal Wali</button>
+                </div>
+
+                <div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                    <label class="text-xs text-slate-500 flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="simpan_default" value="1">
+                        <span>Simpan susunan soal ini juga sebagai template default sekolah</span>
+                    </label>
+                    <button type="submit" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-xs font-semibold hover:bg-blue-800">
+                        Simpan Perubahan Soal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </details>
+    @endif
 
     {{-- Sama dengan otorisasi SurveiPembelajaranController::tutup(): hanya admin; periode bertoken hanya pembuatnya. --}}
     @if(!$periode->berakhir() && auth()->user()->isAdmin() && ($pembuat || !$periode->wajib_token))
