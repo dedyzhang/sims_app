@@ -64,10 +64,27 @@ class DemoCatalogController extends Controller
             ];
         }
 
+        $logoUrl = null;
+        try {
+            $logoPath = \App\Models\Setting::get('sekolah_logo');
+            if ($logoPath && \Illuminate\Support\Facades\Storage::disk('public')->exists($logoPath)) {
+                $logoUrl = asset('storage/' . $logoPath);
+            } elseif ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
+                $logoUrl = asset('storage/' . $logoPath);
+            } elseif (file_exists(public_path('img/logo.png'))) {
+                $logoUrl = asset('img/logo.png');
+            }
+        } catch (\Throwable) {
+            if (file_exists(public_path('img/logo.png'))) {
+                $logoUrl = asset('img/logo.png');
+            }
+        }
+
         return response()
             ->view('demo.showcase', [
                 'catalog'   => $catalog,
                 'secretKey' => $secretKey,
+                'logoUrl'   => $logoUrl,
             ])
             ->header('X-Robots-Tag', 'noindex, nofollow, noarchive');
     }

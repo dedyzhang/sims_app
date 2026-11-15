@@ -602,19 +602,22 @@ function ujianKerjakan(cfg) {
 
         laporKeluar(tipe) {
             if (this.terkunci) return;
+            this.kunci();
             try {
                 const payload = JSON.stringify({ tipe });
+                let sent = false;
                 if (navigator.sendBeacon) {
                     const blob = new Blob([payload], { type: 'application/json' });
-                    navigator.sendBeacon(cfg.urlKeluar + '?_token=' + encodeURIComponent(this._csrf), blob);
+                    sent = navigator.sendBeacon(cfg.urlKeluar + '?_token=' + encodeURIComponent(this._csrf), blob);
                 }
-                fetch(cfg.urlKeluar, {
-                    method: 'POST', keepalive: true,
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this._csrf },
-                    body: payload,
-                }).catch(() => {});
+                if (!sent) {
+                    fetch(cfg.urlKeluar, {
+                        method: 'POST', keepalive: true,
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this._csrf },
+                        body: payload,
+                    }).catch(() => {});
+                }
             } catch (e) {}
-            this.kunci();
         },
 
         kunci() {

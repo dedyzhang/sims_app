@@ -2,16 +2,89 @@
 @section('title', 'Hasil — ' . $ujian->judul)
 
 @section('content')
-<div class="max-w-3xl mx-auto space-y-5">
+<div class="max-w-4xl mx-auto space-y-5">
     <div>
         <nav class="text-xs text-slate-400 mb-1">
             <a href="{{ route('ujian.index') }}" class="hover:underline">Ujian</a> /
             <a href="{{ route('ujian.show', $ujian) }}" class="hover:underline">{{ $ujian->judul }}</a> / Hasil
         </nav>
-        <h1 class="page-title">Hasil Ujian</h1>
-        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Target nilai: {{ strtoupper($ujian->target_nilai) }} — nilai ditransfer otomatis begitu attempt selesai dinilai. Semua siswa kelas ter-assign ditampilkan, termasuk yang belum mengerjakan.</p>
+        <div class="flex items-center justify-between flex-wrap gap-3">
+            <div>
+                <h1 class="page-title">Hasil Ujian</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Target nilai: {{ strtoupper($ujian->target_nilai) }} — nilai ditransfer otomatis begitu attempt selesai dinilai.</p>
+            </div>
+            @if($kelasFilter && $ujianKelasList->count() > 1)
+            <a href="{{ route('ujian.hasil.index', $ujian) }}" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-sm">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                <span>Kembali ke Pilih Kelas</span>
+            </a>
+            @endif
+        </div>
     </div>
 
+    @if(!$kelasFilter)
+    {{-- TAMPILAN 1: PILIH KELAS (Ringkasan per-kelas agar server ringan & tidak meload ratusan siswa sekaligus) --}}
+    <div class="card p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/60 rounded-2xl flex items-start gap-3">
+        <i data-lucide="info" class="w-5 h-5 text-blue-600 shrink-0 mt-0.5"></i>
+        <div class="text-xs text-blue-900 dark:text-blue-200 space-y-0.5">
+            <p class="font-bold">Ujian Multi-Kelas ({{ $ujianKelasList->count() }} Kelas Ditugaskan)</p>
+            <p>Pilih kelas di bawah untuk melihat rincian hasil pengerjaan siswa dan transfer nilai. Membuka per kelas memastikan data dimuat lebih cepat dan menghemat kinerja server.</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @foreach($kelasSummary as $c)
+        <div class="card p-5 border border-slate-200 dark:border-slate-700/60 rounded-2xl flex flex-col justify-between hover:shadow-md hover:border-primary/50 transition">
+            <div class="space-y-3">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <span class="inline-block px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-bold text-base">
+                            Kelas {{ $c['kelas']?->tingkat }}{{ $c['kelas']?->kelas }}
+                        </span>
+                        @if($c['ujianKelas']->guruPengampu)
+                        <p class="text-xs text-slate-400 mt-1 truncate" title="{{ $c['ujianKelas']->guruPengampu->nama }}">
+                            Pengampu: {{ $c['ujianKelas']->guruPengampu->nama }}
+                        </p>
+                        @endif
+                    </div>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        {{ $c['total_siswa'] }} Siswa
+                    </span>
+                </div>
+
+                {{-- Status Breakdown --}}
+                <div class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div class="bg-emerald-50 dark:bg-emerald-950/30 p-2 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
+                        <span class="text-slate-500 block text-[11px]">Selesai Dinilai</span>
+                        <span class="text-emerald-700 dark:text-emerald-400 font-bold text-sm">{{ $c['dinilai'] }}</span>
+                    </div>
+                    <div class="bg-amber-50 dark:bg-amber-950/30 p-2 rounded-xl border border-amber-100 dark:border-amber-900/50">
+                        <span class="text-slate-500 block text-[11px]">Sedang / Menunggu</span>
+                        <span class="text-amber-700 dark:text-amber-400 font-bold text-sm">{{ $c['submitted'] + $c['in_progress'] }}</span>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-200/60 dark:border-slate-700">
+                        <span class="text-slate-500 block text-[11px]">Belum Mulai</span>
+                        <span class="text-slate-600 dark:text-slate-300 font-bold text-sm">{{ $c['belum_mulai'] }}</span>
+                    </div>
+                    <div class="bg-indigo-50 dark:bg-indigo-950/30 p-2 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
+                        <span class="text-slate-500 block text-[11px]">Nilai Masuk Rapor</span>
+                        <span class="text-indigo-700 dark:text-indigo-400 font-bold text-sm">{{ $c['tertransfer'] }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 mt-3 border-t border-slate-100 dark:border-slate-800">
+                <a href="{{ route('ujian.hasil.index', ['ujian' => $ujian, 'kelas' => $c['ujianKelas']->id_kelas]) }}" class="btn-primary w-full py-2 rounded-xl text-center text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm">
+                    <span>Buka Hasil Siswa</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+        </div>
+        @endforeach
+    </div>
+
+    @else
+    {{-- TAMPILAN 2: DAFTAR SISWA KELAS TERPILIH --}}
     @if(!$bisaTransferNilai)
     <div class="card p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-2xl flex items-start gap-3">
         <i data-lucide="info" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
@@ -26,10 +99,9 @@
         @if($ujianKelasList->count() > 1)
         <form method="GET" action="{{ route('ujian.hasil.index', $ujian) }}" class="flex items-center gap-2">
             <label class="text-xs font-semibold text-slate-500">Kelas:</label>
-            <select name="kelas" class="form-select py-1.5 text-sm w-auto" onchange="this.form.submit()">
-                <option value="" @selected(!$kelasFilter)>Semua kelas</option>
+            <select name="kelas" class="form-select py-1.5 text-sm w-auto font-semibold" onchange="this.form.submit()">
                 @foreach($ujianKelasList->sortBy(fn($uk) => [$uk->kelas?->tingkat, $uk->kelas?->kelas]) as $uk)
-                    <option value="{{ $uk->id_kelas }}" @selected($kelasFilter === $uk->id_kelas)>{{ $uk->kelas?->tingkat }}{{ $uk->kelas?->kelas }}</option>
+                    <option value="{{ $uk->id_kelas }}" @selected($kelasFilter === $uk->id_kelas)>Kelas {{ $uk->kelas?->tingkat }}{{ $uk->kelas?->kelas }}</option>
                 @endforeach
             </select>
         </form>
@@ -38,14 +110,14 @@
         @endif
 
         <div class="flex items-center flex-wrap gap-2">
-            <form method="POST" action="{{ route('ujian.hasil.paksaSelesaiSemua', $ujian) }}" onsubmit="return confirmAction(this, 'Kumpulkan secara paksa SEMUA siswa yang berstatus Sedang Mengerjakan? Mereka akan dinilai secara otomatis saat ini juga.', 'red')">
+            <form method="POST" action="{{ route('ujian.hasil.paksaSelesaiSemua', $ujian) }}?kelas={{ $kelasFilter }}" onsubmit="return confirmAction(this, 'Kumpulkan secara paksa siswa kelas ini yang berstatus Sedang Mengerjakan? Mereka akan dinilai secara otomatis saat ini juga.', 'red')">
                 @csrf
                 <button type="submit" class="btn-primary bg-rose-500 hover:bg-rose-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
                     <i data-lucide="check-square" class="w-4 h-4"></i> Kumpul Semua
                 </button>
             </form>
             @if($bisaTransferNilai)
-            <form method="POST" action="{{ route('ujian.hasil.transferSemua', $ujian) }}?kelas={{ $kelasFilter }}" onsubmit="return confirmAction(this, 'Transfer nilai semua siswa yang sudah selesai dinilai ke buku nilai secara massal?', 'blue')">
+            <form method="POST" action="{{ route('ujian.hasil.transferSemua', $ujian) }}?kelas={{ $kelasFilter }}" onsubmit="return confirmAction(this, 'Transfer nilai siswa kelas ini yang sudah selesai dinilai ke buku nilai secara massal?', 'blue')">
                 @csrf
                 <button type="submit" class="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
                     <i data-lucide="send" class="w-4 h-4"></i> Transfer Semua Nilai
@@ -57,7 +129,7 @@
                 <span>Transfer Nilai Terkunci (Di Luar Data Ngajar)</span>
             </div>
             @endif
-            <form method="POST" action="{{ route('ujian.hasil.resetSemua', $ujian) }}" onsubmit="return confirmAction(this, 'Hapus SELURUH hasil pengerjaan semua siswa? Siswa harus mengulang dari awal dan nilai yang sudah ditransfer ke buku nilai akan dicabut.', 'red')">
+            <form method="POST" action="{{ route('ujian.hasil.resetSemua', $ujian) }}?kelas={{ $kelasFilter }}" onsubmit="return confirmAction(this, 'Hapus SELURUH hasil pengerjaan siswa di kelas ini? Siswa harus mengulang dari awal dan nilai yang sudah ditransfer ke buku nilai akan dicabut.', 'red')">
                 @csrf
                 <button type="submit" class="btn-primary bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-2">
                     <i data-lucide="trash-2" class="w-4 h-4"></i> Reset Semua
@@ -116,9 +188,6 @@
                             <span class="badge bg-slate-100 dark:bg-slate-700 text-slate-500">Belum</span>
                         @endif
                     </td>
-                    {{-- Ikon-saja (bukan tautan teks) — hemat ruang di tabel, apalagi 3 aksi
-                         sekaligus bisa muncul berbarengan di satu baris. title/aria-label
-                         menjaga konteksnya tetap ada (tooltip hover + pembaca layar). --}}
                     <td class="px-4 py-2.5 text-right space-x-1 whitespace-nowrap">
                         @if($attempt && $attempt->status === 'in_progress')
                         <form method="POST" action="{{ route('ujian.hasil.paksaSelesai', [$ujian, $attempt]) }}" class="inline" onsubmit="return confirmAction(this, 'Kumpulkan paksa ujian {{ $siswa->nama }} sekarang? Semua jawaban yang tersimpan akan langsung dinilai.', 'red')">
@@ -168,6 +237,6 @@
         </table>
         </div>
     </div>
+    @endif
 </div>
 @endsection
-

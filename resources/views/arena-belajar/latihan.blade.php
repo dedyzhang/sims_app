@@ -205,6 +205,7 @@ function arenaLatihanGuru(cfg) {
         },
         boot() {
             this.poll(); // single initial fetch
+
             if (window.simsFirebase) {
                 window.simsFirebase.onReady(fb => {
                     const lobbyRef = fb.getRef(`arena_practice_quiz/{{ $quiz->uuid }}/sync_trigger`);
@@ -215,6 +216,13 @@ function arenaLatihanGuru(cfg) {
                     });
                 });
             }
+
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    this.poll();
+                }
+            });
+
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
         async poll() {
@@ -256,11 +264,12 @@ function arenaLatihanGuru(cfg) {
         },
         setupFirebase() {
             if (this.fbAttached) return;
-            if (!this.session || !this.session.id) return;
-            if (window.simsFirebase && !window.simsPollingNonaktif('arena_latihan')) {
+            const sid = this.session?.uuid || this.session?.id;
+            if (!sid) return;
+            if (window.simsFirebase) {
                 window.simsFirebase.onReady(fb => {
                     if (this.fbAttached) return;
-                    const triggerRef = fb.getRef(`arena_practice/${this.session.id}/sync_trigger`);
+                    const triggerRef = fb.getRef(`arena_practice/${sid}/sync_trigger`);
                     fb.onValue(triggerRef, (snapshot) => {
                         if (snapshot.exists()) {
                             this.poll();

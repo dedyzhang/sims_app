@@ -141,6 +141,7 @@ Route::get('/kiosk-absensi/{token}', [AbsensiController::class, 'kioskEnter'])->
 
 Route::middleware([EnsureKioskOrPermission::class, 'modul:absensi'])->group(function () {
         Route::get('/absensi/scan', [AbsensiController::class, 'scan'])->name('absensi.scan');
+        Route::post('/absensi/match-face', [AbsensiController::class, 'matchFace'])->name('absensi.matchFace');
         Route::post('/absensi/mark', [AbsensiController::class, 'mark'])->name('absensi.mark');
         Route::post('/absensi/mark-barcode', [AbsensiController::class, 'markByBarcode'])->middleware('throttle:60,1')->name('absensi.markBarcode');
         Route::post('/absensi/face-telemetry', [AbsensiController::class, 'faceTelemetry'])->middleware('throttle:30,1')->name('absensi.faceTelemetry');

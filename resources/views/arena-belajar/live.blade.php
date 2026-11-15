@@ -370,9 +370,8 @@ function arenaLive(cfg) {
         countdown: null,
         fbAttached: false,
         pollSeq: 0,
-        pollMs: 4000,
-        pollBackoffMs: 0,
         lastBoardFetch: 0,
+        _advancingDeadline: false,
         get advanceLabel() {
             if (!this.session) return 'Maju';
             if (this.session.status === 'lobby') return 'Mulai soal 1';
@@ -405,14 +404,17 @@ function arenaLive(cfg) {
                 });
             }
 
+            // Sync saat tab kembali aktif/fokus
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    this.poll();
+                }
+            });
+
             this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },
         destroy() {
-            if (this.timer) {
-                clearInterval(this.timer);
-                this.timer = null;
-            }
             if (this.countdownTimer) {
                 clearInterval(this.countdownTimer);
                 this.countdownTimer = null;
@@ -420,12 +422,30 @@ function arenaLive(cfg) {
             this.destroyFs();
         },
         tickCountdown() {
-            if (!this.session || this.session.status !== 'question' || !this.session.question_deadline_at) {
+            if (!this.session) {
                 this.countdown = null;
                 return;
             }
-            const remain = Math.ceil((new Date(this.session.question_deadline_at).getTime() - Date.now()) / 1000);
-            this.countdown = Math.max(0, remain);
+            if (this.session.status === 'question' && this.session.question_deadline_at) {
+                const remain = Math.ceil((new Date(this.session.question_deadline_at).getTime() - Date.now()) / 1000);
+                this.countdown = Math.max(0, remain);
+                if (remain <= 0 && this.canHost && !this._advancingDeadline) {
+                    this._advancingDeadline = true;
+                    this.poll().finally(() => {
+                        setTimeout(() => { this._advancingDeadline = false; }, 2000);
+                    });
+                }
+            } else if (['reveal', 'standings'].includes(this.session.status) && this.session.phase_ends_at) {
+                const remain = Math.ceil((new Date(this.session.phase_ends_at).getTime() - Date.now()) / 1000);
+                if (remain <= 0 && this.canHost && !this._advancingDeadline) {
+                    this._advancingDeadline = true;
+                    this.poll().finally(() => {
+                        setTimeout(() => { this._advancingDeadline = false; }, 2000);
+                    });
+                }
+            } else {
+                this.countdown = null;
+            }
         },
         async poll() {
             if (!this.tokenReady) return;
@@ -458,10 +478,7 @@ function arenaLive(cfg) {
                 this.session = sData.session;
                 this.setupFirebase();
                 if (this.session?.status === 'ended') {
-                    if (this.timer) {
-                        clearInterval(this.timer);
-                        this.timer = null;
-                    }
+                    // Sesi berakhir
                 }
                 if (this.session?.current_question_id !== prevQ) {
                     this.selected = null;
@@ -504,11 +521,12 @@ function arenaLive(cfg) {
         },
         setupFirebase() {
             if (this.fbAttached) return;
-            if (!this.session || !this.session.id) return;
-            if (window.simsFirebase && !window.simsPollingNonaktif('arena_live')) {
+            const sid = this.session?.uuid || this.session?.id;
+            if (!sid) return;
+            if (window.simsFirebase) {
                 window.simsFirebase.onReady(fb => {
                     if (this.fbAttached) return;
-                    const triggerRef = fb.getRef(`arena/${this.session.id}/sync_trigger`);
+                    const triggerRef = fb.getRef(`arena/${sid}/sync_trigger`);
                     fb.onValue(triggerRef, (snapshot) => {
                         if (snapshot.exists()) {
                             this.poll();

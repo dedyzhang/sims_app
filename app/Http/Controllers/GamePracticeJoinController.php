@@ -72,7 +72,7 @@ class GamePracticeJoinController extends Controller
         ]);
     }
 
-    public function join(Request $request, string $joinToken)
+    public function join(Request $request, string $joinToken, \App\Services\FirebaseRtdbService $firebase)
     {
         $session = $this->findSession($joinToken);
 
@@ -96,6 +96,10 @@ class GamePracticeJoinController extends Controller
             'joined_at'    => now(),
             'last_seen_at' => now(),
         ]);
+
+        try {
+            $firebase->pingArenaPractice($session->uuid);
+        } catch (\Throwable $e) {}
 
         return redirect()->route('latihan.publik.show', ['joinToken' => $joinToken, 'g' => $participant->guest_token]);
     }

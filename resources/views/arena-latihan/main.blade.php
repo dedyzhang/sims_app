@@ -242,6 +242,7 @@ function arenaLatihanTamu(cfg) {
         timer: null,
         countdownTimer: null,
         countdown: null,
+        fbAttached: false,
         pollSeq: 0,
         pollMs: 4000,
         lastBoardFetch: 0,
@@ -279,6 +280,7 @@ function arenaLatihanTamu(cfg) {
                 if (seq !== this.pollSeq) return;
                 const prevQ = this.session?.current_question_id;
                 this.session = sData.session;
+                this.setupFirebase();
                 if (this.session?.status === 'ended') {
                     if (this.timer) {
                         clearInterval(this.timer);
@@ -315,6 +317,23 @@ function arenaLatihanTamu(cfg) {
                     this.lastBoardFetch = now;
                 }
             } catch (e) {}
+        },
+        setupFirebase() {
+            if (this.fbAttached) return;
+            const sid = this.session?.uuid || this.session?.id;
+            if (!sid) return;
+            if (window.simsFirebase) {
+                window.simsFirebase.onReady(fb => {
+                    if (this.fbAttached) return;
+                    const triggerRef = fb.getRef(`arena_practice/${sid}/sync_trigger`);
+                    fb.onValue(triggerRef, (snapshot) => {
+                        if (snapshot.exists()) {
+                            this.poll();
+                        }
+                    });
+                    this.fbAttached = true;
+                });
+            }
         },
         async postAnswer(body) {
             if (this.submitting || this.answered) return;

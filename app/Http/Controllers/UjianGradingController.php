@@ -20,18 +20,69 @@ class UjianGradingController extends Controller
         // Dibatasi ke kelas yg user ini jadi PENGAMPU-nya saja (bukan semua kelas ujian) —
         // supaya guru lain yg cuma sama2 mengajar mapel ini tak ikut lihat/nilai esai kelas
         // rekan mengajarnya. Admin/manage_ujian/pembuat ujian tetap lihat semua kelas.
-        $ujianKelasIds = $ujian->kelas
+        $ujianKelasList = $ujian->kelas()->with('kelas', 'guruPengampu')->get()
             ->filter(fn ($uk) => app(UjianPolicy::class)->mengampuiKelas($request->user(), $uk))
-            ->pluck('uuid');
+            ->sortBy(fn ($uk) => [$uk->kelas?->tingkat, $uk->kelas?->kelas])
+            ->values();
 
-        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasIds)
+        $ujianKelasIds = $ujianKelasList->pluck('uuid');
+        $kelasFilter = $request->string('kelas')->toString();
+
+        // Jika hanya ada 1 kelas yang bisa dinilai user, otomatis langsung buka kelas tersebut
+        if (! $kelasFilter && $ujianKelasList->count() === 1) {
+            $kelasFilter = $ujianKelasList->first()->id_kelas;
+        }
+
+        // TAMPILAN 1: PILIH KELAS (Jika multi-kelas dan belum ada kelas yang dipilih)
+        // Hitung ringkasan cepat per-kelas tanpa meload seluruh siswa ke memori sekaligus
+        if (! $kelasFilter && $ujianKelasList->count() > 1) {
+            $attemptCounts = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasIds)
+                ->where('status', UjianAttempt::STATUS_SUBMITTED)
+                ->where('butuh_penilaian_manual', true)
+                ->selectRaw('id_ujian_kelas, count(*) as total')
+                ->groupBy('id_ujian_kelas')
+                ->pluck('total', 'id_ujian_kelas');
+
+            $selesaiCounts = UjianAttempt::whereIn('id_ujian_kelas', $ujianKelasIds)
+                ->where('status', UjianAttempt::STATUS_DINILAI)
+                ->selectRaw('id_ujian_kelas, count(*) as total')
+                ->groupBy('id_ujian_kelas')
+                ->pluck('total', 'id_ujian_kelas');
+
+            $kelasSummary = $ujianKelasList->map(function ($uk) use ($attemptCounts, $selesaiCounts) {
+                return [
+                    'ujianKelas'      => $uk,
+                    'kelas'           => $uk->kelas,
+                    'butuh_dinilai'   => $attemptCounts->get($uk->uuid, 0),
+                    'selesai_dinilai' => $selesaiCounts->get($uk->uuid, 0),
+                ];
+            });
+
+            $attempts = collect();
+            $siswaByLogin = collect();
+
+            return view('ujian.grading.index', compact('ujian', 'ujianKelasList', 'kelasSummary', 'kelasFilter', 'attempts', 'siswaByLogin'));
+        }
+
+        // TAMPILAN 2: DAFTAR SISWA KELAS TERPILIH
+        $targetKelasIds = $kelasFilter
+            ? $ujianKelasList->where('id_kelas', $kelasFilter)->pluck('uuid')
+            : $ujianKelasIds;
+
+        $attempts = UjianAttempt::whereIn('id_ujian_kelas', $targetKelasIds)
             ->where('status', UjianAttempt::STATUS_SUBMITTED)
             ->where('butuh_penilaian_manual', true)
+            ->with('ujianKelas.kelas')
+            ->orderBy('selesai_pada', 'desc')
             ->get();
 
-        $siswaByLogin = Siswa::whereIn('id_login', $attempts->pluck('id_siswa'))->get()->keyBy('id_login');
+        // FIX N+1 Query: Eager load relasi kelas pada profil siswa
+        $siswaByLogin = Siswa::with('kelas')
+            ->whereIn('id_login', $attempts->pluck('id_siswa'))
+            ->get()
+            ->keyBy('id_login');
 
-        return view('ujian.grading.index', compact('ujian', 'attempts', 'siswaByLogin'));
+        return view('ujian.grading.index', compact('ujian', 'ujianKelasList', 'attempts', 'siswaByLogin', 'kelasFilter'));
     }
 
     public function show(Request $request, Ujian $ujian, UjianAttempt $attempt)
