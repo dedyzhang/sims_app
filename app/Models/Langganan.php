@@ -55,16 +55,20 @@ class Langganan extends Model
     public static function current(): ?self
     {
         try {
-            return \Illuminate\Support\Facades\Cache::remember(
+            // Cache::remember tidak menyimpan null; pakai false sebagai penanda "belum ada lisensi"
+            // supaya middleware + banner tidak query ulang setiap request.
+            $langganan = \Illuminate\Support\Facades\Cache::remember(
                 'langganan_current_record',
                 300,
                 function () {
                     $langganan = static::orderByDesc('berakhir_pada')->first();
                     $langganan?->sinkronkanStatus();
 
-                    return $langganan;
+                    return $langganan ?? false;
                 }
             );
+
+            return $langganan instanceof self ? $langganan : null;
         } catch (\Throwable) {
             return null;
         }

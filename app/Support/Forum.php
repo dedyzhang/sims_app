@@ -45,6 +45,7 @@ class Forum
         'kepala'     => 'Kepala Sekolah',
         'kurikulum'  => 'Waka Kurikulum',
         'kesiswaan'  => 'Waka Kesiswaan',
+        'humas'      => 'Waka Humas',
         'sarpras'    => 'Waka Sarpras',
         'bendahara'  => 'Bendahara',
         'tendik'     => 'Tendik',
@@ -64,6 +65,7 @@ class Forum
         'kepala'     => ['forum.view.all', 'forum.moderate', 'forum.announce'],
         'kurikulum'  => ['forum.view.all', 'forum.topic.create', 'forum.comment.create', 'forum.moderate', 'forum.announce'],
         'kesiswaan'  => ['forum.view.all', 'forum.topic.create', 'forum.comment.create', 'forum.moderate', 'forum.announce'],
+        'humas'      => ['forum.view.scope', 'forum.topic.create', 'forum.comment.create', 'forum.moderate'],
         'sarpras'    => ['forum.view.scope', 'forum.topic.create', 'forum.comment.create', 'forum.moderate'],
         'bendahara'  => ['forum.view.scope', 'forum.topic.create', 'forum.comment.create'],
         'tendik'     => ['forum.view.scope', 'forum.topic.create', 'forum.comment.create'],
@@ -87,6 +89,7 @@ class Forum
         // lama 'sapras' masih dipakai di beberapa pemanggil/route.
         return match (UserRole::canonicalize($access)) {
             'sarpras'   => ['sarpras', 'umum', 'pengumuman'],
+            'humas'     => ['umum', 'pengumuman'],
             'kesiswaan' => ['kesiswaan', 'umum', 'pengumuman'],
             'kurikulum' => ['akademik', 'umum', 'pengumuman'],
             'tendik'    => ['umum', 'pengumuman'],

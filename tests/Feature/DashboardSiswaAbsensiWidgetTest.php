@@ -91,4 +91,19 @@ class DashboardSiswaAbsensiWidgetTest extends TestCase
             'Query tabel absensi utk widget siswa tak boleh > 2 (hari-ini + rentang gabungan) — dulu 3 krn rentang dobel.'
         );
     }
+
+    public function test_komposisi_dashboard_memakai_ringkasan_gender_tanpa_query_ulangan(): void
+    {
+        DB::enableQueryLog();
+
+        $html = view('dashboard.blocks.recent_komposisi', [
+            'stats' => ['total_siswa' => 10, 'siswa_l' => 6, 'siswa_p' => 4],
+        ])->render();
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+
+        $this->assertSame([], $queries, 'Widget harus memakai ringkasan controller, bukan menghitung total gender ulang.');
+        $this->assertStringContainsString('6', $html);
+        $this->assertStringContainsString('4', $html);
+    }
 }

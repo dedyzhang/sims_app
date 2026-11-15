@@ -499,7 +499,9 @@
     let sigInit   = false;
     let lastDayKey = null;
     let readWatermark = null;
-    let pollTimer = null;
+    let queueLoadInFlight = false;
+    const messageLoadsInFlight = new Set();
+    let firebaseListenerStarted = false;
     let allList   = [];          // percakapan aktif (waiting/assigned) dari polling queue
     let closedList = [];         // arsip percakapan tertutup (lazy, dari endpoint history)
     let closedLoaded = false;    // sudah pernah memuat arsip?
@@ -595,7 +597,8 @@
 
     // ---------- Queue ----------
     async function loadQueue() {
-        if (document.visibilityState !== 'visible') return;
+        if (document.visibilityState !== 'visible' || queueLoadInFlight) return;
+        queueLoadInFlight = true;
         try {
             const res = await fetch(queueUrl, { headers: { 'Accept': 'application/json' } });
             if (!res.ok) return;
@@ -605,6 +608,7 @@
             renderQueue();
             updateCounts(data.waiting_count || 0);
         } catch (_) {}
+        finally { queueLoadInFlight = false; }
     }
 
     // Arsip percakapan tertutup (histori/bukti). Dimuat saat dibutuhkan, bukan tiap polling.
@@ -831,13 +835,16 @@
     }
 
     async function loadMessages(isInitial = false) {
-        if (!activeId) return;
+        const conversationId = activeId;
+        if (!conversationId || document.visibilityState !== 'visible' || messageLoadsInFlight.has(conversationId)) return;
+        messageLoadsInFlight.add(conversationId);
         try {
-            const url = new URL(msgBase + '/' + activeId + '/messages', window.location.origin);
+            const url = new URL(msgBase + '/' + conversationId + '/messages', window.location.origin);
             if (cursor) url.searchParams.set('after', cursor);
             const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             if (!res.ok) return;
             const data = await res.json();
+            if (activeId !== conversationId) return;
             const wasBottom = atBottom();
             let newUserMsg = 0;
             (data.messages || []).forEach(m => {
@@ -851,6 +858,7 @@
             if (wasBottom) scrollBottom();
             if (!isInitial && newUserMsg > 0 && messageNotif) ding();
         } catch (_) {}
+        finally { messageLoadsInFlight.delete(conversationId); }
     }
 
     function applyRead(watermark) {
@@ -1460,26 +1468,27 @@
     });
 
     // ---------- Polling ----------
-    function tick() { loadQueue(); if (activeId) loadMessages(); }
-    function start() { 
-        if (!window.simsPollingNonaktif('chatbot_admin_inbox')) {
-            if (window.simsFirebase) {
-                window.simsFirebase.onReady(fb => {
-                    const triggerRef = fb.getRef('global/chatbot_admin/sync_trigger');
-                    fb.onValue(triggerRef, (snapshot) => {
-                        if (snapshot.exists()) {
-                            tick();
-                        }
-                    });
-                });
-            }
+    async function tick() {
+        await Promise.all([loadQueue(), activeId ? loadMessages() : Promise.resolve()]);
+    }
+    function start() {
+        if (window.simsPollingNonaktif('chatbot_admin_inbox')) return;
+        if (!window.simsFirebase) {
+            window.simsPollInterval(tick, pollEvery, 'chatbot_admin_inbox', 'chatbot-admin-inbox');
+            return;
         }
-    } 
-    function stop() { }
+        if (firebaseListenerStarted) return;
+        firebaseListenerStarted = true;
+        window.simsFirebase.onReady(fb => {
+            const triggerRef = fb.getRef('global/chatbot_admin/sync_trigger');
+            fb.onValue(triggerRef, snapshot => {
+                if (snapshot.exists()) tick();
+            });
+        });
+    }
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') { tick(); start(); } else stop();
+        if (document.visibilityState === 'visible') { tick(); start(); }
     });
-    window.addEventListener('beforeunload', stop);
 
     // ---------- Init ----------
     initQueueResize();

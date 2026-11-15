@@ -54,7 +54,7 @@ class PollingWidget
             'lock_monitor' => ['label' => 'Panel Kunci-Layar (pemantauan materi/tugas)', 'kelompok' => 'Widget Lain', 'catatan' => null],
             'private_chat' => ['label' => 'Chat Pribadi', 'kelompok' => 'Widget Lain', 'catatan' => null],
             'pesan_grup' => ['label' => 'Pesan Grup Chat (ruang obrolan)', 'kelompok' => 'Widget Lain', 'catatan' => null],
-            'forum_komentar' => ['label' => 'Komentar Forum Diskusi', 'kelompok' => 'Widget Lain', 'catatan' => null],
+            'forum_komentar' => ['label' => 'Forum Diskusi (komentar & kehadiran)', 'kelompok' => 'Widget Lain', 'catatan' => null],
             'kuota_ai_guru' => ['label' => 'Kuota AI Guru', 'kelompok' => 'Widget Lain', 'catatan' => null],
             'chatbot_widget' => ['label' => 'Widget Chatbot (panel obrolan)', 'kelompok' => 'Widget Lain', 'catatan' => null],
             'chatbot_admin_inbox' => ['label' => 'Inbox Chatbot Admin', 'kelompok' => 'Widget Lain', 'catatan' => null],

@@ -37,6 +37,7 @@ class Pengumuman extends Model
         'kepala'    => 'Kepala Sekolah',
         'kurikulum' => 'Kurikulum',
         'kesiswaan' => 'Kesiswaan',
+        'humas'     => 'Waka Humas',
         'sarpras'   => 'Sarpras',
         'guru'      => 'Guru',
         'walikelas' => 'Wali Kelas',

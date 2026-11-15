@@ -1,0 +1,134 @@
+/* Five complete desktop compositions. Wallpaper art is local, with no remote requests. */
+.sims-theme-dock { display: none; }
+body[data-appearance-enabled="1"].has-wallpaper .sims-main { background: transparent; }
+body[data-appearance-enabled="1"] .motif-set { display: none !important; }
+body[data-appearance-enabled="1"] .edu-hero::after { display: none; }
+body[data-appearance-enabled="1"] .edu-dashboard .card-batik.edu-hero { background-image: none !important; }
+body[data-appearance-enabled="1"] main > .anim-fade > .edu-dashboard > div:first-child { background: transparent; border: 0; border-radius: 0; padding: 0; }
+body[data-appearance-enabled="1"] .sims-theme-dock a { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 12px; color: var(--ui-text); text-decoration: none; }
+body[data-appearance-enabled="1"] .sims-theme-dock a:hover { background: color-mix(in srgb, var(--cp) 15%, var(--ui-panel)); }
+.sims-theme-dock svg { width: 21px; height: 21px; flex-shrink: 0; }
+.sims-theme-dock span { white-space: nowrap; font-size: 11px; }
+/* Windows: blue desktop, compact taskbar and clean application windows. */
+body[data-appearance-enabled="1"][data-ui-theme="windows11"] { --ui-radius: 8px; --ui-control-radius: 6px; --ui-shadow: 0 8px 22px #071a5420; }
+body[data-appearance-enabled="1"][data-ui-theme="windows11"] .sidebar { --sbg: #eaf1ff; --stx: #253249; }
+body[data-appearance-enabled="1"][data-ui-theme="windows11"] .sims-app-header { border-radius: 8px 8px 0 0; }
+/* Fluent: navy navigation rail, compact controls and a wide work surface. */
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] { --ui-radius: 4px; --ui-control-radius: 3px; --ui-nav-radius: 3px; }
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] .sidebar { --sbg: #111e34; --stx: #e6edfb; border: 1px solid #304463; }
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] .sidebar .nav-group { text-transform: uppercase; letter-spacing: .06em; font-size: 11px; border-bottom: 1px solid #ffffff12; }
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] .sidebar .nav-link.active { background: #2b456b !important; color: #fff !important; }
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] .sims-app-header { height: 52px; border-top: 3px solid #5587bb; }
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] .page-title { font-size: 1.35rem; letter-spacing: .01em; }
+/* macOS: warm desktop, elevated window, large glass dock. */
+body[data-appearance-enabled="1"][data-ui-theme="macos"] { --ui-radius: 20px; --ui-control-radius: 999px; --ui-shadow: 0 16px 44px #331c5020; }
+body[data-appearance-enabled="1"][data-ui-theme="macos"] .sidebar { --sbg: #faf1f5; --stx: #463748; }
+body[data-appearance-enabled="1"][data-ui-theme="macos"] .sims-app-header { background: var(--ui-panel); border-radius: 20px 20px 0 0; }
+body[data-appearance-enabled="1"][data-ui-theme="macos"] .sims-app-header::before { content: ''; width: 48px; height: 12px; flex-shrink: 0; background: radial-gradient(circle at 6px 6px,#ff665c 0 5px,transparent 6px),radial-gradient(circle at 24px 6px,#ffbf43 0 5px,transparent 6px),radial-gradient(circle at 42px 6px,#48be58 0 5px,transparent 6px); }
+/* Minimal: forest wallpaper, quiet paper panels, thin navigation. */
+body[data-appearance-enabled="1"][data-ui-theme="macos-minimal"] { --ui-radius: 2px; --ui-control-radius: 2px; --ui-nav-radius: 2px; --ui-shadow: none; }
+body[data-appearance-enabled="1"][data-ui-theme="macos-minimal"] .sidebar { --sbg: #edf1e8; --stx: #294437; }
+body[data-appearance-enabled="1"][data-ui-theme="macos-minimal"] .page-title { font-family: Georgia,serif; font-size: 1.8rem; }
+body[data-appearance-enabled="1"][data-ui-theme="macos-minimal"] .nav-link.active { border-left: 3px solid #56795d; }
+/* Bento: warm illustrated desktop, outlined tiles, large controls. */
+body[data-appearance-enabled="1"][data-ui-theme="bento"] { --ui-radius: 26px; --ui-control-radius: 14px; --ui-edge: #ccc5b1; --ui-shadow: 0 4px 0 #c8c0ac; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar { --sbg: #f5eedc; --stx: #3c4437; border: 2px solid #c4bca7; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar .nav-group { min-height: 60px; border: 2px solid var(--ui-edge); box-shadow: 0 3px 0 #c8c0ac !important; margin: 7px 0; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .btn-primary { border: 2px solid #00000026; box-shadow: 0 4px 0 #00000026 !important; font-weight: 800; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .card { border-width: 2px; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sims-app-header { border-width: 2px; }
+.dark body[data-appearance-enabled="1"] .sidebar { --sbg: var(--ui-sidebar); --stx: var(--ui-text); }
+.dark body[data-appearance-enabled="1"][data-ui-theme="bento"] { --ui-edge: #526553; --ui-shadow: 0 4px 0 #0d1610; }
+/* One application frame: the wallpaper surrounds a continuous navigation/content surface. */
+body[data-appearance-enabled="1"] .sims-app-frame {
+    background: color-mix(in srgb, var(--ui-panel) 90%, transparent);
+    border: 1px solid var(--ui-edge);
+    overflow: hidden;
+}
+body[data-appearance-enabled="1"][data-ui-theme] .sims-workspace { padding: 0; gap: 0; }
+/* Use the sidebar's own surface/foreground pair, even when wallpaper is enabled.
+   Fluent intentionally keeps navy navigation beside light content panels. */
+body[data-appearance-enabled="1"][data-ui-theme] .sidebar {
+    background: var(--sbg) !important; color: var(--stx);
+    border: 0; border-right: 1px solid var(--ui-edge); border-radius: 0;
+    box-shadow: none !important;
+}
+body[data-appearance-enabled="1"][data-ui-theme] .sims-main {
+    margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+}
+body[data-appearance-enabled="1"][data-ui-theme] .sims-app-header {
+    margin: 0; border: 0; border-bottom: 1px solid var(--ui-edge); border-radius: 0;
+    background: var(--ui-panel); box-shadow: none;
+}
+body[data-appearance-enabled="1"] .sims-theme-dock { flex-shrink: 0; }
+@media (min-width: 1024px) {
+    body[data-appearance-enabled="1"] .sims-app-frame {
+        height: calc(100dvh - 24px); margin: 12px; border-radius: 18px;
+        box-shadow: 0 12px 45px #00000020;
+    }
+    body[data-appearance-enabled="1"][data-ui-theme="fluent"] .sims-app-frame { border-radius: 5px; }
+    body[data-appearance-enabled="1"][data-ui-theme="macos-minimal"] .sims-app-frame { border-radius: 3px; }
+    body[data-appearance-enabled="1"][data-ui-theme="bento"] .sims-app-frame { border-radius: 24px; }
+    body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="macos"]) .sims-theme-dock {
+        display: flex; position: static; transform: none; width: 100%; max-width: none;
+        justify-content: center; overflow-x: auto; gap: 5px; padding: 7px 14px;
+        border: 0; border-top: 1px solid var(--ui-edge); border-radius: 0;
+        background: var(--ui-panel); box-shadow: none;
+    }
+    body[data-appearance-enabled="1"][data-ui-theme="macos"] .sims-theme-dock a { flex-direction: row; }
+    body[data-appearance-enabled="1"][data-ui-theme="macos"] .sims-theme-dock svg { width: 24px; height: 24px; }
+}
+@media (max-width: 1023px) {
+    body[data-appearance-enabled="1"] .sims-app-frame { margin: 0; border: 0; border-radius: 0; }
+    body[data-appearance-enabled="1"] .sims-main main { padding: 12px; }
+    body[data-appearance-enabled="1"] .sims-app-header::before { display: none; }
+    body[data-appearance-enabled="1"][data-ui-theme] .sidebar { border-radius: 0 16px 16px 0; }
+}
+@media print { .sims-theme-dock { display: none !important; } }
+.theme-scene-preview { height: 100px; padding: 12px; margin-bottom: 12px; border-radius: 12px; background-size: cover; display: flex; gap: 10px; }
+.theme-scene-preview span:first-child { width: 22%; background: #111e34; border-radius: 3px; }
+.theme-scene-preview span:last-child { flex: 1; background: #ffffffdf; border-radius: 3px; }
+.theme-scene-preview[data-scene="macos-minimal"] { padding: 20px; }
+.theme-scene-preview[data-scene="macos-minimal"] span:first-child { background: #edf1e8; }
+.theme-scene-preview[data-scene="bento"] span { border-radius: 12px; border: 2px solid #c4bca7; background: #fff4df; }
+/* Keep page contents on the same paint layer when the desktop skin changes. */
+body[data-appearance-enabled="1"] main > .anim-fade { animation: none !important; opacity: 1; transform: none; }
+/* Blue navigation and yellow trim form one paired palette, independent of content mode. */
+body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) {
+    --ui-trim: #f4c542;
+}
+body[data-appearance-enabled="1"][data-ui-theme="windows11"] .sidebar {
+    --sbg: #17469d; --stx: #f1f6ff;
+    background: linear-gradient(180deg, #17469d, #10316f) !important;
+}
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] .sidebar {
+    --sbg: #163765; --stx: #f1f6ff;
+    background: linear-gradient(180deg, #163765, #10264b) !important;
+}
+body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .sidebar { border-right: 2px solid var(--ui-trim); }
+body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .sims-app-header { border-bottom: 2px solid var(--ui-trim); }
+body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .sidebar :is(.nav-link.active,.nav-group.has-active) {
+    background: #285cb0 !important; color: #fff !important;
+    border-color: #f4c54266;
+}
+body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .sidebar :is(.nav-link,.nav-group):is(:hover,:focus-visible) {
+    background: #2c5594; color: #fff !important;
+}
+body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .sidebar .nav-link.active::before { background: var(--ui-trim); width: 4px; }
+body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .sidebar .nav-link.active .nav-icon { color: var(--ui-trim) !important; }
+body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .sims-theme-dock { border-top-color: var(--ui-trim); }
+/* The small live preview uses the same theme palette as the actual sidebar. */
+body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .preview-sidebar {
+    background: #17469d !important; color: #f1f6ff !important; border-right: 2px solid var(--ui-trim);
+}
+/* History and favourites share existing navigation state, capped at ten menu entries. */
+.sims-dock-items { display: flex; flex: 1; min-width: 0; justify-content: safe center; overflow-x: auto; gap: 6px; scrollbar-width: thin; }
+.sims-dock-item { display: flex; align-items: center; flex-shrink: 0; border: 1px solid transparent; border-radius: 10px; }
+.sims-dock-item.is-current { border-color: var(--ui-edge); background: color-mix(in srgb, var(--cp) 8%, var(--ui-panel)); }
+body[data-appearance-enabled="1"] .sims-theme-dock .sims-dock-item a { padding: 8px 4px 8px 10px; }
+.sims-dock-favorite { display: grid; place-items: center; width: 32px; min-height: 36px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ui-muted); font-size: 20px; cursor: pointer; }
+.sims-dock-favorite:hover, .sims-dock-favorite.is-favorite { color: #986a00; background: #f4c54222; }
+.dark .sims-dock-favorite:hover, .dark .sims-dock-favorite.is-favorite { color: #f4c542; }
+@media (min-width: 1024px) {
+    body[data-appearance-enabled="1"][data-ui-theme] .sims-theme-dock { display: flex; align-items: center; justify-content: flex-start; padding: 6px 12px; gap: 10px; border-top: 1px solid var(--ui-edge); background: var(--ui-panel); }
+}

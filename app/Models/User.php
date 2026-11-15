@@ -270,6 +270,31 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
         return in_array($this->access, ['superadmin', 'admin']);
     }
 
+    public function canViewSurveiResults(): bool
+    {
+        return ! in_array($this->access, ['siswa', 'orangtua'], true)
+            && $this->canAccess('view_survei');
+    }
+
+    public function canViewOwnSurveiResults(): bool
+    {
+        return $this->guru !== null && in_array($this->access, ['guru', 'walikelas', 'humas', 'sarpras'], true);
+    }
+
+    /**
+     * Surveyor dipilih admin lewat matriks RBAC (jadi_surveyor).
+     * Admin tidak lewat sini: sesi admin tetap milik pembuat periode,
+     * supaya admin lain tidak ikut melihat token.
+     */
+    public function canFacilitateSurvei(): bool
+    {
+        if ($this->isAdmin() || in_array($this->access, ['siswa', 'orangtua'], true)) {
+            return false;
+        }
+
+        return RolePermission::granted((string) $this->access, 'jadi_surveyor');
+    }
+
     public function guru()
     {
         return $this->hasOne(Guru::class, 'id_login', 'uuid');
@@ -290,14 +315,16 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
      *  identik tiap halaman. Panggil prefTampilan() di ketiganya → cuma 1 query, sisanya reuse. */
     protected ?\App\Models\UserPreference $prefTampilanCache = null;
 
-    public function prefTampilan(): \App\Models\UserPreference
+    /** $segar = true: lewati salinan sesi (mis. form Personalisasi butuh nilai DB terkini),
+     *  lalu hasilnya tetap dimemo supaya layout tidak query ulang. */
+    public function prefTampilan(bool $segar = false): \App\Models\UserPreference
     {
-        if ($this->prefTampilanCache !== null) {
+        if ($this->prefTampilanCache !== null && ! $segar) {
             return $this->prefTampilanCache;
         }
 
         $sessionKey = 'user_pref_' . $this->uuid;
-        if (request()->hasSession() && request()->session()->has($sessionKey)) {
+        if (! $segar && request()->hasSession() && request()->session()->has($sessionKey)) {
             $pref = request()->session()->get($sessionKey);
             if ($pref instanceof \App\Models\UserPreference) {
                 return $this->prefTampilanCache = $pref;

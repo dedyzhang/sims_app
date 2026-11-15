@@ -2,8 +2,8 @@
     // Reuse angka yg sudah dihitung di header dashboard.blade.php (propagasi lewat @include) —
     // dulu blok ini query ulang total/L/P (dobel dgn header). `??` tetap punya fallback sendiri.
     $totalSiswa = $totalSiswa ?? ($stats['total_siswa'] ?? \App\Models\Siswa::count());
-    $siswaL = $siswaL ?? \App\Models\Siswa::where('jk','L')->count();
-    $siswaP = $siswaP ?? \App\Models\Siswa::where('jk','P')->count();
+    $siswaL = $siswaL ?? ($stats['siswa_l'] ?? \App\Models\Siswa::where('jk','L')->count());
+    $siswaP = $siswaP ?? ($stats['siswa_p'] ?? \App\Models\Siswa::where('jk','P')->count());
     $tot = max($totalSiswa,1);
     $pl = round($siswaL/$tot*100);
     $pp = 100-$pl;

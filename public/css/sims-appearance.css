@@ -1,0 +1,159 @@
+/* Application-wide skins; semantic status colours and navigation behaviour stay intact. */
+body[data-appearance-enabled="1"] {
+    --ui-canvas: #edf2f9; --ui-panel: #fff; --ui-sidebar: #f4f7fc; --ui-edge: #d8e0eb;
+    --ui-text: #253249; --ui-muted: #52627a; --ui-radius: 12px; --ui-control-radius: 7px;
+    --ui-shadow: 0 3px 12px #19345a0a; --ui-nav-radius: 6px;
+    background: var(--ui-canvas) !important;
+}
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] {
+    --ui-canvas: #e7edf6; --ui-sidebar: #eff4fb; --ui-radius: 10px; --ui-control-radius: 5px;
+    --ui-shadow: 0 2px 4px #17243b0b;
+}
+body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) {
+    --ui-canvas: #eae9ee; --ui-sidebar: #f5f4f8; --ui-edge: #dedde4; --ui-text: #30303a;
+    --ui-muted: #61616c; --ui-radius: 18px; --ui-control-radius: 10px; --ui-nav-radius: 10px;
+    --ui-shadow: 0 10px 28px #211b350a;
+}
+body[data-appearance-enabled="1"][data-ui-theme="macos"] { --ui-sidebar: #f5f0fb; --ui-radius: 22px; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] {
+    --ui-canvas: #eeeee6; --ui-sidebar: #fcfcf7; --ui-edge: #dcded2; --ui-text: #303a30;
+    --ui-muted: #586453; --ui-radius: 24px; --ui-control-radius: 16px; --ui-nav-radius: 15px;
+    --ui-shadow: none;
+}
+.dark body[data-appearance-enabled="1"] {
+    --ui-canvas: #111722; --ui-panel: #1c2636; --ui-sidebar: #17202e; --ui-edge: #344155;
+    --ui-text: #edf2fa; --ui-muted: #bac6d8; --ui-shadow: none;
+}
+.dark body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) { --ui-canvas: #19191f; --ui-sidebar: #24242d; --ui-panel: #292933; --ui-edge: #40404b; }
+.dark body[data-appearance-enabled="1"][data-ui-theme="bento"] { --ui-canvas: #181f1a; --ui-sidebar: #222c25; --ui-panel: #29352d; --ui-edge: #405345; }
+body[data-appearance-enabled="1"] .sidebar {
+    --sbg: var(--ui-sidebar); --stx: var(--ui-text);
+    background: var(--ui-sidebar) !important; color: var(--ui-text); border-right: 1px solid var(--ui-edge);
+    box-shadow: none !important;
+}
+body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group) {
+    border-radius: var(--ui-nav-radius) !important; color: var(--ui-text) !important;
+    min-height: 40px; border: 1px solid transparent; box-shadow: none !important;
+}
+/* Hover follows the actual sidebar surface, including custom / Analyzer colours. */
+body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group,.nav-sublink-more):is(:hover,:focus-visible) {
+    background: color-mix(in srgb, var(--cp) 12%, var(--sbg));
+}
+body[data-appearance-enabled="1"] .sidebar .nav-link:not(.active):is(:hover,:focus-visible) {
+    color: var(--stx) !important;
+}
+body[data-appearance-enabled="1"] .sidebar :is(.nav-link.active,.nav-group.has-active) { background: color-mix(in srgb, var(--cp) 13%, var(--ui-panel)) !important; color: var(--ui-text) !important; }
+body[data-appearance-enabled="1"] .sidebar :is(.nav-icon,.nav-section,.nav-sublink-more) { color: var(--ui-muted) !important; }
+body[data-appearance-enabled="1"] .sidebar .nav-link.active .nav-icon { color: var(--cp) !important; }
+body[data-appearance-enabled="1"] .sidebar .nav-submenu { border-color: var(--ui-edge); }
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] .sidebar .nav-link.active::before,
+body[data-appearance-enabled="1"][data-ui-theme="windows11"] .sidebar .nav-link.active::before {
+    content: ''; position: absolute; inset: 9px auto 9px -1px; width: 3px; border-radius: 3px; background: var(--cp);
+}
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] .sidebar :is(.nav-link,.nav-group) { min-height: 36px; padding-top: 7px; padding-bottom: 7px; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar .nav-group { border-color: var(--ui-edge); margin-top: 5px; padding: 12px; background: var(--ui-panel); }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar .nav-link.active { background: var(--cp) !important; color: white !important; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar .nav-link.active .nav-icon { color: white !important; }
+body[data-appearance-enabled="1"] .sims-app-header {
+    background: var(--ui-panel); border-bottom: 1px solid var(--ui-edge); gap: 12px;
+}
+body[data-appearance-enabled="1"] .sims-app-header :is(button,a) { border-radius: var(--ui-control-radius); }
+body[data-appearance-enabled="1"] .sims-studio-link { background: color-mix(in srgb, var(--cp) 12%, var(--ui-panel)); }
+body[data-appearance-enabled="1"] :is(.card,.modal-box,.sims-spotlight) {
+    border-radius: var(--ui-radius) !important; background: var(--ui-panel) !important;
+    border-color: var(--ui-edge) !important; box-shadow: var(--ui-shadow) !important;
+}
+body[data-appearance-enabled="1"] :is(.btn-primary,.btn-accent,.btn-yellow,.btn-ghost) {
+    border-radius: var(--ui-control-radius) !important; min-height: 40px;
+    border-width: 1px; font-weight: 600; box-shadow: none !important;
+}
+/* Tautan bergaya tombol ikut min-height di atas; tanpa flex teksnya menempel di kiri-atas.
+   :where() = specificity 0 supaya utilitas Tailwind (hidden, flex, block, dst.) tetap menang. */
+:where(body[data-appearance-enabled="1"]) :where(a:is(.btn-primary,.btn-accent,.btn-yellow,.btn-ghost)) {
+    display: inline-flex; align-items: center; justify-content: center; text-align: center;
+}
+body[data-appearance-enabled="1"] :is(.btn-primary,.btn-accent,.btn-yellow) { border-color: #00000014; }
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] :is(.btn-primary,.btn-accent,.btn-yellow) { border-bottom: 2px solid #00000030; }
+body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) :is(.btn-primary,.btn-accent,.btn-yellow) { box-shadow: inset 0 1px 0 #ffffff30, 0 2px 3px #00000012 !important; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] :is(.btn-primary,.btn-accent,.btn-yellow,.btn-ghost) { min-height: 44px; padding-left: 18px; padding-right: 18px; }
+body[data-appearance-enabled="1"] :is(.form-input,.form-select,.nav-search-input) {
+    border-radius: var(--ui-control-radius) !important; border: 1px solid var(--ui-edge); background: var(--ui-panel); color: var(--ui-text); min-height: 40px;
+}
+body[data-appearance-enabled="1"] .form-label { color: var(--ui-muted); }
+body[data-appearance-enabled="1"] :is(.form-input,.form-select):focus { border-color: var(--cp); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cp) 20%, transparent); }
+body[data-appearance-enabled="1"] :is(button,a,input,select,textarea):focus-visible { outline: 2px solid var(--cp); outline-offset: 3px; }
+body[data-appearance-enabled="1"] .data-table thead th { background: var(--ui-sidebar); color: var(--ui-muted); border-color: var(--ui-edge); letter-spacing: .02em; }
+body[data-appearance-enabled="1"] .data-table tbody td { border-color: var(--ui-edge); }
+body[data-appearance-enabled="1"] .data-table tbody tr:hover td { background: color-mix(in srgb, var(--cp) 5%, var(--ui-panel)); }
+body[data-appearance-enabled="1"][data-ui-theme="fluent"] .data-table :is(th,td) { padding: 10px 16px; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .data-table :is(th,td) { padding: 16px 20px; }
+body[data-appearance-enabled="1"] .page-title { color: var(--ui-text); }
+body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) .page-title { font-weight: 700; letter-spacing: -.035em; }
+body[data-appearance-enabled="1"] .edu-dashboard { padding: 0; background: transparent; }
+body[data-appearance-enabled="1"] .edu-dashboard .card-batik.edu-hero { background: var(--ui-panel) !important; border-color: var(--ui-edge) !important; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .edu-dashboard .dash-block .card { background: var(--surface, var(--ui-panel)) !important; }
+@media (min-width: 1024px) {
+    body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) .sims-workspace { padding: 12px; gap: 12px; }
+    body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) .sidebar { border: 1px solid var(--ui-edge); border-radius: 20px; box-shadow: var(--ui-shadow) !important; }
+    body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) .sims-main { border: 1px solid var(--ui-edge); border-radius: 20px; }
+    body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) .sims-app-header { height: 58px; background: var(--ui-sidebar); }
+    body[data-appearance-enabled="1"][data-ui-theme="bento"] .sims-workspace { padding: 16px; gap: 16px; }
+    body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar { border: 1px solid var(--ui-edge); border-radius: 28px; }
+    body[data-appearance-enabled="1"][data-ui-theme="bento"] .sims-app-header { border: 1px solid var(--ui-edge); border-radius: 24px; margin: 0 0 12px; height: 72px; }
+}
+@media (max-width: 1023px) {
+    body[data-appearance-enabled="1"] .sidebar { border-radius: 0 20px 20px 0; box-shadow: 12px 0 30px #00000018 !important; }
+    body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group) { min-height: 44px; }
+    body[data-appearance-enabled="1"] .sims-app-header { padding-left: 12px; padding-right: 12px; gap: 6px; }
+}
+#sims-wallpaper, #sims-wallpaper-shade { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+body[data-appearance-enabled="1"].has-wallpaper #sims-wallpaper { display: block; background-repeat: no-repeat; background-color: #202737; }
+body[data-appearance-enabled="1"].has-wallpaper #sims-wallpaper-shade { display: block; background: rgb(0 0 0 / var(--wallpaper-shade, .35)); }
+body[data-appearance-enabled="1"].has-wallpaper .motif-set { display: none !important; }
+body[data-appearance-enabled="1"].has-wallpaper .sims-main { background: color-mix(in srgb, var(--ui-panel, white) 88%, transparent); }
+body[data-appearance-enabled="1"].has-wallpaper .sidebar { background: color-mix(in srgb, var(--ui-sidebar) 94%, transparent) !important; }
+body[data-appearance-enabled="1"].has-wallpaper .sims-app-header { background: color-mix(in srgb, var(--ui-panel) 94%, transparent); }
+.wallpaper-choice[data-wallpaper="aurora"] { background: linear-gradient(120deg, #bae6fd, #ddd6fe); color: #253249; }
+.wallpaper-choice[data-wallpaper="garden"] { background: linear-gradient(120deg, #d9f99d, #99f6e4); color: #253249; }
+.wallpaper-choice[data-wallpaper="dusk"] { background: linear-gradient(120deg, #fed7aa, #ddd6fe); color: #253249; }
+@media (prefers-reduced-motion: reduce) {
+    body[data-appearance-enabled="1"] :is(.sidebar,.card,.nav-link,.btn-primary,.btn-accent,.btn-ghost) { animation: none !important; transition: none !important; }
+}
+@media print {
+    #sims-wallpaper, #sims-wallpaper-shade { display: none !important; }
+    body[data-appearance-enabled="1"] { background: white !important; }
+}
+/* Apply the same control shape to utility-styled actions in module pages. */
+body[data-appearance-enabled="1"] main :is(button,a)[class*="px-"] { border-radius: var(--ui-control-radius) !important; }
+.dark body[data-appearance-enabled="1"] .edu-dashboard { background: transparent !important; }
+.dark body[data-appearance-enabled="1"] .card :is(.text-slate-400,.text-slate-500) { color: #b7c4d5; }
+@media (min-width: 1024px) {
+    body[data-appearance-enabled="1"][data-ui-theme="bento"] .sims-main { border-radius: 24px; }
+}
+/* Keep colour customisation and Analyzer available alongside the new geometry. */
+body[data-appearance-enabled="1"] .sidebar {
+    --sbg: var(--sims-sidebar-bg, var(--ui-sidebar)); --stx: var(--sims-sidebar-text, var(--ui-text));
+    background: var(--sbg) !important; color: var(--stx);
+}
+body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group) { color: var(--stx) !important; }
+body[data-appearance-enabled="1"] .sidebar :is(.nav-icon,.nav-section,.nav-sublink-more) { color: var(--stx) !important; }
+body[data-appearance-enabled="1"][data-style="corporate"] .sidebar { --sbg: #182534; --stx: #e3ebf6; }
+.dark body[data-appearance-enabled="1"] .sidebar { --sbg: var(--ui-sidebar); --stx: var(--ui-text); }
+body[data-appearance-enabled="1"] .sidebar :is(.nav-link.active,.nav-group.has-active) { color: var(--ui-text) !important; }
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar .nav-link.active { color: #fff !important; }
+
+/* Bento group buttons use panel surfaces; their text must follow the panel,
+   independently of the custom sidebar / Analyzer foreground colour. */
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar .nav-group {
+    color: var(--ui-text) !important;
+}
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar .nav-group .nav-icon {
+    color: inherit !important;
+}
+body[data-appearance-enabled="1"][data-ui-theme="bento"] .sidebar .nav-group:is(:hover,:focus-visible) {
+    background: color-mix(in srgb, var(--cp) 9%, var(--ui-panel));
+}
+
+body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group) .nav-icon {
+    color: inherit !important;
+}

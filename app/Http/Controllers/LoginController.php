@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Guru;
 use App\Models\Siswa;
 use App\Models\User;
+use App\Survei\Periode;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -105,6 +106,18 @@ class LoginController extends Controller
     public function logoutFallback(Request $request)
     {
         return $this->logout($request);
+    }
+
+    public function switchSurveyAccount(Request $request, Periode $periode, string $tujuan)
+    {
+        $response = $this->logout($request);
+
+        $request->session()->put('url.intended', route(
+            $tujuan === 'analisis' ? 'survei.analisis' : 'survei.masuk',
+            $periode
+        ));
+
+        return $response;
     }
 
     public function home()
@@ -328,6 +341,31 @@ class LoginController extends Controller
             return route('ujian.siswa.index');
         }
 
+        $intended = session()->get('url.intended');
+        $path = is_string($intended) ? parse_url($intended, PHP_URL_PATH) : null;
+        if (is_string($path) && preg_match(
+            '~(?:^|/)survei-pembelajaran/(?:(masuk)/([0-9a-f-]{36})|periode/([0-9a-f-]{36})/(isi|analisis))$~i',
+            $path,
+            $matches
+        )) {
+            session()->forget('url.intended');
+
+            $periodeId = $matches[2] ?: $matches[3];
+            $bagian = strtolower($matches[4] ?? 'masuk');
+            // Surveyor/admin yang sempat membuka tautan siswa harus kembali ke pemantauan,
+            // bukan diarahkan ulang ke halaman isi yang menolak akun mereka.
+            if ($bagian !== 'analisis' && ($user->canFacilitateSurvei() || $user->isAdmin())) {
+                return route('survei.periode', ['periode' => $periodeId]);
+            }
+
+            $route = match ($bagian) {
+                'isi' => 'survei.form',
+                'analisis' => 'survei.analisis',
+                default => 'survei.masuk',
+            };
+
+            return route($route, ['periode' => $periodeId]);
+        }
         return route('dashboard');
     }
 }

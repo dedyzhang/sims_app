@@ -26,8 +26,9 @@
         // BUKAN dari session — supaya membuka link kiosk tak pernah memengaruhi tab lain di
         // browser yang sama yg mungkin sedang login sbg user lain.
         $kioskChrome = (bool) ($isKiosk ?? false);
+        $halamanSurvei = request()->routeIs('survei.*');
         $isPanduanPage = request()->routeIs('panduan.visual');
-        $tickerBawahAktif = \App\Models\Setting::get('ticker_bawah_aktif', '1') === '1';
+        $tickerBawahAktif = !$halamanSurvei && \App\Models\Setting::get('ticker_bawah_aktif', '1') === '1';
         $animasiFadeAktif = \App\Models\Setting::get('animasi_fade_aktif', '1') === '1';
         // $access/$isAdmin/$modulOn/$activeGroups dipakai di luar blok sidebar juga (mis.
         // floating chat, script badge Grup Chat) — jadi dihitung di sini, bukan cuma di dalam
@@ -86,6 +87,10 @@
             --ca:  {{ $pref->accent_color ?? '#e5996c' }};
             --sbg: {{ $pref->sidebar_bg ?? '#fceadb' }};
             --stx: {{ $pref->sidebar_text ?? '#57534e' }};
+            @if(($pref->sidebar_bg ?? '#ffffff') !== '#ffffff')
+            --sims-sidebar-bg: {{ $pref->sidebar_bg }};
+            --sims-sidebar-text: {{ $pref->sidebar_text ?? '#475569' }};
+            @endif
             --sia: {{ $isSidebarDark ? '#ffffff' : ($pref->primary_color ?? '#7ba088') }};
             --fsm: {{ $fonts[0] }};
             --fmd: {{ $fonts[1] }};
@@ -183,6 +188,7 @@
 
     {{-- Pin versi CDN (hindari @latest floating). Perf: jangan unduh versi tak terduga tiap hari. --}}
     <script defer src="https://unpkg.com/@alpinejs/collapse@3.14.8/dist/cdn.min.js"></script>
+    <script defer src="{{ asset('js/sims-appearance.js') }}?v={{ filemtime(public_path('js/sims-appearance.js')) }}"></script>
     <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-confirm/3.3.4/jquery-confirm.min.css">
@@ -209,12 +215,25 @@
         // kode: kode widget dari App\Support\PollingWidget — biarkan null/kosong utk polling
         // yg TAK PERNAH boleh dimatikan lewat Performa Server (ujian berjalan, pemantauan
         // ruangan ujian).
-        window.simsPollInterval = function (fn, ms, kode = null) {
-            const paused = () => window.simsPollingNonaktif(kode);
-            const id = setInterval(() => { if (!paused()) window.simsWhenVisible(fn); }, ms);
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && !paused()) window.simsWhenVisible(fn);
-            });
+        window.simsPollTimers = window.simsPollTimers || new Map();
+        window.simsPollInterval = function (fn, ms, kode = null, key = null) {
+            if (key && window.simsPollTimers.has(key)) return window.simsPollTimers.get(key);
+            let running = false;
+            let lastStarted = Date.now();
+            // Timer browser ber-jitter beberapa ms; tanpa toleransi, tick sah bisa terlewat
+            // sehingga interval 60 dtk diam-diam jadi 120 dtk.
+            const toleransi = Math.min(1000, ms / 10);
+            const run = async () => {
+                if (document.hidden || window.simsPollingNonaktif(kode) || running) return;
+                // A visibility event and timer tick can arrive together; honour one cadence.
+                if (Date.now() - lastStarted < ms - toleransi) return;
+                running = true;
+                lastStarted = Date.now();
+                try { await fn(); } catch (_) {} finally { running = false; }
+            };
+            const id = setInterval(run, ms);
+            document.addEventListener('visibilitychange', run);
+            if (key) window.simsPollTimers.set(key, id);
             return id;
         };
     </script>
@@ -554,23 +573,17 @@
         body[data-style="corporate"] .data-table thead th { background:#f7f9f8; }
 
         /* Ticker status bar animation */
-        @keyframes ticker-scroll {
-            0% { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(-50%, 0, 0); }
-        }
-        .animate-ticker {
-            display: flex;
-            white-space: nowrap;
-            animation: ticker-scroll 35s linear infinite;
-        }
-        .animate-ticker:hover {
-            animation-play-state: paused;
-        }
     </style>
     @stack('styles')
+    <link rel="stylesheet" href="{{ asset('css/sims-appearance.css') }}?v={{ filemtime(public_path('css/sims-appearance.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/theme-experiences.css') }}?v={{ filemtime(public_path('css/theme-experiences.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/sims-net.css') }}?v={{ filemtime(public_path('css/sims-net.css')) }}">
 </head>
-<body class="app-bg antialiased text-slate-800 dark:text-slate-100 relative overflow-hidden" data-motif="{{ $pref->motif ?? 'botanical' }}" data-style="{{ $pref->ui_style ?? 'soft' }}">
+<body data-ui-theme="{{ $pref->dashboard_theme ?? 'windows11' }}" data-saved-ui-theme="{{ $pref->dashboard_theme ?? 'windows11' }}"
+      data-wallpaper-base="{{ asset('images/themes') }}" data-appearance-owner="{{ auth()->id() }}" data-appearance-enabled="{{ !$kioskChrome && auth()->check() && !(\App\Support\ModeUjian::aktif() && $access === 'siswa') ? '1' : '0' }}"
+      class="app-bg antialiased text-slate-800 dark:text-slate-100 relative overflow-hidden" data-motif="{{ $pref->motif ?? 'botanical' }}" data-style="{{ $pref->ui_style ?? 'soft' }}">
 
+<div id="sims-wallpaper" aria-hidden="true"></div><div id="sims-wallpaper-shade" aria-hidden="true"></div>
 {{-- ===== Dekorasi motif (ikut tema pilihan) ===== --}}
 @include('partials.decorations')
 
@@ -580,7 +593,7 @@
      ≠ tinggi layar terlihat → konten terpotong & muncul area putih saat scroll. h-[100dvh]
      (dynamic viewport height) mengikuti tinggi layar sebenarnya; h-screen jadi fallback
      utk browser lama yang belum dukung dvh. --}}
-<div class="h-screen h-[100dvh] flex flex-col relative z-10 min-h-0" :class="{ 'mob-open': mobileOpen }">
+<div class="sims-app-frame h-screen h-[100dvh] flex flex-col relative z-10 min-h-0" :class="{ 'mob-open': mobileOpen }">
 @if(\App\Support\ModeUjian::aktif() && in_array(auth()->user()?->access, ['superadmin', 'admin', 'kepala', 'kurikulum']))
     <div class="bg-amber-500 text-slate-900 px-4 py-2 text-xs sm:text-sm font-bold flex items-center justify-between shadow-md z-[100] flex-shrink-0">
         <div class="flex items-center gap-2 min-w-0">
@@ -601,7 +614,7 @@
         🛡️ Mode Ujian Aktif — Siswa berada di ruang ujian terisolasi.
     </div>
 @endif
-    <div class="flex-1 flex relative overflow-hidden min-h-0">
+    <div class="sims-workspace flex-1 flex relative overflow-hidden min-h-0">
         <div class="sidebar-overlay lg:hidden" @click="mobileOpen=false"></div>
 
     {{-- ============ SIDEBAR (disembunyikan di mode kiosk) ============ --}}
@@ -707,6 +720,11 @@
                     }
                 }
 
+                // Survei mati total selama Mode Ujian (saklar induk) — menu ikut disembunyikan.
+                if (\App\Support\ModeUjian::nonaktif() && ($access === 'siswa' || auth()->user()?->canFacilitateSurvei() || auth()->user()?->canViewSurveiResults() || auth()->user()?->canViewOwnSurveiResults())) {
+                    $groups['survei'] = ['Survei', 'clipboard-list', [['survei.index', ['survei.*'], 'clipboard-list', 'Survei Pembelajaran']]];
+                }
+
                 // ── Akademik ──
                 $akademik = [];
                 if ($modulOn('akademik')) {
@@ -758,7 +776,7 @@
                     }
 
                     // RPM Digital: menu tersendiri di Akademik, terpisah dari Asisten Guru
-                    if (\App\Support\UserRole::matches($access, 'guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sapras', 'admin', 'superadmin')) {
+                    if (\App\Support\UserRole::matches($access, 'guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'humas', 'sarpras', 'sapras', 'admin', 'superadmin')) {
                         $akademik[] = ['rpm.index', ['rpm.*'], 'scroll-text', 'RPM Digital'];
                     }
 
@@ -772,7 +790,7 @@
                 }
 
                 // Asisten Guru: guru mapel, wali kelas, Kepala Sekolah, semua Waka, admin — bukan siswa/orang tua
-                if ($modulOn('asisten_guru') && \App\Support\UserRole::matches($access, 'guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sapras', 'admin')) {
+                if ($modulOn('asisten_guru') && \App\Support\UserRole::matches($access, 'guru', 'walikelas', 'kepala', 'kurikulum', 'kesiswaan', 'humas', 'sarpras', 'sapras', 'admin')) {
                     $akademik[] = ['ai.teacher.index', ['ai.teacher.*'], 'sparkles', 'Asisten Guru'];
                 }
 
@@ -799,7 +817,7 @@
                         $agendaItems[] = ['agenda.batas', ['agenda.batas'], 'book-open-text', 'Buku Batas'];
                     }
                     // Agenda Rapat: semua guru/staff boleh lihat; kelola penuh utk admin/manage_rapat/sekretaris rapat.
-                    if (auth()->user()?->guru || $isAdmin || auth()->user()?->canAccess('manage_rapat') || in_array($access, ['kesiswaan','sarpras','kurikulum','kepala','tendik','bendahara'])) {
+                    if (auth()->user()?->guru || $isAdmin || auth()->user()?->canAccess('manage_rapat') || in_array($access, ['kesiswaan','humas','sarpras','kurikulum','kepala','tendik','bendahara'])) {
                         $agendaItems[] = ['rapat.index', ['rapat.*'], 'users-round', 'Agenda Rapat'];
                     }
                     if ($isAdmin) {
@@ -1088,7 +1106,7 @@
                         'patterns' => ['dashboard'],
                     ],
                 ];
-                $registerNav = function (string $route, array $patterns, string $icon, string $label, array $routeParams = []) use (&$navRegistry) {
+                $registerNav = function (string $route, array $patterns, string $icon, string $label, array $routeParams = [], ?string $group = null) use (&$navRegistry) {
                     if (! \Illuminate\Support\Facades\Route::has($route)) {
                         return;
                     }
@@ -1098,6 +1116,7 @@
                         'icon'     => $icon,
                         'url'      => route($route, $routeParams),
                         'patterns' => $patterns,
+                        'group'    => $group,
                     ];
                 };
                 $registerNav('dashboard', ['dashboard'], 'layout-dashboard', 'Dashboard');
@@ -1144,7 +1163,7 @@
                     }
                     $groups[$gk][2] = ['primary' => $primary, 'more' => $more, 'moreLabel' => $moreLabel];
                     foreach ($items as $it) {
-                        $registerNav($it[0], $it[1], $it[2], $it[3], $it[4] ?? []);
+                        $registerNav($it[0], $it[1], $it[2], $it[3], $it[4] ?? [], $g[0]);
                     }
                 }
                 if ($modulOn('kartu_pelajar') && auth()->user()?->siswa) {
@@ -1179,6 +1198,17 @@
                 $registerNav('pembaruan.riwayat', ['pembaruan.riwayat'], 'sparkles', 'Info Pembaruan');
                 $registerNav('panduan.visual', ['panduan.*'], 'book-open-check', 'Panduan Visual');
                 $registerNav('feedback.index', ['feedback.*'], 'message-square-heart', 'Saran & Masukan');
+                $registerNav('profile.preference', ['profile.preference'], 'palette', 'Personalisasi');
+
+                // Dock/Baru dibuka/Favorit tampil tanpa konteks grup sidebar: label kembar
+                // (mis. "Dashboard" utama vs Sarpras, "Data Guru" master vs Cetak Data)
+                // diberi nama grupnya agar bisa dibedakan. Sidebar tetap memakai label aslinya.
+                $navLabelCount = array_count_values(array_column($navRegistry, 'label'));
+                foreach ($navRegistry as $route => $entry) {
+                    if (($navLabelCount[$entry['label']] ?? 0) > 1 && ($entry['group'] ?? null) && $entry['group'] !== $entry['label']) {
+                        $navRegistry[$route]['label'] = $entry['label'].' · '.$entry['group'];
+                    }
+                }
 
                 $navSearchItems = [];
                 foreach ($groups as $g) {
@@ -1514,28 +1544,29 @@
     @endunless
 
     {{-- ============ MAIN ============ --}}
-    <div class="flex-1 flex flex-col min-w-0 overflow-hidden min-h-0{{ $isPanduanPage ? ' panduan-layout-host' : '' }}">
+    <div class="sims-main flex-1 flex flex-col min-w-0 overflow-hidden min-h-0{{ $isPanduanPage ? ' panduan-layout-host' : '' }}">
 
         @unless($kioskChrome)
-        <header class="h-16 flex items-center justify-between px-5 md:px-7 flex-shrink-0 gap-4 z-30">
+        <header class="sims-app-header h-16 flex items-center justify-between px-5 md:px-7 flex-shrink-0 gap-4 z-30">
             <div class="flex items-center gap-3 min-w-0 flex-1">
                 <button @click="mobileOpen=!mobileOpen" class="lg:hidden grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 flex-shrink-0"><i data-lucide="menu" class="w-5 h-5"></i></button>
                 <button @click="toggleCollapse()" class="hidden lg:grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-400 flex-shrink-0"><i data-lucide="panel-left" class="w-[18px] h-[18px]"></i></button>
                 {{-- Search --}}
                 @if(!(\App\Support\ModeUjian::aktif() && auth()->user()?->access === 'siswa'))
-                <div class="relative max-w-xs w-full hidden sm:block">
-                    <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                    <input type="text" placeholder="Cari..." class="w-full bg-white/70 dark:bg-slate-800 border border-transparent focus:border-primary/40 rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none transition">
-                </div>
+                @include('partials.spotlight')
                 @endif
             </div>
 
             <div class="flex items-center gap-1.5 flex-shrink-0">
+                {{-- Personalisasi tampilan tidak tersedia bagi siswa saat Mode Ujian (rute profil dikunci). --}}
+                @if(!(\App\Support\ModeUjian::aktif() && auth()->user()?->access === 'siswa'))
+                <a href="{{ route('profile.preference') }}" class="sims-studio-link grid place-items-center w-9 h-9 rounded-xl text-slate-500 dark:text-slate-300" aria-label="Tema dan wallpaper" title="Tema dan wallpaper"><i data-lucide="palette" class="w-5 h-5"></i></a>
                 {{-- Toggle gaya tampilan (Soft <-> Analyzer) --}}
                 <button @click="toggleStyle()" class="grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 dark:text-slate-400 transition" :title="'Gaya: '+(uiStyle==='soft'?'Soft':'Analyzer')+' (klik untuk ganti)'">
                     <i data-lucide="layout-template" class="w-[18px] h-[18px]" x-show="uiStyle==='soft'"></i>
                     <i data-lucide="layout-dashboard" class="w-[18px] h-[18px]" x-show="uiStyle==='corporate'"></i>
                 </button>
+                @endif
                 <button @click="toggleDark()" class="grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 dark:text-slate-400 transition" title="Mode gelap/terang">
                     <i data-lucide="moon" class="w-[18px] h-[18px]" x-show="!darkMode"></i>
                     <i data-lucide="sun" class="w-[18px] h-[18px]" x-show="darkMode"></i>
@@ -1543,8 +1574,8 @@
 
                 {{-- Dropdown Notifikasi --}}
                 @if(!(\App\Support\ModeUjian::aktif() && auth()->user()?->access === 'siswa'))
-                <div class="relative" x-data="notificationDropdown()" x-init="init()" @keydown.escape.window="nOpen=false">
-                    <button type="button" @click="nOpen=!nOpen" class="relative grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 dark:text-slate-400 transition" title="Notifikasi">
+                <div class="relative" x-data="notificationDropdown()" @keydown.escape.window="nOpen=false">
+                    <button type="button" @click="nOpen=!nOpen; if (nOpen && {{ $halamanSurvei ? 'true' : 'false' }}) fetchNotifications()" class="relative grid place-items-center w-9 h-9 rounded-xl hover:bg-black/5 text-slate-500 dark:text-slate-400 transition" title="Notifikasi">
                         <i data-lucide="bell" class="w-[18px] h-[18px]"></i>
                         <template x-if="unreadCount > 0">
                             <span class="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-bold grid place-items-center leading-none" x-text="unreadCount"></span>
@@ -1679,188 +1710,14 @@
             </footer>
             @endunless
         </main>
+        @include('partials.theme-dock')
     </div>
 </div>
 
         {{-- SIMS-NET System Ticker Bar (Integrated for all roles, displaying real dashboard statistics) — disembunyikan di mode kiosk, mode ujian, atau jika dinonaktifkan di pengaturan --}}
         @unless($kioskChrome || \App\Support\ModeUjian::aktif() || !$tickerBawahAktif)
-        @php
-            // Angka ticker diambil dari cache (App\Support\TickerStats) — menghindari
-            // ~15 query agregat di setiap load halaman. Penyaringan per-role di bawah
-            // murni operasi array (tanpa query tambahan).
-            $role = auth()->user()->access ?? '';
-            $tickerFlags = \App\Support\TickerStats::flags($role);
-            $showManagementStats = $tickerFlags['management'];
-            $showTeacherStats = $tickerFlags['teacher'];
-            $showStudentStats = $tickerFlags['student'];
-            $showOnlineStats = $tickerFlags['online'];
-
-            $tickerData = \App\Support\TickerStats::raw();
-            $tickerSiswa = $tickerData['siswa'];
-            $tickerL = $tickerData['siswaL'];
-            $tickerP = $tickerData['siswaP'];
-            $tickerGuru = $tickerData['guru'];
-            $tickerKelas = $tickerData['kelas'];
-            $tickerMapel = $tickerData['mapel'];
-            $tickerSemesterLabel = $tickerData['semesterLabel'];
-            $tickerAset = $tickerData['aset'];
-            $tickerKerusakan = $tickerData['kerusakan'];
-            $tickerPeminjaman = $tickerData['peminjaman'];
-            $tickerOnlineText = \App\Support\TickerStats::onlineText($tickerData);
-        @endphp
-        <div data-sims-ticker class="h-8 bg-[#090d16] flex-shrink-0 flex items-center text-[10px] sm:text-[11px] font-mono tracking-wider overflow-hidden border-t border-slate-900 text-slate-400 select-none z-30 shadow-2xl">
-            <div class="flex items-center px-3 border-r border-slate-800/80 h-full flex-shrink-0 z-20">
-                <span class="bg-amber-500/10 text-amber-500 border border-amber-500/20 font-bold px-2 py-0.5 rounded text-[9px] sm:text-[10px] tracking-wider">
-                    SIMS-NET
-                </span>
-            </div>
-            <div class="flex-1 overflow-hidden relative flex items-center">
-                <div class="animate-ticker flex whitespace-nowrap gap-12 items-center pl-4 py-1">
-                    <div class="flex items-center gap-12">
-                        <span class="flex items-center gap-2">
-                            <span>SEMESTER:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-semester">{{ $tickerSemesterLabel }}</span>
-                        </span>
-                        
-                        @if($showStudentStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>TOTAL SISWA:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-siswa">{{ number_format($tickerSiswa) }} ({{ number_format($tickerL) }} L • {{ number_format($tickerP) }} P)</span>
-                        </span>
-                        @endif
-
-                        @if($showTeacherStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>GURU AKTIF:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-guru">{{ number_format($tickerGuru) }} GURU</span>
-                        </span>
-                        @endif
-
-                        @if($showTeacherStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>ROMBEL:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-kelas">{{ number_format($tickerKelas) }} KELAS</span>
-                        </span>
-                        @endif
-
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>KURIKULUM:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-mapel">{{ number_format($tickerMapel) }} MAPEL</span>
-                        </span>
-
-                        @if($showManagementStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>TOTAL ASET:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-aset">{{ number_format($tickerAset) }} UNIT</span>
-                        </span>
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>KERUSAKAN TERBUKA:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-kerusakan">{{ number_format($tickerKerusakan) }} LAPORAN</span>
-                        </span>
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>PEMINJAMAN AKTIF:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-peminjaman">{{ number_format($tickerPeminjaman) }} TRANSAKSI</span>
-                        </span>
-                        @endif
-
-                        @if($showOnlineStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>USER ONLINE:</span>
-                            <span class="text-cyan-400 font-bold ticker-val-online">{{ $tickerOnlineText }}</span>
-                        </span>
-                        @endif
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2 text-amber-400 font-bold">
-                            <span class="relative flex h-2 w-2">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                            </span>
-                            LIVE SYS
-                        </span>
-                    </div>
-                    <!-- Duplicate for seamless loop scrolling -->
-                    <div class="flex items-center gap-12" aria-hidden="true">
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>SEMESTER:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-semester">{{ $tickerSemesterLabel }}</span>
-                        </span>
-                        
-                        @if($showStudentStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>TOTAL SISWA:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-siswa">{{ number_format($tickerSiswa) }} ({{ number_format($tickerL) }} L • {{ number_format($tickerP) }} P)</span>
-                        </span>
-                        @endif
-
-                        @if($showTeacherStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>GURU AKTIF:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-guru">{{ number_format($tickerGuru) }} GURU</span>
-                        </span>
-                        @endif
-
-                        @if($showTeacherStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>ROMBEL:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-kelas">{{ number_format($tickerKelas) }} KELAS</span>
-                        </span>
-                        @endif
-
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>KURIKULUM:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-mapel">{{ number_format($tickerMapel) }} MAPEL</span>
-                        </span>
-
-                        @if($showManagementStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>TOTAL ASET:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-aset">{{ number_format($tickerAset) }} UNIT</span>
-                        </span>
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>KERUSAKAN TERBUKA:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-kerusakan">{{ number_format($tickerKerusakan) }} LAPORAN</span>
-                        </span>
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>PEMINJAMAN AKTIF:</span>
-                            <span class="text-emerald-400 font-bold ticker-val-peminjaman">{{ number_format($tickerPeminjaman) }} TRANSAKSI</span>
-                        </span>
-                        @endif
-
-                        @if($showOnlineStats)
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2">
-                            <span>USER ONLINE:</span>
-                            <span class="text-cyan-400 font-bold ticker-val-online">{{ $tickerOnlineText }}</span>
-                        </span>
-                        @endif
-                        <span class="text-slate-700">•</span>
-                        <span class="flex items-center gap-2 text-amber-400 font-bold">
-                            <span class="relative flex h-2 w-2">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                            </span>
-                            LIVE SYS
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
+            @include('partials.sims-net')
+            <script src="{{ asset('js/sims-net.js') }}?v={{ filemtime(public_path('js/sims-net.js')) }}"></script>
         @endunless
 </div>
 
@@ -1881,12 +1738,21 @@
     // Hanya tampil bila benar-benar ADA teks (cegah toast judul tanpa keterangan).
     $toastSukses = trim((string) (session('success') ?? session('sukses') ?? ''));
     $toastGagal  = trim((string) (session('error') ?? session('gagal') ?? ''));
+    // Khusus pemberitahuan Mode Ujian; flash 'info' umum sudah ditampilkan inline oleh halaman masing-masing.
+    $toastInfo   = trim((string) (session('info_mode_ujian') ?? ''));
 @endphp
 <div class="fixed bottom-14 right-6 z-[9999] space-y-2" id="toastWrap">
     @if($toastSukses !== '')
     <div class="toast-item card !rounded-2xl border-l-4 !border-l-emerald-500 px-4 py-3 flex items-start gap-3 min-w-[290px] max-w-md shadow-xl" style="animation:slideToast .35s both">
         <div class="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900 grid place-items-center flex-shrink-0"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i></div>
         <div class="flex-1 min-w-0"><p class="font-bold text-sm text-slate-800 dark:text-slate-100">Berhasil</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 break-words">{{ $toastSukses }}</p></div>
+        <button onclick="this.closest('.toast-item').remove()" class="text-slate-300 hover:text-slate-500"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    @endif
+    @if($toastInfo !== '')
+    <div class="toast-item card !rounded-2xl border-l-4 !border-l-amber-500 px-4 py-3 flex items-start gap-3 min-w-[290px] max-w-md shadow-xl" style="animation:slideToast .35s both" role="status">
+        <div class="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900 grid place-items-center flex-shrink-0"><i data-lucide="info" class="w-4 h-4 text-amber-600"></i></div>
+        <div class="flex-1 min-w-0"><p class="font-bold text-sm text-slate-800 dark:text-slate-100">Informasi</p><p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 break-words">{{ $toastInfo }}</p></div>
         <button onclick="this.closest('.toast-item').remove()" class="text-slate-300 hover:text-slate-500"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
     @endif
@@ -2032,6 +1898,8 @@
             navSearchCatalog: @json($navSearchItems ?? []),
             navFavorites: [],
             navRecent: [],
+            navDockRecent: [],
+            dockFavoriteRoutes: [],
             currentRoute: @json(Route::currentRouteName()),
             navExpanded: Object.assign(@json($navExpandedDefaults), (() => { try { return JSON.parse(localStorage.getItem('sims_nav_expanded') || '{}'); } catch (_) { return {}; } })()),
             toggleGroup(g){ this.openGroup = (this.openGroup === g ? '' : g); localStorage.setItem('sb_group', this.openGroup); this.$nextTick(()=>lucide.createIcons()); },
@@ -2137,28 +2005,27 @@
                 document.addEventListener('mouseout',  (e) => { if (e.target.closest(sel)) hide(); });
                 document.addEventListener('click',     (e) => { if (e.target.closest(sel)) hide(); });
             },
-            loadNavFavorites(){
-                const reg = this.navRegistry;
-                const pinned = this.navPinnedRoutes || [];
+            readNavRoutes(key, legacy){
                 try {
-                    const routes = JSON.parse(localStorage.getItem('sims_nav_favorites') || localStorage.getItem('sb_favorites') || '[]');
-                    this.navFavorites = routes.filter(r => reg[r] && !pinned.includes(r)).map(r => reg[r]);
-                } catch (_) {
-                    this.navFavorites = [];
-                }
+                    const value = JSON.parse(localStorage.getItem(key) || localStorage.getItem(legacy) || '[]');
+                    if (!Array.isArray(value)) return [];
+                    return [...new Set(value)].filter(route => typeof route === 'string' && Object.prototype.hasOwnProperty.call(this.navRegistry, route));
+                } catch (_) { return []; }
+            },
+            loadNavFavorites(){
+                const routes = this.readNavRoutes('sims_nav_favorites', 'sb_favorites').slice(0, 10);
+                this.dockFavoriteRoutes = routes;
+                this.navFavorites = routes.filter(r => !(this.navPinnedRoutes || []).includes(r)).map(r => this.navRegistry[r]);
             },
             loadNavRecent(){
-                const reg = this.navRegistry;
-                const pinned = this.navPinnedRoutes || [];
-                try {
-                    const routes = JSON.parse(localStorage.getItem('sims_nav_recent') || localStorage.getItem('sb_recent') || '[]');
-                    // Rute yg SUDAH permanen tampil di sidebar (Dashboard, Kartu ID, dst) dibuang dari
-                    // sini — kalau tidak, "Baru Dibuka" akan menampilkan link yg SAMA PERSIS dgn yg
-                    // sudah kelihatan di bagian statis di bawahnya, bikin dobel yg membingungkan.
-                    this.navRecent = routes.filter(r => reg[r] && !pinned.includes(r)).map(r => reg[r]).slice(0, 5);
-                } catch (_) {
-                    this.navRecent = [];
-                }
+                const routes = this.readNavRoutes('sims_nav_recent', 'sb_recent').slice(0, 10);
+                this.navDockRecent = routes.map(r => this.navRegistry[r]);
+                this.navRecent = routes.filter(r => !(this.navPinnedRoutes || []).includes(r)).map(r => this.navRegistry[r]).slice(0, 5);
+            },
+            dockItems(){
+                return [...new Set([...this.dockFavoriteRoutes, ...this.navDockRecent.map(item => item.route)])]
+                    .filter(route => Object.prototype.hasOwnProperty.call(this.navRegistry, route))
+                    .slice(0, 10).map(route => this.navRegistry[route]);
             },
             isNavActive(item){
                 if (!item || !this.currentRoute) return false;
@@ -2171,25 +2038,19 @@
                     return this.currentRoute === p;
                 });
             },
-            isNavFavorite(route){
-                try {
-                    const routes = JSON.parse(localStorage.getItem('sims_nav_favorites') || localStorage.getItem('sb_favorites') || '[]');
-                    return routes.includes(route);
-                } catch (_) {
-                    return false;
-                }
-            },
+            isNavFavorite(route){ return this.dockFavoriteRoutes.includes(route); },
             toggleNavFavorite(route){
-                let routes = [];
-                try { routes = JSON.parse(localStorage.getItem('sims_nav_favorites') || localStorage.getItem('sb_favorites') || '[]'); } catch (_) {}
-                if (routes.includes(route)) {
-                    routes = routes.filter(r => r !== route);
-                } else {
-                    routes = [...routes, route];
+                if (!Object.prototype.hasOwnProperty.call(this.navRegistry, route)) return;
+                let routes = this.readNavRoutes('sims_nav_favorites', 'sb_favorites').slice(0, 10);
+                if (routes.includes(route)) routes = routes.filter(r => r !== route);
+                else {
+                    if (routes.length >= 10) { if (window.showToast) window.showToast('Maksimal 10 favorit. Lepas satu bintang terlebih dahulu.', 'error'); return; }
+                    routes.push(route);
                 }
-                localStorage.setItem('sims_nav_favorites', JSON.stringify(routes));
+                try { localStorage.setItem('sims_nav_favorites', JSON.stringify(routes)); }
+                catch (_) { if (window.showToast) window.showToast('Favorit tidak dapat disimpan di browser ini.', 'error'); return; }
                 this.loadNavFavorites();
-                this.$nextTick(() => lucide.createIcons());
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
             },
             toggleNavExpand(key){
                 this.navExpanded[key] = !this.navExpanded[key];
@@ -2207,17 +2068,16 @@
                 }).slice(0, 12);
             },
             pushNavRecent(route){
-                if (!route || !this.navRegistry[route]) return;
-                let recent = [];
-                try { recent = JSON.parse(localStorage.getItem('sims_nav_recent') || localStorage.getItem('sb_recent') || '[]'); } catch (_) {}
-                recent = [route, ...recent.filter(r => r !== route)].slice(0, 5);
-                localStorage.setItem('sims_nav_recent', JSON.stringify(recent));
+                if (!route || !Object.prototype.hasOwnProperty.call(this.navRegistry, route)) return;
+                const recent = [route, ...this.readNavRoutes('sims_nav_recent', 'sb_recent').filter(r => r !== route)].slice(0, 10);
+                try { localStorage.setItem('sims_nav_recent', JSON.stringify(recent)); } catch (_) { return; }
                 this.loadNavRecent();
             },
             initNavPersonalization(){
                 this.loadNavFavorites();
                 this.loadNavRecent();
-                if (this.currentRoute) this.pushNavRecent(this.currentRoute);
+                const current = Object.values(this.navRegistry).find(item => this.isNavActive(item));
+                if (current) this.pushNavRecent(current.route);
                 const nav = document.querySelector('.sidebar nav');
                 if (!nav) return;
                 nav.addEventListener('click', (e) => {
@@ -2239,6 +2099,7 @@
             prevUnread: null,          // null = belum pernah fetch (hindari bunyi saat load awal)
             soundOn: true,
             audio: null,
+            loadingNotifications: false,
             init() {
                 // Preferensi suara per-perangkat (localStorage), default aktif.
                 this.soundOn = localStorage.getItem('notifSound') !== 'off';
@@ -2247,15 +2108,13 @@
                     this.audio.preload = 'auto';
                     this.audio.volume = 0.6;
                 } catch (_) { this.audio = null; }
+                @unless($halamanSurvei)
                 // Performa Server: tahan juga fetch PERTAMA ini (bukan cuma pengulangannya) —
                 // inilah yg justru tembak tepat di detik-detik rawan (banyak orang login
                 // bersamaan), jauh sebelum interval sempat jalan. Mematikan 'notifikasi' ikut
                 // membekukan 4 badge yg numpang response ini (lihat App\Support\PollingWidget).
                 if (!window.simsPollingNonaktif('notifikasi')) this.fetchNotifications();
-                // Polling 45s (was 15s — endpoint ini request TERBANYAK di seluruh app, ~8.2rb/jam
-                // pas beban tinggi; notifikasi tak butuh sampai se-real-time itu, tunda beberapa
-                // puluh detik tak masalah) — pause saat tab hidden (simsPollInterval)
-                                if (!window.simsPollingNonaktif('notifikasi')) {
+                if (!window.simsPollingNonaktif('notifikasi')) {
                     if (window.simsFirebase) {
                         window.simsFirebase.onReady(fb => {
                             const triggerRef = fb.getRef(`users/{{ auth()->user()->uuid ?? '' }}/sync_trigger`);
@@ -2267,9 +2126,11 @@
                         });
                     }
                 }
+                @endunless
             },
             async fetchNotifications() {
-                if (document.hidden) return;
+                if (document.hidden || this.loadingNotifications) return;
+                this.loadingNotifications = true;
                 try {
                     let response = await fetch('{{ route('notifications.json') }}');
                     if (response.ok) {
@@ -2303,6 +2164,8 @@
                     }
                 } catch (e) {
                     console.error("Error fetching notifications:", e);
+                } finally {
+                    this.loadingNotifications = false;
                 }
             },
             playSound() {
@@ -2579,21 +2442,31 @@
         }, 0);
     });
 
-    @if($tickerBawahAktif)
+    @if($tickerBawahAktif && !$kioskChrome && !\App\Support\ModeUjian::aktif())
     // Realtime update for footer ticker statistics from the database
     document.addEventListener('DOMContentLoaded', () => {
+        const tickerValues = Array.from(document.querySelectorAll('[data-sims-ticker] [class*="ticker-val-"]'));
+        if (!tickerValues.length) return;
         const updateTickerStats = async () => {
+            if (document.querySelector('[data-sims-ticker]')?.dataset.paused === 'true') return;
             try {
                 const response = await fetch('{{ route('dashboard.ticker-stats') }}');
                 if (response.ok) {
                     const data = await response.json();
-                    
-                    // Update all ticker elements by class name (for both original and duplicated elements)
-                    ['semester', 'siswa', 'guru', 'kelas', 'mapel', 'aset', 'kerusakan', 'peminjaman', 'online'].forEach(key => {
-                        const val = data[key];
-                        document.querySelectorAll(`.ticker-val-${key}`).forEach(el => {
-                            el.innerHTML = val;
-                        });
+                    if (data.mode_ujian) {
+                        // Mode Ujian dinyalakan setelah tab ini dibuka: hentikan polling & sembunyikan ticker.
+                        clearInterval(window.simsPollTimers.get('footer-ticker'));
+                        window.simsPollTimers.delete('footer-ticker');
+                        const ticker = document.querySelector('[data-sims-ticker]'); if (ticker) ticker.style.display = 'none';
+                        return;
+                    }
+
+                    // Reuse DOM references; write only values that changed.
+                    tickerValues.forEach(el => {
+                        const key = Array.from(el.classList).find(name => name.startsWith('ticker-val-')).slice(11);
+                        if (!Object.prototype.hasOwnProperty.call(data, key)) return;
+                        const value = String(data[key] ?? '');
+                        if (el.textContent !== value) el.textContent = value;
                     });
                 }
             } catch (e) {
@@ -2601,14 +2474,14 @@
             }
         };
 
-        // Update stats every 30s; pause when tab hidden
-        window.simsPollInterval(updateTickerStats, 30000, 'ticker');
+        // Ticker cache TTL is 60s; one keyed timer, paused in hidden tabs.
+        window.simsPollInterval(updateTickerStats, 60000, 'ticker', 'footer-ticker');
     });
     @endif
 </script>
 
 
-@if(!\App\Support\ModeUjian::aktif() && config('services.firebase.api_key') && config('services.firebase.database_url'))
+@if(!$halamanSurvei && !\App\Support\ModeUjian::aktif() && config('services.firebase.api_key') && config('services.firebase.database_url'))
 {{-- Firebase JS SDK & Realtime Database Initialization --}}
 <script>
     // Sediakan helper global secara sinkron agar Alpine.js bisa mendaftar callback lebih awal

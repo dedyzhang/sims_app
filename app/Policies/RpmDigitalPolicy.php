@@ -13,7 +13,7 @@ use App\Support\UserRole;
 class RpmDigitalPolicy
 {
     private const ALLOWED_ROLES = [
-        'admin', 'superadmin', 'kepala', 'kurikulum', 'kesiswaan', 'sarpras', 'sapras', 'guru', 'walikelas',
+        'admin', 'superadmin', 'kepala', 'kurikulum', 'kesiswaan', 'humas', 'sarpras', 'sapras', 'guru', 'walikelas',
     ];
 
     /** Apakah user boleh membuka modul RPM Digital. */

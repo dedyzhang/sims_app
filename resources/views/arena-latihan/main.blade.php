@@ -251,11 +251,7 @@ function arenaLatihanTamu(cfg) {
         },
         boot() {
             this.poll();
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) {
-                    this.poll();
-                }
-            });
+            this.timer = window.simsPollInterval(() => this.poll(), this.pollMs, 'arena_latihan_tamu', 'arena-latihan-tamu'); // bisa dimatikan lewat Performa Server
             this.countdownTimer = setInterval(() => this.tickCountdown(), 1000);
             this.$nextTick(() => window.lucide && lucide.createIcons());
         },

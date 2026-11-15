@@ -177,6 +177,7 @@
     let cursor = null;        // created_at terakhir yang diketahui
     let readWatermark = widget.dataset.readWatermark || null; // batas "sudah dibaca" pesan user
     let pollTimer = null;
+    let pollInFlight = false;
     let pendingBlob = null;   // gambar terkompres siap kirim
     let pendingUrl  = null;   // object URL untuk pratinjau lokal
     let pendingFile = null;   // file/dokumen mentah siap kirim (tanpa kompresi)
@@ -532,7 +533,8 @@
 
     // ---------- Poll (Lapis B) ----------
     async function poll() {
-        if (document.visibilityState !== 'visible') return;
+        if (document.visibilityState !== 'visible' || pollInFlight) return;
+        pollInFlight = true;
         try {
             const url = new URL(pollUrl, window.location.origin);
             url.searchParams.set('conversation_id', conversationId);
@@ -553,6 +555,7 @@
             }
             if (wasBottom) scrollToBottom();
         } catch (_) { /* diam: poll berikutnya coba lagi */ }
+        finally { pollInFlight = false; }
     }
 
     function startPolling() {

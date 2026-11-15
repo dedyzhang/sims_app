@@ -2,6 +2,7 @@
 @section('title', 'Dashboard')
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('css/dashboard-themes.css') }}">
 <style>
     /* Ilustrasi kartu — animatif & interaktif */
     .ill { transition: transform .4s cubic-bezier(.2,.8,.2,1); transform-origin: center bottom; will-change: transform; }
@@ -396,7 +397,7 @@
     // menghitungnya sendiri (dulu dobel: header + blok). Biar blok yg hitung sekali (admin saja).
     $pref = auth()->user()?->prefTampilan(); // memo per-instance (sudah dihitung di controller/layout)
     $motif = $pref->motif ?? 'botanical';
-    $dashboardTheme = in_array($pref->dashboard_theme ?? 'windows11', ['windows11', 'macos'], true)
+    $dashboardTheme = in_array($pref->dashboard_theme ?? 'windows11', ['windows11', 'macos', 'fluent', 'macos-minimal', 'bento'], true)
         ? $pref->dashboard_theme
         : 'windows11';
     $motifIcon = ['botanical'=>'flower-2','ocean'=>'waves','forest'=>'trees','sunset'=>'sunset','robot'=>'bot','space'=>'rocket','minimal'=>'circle','nightocean'=>'anchor','rainbow'=>'sparkles'][$motif] ?? 'flower-2';
@@ -609,6 +610,7 @@
 @endphp
 
 <div x-data="dashLayout()" class="edu-dashboard dashboard-theme-{{ $dashboardTheme }}" :class="{ 'dash-editing': editing }">
+    @include('dashboard.theme-picker')
     @include('partials.dash-greeting')
     @if(in_array($access, ['superadmin','admin'], true) && ! empty($aiQuotaUsage))
         @php
@@ -704,6 +706,7 @@
 @endphp
 
 <div x-data="dashLayout()" class="edu-dashboard dashboard-theme-{{ $dashboardTheme }}" :class="{ 'dash-editing': editing }">
+    @include('dashboard.theme-picker')
     @include('partials.dash-greeting')
 
     <div id="dashGrid" class="grid grid-cols-12 gap-5" x-ref="grid">
@@ -715,13 +718,14 @@
 
 @include('partials.sosmed-bar')
 
-@elseif(in_array($access, ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'sarpras', 'tendik', 'bendahara']))
+@elseif(in_array($access, ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'humas', 'sarpras', 'tendik', 'bendahara']))
 {{-- ===== Guru/Walikelas/Kurikulum/Kesiswaan/Sapras/Tendik/Bendahara: kartu batik + blok sesuai kebutuhan peran, sama seperti admin ===== --}}
 @php
     $allBlocks = match ($access) {
         'guru', 'walikelas' => auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [],
         'kurikulum' => array_merge(auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [], ['ringkasan_siswa', 'ringkasan_guru', 'ringkasan_kelas', 'ringkasan_tahun', 'kurikulum_agenda']),
         'kesiswaan' => array_merge(auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [], ['ringkasan_siswa', 'kesiswaan_pending', 'kesiswaan_absensi']),
+        'humas' => auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [],
         'sarpras' => array_merge(auth()->user()->guru ? ['guru_jadwal', 'guru_presensi', 'guru_agenda'] : [], auth()->user()->can('sarpras.dashboard.lihat') ? ['sarpras_aset', 'sarpras_kerusakan', 'sarpras_peminjaman', 'sarpras_pengadaan'] : []),
         'tendik', 'bendahara' => auth()->user()->guru ? ['guru_presensi'] : [],
         default => [],
@@ -774,6 +778,7 @@
 @endphp
 
 <div x-data="dashLayout()" class="edu-dashboard dashboard-theme-{{ $dashboardTheme }}" :class="{ 'dash-editing': editing }">
+    @include('dashboard.theme-picker')
     @include('partials.dash-greeting')
 
     @if(empty($allBlocks))
@@ -931,7 +936,7 @@
 </script>
 @endpush
 
-@if(in_array($access, ['superadmin','admin','kepala']) || (in_array($access, ['siswa', 'orangtua']) && $siswaWidget) || in_array($access, ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'sarpras', 'tendik', 'bendahara']))
+@if(in_array($access, ['superadmin','admin','kepala']) || (in_array($access, ['siswa', 'orangtua']) && $siswaWidget) || in_array($access, ['guru', 'walikelas', 'kurikulum', 'kesiswaan', 'humas', 'sarpras', 'tendik', 'bendahara']))
 @push('scripts')
 <script>
 function dashLayout() {

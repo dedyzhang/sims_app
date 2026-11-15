@@ -50,6 +50,8 @@ class SettingTampilanTest extends TestCase
         $response->assertSee('data-sims-ticker', false);
         $response->assertSee('SIMS-NET', false);
         $response->assertSee('ticker-val-semester', false);
+        $this->assertSame(1, substr_count($response->getContent(), 'class="ticker-val-semester"'));
+        $response->assertDontSee('animate-ticker', false)->assertDontSee('LIVE SYS', false);
 
         // Animasi fade-in disertakan
         $response->assertSee('anim-fade', false);
@@ -77,7 +79,7 @@ class SettingTampilanTest extends TestCase
 
         // Ticker bar tidak dirender sama sekali
         $viewResponse->assertDontSee('data-sims-ticker', false);
-        $viewResponse->assertDontSee("window.simsPollInterval(updateTickerStats, 30000, 'ticker');", false);
+        $viewResponse->assertDontSee("window.simsPollInterval(updateTickerStats", false);
 
         // Animasi fade dinonaktifkan
         $viewResponse->assertSee('.anim-fade { animation:none !important; }', false);

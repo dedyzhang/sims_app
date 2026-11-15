@@ -262,7 +262,7 @@
                                 <p class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{{ $b->ruangan?->nama ?? $b->ruangan?->kode ?? 'Ruangan' }}</p>
                                 <span class="text-xs font-extrabold text-blue-600 shrink-0">{{ $b->mulai?->format('H:i') }}-{{ $b->selesai?->format('H:i') }}</span>
                             </div>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">{{ $b->keperluan }} - {{ $b->pemohon?->name ?? '-' }}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">{{ $b->keperluan }} - {{ $b->peminjam?->name ?? '-' }}</p>
                         </a>
                     @empty
                         <p class="text-sm text-slate-500 dark:text-slate-400 py-6 text-center">Tidak ada booking ruangan hari ini.</p>
