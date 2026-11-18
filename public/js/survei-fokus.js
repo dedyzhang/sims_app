@@ -11,7 +11,7 @@
     const progressLabel = document.getElementById('survei-progres-label');
     const submitMessage = document.getElementById('survei-kirim-pesan');
     const root = document.documentElement;
-    const halaman = content.closest('[data-seb]').dataset;
+    const halaman = (content.closest('[data-seb]') || content.closest('[data-daftar]') || document.querySelector('.survei-page'))?.dataset || {};
     const pakaiSeb = halaman.seb === '1';
     const pakaiKios = Boolean(halaman.periodeKios);
     const requestFullscreen = root.requestFullscreen || root.webkitRequestFullscreen;
@@ -71,7 +71,7 @@
     const confirmation = document.getElementById('survei-konfirmasi');
     let current = 0;
     let confirmed = false;
-    const daftar = content.closest('[data-daftar]').dataset.daftar;
+    const daftar = (content.closest('[data-daftar]') || document.querySelector('[data-daftar]'))?.dataset?.daftar || '/survei-pembelajaran';
     let started = gate.dataset.sudahMulai === '1';
     let active = false;
     let submitting = false;

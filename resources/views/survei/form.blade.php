@@ -3,7 +3,8 @@
 @section('hide_page_footer', '1')
 @include('survei.gaya')
 @section('content')
-<div class="survei-page mx-auto max-w-4xl space-y-5" data-daftar="{{ route('survei.index') }}">
+<div class="survei-page mx-auto max-w-4xl space-y-5" data-daftar="{{ route('survei.index') }}" data-seb="{{ $periode->wajib_seb ? '1' : '0' }}"
+    @if(!empty($tantanganKios)) data-periode-kios="{{ $periode->uuid }}" data-tantangan-kios="{{ $tantanganKios }}" @endif>
     <header class="survei-hero">
         <div class="survei-identitas">
             <div class="survei-logo">
