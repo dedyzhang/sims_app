@@ -23,6 +23,7 @@ body[data-appearance-enabled="1"][data-ui-theme="bento"] {
 .dark body[data-appearance-enabled="1"] {
     --ui-canvas: #111722; --ui-panel: #1c2636; --ui-sidebar: #17202e; --ui-edge: #344155;
     --ui-text: #edf2fa; --ui-muted: #bac6d8; --ui-shadow: none;
+    --sims-sidebar-bg: #17202e; --sims-sidebar-text: #edf2fa;
 }
 .dark body[data-appearance-enabled="1"]:is([data-ui-theme="macos"],[data-ui-theme="macos-minimal"]) { --ui-canvas: #19191f; --ui-sidebar: #24242d; --ui-panel: #292933; --ui-edge: #40404b; }
 .dark body[data-appearance-enabled="1"][data-ui-theme="bento"] { --ui-canvas: #181f1a; --ui-sidebar: #222c25; --ui-panel: #29352d; --ui-edge: #405345; }

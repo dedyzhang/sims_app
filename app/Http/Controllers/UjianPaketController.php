@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Ujian;
+use App\Models\UjianJadwal;
 use App\Models\UjianPaket;
+use App\Models\UjianSesi;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
@@ -79,6 +81,24 @@ class UjianPaketController extends Controller implements HasMiddleware
 
     public function show(Request $request, UjianPaket $paket)
     {
+        // Bersihkan jadwal yatim yang ujiannya sudah dihapus / tidak ada lagi
+        $orphanedJadwal = UjianJadwal::where('id_ujian_paket', $paket->uuid)
+            ->whereDoesntHave('ujian')
+            ->get();
+
+        if ($orphanedJadwal->isNotEmpty()) {
+            $idSesiList = $orphanedJadwal->pluck('id_sesi')->filter()->unique();
+            UjianJadwal::whereIn('uuid', $orphanedJadwal->pluck('uuid'))->delete();
+
+            if ($idSesiList->isNotEmpty()) {
+                UjianSesi::whereIn('uuid', $idSesiList)
+                    ->whereDoesntHave('jadwal')
+                    ->whereDoesntHave('beritaAcara')
+                    ->whereDoesntHave('daftarHadir')
+                    ->delete();
+            }
+        }
+
         $paket->load(['semester', 'ujian.pelajaran', 'ruangan.peserta', 'jadwal.ujian']);
 
         // Ujian standalone milik user ini (belum masuk paket manapun) — kandidat utk ditambahkan.
@@ -136,7 +156,19 @@ class UjianPaketController extends Controller implements HasMiddleware
     {
         abort_unless($this->bolehKelola($request->user(), $paket), 403);
         abort_unless($ujian->id_ujian_paket === $paket->uuid, 404);
+
+        $idSesiList = $paket->jadwal()->where('id_ujian', $ujian->uuid)->pluck('id_sesi')->filter()->unique();
+        $paket->jadwal()->where('id_ujian', $ujian->uuid)->delete();
+        if ($idSesiList->isNotEmpty()) {
+            UjianSesi::whereIn('uuid', $idSesiList)
+                ->whereDoesntHave('jadwal')
+                ->whereDoesntHave('beritaAcara')
+                ->whereDoesntHave('daftarHadir')
+                ->delete();
+        }
+
         $ujian->update(['id_ujian_paket' => null]);
+        app(\App\Services\UjianJadwalSync::class)->terapkan($ujian);
 
         return back()->with('success', "Ujian \"{$ujian->judul}\" dilepas dari paket (tetap ada sbg ujian standalone).");
     }

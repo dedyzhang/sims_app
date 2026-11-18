@@ -70,7 +70,7 @@
                     @endphp
                     <div class="text-xs flex items-center gap-2 {{ $opsi->is_benar ? 'text-emerald-600 font-semibold' : ($dipilih ? 'text-rose-500' : 'text-slate-400') }}">
                         <i data-lucide="{{ $dipilih ? 'check-square' : 'square' }}" class="w-3.5 h-3.5 flex-shrink-0"></i>
-                        <span>{{ strip_tags($opsi->teks_opsi) }}</span>
+                        <span>{{ \App\Support\RichText::toPlainText($opsi->teks_opsi) }}</span>
                         @if($opsi->is_benar) <span class="text-[10px] uppercase tracking-wide">(kunci)</span> @endif
                     </div>
                     @endforeach
@@ -80,9 +80,9 @@
                     @foreach($soal->meta['pairs'] ?? [] as $p)
                     @php $jawabPasangan = ($jawaban?->jawaban_pasangan ?? [])[$p['left']] ?? null; @endphp
                     <div class="text-xs flex items-center gap-2 {{ $jawabPasangan === $p['right'] ? 'text-emerald-600' : 'text-rose-500' }}">
-                        <span>{{ strip_tags($p['left']) }} → {{ $jawabPasangan ? strip_tags($jawabPasangan) : '(tak dijawab)' }}</span>
+                        <span>{{ \App\Support\RichText::toPlainText($p['left']) }} → {{ $jawabPasangan ? \App\Support\RichText::toPlainText($jawabPasangan) : '(tak dijawab)' }}</span>
                         @if($jawabPasangan !== $p['right'])
-                        <span class="text-slate-400">(kunci: {{ strip_tags($p['right']) }})</span>
+                        <span class="text-slate-400">(kunci: {{ \App\Support\RichText::toPlainText($p['right']) }})</span>
                         @endif
                     </div>
                     @endforeach

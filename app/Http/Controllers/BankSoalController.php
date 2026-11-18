@@ -133,7 +133,7 @@ class BankSoalController extends Controller
             'tipe'   => $s->tipe,
             'label'  => $s->typeLabel(),
             'poin'   => $s->poin,
-            'cuplik' => \Illuminate\Support\Str::limit(strip_tags($s->teks_soal), 100),
+            'cuplik' => $s->cuplikanTeks(100),
         ]));
     }
 

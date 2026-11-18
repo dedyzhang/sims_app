@@ -94,6 +94,13 @@
             --fmd: {{ $fonts[1] }};
             --flg: {{ $fonts[2] }};
         }
+        .dark {
+            --sbg: #111c30;
+            --stx: #edf2fa;
+            --sims-sidebar-bg: #111c30;
+            --sims-sidebar-text: #edf2fa;
+            --sia: #ffffff;
+        }
     </style>
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -1243,7 +1250,8 @@
             </div>
 
             {{-- Favorit & Baru dibuka (personal, localStorage) --}}
-            <div x-show="!mini && (navFavorites.length || navRecent.length)" x-cloak
+            {{-- Menu 'Baru dibuka' dihilangkan di viewport desktop yang sudah menampilkan bilah tab dock bawah (>= 1024px), hanya dimunculkan di viewport mobile/tablet --}}
+            <div x-show="!mini && (navFavorites.length || (isMobile && navRecent.length))" x-cloak
                  class="nav-personal mt-2 pt-2 pb-2 border-t border-b">
                 <div x-show="navFavorites.length">
                     <button type="button" @click="toggleNavSection('fav')"
@@ -1266,7 +1274,7 @@
                     </template>
                     </div>
                 </div>
-                <div x-show="navRecent.length" :class="navFavorites.length ? 'mt-1 pt-1 border-t border-black/[.04] dark:border-white/[.06]' : ''">
+                <div x-show="isMobile && navRecent.length" class="nav-section-recent-wrapper lg:hidden" :class="navFavorites.length ? 'mt-1 pt-1 border-t border-black/[.04] dark:border-white/[.06]' : ''">
                     <button type="button" @click="toggleNavSection('recent')"
                             class="nav-section w-full flex items-center justify-between px-3 pt-1 pb-1 text-[10px] font-bold uppercase tracking-[.1em] hover:opacity-80 transition">
                         <span>Baru dibuka</span>
@@ -1827,12 +1835,10 @@
 </script>
 @endif
 
-{{-- Widget AsistenAI (Fase 2) — STAF & ADMIN saja. Siswa & orang tua tidak
-     mendapat AI generatif; mereka memakai chatbot handoff ke admin di atas.
-     R4.1: jangan muat di kiosk/scan absensi (hemat JS & fokus kamera). --}}
-@unless(in_array($access, ['siswa', 'orangtua']) || ($isScanKioskSurface ?? false))
+{{-- Widget AsistenAI (Fase 2) — Hanya untuk siswa & orang tua. Role staf & admin dinonaktifkan sesuai permintaan. --}}
+@if(in_array($access, ['siswa', 'orangtua']) && !($isScanKioskSurface ?? false) && !$kioskChrome)
 @include('partials.ai-assistant')
-@endunless
+@endif
 
 @include('partials.whats-new-modal')
 
@@ -2003,7 +2009,7 @@
                 this.navFavorites = routes.filter(r => !(this.navPinnedRoutes || []).includes(r)).map(r => this.navRegistry[r]);
             },
             loadNavRecent(){
-                const routes = this.readNavRoutes('sims_nav_recent', 'sb_recent').slice(0, 6);
+                const routes = this.readNavRoutes('sims_nav_recent', 'sb_recent').slice(0, 5);
                 this.navDockRecent = routes.map(r => this.navRegistry[r]);
                 this.navRecent = routes.filter(r => !(this.navPinnedRoutes || []).includes(r)).map(r => this.navRegistry[r]).slice(0, 5);
             },
@@ -2020,7 +2026,7 @@
                         return 0;
                     });
                 }
-                return allRoutes.slice(0, 6).map(route => this.navRegistry[route]);
+                return allRoutes.slice(0, 5).map(route => this.navRegistry[route]);
             },
             onDockDragStart(e, route){
                 this.dockDragSource = route;
@@ -2147,7 +2153,7 @@
             },
             pushNavRecent(route){
                 if (!route || !Object.prototype.hasOwnProperty.call(this.navRegistry, route)) return;
-                const recent = [route, ...this.readNavRoutes('sims_nav_recent', 'sb_recent').filter(r => r !== route)].slice(0, 6);
+                const recent = [route, ...this.readNavRoutes('sims_nav_recent', 'sb_recent').filter(r => r !== route)].slice(0, 5);
                 try { localStorage.setItem('sims_nav_recent', JSON.stringify(recent)); } catch (_) { return; }
                 this.loadNavRecent();
             },

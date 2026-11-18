@@ -52,6 +52,14 @@ class UjianSoal extends Model
     }
 
     /**
+     * Cuplikan teks soal yang bersih dari HTML & entitas &nbsp; untuk kartu/daftar ringkas.
+     */
+    public function cuplikanTeks(int $limit = 80): string
+    {
+        return \App\Support\RichText::snippet($this->teks_soal, $limit);
+    }
+
+    /**
      * Total poin MAKSIMAL yg bisa didapat siswa dari soal ini. Utk mcq_complex & match
      * dgn skor_mode='proporsional', "Poin" berarti poin PER opsi/pasangan benar — efektifnya
      * poin × jumlah opsi/pasangan benar (poin 1 dgn 3 jawaban benar = maks 3 poin). Utk

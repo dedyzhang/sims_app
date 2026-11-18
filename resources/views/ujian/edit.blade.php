@@ -291,7 +291,7 @@
                     </span>
                     <div class="min-w-0">
                         <p class="text-xs text-slate-400">{{ $soal->typeLabel() }} · {{ $soal->poinEfektif() }} poin</p>
-                        <p class="text-sm font-medium truncate">{{ Str::limit(strip_tags($soal->teks_soal), 80) }}</p>
+                        <p class="text-sm font-medium truncate">{{ $soal->cuplikanTeks(80) }}</p>
                     </div>
                 </div>
                 <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 flex-shrink-0 transition" :class="open && 'rotate-180'"></i>

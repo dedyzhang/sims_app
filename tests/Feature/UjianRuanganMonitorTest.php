@@ -542,4 +542,37 @@ class UjianRuanganMonitorTest extends TestCase
         $nama2 = collect($res2->json('peserta'))->pluck('nama');
         $this->assertTrue($nama2->contains('Siswa Belum Mulai'), 'Setelah start(), siswa itu harus langsung muncul di tabel live.');
     }
+
+    /**
+     * Token ujian hari ini HANYA menampilkan ujian yang dijadwalkan hari ini.
+     * Ujian lain di paket yang sama yang dijadwalkan di hari lain (mis. besok/lusa) TIDAK boleh muncul.
+     */
+    public function test_token_ujian_hari_ini_hanya_menampilkan_mapel_terjadwal_hari_ini_bukan_mapel_besok(): void
+    {
+        // Ujian Matematika sudah terjadwal hari ini di setUp().
+        // Buat Ujian Bahasa Indonesia di paket yang sama, tetapi dijadwalkan BESOK.
+        $pelajaranBesok = Pelajaran::create(['nama' => 'Bahasa Indonesia', 'kkm' => 75]);
+        $ujianBesok = Ujian::create([
+            'id_pelajaran' => $pelajaranBesok->uuid, 'created_by' => $this->admin->uuid, 'id_ujian_paket' => $this->paket->uuid,
+            'judul' => 'PAS Bahasa Indonesia', 'jenis' => 'pas', 'target_nilai' => 'pas', 'durasi_menit' => 60, 'status' => 'published',
+        ]);
+        $kelas = Kelas::where('tingkat', 7)->first();
+        UjianKelas::create(['id_ujian' => $ujianBesok->uuid, 'id_kelas' => $kelas->uuid, 'token_masuk' => 'TOKENBESOK']);
+
+        $sesiBesok = UjianSesi::create([
+            'id_ujian_paket' => $this->paket->uuid, 'tanggal' => now()->addDay()->toDateString(),
+            'jam_mulai' => '08:00', 'jam_selesai' => '10:00',
+        ]);
+        UjianJadwal::create([
+            'id_ujian_paket' => $this->paket->uuid, 'id_ujian' => $ujianBesok->uuid, 'id_sesi' => $sesiBesok->uuid,
+            'tanggal' => now()->addDay()->toDateString(), 'jam_mulai' => '08:00', 'jam_selesai' => '10:00',
+        ]);
+
+        // Halaman monitor ruangan HARI INI harus menampilkan token Matematika, dan TIDAK BOLEH menampilkan token Bahasa Indonesia besok
+        $this->actingAs($this->guruBebas)->get(route('ujian.ruangan.monitor', $this->ruangan))
+            ->assertOk()
+            ->assertSee('RUANGTOKEN')
+            ->assertDontSee('TOKENBESOK')
+            ->assertDontSee('PAS Bahasa Indonesia');
+    }
 }

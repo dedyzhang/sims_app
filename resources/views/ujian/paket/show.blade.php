@@ -131,7 +131,7 @@
                     <tr>
                         <td>{{ $j->tanggal->translatedFormat('d M Y') }}</td>
                         <td class="font-mono text-xs">{{ substr($j->jam_mulai,0,5) }}–{{ substr($j->jam_selesai,0,5) }}</td>
-                        <td>{{ $j->ujian?->judul }}</td>
+                        <td>{{ $j->ujian?->judul ?? '(Ujian telah dihapus)' }}</td>
                         <td>{{ $j->sesi_label ?? '—' }}</td>
                         <td class="text-right">
                             <form method="POST" action="{{ route('ujian.paket.jadwal.destroy', [$paket, $j]) }}" onsubmit="return confirmAction(this, 'Hapus jadwal ini?', 'red')" class="inline">

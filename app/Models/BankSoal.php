@@ -57,6 +57,14 @@ class BankSoal extends Model
         };
     }
 
+    /**
+     * Cuplikan teks soal yang bersih dari HTML & entitas &nbsp; untuk kartu/daftar ringkas.
+     */
+    public function cuplikanTeks(int $limit = 80): string
+    {
+        return \App\Support\RichText::snippet($this->teks_soal, $limit);
+    }
+
     /** Sama spt UjianSoal::poinEfektif() — lihat penjelasan di sana. */
     public function poinEfektif(): int
     {

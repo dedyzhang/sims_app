@@ -43,14 +43,27 @@ class UjianRuanganMonitorController extends Controller
     /** Ujian yg dijadwalkan (UjianJadwal) hari ini utk paket ruangan ini — dasar pencarian attempt aktif tiap siswa. */
     private function idUjianHariIni(UjianRuangan $ruangan): array
     {
-        $jadwalIds = UjianJadwal::where('id_ujian_paket', $ruangan->id_ujian_paket)
-            ->whereDate('tanggal', now()->toDateString())
-            ->pluck('id_ujian')->unique()->all();
+        $hasJadwal = UjianJadwal::where('id_ujian_paket', $ruangan->id_ujian_paket)->exists();
 
-        $paketIds = Ujian::where('id_ujian_paket', $ruangan->id_ujian_paket)
+        if ($hasJadwal) {
+            $jadwalIds = UjianJadwal::where('id_ujian_paket', $ruangan->id_ujian_paket)
+                ->whereDate('tanggal', now()->toDateString())
+                ->pluck('id_ujian')->filter()->unique()->all();
+
+            $baUjianIds = UjianBeritaAcara::where('id_ruangan', $ruangan->uuid)
+                ->whereDate('tanggal', now()->toDateString())
+                ->with('ujianList')
+                ->get()
+                ->flatMap(fn ($ba) => $ba->ujianList->pluck('uuid'))
+                ->filter()
+                ->all();
+
+            return array_values(array_unique(array_merge($jadwalIds, $baUjianIds)));
+        }
+
+        // Fallback: HANYA jika paket ujian ini memang belum / tidak pernah dibuat jadwalnya sama sekali di UjianJadwal
+        return Ujian::where('id_ujian_paket', $ruangan->id_ujian_paket)
             ->pluck('uuid')->all();
-
-        return array_values(array_unique(array_merge($jadwalIds, $paketIds)));
     }
 
     /**

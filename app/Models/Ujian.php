@@ -29,6 +29,21 @@ class Ujian extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Ujian $ujian) {
+            $idSesiList = $ujian->jadwalUjian()->pluck('id_sesi')->filter()->unique();
+            $ujian->jadwalUjian()->delete();
+            if ($idSesiList->isNotEmpty()) {
+                UjianSesi::whereIn('uuid', $idSesiList)
+                    ->whereDoesntHave('jadwal')
+                    ->whereDoesntHave('beritaAcara')
+                    ->whereDoesntHave('daftarHadir')
+                    ->delete();
+            }
+        });
+    }
+
     public function pelajaran()
     {
         return $this->belongsTo(Pelajaran::class, 'id_pelajaran', 'uuid');

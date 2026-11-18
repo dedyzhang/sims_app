@@ -21,8 +21,12 @@ class UjianJadwalSync
      * saja (idempotent) — kalau ujian ini belum punya jadwal sama sekali, no-op
      * (window lama/kosong dibiarkan apa adanya).
      */
-    public function terapkan(Ujian $ujian): void
+    public function terapkan(?Ujian $ujian): void
     {
+        if (! $ujian || $ujian->trashed()) {
+            return;
+        }
+
         $jadwal = $ujian->jadwalUjian()->get(); // relasi hasMany UjianJadwal, lihat Ujian::jadwalUjian()
         if ($jadwal->isEmpty()) {
             $ujian->clearKelasCache();

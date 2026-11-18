@@ -8,6 +8,7 @@ use App\Models\Ngajar;
 use App\Models\Pelajaran;
 use App\Models\Semester;
 use App\Models\Ujian;
+use App\Models\UjianJadwal;
 use App\Models\UjianPaket;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -242,5 +243,144 @@ class UjianPaketTest extends TestCase
         $this->assertNotNull($ujian);
         $this->assertSame($paket->uuid, $ujian->id_ujian_paket);
         $this->assertSame('PTS Ganjil 2026', $ujian->paket->nama);
+    }
+
+    public function test_hapus_ujian_otomatis_menghapus_jadwal_terkait_di_paket(): void
+    {
+        $paket = UjianPaket::create(['nama' => 'PAS', 'jenis' => 'pas', 'created_by' => $this->admin->uuid]);
+        $ujian = Ujian::create([
+            'id_pelajaran' => $this->pelajaran->uuid,
+            'id_ujian_paket' => $paket->uuid,
+            'created_by' => $this->admin->uuid,
+            'judul' => 'PAS IPA',
+            'jenis' => 'pas',
+            'target_nilai' => 'pas',
+            'durasi_menit' => 60,
+            'status' => 'draft',
+        ]);
+
+        $jadwal = UjianJadwal::create([
+            'id_ujian_paket' => $paket->uuid,
+            'id_ujian' => $ujian->uuid,
+            'tanggal' => '2026-11-20',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '09:30',
+        ]);
+
+        $this->assertDatabaseHas('ujian_jadwal', ['uuid' => $jadwal->uuid]);
+
+        // Hapus ujian
+        $ujian->delete();
+
+        // Jadwal harus ikut terhapus dari tabel ujian_jadwal
+        $this->assertDatabaseMissing('ujian_jadwal', ['uuid' => $jadwal->uuid]);
+    }
+
+    public function test_lepas_ujian_otomatis_menghapus_jadwal_terkait_di_paket(): void
+    {
+        $paket = UjianPaket::create(['nama' => 'PAS', 'jenis' => 'pas', 'created_by' => $this->admin->uuid]);
+        $ujian = Ujian::create([
+            'id_pelajaran' => $this->pelajaran->uuid,
+            'id_ujian_paket' => $paket->uuid,
+            'created_by' => $this->admin->uuid,
+            'judul' => 'PAS IPA',
+            'jenis' => 'pas',
+            'target_nilai' => 'pas',
+            'durasi_menit' => 60,
+        ]);
+
+        $jadwal = UjianJadwal::create([
+            'id_ujian_paket' => $paket->uuid,
+            'id_ujian' => $ujian->uuid,
+            'tanggal' => '2026-11-20',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '09:30',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post(route('ujian.paket.lepasUjian', [$paket, $ujian]))
+            ->assertRedirect();
+
+        $this->assertNull($ujian->fresh()->id_ujian_paket);
+        $this->assertDatabaseMissing('ujian_jadwal', ['uuid' => $jadwal->uuid]);
+    }
+
+    public function test_jadwal_dengan_ujian_terhapus_tetap_bisa_dihapus_tanpa_error(): void
+    {
+        $paket = UjianPaket::create(['nama' => 'PAS', 'jenis' => 'pas', 'created_by' => $this->admin->uuid]);
+        $ujian = Ujian::create([
+            'id_pelajaran' => $this->pelajaran->uuid,
+            'id_ujian_paket' => $paket->uuid,
+            'created_by' => $this->admin->uuid,
+            'judul' => 'PAS IPA',
+            'jenis' => 'pas',
+            'target_nilai' => 'pas',
+            'durasi_menit' => 60,
+        ]);
+
+        // Buat jadwal secara manual dengan query builder agar simulasi data lama yang tidak ke-trigger deleting hook
+        $jadwalUuid = (string) \Illuminate\Support\Str::uuid();
+        \Illuminate\Support\Facades\DB::table('ujian_jadwal')->insert([
+            'uuid' => $jadwalUuid,
+            'id_ujian_paket' => $paket->uuid,
+            'id_ujian' => $ujian->uuid,
+            'tanggal' => '2026-11-20',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '09:30',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Simulasikan ujian sudah di-soft-delete sebelumnya secara langsung di database
+        \Illuminate\Support\Facades\DB::table('ujians')
+            ->where('uuid', $ujian->uuid)
+            ->update(['deleted_at' => now()]);
+
+        $jadwal = UjianJadwal::findOrFail($jadwalUuid);
+
+        // Hapus jadwal via controller destroy
+        $res = $this->actingAs($this->admin)
+            ->delete(route('ujian.paket.jadwal.destroy', [$paket, $jadwal]));
+
+        $res->assertRedirect();
+        $this->assertDatabaseMissing('ujian_jadwal', ['uuid' => $jadwalUuid]);
+    }
+
+    public function test_halaman_show_paket_otomatis_membersihkan_jadwal_yatim(): void
+    {
+        $paket = UjianPaket::create(['nama' => 'PAS', 'jenis' => 'pas', 'created_by' => $this->admin->uuid]);
+        $ujian = Ujian::create([
+            'id_pelajaran' => $this->pelajaran->uuid,
+            'id_ujian_paket' => $paket->uuid,
+            'created_by' => $this->admin->uuid,
+            'judul' => 'PAS IPA',
+            'jenis' => 'pas',
+            'target_nilai' => 'pas',
+            'durasi_menit' => 60,
+        ]);
+
+        $jadwalUuid = (string) \Illuminate\Support\Str::uuid();
+        \Illuminate\Support\Facades\DB::table('ujian_jadwal')->insert([
+            'uuid' => $jadwalUuid,
+            'id_ujian_paket' => $paket->uuid,
+            'id_ujian' => $ujian->uuid,
+            'tanggal' => '2026-11-20',
+            'jam_mulai' => '08:00',
+            'jam_selesai' => '09:30',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Ujian di-soft-delete langsung
+        \Illuminate\Support\Facades\DB::table('ujians')
+            ->where('uuid', $ujian->uuid)
+            ->update(['deleted_at' => now()]);
+
+        // Buka halaman show paket
+        $res = $this->actingAs($this->admin)->get(route('ujian.paket.show', $paket));
+        $res->assertOk();
+
+        // Jadwal yatim otomatis dibersihkan
+        $this->assertDatabaseMissing('ujian_jadwal', ['uuid' => $jadwalUuid]);
     }
 }

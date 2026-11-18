@@ -30,6 +30,47 @@ class RichText
         return trim($html);
     }
 
+    /**
+     * Konversi HTML ke teks polos yang bersih dari tag dan entitas HTML (seperti &nbsp;).
+     * Cocok untuk cuplikan, ringkasan, atau ekspor teks biasa.
+     */
+    public static function toPlainText(?string $html): string
+    {
+        $html = (string) $html;
+        if ($html === '') {
+            return '';
+        }
+
+        // Pertahankan representasi LaTeX dari rumus matematika jika ada
+        $html = preg_replace('/<img[^>]+class=["\'][^"\']*math-svg[^"\']*["\'][^>]+data-latex=["\']([^"\']+)["\'][^>]*>/i', ' $1 ', $html);
+        $html = preg_replace('/<img[^>]+data-latex=["\']([^"\']+)["\'][^>]+class=["\'][^"\']*math-svg[^"\']*["\'][^>]*>/i', ' $1 ', $html);
+
+        // Bersihkan varian entitas non-breaking space sebelum dan sesudah strip_tags
+        $text = str_ireplace(['&nbsp;', '&nbsp', '&#160;', '&#xa0;', '&amp;nbsp;'], ' ', $html);
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = str_ireplace(['&nbsp;', '&nbsp'], ' ', $text);
+
+        // Normalisasi whitespace Unicode (\u00A0 non-breaking space, \u200B zero-width space, tab, enter, spasi berlebih)
+        $text = preg_replace('/[\x{00A0}\x{200B}\s]+/u', ' ', $text);
+
+        return trim($text);
+    }
+
+    /**
+     * Cuplikan teks ringkas untuk preview / kartu daftar soal.
+     */
+    public static function snippet(?string $html, int $limit = 80): string
+    {
+        $plain = self::toPlainText($html);
+
+        if ($plain === '' && !empty($html) && preg_match('/<img\b/i', (string) $html)) {
+            return '[Gambar]';
+        }
+
+        return \Illuminate\Support\Str::limit($plain, $limit);
+    }
+
     /** Ambil ID video YouTube dari berbagai bentuk URL. */
     public static function youtubeId(string $url): ?string
     {

@@ -40,8 +40,8 @@ body[data-appearance-enabled="1"] .sims-app-frame {
     overflow: hidden;
 }
 body[data-appearance-enabled="1"][data-ui-theme] .sims-workspace { padding: 0; gap: 0; }
-/* Use the sidebar's own surface/foreground pair, even when wallpaper is enabled. */
-body[data-appearance-enabled="1"][data-ui-theme] .sidebar {
+/* Use the sidebar's own surface/foreground pair in light mode, even when wallpaper is enabled. */
+html:not(.dark) body[data-appearance-enabled="1"][data-ui-theme] .sidebar {
     background: var(--sims-sidebar-bg, var(--sbg)) !important; color: var(--sims-sidebar-text, var(--stx)) !important;
     border: 0; border-right: 1px solid var(--ui-edge); border-radius: 0;
     box-shadow: none !important;
@@ -100,25 +100,25 @@ body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme=
 body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .sims-app-header { border-bottom: 2px solid var(--ui-trim); }
 body[data-appearance-enabled="1"]:is([data-ui-theme="windows11"],[data-ui-theme="fluent"]) .sims-theme-dock { border-top-color: var(--ui-trim); }
 
-/* Sidebar nav-link & nav-group selalu mengikuti warna tema aktif (--cp, --sbg, --stx). */
-body[data-appearance-enabled="1"] .sidebar :is(.nav-link.active,.nav-group.has-active) {
+/* Sidebar nav-link & nav-group selalu mengikuti warna tema aktif (--cp, --sbg, --stx) di mode terang. */
+html:not(.dark) body[data-appearance-enabled="1"] .sidebar :is(.nav-link.active,.nav-group.has-active) {
     background: color-mix(in srgb, var(--cp) 18%, var(--sims-sidebar-bg, var(--sbg))) !important;
     color: var(--stx, var(--ui-text)) !important;
     border-color: color-mix(in srgb, var(--cp) 35%, transparent) !important;
     font-weight: 700;
 }
-body[data-appearance-enabled="1"] .sidebar .nav-link.active .nav-icon {
+html:not(.dark) body[data-appearance-enabled="1"] .sidebar .nav-link.active .nav-icon {
     color: var(--cp) !important;
 }
-body[data-appearance-enabled="1"] .sidebar .nav-link.active::before {
+html:not(.dark) body[data-appearance-enabled="1"] .sidebar .nav-link.active::before {
     background: var(--ui-trim, var(--ca, var(--cp))) !important;
     width: 4px;
 }
-body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group):is(:hover,:focus-visible) {
+html:not(.dark) body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group):is(:hover,:focus-visible) {
     background: color-mix(in srgb, var(--cp) 10%, var(--sims-sidebar-bg, var(--sbg))) !important;
     color: var(--stx, var(--ui-text)) !important;
 }
-body[data-appearance-enabled="1"] .preview-sidebar {
+html:not(.dark) body[data-appearance-enabled="1"] .preview-sidebar {
     background: var(--sims-sidebar-bg, var(--sbg)) !important;
     color: var(--sims-sidebar-text, var(--stx)) !important;
     border-right: 2px solid var(--ui-trim, var(--ui-edge));
@@ -167,18 +167,105 @@ body[data-appearance-enabled="1"] .sims-theme-dock .sims-dock-item a {
     background: transparent !important;
     border-radius: 12px 0 0 12px;
 }
+.sims-dock-drawer {
+    position: relative;
+    flex-shrink: 0;
+    z-index: 35;
+}
+.sims-dock-handle-bar {
+    position: relative;
+    height: 0;
+    display: flex;
+    justify-content: flex-end;
+    padding-right: 24px;
+    z-index: 36;
+    overflow: visible;
+    pointer-events: none;
+}
+.sims-dock-folder-tab {
+    pointer-events: auto;
+    position: relative;
+    transform: translateY(-100%);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px 9px 20px;
+    background: var(--ui-panel, #ffffff);
+    color: var(--ui-text, #334155);
+    border: 1px solid var(--ui-edge, #cbd5e1);
+    border-bottom: 0;
+    border-radius: 12px 12px 0 0;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 -3px 8px rgba(0, 0, 0, 0.08);
+    transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    user-select: none;
+    line-height: 1.2;
+}
+.sims-dock-folder-tab:hover {
+    background: color-mix(in srgb, var(--cp, #2563eb) 12%, var(--ui-panel, #ffffff));
+    color: var(--cp, #2563eb);
+    border-color: color-mix(in srgb, var(--cp, #2563eb) 35%, var(--ui-edge, #cbd5e1));
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.12);
+}
+.dark .sims-dock-folder-tab {
+    background: var(--ui-panel, #1e293b);
+    border-color: var(--ui-edge, #334155);
+    color: #e2e8f0;
+}
+.sims-dock-drawer.is-collapsed .sims-dock-folder-tab {
+    border-bottom: 1px solid var(--ui-edge, #cbd5e1);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.12);
+}
+.sims-dock-drawer .sims-theme-dock {
+    transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.22s ease,
+                padding 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.28s ease;
+    max-height: 80px;
+    opacity: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+.sims-dock-drawer.is-collapsed .sims-theme-dock,
+body[data-appearance-enabled="1"] .sims-dock-drawer.is-collapsed .sims-theme-dock {
+    max-height: 0 !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    border-top-width: 0 !important;
+    border-bottom-width: 0 !important;
+    border-top: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+}
+@media (max-width: 1023px) {
+    .sims-dock-drawer {
+        display: none !important;
+    }
+}
+@media (min-width: 1024px) {
+    .sidebar .nav-section-recent-wrapper {
+        display: none !important;
+    }
+}
+
 .sims-dock-favorite {
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     padding: 0;
-    margin: 0 1px;
+    margin: 0;
     border: 0;
-    border-radius: 8px;
+    border-radius: 6px;
     background: transparent;
     color: var(--ui-muted);
-    font-size: 16px;
+    font-size: 18px;
+    line-height: 1;
     cursor: pointer;
     transition: all .15s ease;
 }
@@ -194,20 +281,25 @@ body[data-appearance-enabled="1"] .sims-theme-dock .sims-dock-item a {
 .sims-dock-remove {
     display: grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
-    margin-right: 6px;
-    margin-left: 2px;
+    width: 24px;
+    height: 24px;
+    margin-right: 5px;
+    margin-left: 1px;
     padding: 0;
     border: 0;
     border-radius: 6px;
     background: transparent;
     color: var(--ui-muted);
     cursor: pointer;
-    opacity: 0.55;
+    opacity: 0.6;
     transition: all .15s ease;
 }
-.sims-dock-item:hover .sims-dock-remove { opacity: 0.85; }
+.sims-dock-remove svg {
+    width: 12px;
+    height: 12px;
+    stroke-width: 2.2;
+}
+.sims-dock-item:hover .sims-dock-remove { opacity: 0.9; }
 .sims-dock-remove:hover {
     color: #e11d48 !important;
     background: rgba(225, 29, 72, 0.16) !important;
@@ -218,14 +310,85 @@ body[data-appearance-enabled="1"] .sims-theme-dock .sims-dock-item a {
     background: rgba(225, 29, 72, 0.28) !important;
 }
 
-.sims-dock-controls { display: flex; align-items: center; gap: 4px; margin-left: auto; flex-shrink: 0; }
-.sims-dock-toggle-btn { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; font-size: 11px; font-weight: 600; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ui-muted); cursor: pointer; transition: all .15s ease; }
-.sims-dock-toggle-btn:hover { color: var(--ui-text); background: color-mix(in srgb, var(--cp) 12%, var(--ui-panel)); border-color: var(--ui-edge); }
+/* Penegasan warna teks sidebar agar selalu terbaca dan kontras mengikuti --sims-sidebar-text di mode terang */
+html:not(.dark) body[data-appearance-enabled="1"] .sidebar {
+    color: var(--sims-sidebar-text, var(--stx)) !important;
+}
+html:not(.dark) body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group):not(.active) {
+    color: var(--sims-sidebar-text, var(--stx)) !important;
+}
+html:not(.dark) body[data-appearance-enabled="1"] .sidebar :is(.nav-icon,.nav-section,.nav-sublink-more) {
+    color: color-mix(in srgb, var(--sims-sidebar-text, var(--stx)) 70%, transparent) !important;
+}
+html:not(.dark) body[data-appearance-enabled="1"] .sidebar span[style*="--stx"] {
+    color: var(--sims-sidebar-text, var(--stx)) !important;
+}
 
-.sims-dock-launcher { display: none; }
-body[data-appearance-enabled="1"][data-ui-theme] .sims-dock-launcher { display: flex; align-items: center; justify-content: center; padding: 3px 12px; border-top: 1px dashed var(--ui-edge); background: var(--ui-panel); flex-shrink: 0; }
-.sims-dock-launcher-btn { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px; font-size: 11px; font-weight: 600; color: var(--ui-muted); background: transparent; border: 1px solid var(--ui-edge); border-radius: 9999px; cursor: pointer; transition: all .15s ease; }
-.sims-dock-launcher-btn:hover { color: var(--cp); border-color: var(--cp); background: color-mix(in srgb, var(--cp) 12%, var(--ui-panel)); }
+/* ============================================================
+   Dark Mode Sidebar & Navigation (Kontras tinggi, teks terang & jelas)
+   ============================================================ */
+.dark body[data-appearance-enabled="1"] {
+    --sims-sidebar-bg: var(--ui-sidebar, #111c30);
+    --sims-sidebar-text: var(--ui-text, #edf2fa);
+    --sbg: var(--ui-sidebar, #111c30);
+    --stx: var(--ui-text, #edf2fa);
+}
+
+.dark body[data-appearance-enabled="1"] .sidebar,
+.dark body[data-appearance-enabled="1"][data-ui-theme] .sidebar,
+.dark .sidebar {
+    background: var(--ui-sidebar, #111c30) !important;
+    color: var(--ui-text, #edf2fa) !important;
+    --sbg: var(--ui-sidebar, #111c30);
+    --stx: var(--ui-text, #edf2fa);
+    border-right: 1px solid var(--ui-edge, #344155) !important;
+    box-shadow: none !important;
+}
+
+.dark body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group):not(.active) {
+    color: #cbd5e1 !important;
+}
+
+.dark body[data-appearance-enabled="1"] .sidebar :is(.nav-icon,.nav-section,.nav-sublink-more) {
+    color: #94a3b8 !important;
+}
+
+.dark body[data-appearance-enabled="1"] .sidebar span[style*="--stx"] {
+    color: #edf2fa !important;
+}
+
+.dark body[data-appearance-enabled="1"] .sidebar :is(.nav-link,.nav-group):is(:hover,:focus-visible) {
+    background: color-mix(in srgb, var(--cp, #38bdf8) 18%, var(--ui-sidebar, #111c30)) !important;
+    color: #ffffff !important;
+}
+
+.dark body[data-appearance-enabled="1"] .sidebar :is(.nav-link.active,.nav-group.has-active) {
+    background: color-mix(in srgb, var(--cp, #38bdf8) 28%, var(--ui-sidebar, #111c30)) !important;
+    color: #ffffff !important;
+    border-color: color-mix(in srgb, var(--cp, #38bdf8) 45%, transparent) !important;
+    font-weight: 700;
+}
+
+.dark body[data-appearance-enabled="1"] .sidebar .nav-link.active .nav-icon {
+    color: var(--cp, #38bdf8) !important;
+}
+
+.dark body[data-appearance-enabled="1"] .sidebar .nav-link.active::before {
+    background: var(--ui-trim, var(--ca, var(--cp, #38bdf8))) !important;
+    width: 4px;
+}
+
+.dark body[data-appearance-enabled="1"] .sidebar .nav-personal,
+.dark body[data-appearance-enabled="1"] .sidebar .border-t,
+.dark body[data-appearance-enabled="1"] .sidebar .border-b {
+    border-color: var(--ui-edge, #344155) !important;
+}
+
+.dark body[data-appearance-enabled="1"] .preview-sidebar {
+    background: var(--ui-sidebar, #111c30) !important;
+    color: var(--ui-text, #edf2fa) !important;
+    border-right-color: var(--ui-edge, #344155) !important;
+}
 
 @media (min-width: 1024px) {
     body[data-appearance-enabled="1"][data-ui-theme] .sims-theme-dock { display: flex; align-items: center; justify-content: flex-start; padding: 6px 12px; gap: 10px; border-top: 1px solid var(--ui-edge); background: var(--ui-panel); }

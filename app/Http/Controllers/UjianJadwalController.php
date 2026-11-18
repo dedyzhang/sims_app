@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Ujian;
 use App\Models\UjianPaket;
 use App\Models\UjianRuangan;
 use App\Models\UjianJadwal;
@@ -57,7 +58,11 @@ class UjianJadwalController extends Controller
 
         $data['id_sesi'] = $this->resolveIdSesi($paket, $data);
         $jadwal->update($data);
-        $sync->terapkan($jadwal->ujian);
+
+        $ujian = Ujian::withTrashed()->find($jadwal->id_ujian);
+        if ($ujian && ! $ujian->trashed()) {
+            $sync->terapkan($ujian);
+        }
 
         return back()->with('success', 'Jadwal diperbarui.');
     }
@@ -67,9 +72,22 @@ class UjianJadwalController extends Controller
         $this->pastikanMilikPaket($paket, $jadwal);
         abort_unless($this->bolehKelola(request()->user(), $paket), 403);
 
-        $ujian = $jadwal->ujian;
+        $ujian = Ujian::withTrashed()->find($jadwal->id_ujian);
+        $idSesi = $jadwal->id_sesi;
+
         $jadwal->delete();
-        $sync->terapkan($ujian);
+
+        if ($ujian && ! $ujian->trashed()) {
+            $sync->terapkan($ujian);
+        }
+
+        if ($idSesi) {
+            UjianSesi::where('uuid', $idSesi)
+                ->whereDoesntHave('jadwal')
+                ->whereDoesntHave('beritaAcara')
+                ->whereDoesntHave('daftarHadir')
+                ->delete();
+        }
 
         return back()->with('success', 'Jadwal dihapus.');
     }

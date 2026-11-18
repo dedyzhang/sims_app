@@ -38,8 +38,8 @@
                         <template x-if="!loadingData"><span>{{ $i + 1 }}</span></template>
                     </span>
                     <div class="min-w-0">
-                        <p class="text-xs text-slate-400">{{ $s->typeLabel() }} Â· {{ $s->poinEfektif() }} poin</p>
-                        <p class="text-sm font-medium truncate">{{ Str::limit(strip_tags($s->teks_soal), 80) }}</p>
+                        <p class="text-xs text-slate-400">{{ $s->typeLabel() }} · {{ $s->poinEfektif() }} poin</p>
+                        <p class="text-sm font-medium truncate">{{ $s->cuplikanTeks(80) }}</p>
                     </div>
                 </div>
                 <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 flex-shrink-0 transition" :class="open && 'rotate-180'"></i>
