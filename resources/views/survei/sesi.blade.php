@@ -113,13 +113,6 @@
             </div>
         </form>
     @endif
-    @if($pembuat && !$sesi && !$periode->wajib_kios)
-        <form method="post" action="{{ route('survei.kios.wajib', $periode) }}"
-            onsubmit="return confirm('Wajibkan SIMS Kios untuk periode ini?')">
-            @csrf
-            <button type="submit" class="survei-sesi-tombol">Wajibkan SIMS Kios</button>
-        </form>
-    @endif
 
     <details class="survei-sesi-rekap">
         <summary>Sudah mengirim di periode ini <strong>{{ $sudahMengirim->sum() }} siswa</strong></summary>
