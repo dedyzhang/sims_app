@@ -94,21 +94,26 @@
                       tab: 'mapel',
                       mapelList: @js($periode->butir('mapel')),
                       waliList: @js($periode->butir('wali')),
+                      karakterList: @js($periode->pilihanKarakter()),
                       dibalikMapel: @js($periode->butirNegatif('mapel')),
                       dibalikWali: @js($periode->butirNegatif('wali')),
                       tambah(t) {
                           if (t === 'mapel') this.mapelList.push('');
-                          else this.waliList.push('');
+                          else if (t === 'wali') this.waliList.push('');
+                          else this.karakterList.push('');
                       },
                       hapus(t, i) {
                           if (t === 'mapel') {
                               if (this.mapelList.length <= 1) { alert('Minimal 1 butir pertanyaan.'); return; }
                               this.mapelList.splice(i, 1);
                               this.dibalikMapel = this.dibalikMapel.filter(idx => idx !== i).map(idx => idx > i ? idx - 1 : idx);
-                          } else {
+                          } else if (t === 'wali') {
                               if (this.waliList.length <= 1) { alert('Minimal 1 butir pertanyaan.'); return; }
                               this.waliList.splice(i, 1);
                               this.dibalikWali = this.dibalikWali.filter(idx => idx !== i).map(idx => idx > i ? idx - 1 : idx);
+                          } else {
+                              if (this.karakterList.length <= 1) { alert('Minimal 1 pilihan karakter.'); return; }
+                              this.karakterList.splice(i, 1);
                           }
                       },
                       toggleNegatif(t, i) {
@@ -128,11 +133,12 @@
                   }">
                 @csrf
                 @method('PUT')
-                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
-                    <p class="text-xs text-slate-500">Ubah teks butir pertanyaan atau tambahkan butir baru untuk periode survei ini.</p>
-                    <div class="inline-flex rounded-lg p-1 bg-slate-200/80 dark:bg-slate-800">
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2 flex-wrap gap-2">
+                    <p class="text-xs text-slate-500">Ubah butir pertanyaan atau pilihan dropdown karakter untuk periode survei ini.</p>
+                    <div class="inline-flex rounded-lg p-1 bg-slate-200/80 dark:bg-slate-800 flex-wrap gap-1">
                         <button type="button" @click="tab = 'mapel'" :class="tab === 'mapel' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-400'" class="px-3 py-1 text-xs rounded-md">Guru Mapel (<span x-text="mapelList.length"></span>)</button>
                         <button type="button" @click="tab = 'wali'" :class="tab === 'wali' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-400'" class="px-3 py-1 text-xs rounded-md">Wali Kelas (<span x-text="waliList.length"></span>)</button>
+                        <button type="button" @click="tab = 'karakter'" :class="tab === 'karakter' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 font-bold shadow-sm' : 'text-slate-600 dark:text-slate-400'" class="px-3 py-1 text-xs rounded-md">Dropdown Karakter (<span x-text="karakterList.length"></span>)</button>
                     </div>
                 </div>
 
@@ -164,6 +170,18 @@
                         </div>
                     </template>
                     <button type="button" @click="tambah('wali')" class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline mt-1">+ Tambah Butir Soal Wali</button>
+                </div>
+
+                <div x-show="tab === 'karakter'" class="space-y-2" x-cloak>
+                    <p class="text-xs text-slate-500 mb-2">Pilihan Dropdown: "Menurut kamu, guru ini termasuk guru yang ..." (di halaman terakhir setiap guru mapel & wali)</p>
+                    <template x-for="(text, index) in karakterList" :key="'k-' + index">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 text-xs font-bold text-amber-600 dark:text-amber-400 text-right shrink-0" x-text="index + 1 + '.'"></span>
+                            <input type="text" :name="'opsi_karakter[' + index + ']'" x-model="karakterList[index]" required class="form-input text-xs flex-1 rounded-md" placeholder="Contoh: Sangat sabar dan ramah...">
+                            <button type="button" @click="hapus('karakter', index)" class="text-rose-500 hover:text-rose-700 px-2 text-xs font-bold" title="Hapus pilihan ini">✕</button>
+                        </div>
+                    </template>
+                    <button type="button" @click="tambah('karakter')" class="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline mt-1">+ Tambah Pilihan Karakter</button>
                 </div>
 
                 <div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">

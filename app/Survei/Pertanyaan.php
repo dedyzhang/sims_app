@@ -92,6 +92,45 @@ final class Pertanyaan
         return self::defaultDibalik($jenis);
     }
 
+    public const DEFAULT_KARAKTER = [
+        'Sangat sabar dan ramah',
+        'Asyik dan menyenangkan',
+        'Tegas dan disiplin',
+        'Jelas dalam mengajar',
+        'Perhatian dan peduli pada siswa',
+        'Inspiratif dan memotivasi',
+        'Cepat dalam menjelaskan',
+        'Sering memberi tugas',
+        'Mudah marah / kurang sabar',
+        'Membosankan / monoton',
+    ];
+
+    public static function defaultKarakter(): array
+    {
+        return self::DEFAULT_KARAKTER;
+    }
+
+    public static function karakter(): array
+    {
+        try {
+            $custom = \App\Models\Setting::get('survei_opsi_karakter');
+            if ($custom) {
+                $decoded = json_decode((string) $custom, true);
+                if (is_array($decoded) && ! empty($decoded)) {
+                    return array_values(array_filter($decoded, fn ($item) => is_string($item) && trim($item) !== ''));
+                }
+            }
+        } catch (\Throwable) {}
+
+        return self::defaultKarakter();
+    }
+
+    public static function simpanDefaultKarakter(array $opsi): void
+    {
+        $filtered = array_values(array_filter($opsi, fn ($item) => is_string($item) && trim($item) !== ''));
+        \App\Models\Setting::set('survei_opsi_karakter', json_encode($filtered));
+    }
+
     public static function simpanDefault(string $jenis, array $butir, array $dibalik = []): void
     {
         $filtered = array_values(array_filter($butir, fn ($item) => is_string($item) && trim($item) !== ''));
@@ -108,6 +147,9 @@ final class Pertanyaan
         if ($jenis === null || $jenis === 'wali') {
             \App\Models\Setting::set('survei_pertanyaan_wali', json_encode(self::defaultHardcoded('wali')));
             \App\Models\Setting::set('survei_dibalik_wali', json_encode(self::defaultDibalik('wali')));
+        }
+        if ($jenis === null || $jenis === 'karakter') {
+            \App\Models\Setting::set('survei_opsi_karakter', json_encode(self::defaultKarakter()));
         }
     }
 

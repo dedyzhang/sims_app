@@ -108,16 +108,22 @@
             <p class="catatan-metode">{{ $guru['nama'] }} | {{ $labelPeran[$jenis] ?? $jenis }} | Rincian skor olahan</p>
             <table class="data">
                 <thead>
-                    <tr><th style="width: 6%">No.</th><th style="width: 58%">Indikator sesuai instrumen survei</th><th class="angka" style="width: 10%">Jawaban valid</th><th class="angka" style="width: 13%">Skor / 5</th><th class="angka" style="width: 13%">Nilai / 100</th></tr>
+                    <tr><th style="width: 6%">No.</th><th style="width: 48%">Indikator sesuai instrumen survei</th><th class="angka" style="width: 10%">Jawaban</th><th class="angka" style="width: 12%">Skor / 5</th><th style="width: 24%">Grafik Nilai / 100</th></tr>
                 </thead>
                 <tbody>
                     @forelse($ringkasan['butir'] as $butir)
+                        @php($nilaiPersen = min(100, max(0, $butir['rata'] * 20)))
                         <tr>
                             <td>{{ $butir['index'] + 1 }}</td>
                             <td>{{ $butir['text'] }}@if($butir['negatif']) <span class="negatif">(R)</span>@endif</td>
                             <td class="angka">{{ $butir['n'] }}</td>
                             <td class="angka">{{ number_format($butir['rata'], 2, ',', '.') }}</td>
-                            <td class="angka"><strong>{{ number_format($butir['rata'] * 20, 2, ',', '.') }}</strong></td>
+                            <td>
+                                <div style="font-weight: bold; margin-bottom: 2pt;">{{ number_format($nilaiPersen, 1, ',', '.') }}</div>
+                                <div style="background: #e2e8f0; height: 5pt; border-radius: 2pt; width: 100%;">
+                                    <div style="background: {{ $nilaiPersen >= 80 ? '#16a34a' : ($nilaiPersen >= 70 ? '#0284c7' : '#d97706') }}; height: 5pt; border-radius: 2pt; width: {{ $nilaiPersen }}%;"></div>
+                                </div>
+                            </td>
                         </tr>
                     @empty
                         <tr><td colspan="5">Belum cukup jawaban yang dapat dinilai. Tidak diberikan nilai nol.</td></tr>
@@ -135,8 +141,19 @@
                 <tr><td class="label">Kelas</td><td colspan="3">{{ $ringkasan['targets']->pluck('kelas_nama')->unique()->implode(', ') }}</td></tr>
             </table>
             <h2>A. Rekap catatan siswa</h2>
+            @if(!empty($ringkasan['karakter']) && $ringkasan['karakter']->isNotEmpty())
+                <h3 style="margin-top: 3pt;">Kesan karakter guru menurut siswa: "Menurut kamu, guru ini termasuk guru yang ..."</h3>
+                <table class="data" style="margin-bottom: 7pt;">
+                    <thead><tr><th style="width: 6%">No.</th><th style="width: 70%">Pilihan Karakter / Kesan Siswa</th><th class="angka" style="width: 24%">Jumlah Pemilih</th></tr></thead>
+                    <tbody>
+                        @foreach($ringkasan['karakter'] as $item)
+                            <tr><td>{{ $loop->iteration }}</td><td><strong>{{ $item['label'] }}</strong></td><td class="angka">{{ $item['jumlah'] }} siswa</td></tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
             @if($lihatCatatan)
-                <p class="catatan-metode">{{ $ringkasan['catatan']->sum('jumlah') }} catatan. Teks asli dikelompokkan menurut pertanyaan dan kesamaan tulisan. Frekuensi adalah jumlah catatan, bukan siswa unik. Sasaran dengan kurang dari {{ $minimum }} respons tidak disertakan.</p>
+                <p class="catatan-metode">{{ $ringkasan['catatan']->sum('jumlah') }} catatan siswa. Teks asli dikelompokkan menurut pertanyaan dan kesamaan tulisan.</p>
                 @forelse($ringkasan['catatan'] as $bagian)
                     <h3>{{ $bagian['pertanyaan'] }}</h3>
                     <table class="data">

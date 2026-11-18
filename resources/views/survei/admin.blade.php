@@ -68,13 +68,16 @@
              activeTab: 'mapel',
              mapelItems: @js(old('pertanyaan_mapel', $pertanyaanMapelDefault)),
              waliItems: @js(old('pertanyaan_wali', $pertanyaanWaliDefault)),
+             karakterItems: @js(old('opsi_karakter', $opsiKarakterDefault)),
              dibalikMapel: @js(old('dibalik_mapel', $dibalikMapelDefault)),
              dibalikWali: @js(old('dibalik_wali', $dibalikWaliDefault)),
              tambahButir(tab) {
                  if (tab === 'mapel') {
                      this.mapelItems.push('');
-                 } else {
+                 } else if (tab === 'wali') {
                      this.waliItems.push('');
+                 } else {
+                     this.karakterItems.push('');
                  }
              },
              hapusButir(tab, index) {
@@ -85,13 +88,19 @@
                      }
                      this.mapelItems.splice(index, 1);
                      this.dibalikMapel = this.dibalikMapel.filter(i => i !== index).map(i => i > index ? i - 1 : i);
-                 } else {
+                 } else if (tab === 'wali') {
                      if (this.waliItems.length <= 1) {
                          alert('Minimal harus ada 1 butir pertanyaan.');
                          return;
                      }
                      this.waliItems.splice(index, 1);
                      this.dibalikWali = this.dibalikWali.filter(i => i !== index).map(i => i > index ? i - 1 : i);
+                 } else {
+                     if (this.karakterItems.length <= 1) {
+                         alert('Minimal harus ada 1 pilihan karakter.');
+                         return;
+                     }
+                     this.karakterItems.splice(index, 1);
                  }
              },
              toggleDibalik(tab, index) {
@@ -119,9 +128,11 @@
                      if (tab === 'mapel') {
                          this.mapelItems = @js(\App\Survei\Pertanyaan::defaultHardcoded('mapel'));
                          this.dibalikMapel = @js(\App\Survei\Pertanyaan::defaultDibalik('mapel'));
-                     } else {
+                     } else if (tab === 'wali') {
                          this.waliItems = @js(\App\Survei\Pertanyaan::defaultHardcoded('wali'));
                          this.dibalikWali = @js(\App\Survei\Pertanyaan::defaultDibalik('wali'));
+                     } else {
+                         this.karakterItems = @js(\App\Survei\Pertanyaan::defaultKarakter());
                      }
                  }
              }
@@ -129,12 +140,12 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-blue-100 dark:border-blue-900/40 pb-3">
             <div>
                 <h3 class="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <span>Butir Pertanyaan Survei (Dinamis)</span>
+                    <span>Butir Pertanyaan & Pilihan Karakter Survei</span>
                     <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">Bisa Diedit / Ditambah</span>
                 </h3>
-                <p class="text-xs text-slate-500 mt-0.5">Pertanyaan di bawah dapat diubah kata-katanya, ditambah butir baru, atau dihapus sesuai kebutuhan evaluasi.</p>
+                <p class="text-xs text-slate-500 mt-0.5">Pertanyaan dan opsi dropdown karakter dapat diubah kata-katanya, ditambah baru, atau dihapus sesuai kebutuhan evaluasi.</p>
             </div>
-            <div class="inline-flex rounded-lg p-1 bg-slate-200/80 dark:bg-slate-800 self-start sm:self-auto">
+            <div class="inline-flex rounded-lg p-1 bg-slate-200/80 dark:bg-slate-800 self-start sm:self-auto flex-wrap gap-1">
                 <button type="button" @click="activeTab = 'mapel'"
                     :class="activeTab === 'mapel' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'"
                     class="px-3 py-1 text-xs font-semibold rounded-md transition">
@@ -144,6 +155,11 @@
                     :class="activeTab === 'wali' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'"
                     class="px-3 py-1 text-xs font-semibold rounded-md transition">
                     Wali Kelas (<span x-text="waliItems.length"></span>)
+                </button>
+                <button type="button" @click="activeTab = 'karakter'"
+                    :class="activeTab === 'karakter' ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'"
+                    class="px-3 py-1 text-xs font-semibold rounded-md transition">
+                    Dropdown Karakter (<span x-text="karakterItems.length"></span>)
                 </button>
             </div>
         </div>
@@ -225,6 +241,38 @@
             <button type="button" @click="tambahButir('wali')"
                 class="w-full py-2 px-3 border border-dashed border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition">
                 + Tambah Butir Soal Wali Kelas
+            </button>
+        </div>
+
+        {{-- Tab Pilihan Karakter Guru --}}
+        <div x-show="activeTab === 'karakter'" class="space-y-2.5" x-cloak>
+            <div class="flex items-center justify-between text-xs">
+                <div>
+                    <span class="font-semibold text-slate-700 dark:text-slate-300">Pilihan Dropdown: "Menurut kamu, guru ini termasuk guru yang ..."</span>
+                    <p class="text-[11px] text-slate-500">Opsi ini akan muncul di halaman terakhir setiap guru mapel dan wali kelas. Siswa dapat memilih satu kesan/karakter dari daftar ini.</p>
+                </div>
+                <button type="button" @click="resetDefault('karakter')" class="text-blue-600 dark:text-blue-400 hover:underline text-xs shrink-0">
+                    ↺ Reset ke Standar
+                </button>
+            </div>
+            <div class="space-y-2 max-h-96 overflow-y-auto pr-1">
+                <template x-for="(item, index) in karakterItems" :key="'karakter-' + index">
+                    <div class="flex items-center gap-2 bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <span class="w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 font-bold text-xs flex items-center justify-center shrink-0" x-text="index + 1"></span>
+                        <input type="text" :name="'opsi_karakter[' + index + ']'" x-model="karakterItems[index]" required
+                            class="form-input text-xs flex-1 rounded-md border-slate-300 dark:border-slate-700"
+                            placeholder="Contoh: Sangat sabar dan ramah...">
+                        <button type="button" @click="hapusButir('karakter', index)"
+                            title="Hapus pilihan ini"
+                            class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                </template>
+            </div>
+            <button type="button" @click="tambahButir('karakter')"
+                class="w-full py-2 px-3 border border-dashed border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-950/30 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                + Tambah Pilihan Karakter
             </button>
         </div>
 

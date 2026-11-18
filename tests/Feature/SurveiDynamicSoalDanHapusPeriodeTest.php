@@ -211,4 +211,107 @@ class SurveiDynamicSoalDanHapusPeriodeTest extends TestCase
         $this->assertDatabaseMissing('survei_sesis', ['uuid' => $sesi->uuid]);
         $this->assertDatabaseMissing('survei_respons', ['uuid' => $respons->uuid]);
     }
+
+    public function test_dropdown_karakter_guru_bisa_ditambah_dikurangi_dan_diisi_siswa(): void
+    {
+        $f = $this->fixture();
+
+        $customKarakter = [
+            'Sangat ramah dan asyik',
+            'Tegas dan disiplin',
+            'Sering memberi tugas',
+        ];
+
+        // 1. Buat periode dengan opsi karakter kustom
+        $payload = [
+            'judul' => 'Survei dengan Karakter Guru',
+            'mulai' => now()->subHour()->toDateTimeString(),
+            'selesai' => now()->addDay()->toDateTimeString(),
+            'kelas' => [$f['kelas']->uuid],
+            'pertanyaan_mapel' => ['Soal Mapel 1'],
+            'dibalik_mapel' => [],
+            'pertanyaan_wali' => ['Soal Wali 1'],
+            'dibalik_wali' => [],
+            'opsi_karakter' => $customKarakter,
+            'simpan_default' => 1,
+        ];
+
+        $res = $this->actingAs($f['admin'])->post(route('survei.store'), $payload);
+        $res->assertRedirect();
+
+        $periode = Periode::latest()->firstOrFail();
+        $this->assertSame($customKarakter, $periode->pilihanKarakter());
+        $this->assertSame($customKarakter, Pertanyaan::karakter());
+
+        // 2. Cek halaman admin & detail periode menampilkan tab karakter
+        $this->actingAs($f['admin'])->get(route('survei.index'))
+            ->assertOk()
+            ->assertSee('Dropdown Karakter');
+
+        $this->actingAs($f['admin'])->get(route('survei.periode', $periode))
+            ->assertOk()
+            ->assertSee('Dropdown Karakter')
+            ->assertSee('Sangat ramah dan asyik');
+
+        // 3. Mulai sesi
+        $this->actingAs($f['admin'])->post(route('survei.sesi.mulai', $periode), [
+            'kelas_sesi' => [$f['kelas']->uuid],
+        ]);
+        $token = $periode->sesiAktif()->token;
+
+        // 4. Siswa membuka form survei
+        $this->actingAs($f['siswaUser'])->post(route('survei.token', $periode), ['token' => $token]);
+        $formRes = $this->actingAs($f['siswaUser'])->get(route('survei.form', $periode));
+        $formRes->assertOk()
+            ->assertSee('Menurut kamu, guru ini termasuk guru yang ...')
+            ->assertSee('Sangat ramah dan asyik')
+            ->assertSee('Tegas dan disiplin');
+
+        // 5. Siswa mengirim jawaban dengan pilihan karakter
+        $targets = $periode->targets()->get();
+        $targetMapel = $targets->firstWhere('jenis', 'mapel');
+        $targetWali = $targets->firstWhere('jenis', 'wali');
+
+        $kirimPayload = [
+            'jawaban' => [
+                $targetMapel->uuid => [0 => 5],
+                $targetWali->uuid => [0 => 5],
+            ],
+            'kendala' => [
+                $targetMapel->uuid => ['tidak_ada'],
+                $targetWali->uuid => ['tidak'],
+            ],
+            'karakter' => [
+                $targetMapel->uuid => 'Sangat ramah dan asyik',
+                $targetWali->uuid => 'Tegas dan disiplin',
+            ],
+            'tanda_sesi' => $periode->sesiAktif()->akses(request(), $f['kelas']->uuid),
+        ];
+
+        $kirimRes = $this->actingAs($f['siswaUser'])->postJson(route('survei.kirim-batch', $periode), $kirimPayload);
+        $kirimRes->assertOk()->assertJson(['tersimpan' => true]);
+
+        // Cek database tersimpan nilai karakter
+        $this->assertDatabaseHas('survei_respons', [
+            'target_id' => $targetMapel->uuid,
+            'karakter' => 'Sangat ramah dan asyik',
+        ]);
+        $this->assertDatabaseHas('survei_respons', [
+            'target_id' => $targetWali->uuid,
+            'karakter' => 'Tegas dan disiplin',
+        ]);
+
+        // 6. Admin mengupdate opsi karakter pada periode
+        $updatedKarakter = [
+            'Sangat ramah dan asyik',
+            'Humoris dan inspiratif',
+        ];
+        $updateRes = $this->actingAs($f['admin'])->put(route('survei.pertanyaan.update', $periode), [
+            'pertanyaan_mapel' => ['Soal Mapel 1 Baru'],
+            'pertanyaan_wali' => ['Soal Wali 1 Baru'],
+            'opsi_karakter' => $updatedKarakter,
+        ]);
+        $updateRes->assertRedirect(route('survei.periode', $periode));
+        $this->assertSame($updatedKarakter, $periode->fresh()->pilihanKarakter());
+    }
 }

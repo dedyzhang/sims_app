@@ -71,7 +71,24 @@
                 @if($ringkasan['skor'] === null)
                     <p>Data belum cukup.</p>
                 @else
-                    <p><strong>{{ $formatSkor($ringkasan['skor']) }}</strong> · {{ $formatJumlah($ringkasan['jawaban_dinilai']) }} jawaban dinilai</p>
+                    <p>
+                        <strong>{{ $formatSkor($ringkasan['skor']) }}</strong> 
+                        (Nilai: <strong>{{ number_format($ringkasan['nilai'], 1, ',', '.') }} / 100</strong>) 
+                        · {{ $formatJumlah($ringkasan['jawaban_dinilai']) }} jawaban dinilai
+                    </p>
+                    <div style="background: #e2e8f0; height: 4pt; border-radius: 2pt; width: 100%; margin: 3pt 0 6pt;">
+                        <div style="background: {{ $ringkasan['nilai'] >= 80 ? '#16a34a' : ($ringkasan['nilai'] >= 70 ? '#0284c7' : '#d97706') }}; height: 4pt; border-radius: 2pt; width: {{ min(100, max(0, $ringkasan['nilai'])) }}%;"></div>
+                    </div>
+                    @if(!empty($ringkasan['karakter']) && $ringkasan['karakter']->isNotEmpty())
+                        <p style="margin: 3pt 0 6pt; font-size: 8.5pt; color: #475569;">
+                            <strong>Kesan Siswa:</strong>
+                            @foreach($ringkasan['karakter'] as $item)
+                                <span style="display: inline-block; background: #fef3c7; color: #92400e; padding: 1pt 5pt; border-radius: 3pt; font-size: 7.5pt; margin-right: 3pt; margin-bottom: 2pt;">
+                                    {{ $item['label'] }} ({{ $item['jumlah'] }})
+                                </span>
+                            @endforeach
+                        </p>
+                    @endif
                     <table>
                         <tr><th>Kekuatan</th><th class="perbaikan">Area perbaikan</th></tr>
                         <tr>
@@ -95,6 +112,18 @@
                             @endforeach
                         </tr>
                     </table>
+                    @if(!empty($ringkasan['catatan']) && $ringkasan['catatan']->isNotEmpty())
+                        <div style="margin-top: 6pt;">
+                            <strong style="font-size: 8.5pt; color: #334155;">Catatan Siswa:</strong>
+                            <ul style="margin-top: 2pt; font-size: 8pt; color: #475569;">
+                                @foreach($ringkasan['catatan'] as $bagian)
+                                    @foreach($bagian['daftar'] as $catatan)
+                                        <li style="margin-bottom: 2pt;"><em>“{{ $catatan['teks'] }}”</em> <span style="color: #64748b;">({{ $catatan['jumlah'] }} siswa)</span></li>
+                                    @endforeach
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                 @endif
             </div>
         @endforeach

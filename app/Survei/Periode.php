@@ -73,6 +73,11 @@ class Periode extends ModelSurvei
         return $this->pertanyaan['kendala_'.$jenis] ?? Pertanyaan::kendala($jenis);
     }
 
+    public function pilihanKarakter(): array
+    {
+        return $this->pertanyaan['opsi_karakter'] ?? Pertanyaan::karakter();
+    }
+
     public function skor(string $jenis, int $index, int $jawaban): ?int
     {
         return Pertanyaan::skor($jenis, $index, $jawaban, $this->butirNegatif($jenis));

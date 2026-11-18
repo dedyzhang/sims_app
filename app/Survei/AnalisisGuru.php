@@ -6,7 +6,7 @@ use Illuminate\Support\Collection;
 
 final class AnalisisGuru
 {
-    public const MINIMUM = 5;
+    public const MINIMUM = 1;
 
     public function butir(Periode $periode, string $jenis, Collection $respons): Collection
     {
@@ -31,7 +31,7 @@ final class AnalisisGuru
         return $periode->targets()
             ->when($kelasId !== null, fn ($query) => $query->where('kelas_id', $kelasId))
             ->when($guruId !== null, fn ($query) => $query->where('guru_id', $guruId))
-            ->with($sertakanCatatan ? 'respons:target_id,jawaban,komentar,kendala' : 'respons:target_id,jawaban')
+            ->with($sertakanCatatan ? 'respons:target_id,jawaban,komentar,kendala,karakter' : 'respons:target_id,jawaban,karakter')
             ->orderBy('guru_nama')->orderBy('kelas_nama')->orderBy('pelajaran_nama')
             ->get()
             ->groupBy('guru_id')
@@ -91,9 +91,21 @@ final class AnalisisGuru
             'kelas' => $targets->pluck('kelas_id')->unique()->count(),
             'butir' => $butir->sortKeys()->values(),
             'catatan' => $sertakanCatatan ? $this->catatan($periode, $jenis, $targets) : collect(),
+            'karakter' => $this->ringkasKarakter($targets),
             'kekuatan' => $butir->filter(fn (array $row) => $row['rata'] >= 4)->sortByDesc('rata')->take(3),
             'perbaikan' => $butir->filter(fn (array $row) => $row['rata'] < 3.5)->sortBy('rata')->take(3),
         ];
+    }
+
+    private function ringkasKarakter(Collection $targets): Collection
+    {
+        return $targets->flatMap(fn (Target $target) => $target->respons)
+            ->pluck('karakter')
+            ->filter(fn ($k) => is_string($k) && trim($k) !== '')
+            ->countBy()
+            ->map(fn (int $count, string $label) => ['label' => $label, 'jumlah' => $count])
+            ->sortByDesc('jumlah')
+            ->values();
     }
 
     private function catatan(Periode $periode, string $jenis, Collection $targets): Collection
