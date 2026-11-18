@@ -321,9 +321,13 @@ class UjianSiswaController extends Controller implements HasMiddleware
             $urutanOpsi = [];
             foreach ($soal as $s) {
                 if ($s->tipe === 'match') {
-                    $jumlahPasangan = count($s->meta['pairs'] ?? []);
-                    $idx = range(0, max(0, $jumlahPasangan - 1));
-                    $urutanOpsi[$s->uuid] = $ujian->acak_opsi ? collect($idx)->shuffle()->values()->all() : $idx;
+                    $pairs = collect($s->meta['pairs'] ?? [])->map(fn ($p) => [
+                        'left'  => $p['left'] ?? $p['kiri'] ?? '',
+                        'right' => $p['right'] ?? $p['kanan'] ?? '',
+                    ])->filter(fn ($p) => $p['left'] !== '' || $p['right'] !== '')->values();
+                    $jumlahPasangan = $pairs->count();
+                    $idx = $jumlahPasangan > 0 ? range(0, $jumlahPasangan - 1) : [];
+                    $urutanOpsi[$s->uuid] = ($ujian->acak_opsi && !empty($idx)) ? collect($idx)->shuffle()->values()->all() : $idx;
                 } elseif ($s->butuhOpsi()) {
                     $ids = $s->opsi->pluck('uuid');
                     $urutanOpsi[$s->uuid] = $ujian->acak_opsi ? $ids->shuffle()->values()->all() : $ids->all();
@@ -386,13 +390,24 @@ class UjianSiswaController extends Controller implements HasMiddleware
             // simpan di UjianSoalController juga) SEBELUM di-embed sbg JSON: konten ini dirender
             // client-side lewat x-html (bukan Blade {!! !!}), jadi sanitasi WAJIB terjadi di sini,
             // bukan cuma saat render, krn tak ada langkah render Blade lagi setelah titik ini.
-            $soalTampil = $urutan->map(function (UjianSoal $s) use ($attempt) {
+            $soalTampil = $urutan->map(function (UjianSoal $s) use ($attempt, $ujian) {
                 $item = ['uuid' => $s->uuid, 'tipe' => $s->tipe, 'teks_soal' => RichText::clean($s->teks_soal), 'poin' => $s->poinEfektif()];
                 if ($s->tipe === 'match') {
-                    $pairs = $s->meta['pairs'] ?? [];
-                    $urutanIdx = $attempt->urutan_opsi[$s->uuid] ?? array_keys($pairs);
-                    $item['kiri'] = collect($pairs)->pluck('left')->map(fn ($t) => RichText::clean($t))->all();
-                    $item['kanan_acak'] = collect($urutanIdx)->map(fn ($i) => RichText::clean($pairs[$i]['right'] ?? ''))->all();
+                    $pairs = collect($s->meta['pairs'] ?? [])->map(fn ($p) => [
+                        'left'  => RichText::clean($p['left'] ?? $p['kiri'] ?? ''),
+                        'right' => RichText::clean($p['right'] ?? $p['kanan'] ?? ''),
+                    ])->filter(fn ($p) => $p['left'] !== '' || $p['right'] !== '')->values();
+
+                    $urutanIdx = $attempt->urutan_opsi[$s->uuid] ?? [];
+                    if (empty($urutanIdx) || count($urutanIdx) !== $pairs->count()) {
+                        $urutanIdx = array_keys($pairs->all());
+                        if ($ujian->acak_opsi) {
+                            shuffle($urutanIdx);
+                        }
+                    }
+
+                    $item['kiri'] = $pairs->pluck('left')->all();
+                    $item['kanan_acak'] = collect($urutanIdx)->map(fn ($i) => $pairs[$i]['right'] ?? '')->all();
                 } elseif ($s->butuhOpsi()) {
                     $opsiById = $s->opsi->keyBy('uuid');
                     $urutanOpsiUuid = $attempt->urutan_opsi[$s->uuid] ?? $s->opsi->pluck('uuid')->all();

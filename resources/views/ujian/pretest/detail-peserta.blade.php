@@ -149,15 +149,17 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             @foreach($pairs as $p)
                             @php
-                                $dijodohkan = $pasanganPeserta[$p['left']] ?? '-';
-                                $cocok = $dijodohkan === $p['right'];
+                                $pLeft = $p['left'] ?? $p['kiri'] ?? '';
+                                $pRight = $p['right'] ?? $p['kanan'] ?? '';
+                                $dijodohkan = $pasanganPeserta[$pLeft] ?? '-';
+                                $cocok = $dijodohkan === $pRight;
                             @endphp
                             <div class="p-2 rounded-lg border {{ $cocok ? 'bg-emerald-50/60 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800' : 'bg-rose-50/60 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800' }}">
-                                <div class="font-bold text-slate-700 dark:text-slate-200">{{ $p['left'] }}</div>
+                                <div class="font-bold text-slate-700 dark:text-slate-200">{{ $pLeft }}</div>
                                 <div class="text-[11px] mt-0.5">
                                     Dijawab: <strong class="{{ $cocok ? 'text-emerald-600' : 'text-rose-600' }}">{{ $dijodohkan }}</strong>
                                     @if(!$cocok)
-                                        <span class="text-slate-400">(Kunci: {{ $p['right'] }})</span>
+                                        <span class="text-slate-400">(Kunci: {{ $pRight }})</span>
                                     @endif
                                 </div>
                             </div>

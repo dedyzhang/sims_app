@@ -1304,6 +1304,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         Route::get('/soal/template', [UjianSoalController::class, 'template'])->name('soal.template');
         Route::post('/unggah-gambar', [UjianSoalController::class, 'uploadGambar'])->middleware('throttle:30,1')->name('soal.unggah-gambar');
         Route::get('/{ujian}/soal/export', [UjianSoalController::class, 'export'])->name('soal.export');
+        Route::get('/{ujian}/soal/cetak', [UjianSoalController::class, 'cetak'])->name('soal.cetak');
         Route::post('/{ujian}/soal/import', [UjianSoalController::class, 'import'])->name('soal.import');
         Route::get('/{ujian}/soal/sumber', [UjianSoalController::class, 'daftarSumberUjian'])->name('soal.sumber');
         Route::post('/{ujian}/soal/salin', [UjianSoalController::class, 'salinDariUjian'])->name('soal.salin');

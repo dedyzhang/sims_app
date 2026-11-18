@@ -29,13 +29,23 @@
                         <i data-lucide="download" class="w-4 h-4"></i> Ekspor Soal
                         <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
                     </button>
-                    <div x-show="openEkspor" @click.outside="openEkspor = false" x-cloak class="absolute right-0 mt-1 w-48 rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-30">
-                        <a href="{{ route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'xlsx']) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
-                            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i> Unduh Excel (.xlsx)
-                        </a>
-                        <a href="{{ route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'json']) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
-                            <i data-lucide="code" class="w-4 h-4 text-blue-600"></i> Unduh JSON (.json)
-                        </a>
+                    <div x-show="openEkspor" @click.outside="openEkspor = false" x-cloak class="absolute right-0 mt-1 w-52 rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-200 dark:border-slate-700 py-1.5 z-30 divide-y divide-slate-100 dark:divide-slate-700">
+                        <div class="py-1">
+                            <a href="{{ route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'docx']) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                                <i data-lucide="file-text" class="w-4 h-4 text-sky-600"></i> Unduh Word (.docx)
+                            </a>
+                            <a href="{{ route('ujian.soal.cetak', $ujian) }}" target="_blank" rel="noopener" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                                <i data-lucide="printer" class="w-4 h-4 text-rose-600"></i> Cetak / Unduh PDF
+                            </a>
+                        </div>
+                        <div class="py-1">
+                            <a href="{{ route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'xlsx']) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i> Unduh Excel (.xlsx)
+                            </a>
+                            <a href="{{ route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'json']) }}" class="flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700">
+                                <i data-lucide="code" class="w-4 h-4 text-indigo-600"></i> Unduh JSON (.json)
+                            </a>
+                        </div>
                     </div>
                 </div>
 

@@ -10,8 +10,12 @@ use App\Models\Ujian;
 use App\Models\UjianSoal;
 use App\Models\UjianSoalOpsi;
 use App\Services\UjianSoalImportService;
+use App\Support\SchoolLetterhead;
 use App\Support\SoalValidator;
+use App\Support\UjianDocxBuilder;
 use App\Support\Uploads;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -141,7 +145,7 @@ class UjianSoalController extends Controller
             'penjelasan' => $soal->penjelasan ?? '',
             'kunci_esai' => $soal->meta['kunci_jawaban'] ?? '',
             'opsi' => $soal->opsi->map(fn($o) => ['teks' => $o->teks_opsi, 'benar' => $o->is_benar]),
-            'pasangan' => ($soal->meta['pairs'] ?? []) ? collect($soal->meta['pairs'])->map(fn($p) => ['kiri'=>$p['left'],'kanan'=>$p['right']])->all() : []
+            'pasangan' => ($soal->meta['pairs'] ?? []) ? collect($soal->meta['pairs'])->map(fn($p) => ['kiri' => $p['left'] ?? $p['kiri'] ?? '', 'kanan' => $p['right'] ?? $p['kanan'] ?? ''])->all() : []
         ]);
     }
 
@@ -276,7 +280,7 @@ class UjianSoalController extends Controller
     }
 
     /**
-     * Unduh berkas ekspor soal (Excel .xlsx atau JSON .json).
+     * Unduh berkas ekspor soal (Word .docx, PDF/Cetak, Excel .xlsx, atau JSON .json).
      */
     public function export(Request $request, Ujian $ujian)
     {
@@ -284,6 +288,21 @@ class UjianSoalController extends Controller
 
         $format = strtolower($request->query('format', 'xlsx'));
         $slug = Str::slug($ujian->judul) ?: 'ujian';
+
+        if ($format === 'docx' || $format === 'word') {
+            $includeKunci = $request->query('kunci', '1') !== '0';
+            $fileName = "soal-{$slug}.docx";
+            $tmpPath = tempnam(sys_get_temp_dir(), 'ujian_docx_');
+            UjianDocxBuilder::write($tmpPath, $ujian, $includeKunci);
+
+            return response()->download($tmpPath, $fileName, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ])->deleteFileAfterSend(true);
+        }
+
+        if ($format === 'pdf') {
+            return $this->cetak($request, $ujian);
+        }
 
         if ($format === 'json') {
             $soalList = $ujian->soal()->with('opsi')->orderBy('urutan')->get()->map(function ($soal) {
@@ -323,6 +342,55 @@ class UjianSoalController extends Controller
         }
 
         return Excel::download(new UjianSoalExport($ujian), "soal-{$slug}.xlsx");
+    }
+
+    /**
+     * Halaman cetak / unduh PDF naskah soal lengkap dengan kop surat sekolah dan format Portrait A4.
+     */
+    public function cetak(Request $request, Ujian $ujian)
+    {
+        $this->authorize('manage', $ujian);
+
+        $soalList = $ujian->soal()->with('opsi')->orderBy('urutan')->get();
+        $ujian->loadMissing(['pelajaran', 'kelas.kelas', 'kelas.guruPengampu', 'author.guru', 'paket']);
+
+        $kopLogoKiri = SchoolLetterhead::logoKiriDataUri();
+        $kopLogoKanan = SchoolLetterhead::logoKananDataUri();
+        $kopTeks = SchoolLetterhead::kopTeksHtml();
+        $namaSekolah = SchoolLetterhead::schoolName();
+
+        $kelasList = $ujian->kelas->map(fn ($k) => $k->kelas?->nama)->filter()->unique()->join(', ');
+        $guruPengampu = $ujian->kelas->map(fn ($k) => $k->guruPengampu?->nama)->filter()->unique()->join(', ')
+            ?: ($ujian->author?->guru?->nama ?? $ujian->author?->name ?? '-');
+
+        $jadwalPertama = $ujian->jadwalUjian()->orderBy('tanggal')->first();
+        $tanggalUjian = $jadwalPertama ? Carbon::parse($jadwalPertama->tanggal)->isoFormat('dddd, D MMMM Y') : null;
+
+        $includeKunci = $request->query('kunci', '1') !== '0';
+        $isDownload = $request->boolean('download') || $request->query('format') === 'pdf';
+        $slug = Str::slug($ujian->judul) ?: 'ujian';
+
+        $data = [
+            'ujian'         => $ujian,
+            'soalList'      => $soalList,
+            'kopLogoKiri'   => $kopLogoKiri,
+            'kopLogoKanan'  => $kopLogoKanan,
+            'kopTeks'       => $kopTeks,
+            'namaSekolah'   => $namaSekolah,
+            'kelasList'     => $kelasList,
+            'guruPengampu'  => $guruPengampu,
+            'tanggalUjian'  => $tanggalUjian,
+            'includeKunci'  => $includeKunci,
+            'isPdf'         => $isDownload,
+        ];
+
+        if ($isDownload) {
+            $pdf = Pdf::loadView('ujian.cetak', $data)->setPaper('a4', 'portrait');
+
+            return $pdf->download("naskah-soal-{$slug}.pdf");
+        }
+
+        return view('ujian.cetak', $data);
     }
 
     /**

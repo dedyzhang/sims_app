@@ -78,9 +78,13 @@ class PretestPublicController extends Controller
         $urutanOpsi = [];
         foreach ($soalList as $s) {
             if ($s->tipe === 'match') {
-                $jumlahPasangan = count($s->meta['pairs'] ?? []);
-                $idx = range(0, max(0, $jumlahPasangan - 1));
-                $urutanOpsi[$s->uuid] = $pretest->acak_opsi ? collect($idx)->shuffle()->values()->all() : $idx;
+                $pairs = collect($s->meta['pairs'] ?? [])->map(fn ($p) => [
+                    'left'  => $p['left'] ?? $p['kiri'] ?? '',
+                    'right' => $p['right'] ?? $p['kanan'] ?? '',
+                ])->filter(fn ($p) => $p['left'] !== '' || $p['right'] !== '')->values();
+                $jumlahPasangan = $pairs->count();
+                $idx = $jumlahPasangan > 0 ? range(0, $jumlahPasangan - 1) : [];
+                $urutanOpsi[$s->uuid] = ($pretest->acak_opsi && !empty($idx)) ? collect($idx)->shuffle()->values()->all() : $idx;
             } elseif ($s->butuhOpsi()) {
                 $ids = $s->opsi->pluck('uuid');
                 $urutanOpsi[$s->uuid] = $pretest->acak_opsi ? $ids->shuffle()->values()->all() : $ids->all();
@@ -134,7 +138,7 @@ class PretestPublicController extends Controller
             ->keyBy('id_soal');
 
         // Susun soal tampil sesuai urutan simpanan & bersihkan konten
-        $soalTampil = $urutan->map(function (UjianSoal $s) use ($peserta) {
+        $soalTampil = $urutan->map(function (UjianSoal $s) use ($peserta, $pretest) {
             $item = [
                 'uuid' => $s->uuid,
                 'tipe' => $s->tipe,
@@ -143,10 +147,21 @@ class PretestPublicController extends Controller
             ];
 
             if ($s->tipe === 'match') {
-                $pairs = $s->meta['pairs'] ?? [];
-                $urutanIdx = $peserta->urutan_opsi[$s->uuid] ?? array_keys($pairs);
-                $item['kiri'] = collect($pairs)->pluck('left')->map(fn ($t) => RichText::clean($t))->all();
-                $item['kanan_acak'] = collect($urutanIdx)->map(fn ($i) => RichText::clean($pairs[$i]['right'] ?? ''))->all();
+                $pairs = collect($s->meta['pairs'] ?? [])->map(fn ($p) => [
+                    'left'  => RichText::clean($p['left'] ?? $p['kiri'] ?? ''),
+                    'right' => RichText::clean($p['right'] ?? $p['kanan'] ?? ''),
+                ])->filter(fn ($p) => $p['left'] !== '' || $p['right'] !== '')->values();
+
+                $urutanIdx = $peserta->urutan_opsi[$s->uuid] ?? [];
+                if (empty($urutanIdx) || count($urutanIdx) !== $pairs->count()) {
+                    $urutanIdx = array_keys($pairs->all());
+                    if ($pretest->acak_opsi) {
+                        shuffle($urutanIdx);
+                    }
+                }
+
+                $item['kiri'] = $pairs->pluck('left')->all();
+                $item['kanan_acak'] = collect($urutanIdx)->map(fn ($i) => $pairs[$i]['right'] ?? '')->all();
             } elseif ($s->butuhOpsi()) {
                 $opsiById = $s->opsi->keyBy('uuid');
                 $urutanOpsiUuid = $peserta->urutan_opsi[$s->uuid] ?? $s->opsi->pluck('uuid')->all();

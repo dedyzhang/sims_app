@@ -90,4 +90,35 @@ class UjianRandomizationTest extends TestCase
 
         $this->assertSame($urutanAwal, $attempt->fresh()->urutan_soal);
     }
+
+    public function test_soal_match_selalu_memiliki_kanan_acak_walau_urutan_opsi_kosong(): void
+    {
+        $soalMatch = UjianSoal::create([
+            'id_ujian' => $this->ujian->uuid, 'tipe' => 'match', 'teks_soal' => 'Cocokkan Konfigurasi', 'poin' => 20, 'urutan' => 9,
+            'meta' => [
+                'pairs' => [
+                    ['left' => 'Oksigen', 'right' => '2 6'],
+                    ['kiri' => 'Natrium', 'kanan' => '2 8 1'],
+                ]
+            ],
+        ]);
+        $this->ujian->clearSoalCache();
+
+        $siswa = $this->buatSiswa('siswa_match_tester');
+        $this->actingAs($siswa)->post(route('ujian.siswa.start', $this->ujian), ['token' => 'TOKENACAK'])->assertRedirect();
+
+        $attempt = UjianAttempt::where('id_siswa', $siswa->uuid)->firstOrFail();
+
+        // Simulasikan urutan_opsi untuk soal match bernilai kosong []
+        $urutanOpsi = $attempt->urutan_opsi;
+        $urutanOpsi[$soalMatch->uuid] = [];
+        $attempt->update(['urutan_opsi' => $urutanOpsi]);
+
+        $res = $this->actingAs($siswa)->get(route('ujian.siswa.kerjakan', [$this->ujian, $attempt]));
+        $res->assertOk();
+        $res->assertSee('Oksigen');
+        $res->assertSee('2 6');
+        $res->assertSee('Natrium');
+        $res->assertSee('2 8 1');
+    }
 }

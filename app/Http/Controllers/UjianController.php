@@ -339,9 +339,19 @@ class UjianController extends Controller implements HasMiddleware
             if ($s->tipe === 'match') {
                 // kiri[i] & kanan_acak[i] SENGAJA berasal dari $pairs[i] yg sama (index sejajar,
                 // TAK diacak spt attempt sungguhan) — jadi pasangan kunci-nya persis kanan_acak[i].
-                $pairs = $s->meta['pairs'] ?? [];
-                $item['kiri'] = collect($pairs)->pluck('left')->map(fn ($t) => RichText::clean($t))->all();
-                $item['kanan_acak'] = collect($pairs)->pluck('right')->map(fn ($t) => RichText::clean($t))->all();
+                $pairs = collect($s->meta['pairs'] ?? [])->map(function ($p) {
+                    if (!is_array($p)) return null;
+                    $left = $p['left'] ?? $p['kiri'] ?? null;
+                    $right = $p['right'] ?? $p['kanan'] ?? null;
+                    if ($left === null && $right === null) return null;
+                    return [
+                        'left'  => RichText::clean($left),
+                        'right' => RichText::clean($right),
+                    ];
+                })->filter()->values();
+
+                $item['kiri'] = $pairs->pluck('left')->all();
+                $item['kanan_acak'] = $pairs->pluck('right')->all();
             } elseif ($s->butuhOpsi()) {
                 $item['opsi'] = $s->opsi->map(fn ($o) => ['uuid' => $o->uuid, 'teks' => RichText::clean($o->teks_opsi), 'benar' => (bool) $o->is_benar])->values()->all();
             } elseif ($s->tipe === 'essay' && !empty($s->meta['kunci_jawaban'] ?? null)) {

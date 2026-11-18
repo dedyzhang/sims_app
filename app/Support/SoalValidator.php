@@ -93,7 +93,15 @@ class SoalValidator
                 abort(422, 'Pilihan Ganda Kompleks wajib punya minimal satu opsi benar.');
             }
         } elseif ($data['tipe'] === 'match') {
-            $data['meta'] = ['pairs' => collect($data['pasangan'])->map(fn ($p) => ['left' => RichText::clean($p['kiri']), 'right' => RichText::clean($p['kanan'])])->all()];
+            $validPairs = collect($data['pasangan'] ?? [])
+                ->map(fn ($p) => [
+                    'left'  => RichText::clean($p['kiri'] ?? $p['left'] ?? ''),
+                    'right' => RichText::clean($p['kanan'] ?? $p['right'] ?? ''),
+                ])
+                ->filter(fn ($p) => $p['left'] !== '' || $p['right'] !== '')
+                ->values();
+
+            $data['meta'] = ['pairs' => $validPairs->all()];
         } elseif ($data['tipe'] === 'essay' && !empty($data['kunci_esai'])) {
             $data['meta'] = ['kunci_jawaban' => $data['kunci_esai']];
         }

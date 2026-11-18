@@ -103,7 +103,11 @@ class UjianSoal extends Model
         }
         if ($this->tipe === 'match') {
             return collect($this->meta['pairs'] ?? [])->values()
-                ->map(fn ($p, $i) => ['label' => chr(65 + $i), 'left' => $p['left'], 'right' => $p['right']]);
+                ->map(fn ($p, $i) => [
+                    'label' => chr(65 + $i),
+                    'left'  => $p['left'] ?? $p['kiri'] ?? '',
+                    'right' => $p['right'] ?? $p['kanan'] ?? '',
+                ]);
         }
         return collect();
     }

@@ -89,7 +89,9 @@ class UjianSoalDataSheet implements FromArray, WithHeadings, WithStyles, WithCol
                 if ($s->tipe === 'match' && !empty($s->meta['pairs'])) {
                     $pairLines = [];
                     foreach ($s->meta['pairs'] as $pair) {
-                        $pairLines[] = ($pair['left'] ?? '') . ' = ' . ($pair['right'] ?? '');
+                        $pLeft = $pair['left'] ?? $pair['kiri'] ?? '';
+                        $pRight = $pair['right'] ?? $pair['kanan'] ?? '';
+                        $pairLines[] = $pLeft . ' = ' . $pRight;
                     }
                     $pasanganStr = implode("\n", $pairLines);
                 }

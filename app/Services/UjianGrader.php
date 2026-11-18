@@ -92,8 +92,12 @@ class UjianGrader
     /** Sama semantik poin dgn scoreMultiSelect() (lihat komentar di sana) — proporsional: poin PER PASANGAN; all_or_nothing: poin TOTAL apa adanya. */
     private function scoreMatch(UjianSoal $soal, object $jawaban): array
     {
-        $pairs = $soal->meta['pairs'] ?? [];
-        $total = count($pairs);
+        $pairs = collect($soal->meta['pairs'] ?? [])->map(fn($p) => [
+            'left'  => $p['left'] ?? $p['kiri'] ?? '',
+            'right' => $p['right'] ?? $p['kanan'] ?? '',
+        ])->filter(fn($p) => $p['left'] !== '' || $p['right'] !== '')->values();
+
+        $total = $pairs->count();
         if ($total === 0) {
             return ['is_benar' => false, 'skor' => 0];
         }

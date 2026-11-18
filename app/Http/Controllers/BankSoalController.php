@@ -114,7 +114,7 @@ class BankSoalController extends Controller
             'penjelasan' => $soal->penjelasan ?? '',
             'kunci_esai' => $soal->meta['kunci_jawaban'] ?? '',
             'opsi' => $soal->opsi->map(fn($o) => ['teks' => $o->teks_opsi, 'benar' => $o->is_benar]),
-            'pasangan' => ($soal->meta['pairs'] ?? []) ? collect($soal->meta['pairs'])->map(fn($p) => ['kiri'=>$p['left'],'kanan'=>$p['right']])->all() : []
+            'pasangan' => ($soal->meta['pairs'] ?? []) ? collect($soal->meta['pairs'])->map(fn($p) => ['kiri' => $p['left'] ?? $p['kiri'] ?? '', 'kanan' => $p['right'] ?? $p['kanan'] ?? ''])->all() : []
         ]);
     }
 

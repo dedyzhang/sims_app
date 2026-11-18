@@ -156,6 +156,27 @@ class UjianPratinjauTest extends TestCase
         $this->actingAs($guruLain)->get(route('ujian.pratinjau', $this->ujian))->assertForbidden();
     }
 
+    public function test_pratinjau_menampilkan_soal_match_dengan_format_kiri_kanan(): void
+    {
+        UjianSoal::create([
+            'id_ujian' => $this->ujian->uuid, 'tipe' => 'match', 'teks_soal' => 'Cocokkan Konfigurasi', 'poin' => 20, 'urutan' => 1,
+            'meta' => [
+                'pairs' => [
+                    ['kiri' => 'Oksigen nomor atom 8', 'kanan' => '2 6'],
+                    ['left' => 'Natrium nomor atom 11', 'right' => '2 8 1'],
+                ]
+            ],
+        ]);
+
+        $res = $this->actingAs($this->guruUser)->get(route('ujian.pratinjau', $this->ujian));
+        $res->assertOk();
+        $res->assertSee('Cocokkan Konfigurasi');
+        $res->assertSee('Oksigen nomor atom 8');
+        $res->assertSee('2 6');
+        $res->assertSee('Natrium nomor atom 11');
+        $res->assertSee('2 8 1');
+    }
+
     public function test_siswa_tak_bisa_akses_pratinjau_guru(): void
     {
         $user = User::create(['username' => 'siswa_pratinjau', 'password' => Hash::make('rahasia123'), 'access' => 'siswa']);

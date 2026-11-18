@@ -121,7 +121,7 @@
                     <div class="p-3 rounded-xl border border-slate-200 dark:border-slate-600 space-y-2">
                         <div class="text-sm ujian-rich-body break-words bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2.5" x-html="kiri"></div>
                         <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                            <template x-for="(kanan, kj) in (s.kanan_acak||[])" :key="'m-'+s.uuid+'-'+ki+'-opt-'+kanan">
+                            <template x-for="(kanan, kj) in (s.kanan_acak||[])" :key="'m-'+s.uuid+'-'+ki+'-opt-'+kj">
                                 <button type="button" @click="setPasangan(s.uuid, kiri, (jawaban[s.uuid]||{})[kiri]===kanan ? '' : kanan)"
                                         :class="(jawaban[s.uuid]||{})[kiri]===kanan ? 'border-primary bg-primary/10' : 'border-slate-200 dark:border-slate-600'"
                                         class="flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ujian-rich-body text-left">

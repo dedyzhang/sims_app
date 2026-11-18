@@ -108,6 +108,113 @@ class UjianSoalExportImportTest extends TestCase
         $resJson->assertJsonPath('total_soal', 2);
         $resJson->assertJsonPath('soal.0.tipe', 'mcq');
         $resJson->assertJsonPath('soal.1.tipe', 'essay');
+
+        // Ekspor Word (.docx)
+        $resDocx = $this->actingAs($this->guruUser)->get(route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'docx']));
+        $resDocx->assertOk();
+        $this->assertStringContainsString('application/vnd.openxmlformats-officedocument.wordprocessingml.document', (string) $resDocx->headers->get('content-type'));
+        $this->assertStringContainsString('.docx', (string) $resDocx->headers->get('content-disposition'));
+
+        // Cetak Naskah Soal (Web View / A4 Portrait)
+        $resCetak = $this->actingAs($this->guruUser)->get(route('ujian.soal.cetak', $ujian));
+        $resCetak->assertOk();
+        $resCetak->assertSee('NASKAH SOAL UJIAN');
+        $resCetak->assertSee('Ujian Matematika Semester 1');
+        $resCetak->assertSee('PETUNJUK PENGERJAAN');
+        $resCetak->assertSee('Hasil dari 5 + 5 adalah...');
+        $resCetak->assertSee('Jelaskan rumus luas persegi!');
+        $resCetak->assertSee('KUNCI JAWABAN &amp; PEDOMAN PENILAIAN', false);
+
+        // Unduh PDF Langsung
+        $resPdf = $this->actingAs($this->guruUser)->get(route('ujian.soal.cetak', ['ujian' => $ujian, 'download' => 1]));
+        $resPdf->assertOk();
+        $this->assertStringContainsString('application/pdf', (string) $resPdf->headers->get('content-type'));
+        $this->assertStringContainsString('.pdf', (string) $resPdf->headers->get('content-disposition'));
+    }
+
+    public function test_ekspor_word_dan_cetak_mendukung_semua_tipe_soal(): void
+    {
+        $ujian = $this->buatUjian($this->pelajaranIpa, 'Ujian Sains Lengkap');
+
+        // 1. MCQ
+        $s1 = UjianSoal::create([
+            'id_ujian' => $ujian->uuid,
+            'tipe' => 'mcq',
+            'teks_soal' => 'Apa rumus air?',
+            'poin' => 2,
+            'urutan' => 1,
+        ]);
+        UjianSoalOpsi::create(['id_soal' => $s1->uuid, 'teks_opsi' => 'H2O', 'is_benar' => true, 'urutan' => 1]);
+        UjianSoalOpsi::create(['id_soal' => $s1->uuid, 'teks_opsi' => 'CO2', 'is_benar' => false, 'urutan' => 2]);
+
+        // 2. MCQ Complex
+        $s2 = UjianSoal::create([
+            'id_ujian' => $ujian->uuid,
+            'tipe' => 'mcq_complex',
+            'teks_soal' => 'Manakah yang termasuk gas mulia?',
+            'poin' => 3,
+            'urutan' => 2,
+        ]);
+        UjianSoalOpsi::create(['id_soal' => $s2->uuid, 'teks_opsi' => 'Helium', 'is_benar' => true, 'urutan' => 1]);
+        UjianSoalOpsi::create(['id_soal' => $s2->uuid, 'teks_opsi' => 'Neon', 'is_benar' => true, 'urutan' => 2]);
+        UjianSoalOpsi::create(['id_soal' => $s2->uuid, 'teks_opsi' => 'Oksigen', 'is_benar' => false, 'urutan' => 3]);
+
+        // 3. True/False
+        $s3 = UjianSoal::create([
+            'id_ujian' => $ujian->uuid,
+            'tipe' => 'true_false',
+            'teks_soal' => 'Matahari terbit dari timur.',
+            'poin' => 2,
+            'urutan' => 3,
+        ]);
+        UjianSoalOpsi::create(['id_soal' => $s3->uuid, 'teks_opsi' => 'Benar', 'is_benar' => true, 'urutan' => 1]);
+        UjianSoalOpsi::create(['id_soal' => $s3->uuid, 'teks_opsi' => 'Salah', 'is_benar' => false, 'urutan' => 2]);
+
+        // 4. Match
+        UjianSoal::create([
+            'id_ujian' => $ujian->uuid,
+            'tipe' => 'match',
+            'teks_soal' => 'Jodohkan hewan dan jenis makanannya!',
+            'poin' => 4,
+            'urutan' => 4,
+            'meta' => [
+                'pairs' => [
+                    ['left' => 'Sapi', 'right' => 'Herbivora'],
+                    ['left' => 'Harimau', 'right' => 'Karnivora'],
+                ],
+            ],
+        ]);
+
+        // 5. Essay
+        UjianSoal::create([
+            'id_ujian' => $ujian->uuid,
+            'tipe' => 'essay',
+            'teks_soal' => 'Jelaskan proses fotosintesis pada tumbuhan hijau!',
+            'poin' => 5,
+            'urutan' => 5,
+            'penjelasan' => 'Fotosintesis mengubah cahaya matahari dan CO2 menjadi glukosa dan O2.',
+        ]);
+
+        // Uji Ekspor Word
+        $resDocx = $this->actingAs($this->guruUser)->get(route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'docx']));
+        $resDocx->assertOk();
+        $this->assertStringContainsString('application/vnd.openxmlformats-officedocument.wordprocessingml.document', (string) $resDocx->headers->get('content-type'));
+
+        // Uji Cetak Web A4
+        $resCetak = $this->actingAs($this->guruUser)->get(route('ujian.soal.cetak', $ujian));
+        $resCetak->assertOk();
+        $resCetak->assertSee('Apa rumus air?');
+        $resCetak->assertSee('Manakah yang termasuk gas mulia?');
+        $resCetak->assertSee('Matahari terbit dari timur.');
+        $resCetak->assertSee('Jodohkan hewan dan jenis makanannya!');
+        $resCetak->assertSee('Herbivora');
+        $resCetak->assertSee('Jelaskan proses fotosintesis');
+        $resCetak->assertSee('Fotosintesis mengubah cahaya matahari');
+
+        // Uji Ekspor PDF lewat route export
+        $resExportPdf = $this->actingAs($this->guruUser)->get(route('ujian.soal.export', ['ujian' => $ujian, 'format' => 'pdf', 'download' => 1]));
+        $resExportPdf->assertOk();
+        $this->assertStringContainsString('application/pdf', (string) $resExportPdf->headers->get('content-type'));
     }
 
     public function test_guru_bisa_impor_soal_dari_excel_ke_mapel_lain(): void

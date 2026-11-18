@@ -78,11 +78,15 @@
             @elseif($soal->tipe === 'match')
                 <div class="space-y-1 pl-4">
                     @foreach($soal->meta['pairs'] ?? [] as $p)
-                    @php $jawabPasangan = ($jawaban?->jawaban_pasangan ?? [])[$p['left']] ?? null; @endphp
-                    <div class="text-xs flex items-center gap-2 {{ $jawabPasangan === $p['right'] ? 'text-emerald-600' : 'text-rose-500' }}">
-                        <span>{{ \App\Support\RichText::toPlainText($p['left']) }} → {{ $jawabPasangan ? \App\Support\RichText::toPlainText($jawabPasangan) : '(tak dijawab)' }}</span>
-                        @if($jawabPasangan !== $p['right'])
-                        <span class="text-slate-400">(kunci: {{ \App\Support\RichText::toPlainText($p['right']) }})</span>
+                    @php
+                        $pLeft = $p['left'] ?? $p['kiri'] ?? '';
+                        $pRight = $p['right'] ?? $p['kanan'] ?? '';
+                        $jawabPasangan = ($jawaban?->jawaban_pasangan ?? [])[$pLeft] ?? null;
+                    @endphp
+                    <div class="text-xs flex items-center gap-2 {{ $jawabPasangan === $pRight ? 'text-emerald-600' : 'text-rose-500' }}">
+                        <span>{{ \App\Support\RichText::toPlainText($pLeft) }} → {{ $jawabPasangan ? \App\Support\RichText::toPlainText($jawabPasangan) : '(tak dijawab)' }}</span>
+                        @if($jawabPasangan !== $pRight)
+                        <span class="text-slate-400">(kunci: {{ \App\Support\RichText::toPlainText($pRight) }})</span>
                         @endif
                     </div>
                     @endforeach
