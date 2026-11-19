@@ -189,7 +189,7 @@
             // Bersihkan spasi/tab yang menggantung di awal baris setelah <br>
             html = html.replace(/(<br\s*\/?>)\s*(?:&nbsp;|\u00A0|\s)+/gi, '$1');
             // Bersihkan spasi/tab yang menggantung di awal blok (<p>, <div>, <li>) jika ada konten setelahnya
-            html = html.replace(/(<(?:p|div|li)\b[^>]*>)\s*(?:&nbsp;|\u00A0|\s)+(?=[^<\s]|<(?!/))/gi, '$1');
+            html = html.replace(/(<(?:p|div|li)\b[^>]*>)\s*(?:&nbsp;|\u00A0|\s)+(?=[^<\s]|<(?!\/))/gi, '$1');
             // Bersihkan spasi/tab sebelum tag penutup blok (</p>, </div>, </li>)
             html = html.replace(/(?:&nbsp;|\u00A0|\s)+\s*(<\/(?:p|div|li)>)/gi, '$1');
 
@@ -203,7 +203,7 @@
                 .replace(/^(?:\s|&nbsp;|\u00A0)+/gi, '')
                 .replace(/(?:\s|&nbsp;|\u00A0)+$/gi, '')
                 .replace(/(<br\s*\/?>)\s*(?:&nbsp;|\u00A0|\s)+/gi, '$1')
-                .replace(/(<(?:p|div|li)\b[^>]*>)\s*(?:&nbsp;|\u00A0|\s)+(?=[^<\s]|<(?!/))/gi, '$1');
+                .replace(/(<(?:p|div|li)\b[^>]*>)\s*(?:&nbsp;|\u00A0|\s)+(?=[^<\s]|<(?!\/))/gi, '$1');
         }
     }
 
