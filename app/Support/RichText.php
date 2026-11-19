@@ -37,10 +37,10 @@ class RichText
         // Buang span tab Word (mso-tab-count) dan ganti spasi
         $html = preg_replace('#<span[^>]*mso-tab-count[^>]*>.*?</span>#is', ' ', $html);
 
-        // Bersihkan style inline yang merusak font aplikasi & tata letak (font-family, font-size, line-height, letter-spacing, text-indent, tab-stops, mso-*, margin-left/right)
+        // Bersihkan style inline yang merusak font aplikasi & tata letak (font-family, font-size, line-height, letter-spacing, text-indent, tab-stops, mso-*, margin*, padding*)
         $html = preg_replace_callback('#\sstyle=(["\'])(.*?)\1#is', function ($m) {
             $style = $m[2];
-            $style = preg_replace('#(?:font-family|font-size|line-height|letter-spacing|text-indent|tab-stops?|mso-[a-z0-9\-]+|margin-(?:left|right))\s*:\s*[^;]+;?#i', '', $style);
+            $style = preg_replace('#(?:font-family|font-size|line-height|letter-spacing|text-indent|tab-stops?|mso-[a-z0-9\-]+|(?:margin|padding)(?:-(?:left|right|top|bottom))?)\s*:\s*[^;]+;?#i', '', $style);
             $style = trim(trim($style), ';');
             return $style !== '' ? ' style="' . htmlspecialchars($style, ENT_QUOTES) . '"' : '';
         }, $html);
@@ -54,18 +54,31 @@ class RichText
         // Ganti tab literal (\t) dengan satu spasi agar layout tidak terdorong jauh ke kanan
         $html = str_replace("\t", ' ', $html);
 
-        // Ganti run 2 atau lebih non-breaking space / whitespace Unicode dengan satu spasi normal
-        $html = preg_replace('~(?:&nbsp;|&#160;|&#xa0;|\xC2\xA0){2,}~i', ' ', $html);
+        // Hapus span kosong atau span yang hanya berisi spasi / &nbsp; / \u00a0
+        while (preg_match('~<span[^>]*>(?:\s|&nbsp;|&#160;|&#xa0;|\xC2\xA0)*</span>~iu', $html)) {
+            $html = preg_replace('~<span[^>]*>(?:\s|&nbsp;|&#160;|&#xa0;|\xC2\xA0)*</span>~iu', '', $html);
+        }
 
-        // Bersihkan spasi/tab yang menggantung di awal baris setelah <br> atau <p>
-        $html = preg_replace('~(<br\s*/?>|<p[^>]*>)\s*(?:&nbsp;|&#160;|&#xa0;|\xC2\xA0|\s)+~i', '$1', $html);
-
-        // Unwrap <span> yang sudah kosong tanpa atribut
+        // Unwrap <span> yang sudah polos tanpa atribut
         while (preg_match('#<span\s*>(.*?)</span>#is', $html)) {
             $html = preg_replace('#<span\s*>(.*?)</span>#is', '$1', $html);
         }
-        // Hapus span kosong
-        $html = preg_replace('#<span[^>]*>\s*</span>#is', '', $html);
+
+        // Ganti run 2 atau lebih non-breaking space / whitespace Unicode dengan satu spasi normal
+        $html = preg_replace('~(?:&nbsp;|&#160;|&#xa0;|\xC2\xA0){2,}~i', ' ', $html);
+
+        // Bersihkan spasi/&nbsp; di awal dan akhir teks keseluruhan
+        $html = preg_replace('~^(?:\s|&nbsp;|&#160;|&#xa0;|\xC2\xA0)+~iu', '', $html);
+        $html = preg_replace('~(?:\s|&nbsp;|&#160;|&#xa0;|\xC2\xA0)+$~iu', '', $html);
+
+        // Bersihkan spasi/tab yang menggantung di awal baris setelah <br>
+        $html = preg_replace('~(<br\s*/?>)\s*(?:&nbsp;|&#160;|&#xa0;|\xC2\xA0|\s)+~iu', '$1', $html);
+
+        // Bersihkan spasi/tab yang menggantung di awal blok (<p>, <div>, <li>) jika ada konten setelahnya
+        $html = preg_replace('~(<(?:p|div|li)\b[^>]*>)\s*(?:&nbsp;|&#160;|&#xa0;|\xC2\xA0|\s)+(?=[^<\s]|<(?!/))~iu', '$1', $html);
+
+        // Bersihkan spasi/tab yang menggantung sebelum tag penutup blok (</p>, </div>, </li>)
+        $html = preg_replace('~(?:&nbsp;|&#160;|&#xa0;|\xC2\xA0|\s)+\s*(</(?:p|div|li)>)~iu', '$1', $html);
 
         return trim($html);
     }

@@ -428,4 +428,56 @@ class SurveiDynamicSoalDanHapusPeriodeTest extends TestCase
             ->assertDontSee('canvas-indikator-chart-guru-alpha')
             ->assertSee('Guru 2 dari 2');
     }
+
+    public function test_naskah_soal_survei_bisa_dicetak_dan_diekspor_pdf(): void
+    {
+        $f = $this->fixture();
+
+        $periode = Periode::create([
+            'judul' => 'Survei Cetak Naskah Instrumen',
+            'mulai' => now()->subHour(),
+            'selesai' => now()->addDay(),
+            'dibuat_oleh' => $f['admin']->getKey(),
+            'wajib_token' => true,
+            'wajib_seb' => false,
+            'wajib_kios' => false,
+            'pertanyaan' => [
+                'mapel' => [
+                    'Guru menguasai materi pembelajaran dengan baik.',
+                    'Guru memberikan penjelasan yang membingungkan.',
+                ],
+                'dibalik_mapel' => [1],
+                'wali' => [
+                    'Wali kelas responsif terhadap kesulitan siswa.',
+                ],
+                'dibalik_wali' => [],
+                'opsi_karakter' => [
+                    'Ramah dan menyenangkan',
+                    'Tegas dan disiplin',
+                ],
+            ],
+        ]);
+
+        // 1. Admin dapat membuka tampilan pratinjau cetak browser
+        $resPrint = $this->actingAs($f['admin'])->get(route('survei.pertanyaan.cetak', $periode));
+        $resPrint->assertOk()
+            ->assertSee('Survei Cetak Naskah Instrumen')
+            ->assertSee('INSTRUMEN SOAL SURVEI PEMBELAJARAN')
+            ->assertSee('Guru menguasai materi pembelajaran dengan baik.')
+            ->assertSee('Guru memberikan penjelasan yang membingungkan.')
+            ->assertSee('skor dibalik')
+            ->assertSee('Wali kelas responsif terhadap kesulitan siswa.')
+            ->assertSee('Ramah dan menyenangkan')
+            ->assertSee('Cetak Soal (Ctrl+P)')
+            ->assertSee('Unduh PDF');
+
+        // 2. Admin dapat mengunduh dalam format PDF
+        $resPdf = $this->actingAs($f['admin'])->get(route('survei.pertanyaan.cetak', [$periode, 'format' => 'pdf']));
+        $resPdf->assertOk();
+        $this->assertStringContainsString('application/pdf', $resPdf->headers->get('content-type'));
+
+        // 3. Siswa biasa tidak berhak mencetak naskah soal instrumen (403 Forbidden)
+        $resForbidden = $this->actingAs($f['siswaUser'])->get(route('survei.pertanyaan.cetak', $periode));
+        $resForbidden->assertForbidden();
+    }
 }

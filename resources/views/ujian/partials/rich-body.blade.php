@@ -18,6 +18,15 @@
     }
     .ujian-rich-body pre { white-space: pre-wrap; word-wrap: break-word; }
     .ujian-rich-body p, .ujian-rich-body span { max-width: 100%; }
+    .ujian-rich-body p,
+    .ujian-rich-body div,
+    .ujian-rich-body span:not(.math-svg) {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        text-indent: 0 !important;
+    }
     .ujian-rich-body p { margin: 0 0 .5em; }
     .ujian-rich-body p:last-child { margin-bottom: 0; }
     .ujian-rich-body ul {

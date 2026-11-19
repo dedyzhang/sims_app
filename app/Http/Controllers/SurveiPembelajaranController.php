@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\Siswa;
 use App\Models\Walikelas;
 use App\Support\Audit;
+use App\Support\SchoolLetterhead;
 use App\Survei\AnalisisGuru;
 use App\Survei\Kios;
 use App\Survei\Periode;
@@ -1032,6 +1033,80 @@ class SurveiPembelajaranController extends Controller
         Audit::log('survei_laporan_kelas_diekspor', $periode, ['kelas_id' => $kelasId]);
 
         return $response->header('Cache-Control', 'private, no-store');
+    }
+
+    public function cetakSoal(Request $request, Periode $periode)
+    {
+        $user = auth()->user();
+        abort_unless(
+            $user->isAdmin()
+            || $user->canFacilitateSurvei()
+            || $user->canViewSurveiResults()
+            || $user->canViewOwnSurveiResults()
+            || $periode->bolehMelihatIdentitas($user),
+            403,
+            'Anda tidak memiliki akses untuk mencetak instrumen soal survei ini.'
+        );
+
+        $sekolah = Setting::get('nama_sekolah', 'Sekolah');
+        $kota = Setting::get('kota', 'Tempat');
+        $kopLines = SchoolLetterhead::lines();
+        $kepala = SchoolLetterhead::kepalaSekolah();
+        $nipKepala = SchoolLetterhead::nipKepala();
+        $logoKiri = SchoolLetterhead::logoKiriUrl();
+        $logoKanan = SchoolLetterhead::logoKananUrl();
+
+        $butirMapel = $periode->butir('mapel');
+        $negatifMapel = $periode->butirNegatif('mapel');
+        $butirWali = $periode->butir('wali');
+        $negatifWali = $periode->butirNegatif('wali');
+        $opsiKarakter = $periode->pilihanKarakter();
+        $pertanyaanTerbukaMapel = $periode->pertanyaanTerbuka('mapel');
+        $pertanyaanTerbukaWali = $periode->pertanyaanTerbuka('wali');
+        $pilihanKendalaMapel = $periode->pilihanKendala('mapel');
+        $pilihanKendalaWali = $periode->pilihanKendala('wali');
+
+        $kelasSasaran = $periode->targets()->pluck('kelas_nama')->unique()->filter()->values();
+
+        $isPdf = $request->query('format') === 'pdf' || $request->boolean('download');
+
+        $data = [
+            'periode'                => $periode,
+            'sekolah'                => $sekolah,
+            'kota'                   => $kota,
+            'kopLines'               => $kopLines,
+            'kepala'                 => $kepala,
+            'nipKepala'              => $nipKepala,
+            'logoKiri'               => $logoKiri,
+            'logoKanan'              => $logoKanan,
+            'butirMapel'             => $butirMapel,
+            'negatifMapel'           => $negatifMapel,
+            'butirWali'              => $butirWali,
+            'negatifWali'            => $negatifWali,
+            'opsiKarakter'           => $opsiKarakter,
+            'pertanyaanTerbukaMapel' => $pertanyaanTerbukaMapel,
+            'pertanyaanTerbukaWali'  => $pertanyaanTerbukaWali,
+            'pilihanKendalaMapel'    => $pilihanKendalaMapel,
+            'pilihanKendalaWali'     => $pilihanKendalaWali,
+            'kelasSasaran'           => $kelasSasaran,
+            'isPdf'                  => $isPdf,
+        ];
+
+        if ($isPdf) {
+            $pdf = Pdf::loadView('survei.cetak-soal', $data)->setPaper('a4', 'portrait');
+            $pdf->render();
+            $font = $pdf->getDomPDF()->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+            $pdf->getDomPDF()->getCanvas()->page_text(520, 820, '{PAGE_NUM} / {PAGE_COUNT}', $font, 7, [0.34, 0.40, 0.46]);
+            $filename = 'naskah-soal-survei-' . (Str::slug($periode->judul) ?: $periode->uuid) . '.pdf';
+
+            Audit::log('survei_soal_diekspor_pdf', $periode);
+
+            return $pdf->download($filename);
+        }
+
+        Audit::log('survei_soal_dicetak', $periode);
+
+        return view('survei.cetak-soal', $data);
     }
 
     public function responden(Periode $periode)

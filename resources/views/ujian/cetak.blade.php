@@ -281,8 +281,17 @@
             margin-bottom: 3px;
             word-break: break-word;
         }
-        .soal-teks *, .opsi-teks * {
+        .soal-teks *, .opsi-teks *, .match-content * {
             font-family: inherit !important;
+        }
+        .soal-teks p, .opsi-teks p, .match-content p,
+        .soal-teks div, .opsi-teks div, .match-content div,
+        .soal-teks span:not(.math-svg), .opsi-teks span:not(.math-svg), .match-content span:not(.math-svg) {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            text-indent: 0 !important;
         }
         .soal-teks p {
             margin: 0 0 4px;

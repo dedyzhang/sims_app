@@ -5,6 +5,15 @@
 @push('styles')
 <style>
     .rich-body { line-height: 1.7; color: inherit; }
+    .rich-body p,
+    .rich-body div,
+    .rich-body span:not(.math-svg) {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        text-indent: 0 !important;
+    }
     .rich-body p { margin: 0 0 .7em; }
     .rich-body ul {
         list-style-type: disc !important;

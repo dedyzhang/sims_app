@@ -1518,6 +1518,7 @@ Route::middleware(['auth', EnsureFaceRegistered::class, NonaktifSaatModeUjian::c
     Route::post('/template-soal/reset', 'resetTemplate')->name('template.reset');
     Route::get('/periode/{periode}', 'periode')->name('periode');
     Route::put('/periode/{periode}/pertanyaan', 'updatePertanyaan')->name('pertanyaan.update');
+    Route::get('/periode/{periode}/cetak-soal', 'cetakSoal')->name('pertanyaan.cetak');
     Route::delete('/periode/{periode}', 'destroy')->name('destroy');
     Route::post('/periode/{periode}/tutup', 'tutup')->name('tutup');
     Route::post('/periode/{periode}/wajib-seb', 'wajibkanSeb')->name('seb.wajib');

@@ -105,6 +105,37 @@ class RichTextSnippetTest extends TestCase
         $this->assertStringContainsString('<i>lingkaran</i>', $hasil);
     }
 
+    public function test_clean_membersihkan_margin_padding_dan_indentasi_word_pada_opsi(): void
+    {
+        // Simulasi copy-paste dari Word yang menyebabkan teks opsi lari jauh ke kanan
+        $input = '<p class="MsoNormal" style="margin-top:0cm;margin-right:0cm;margin-bottom:0cm;margin-left:36.0pt;text-indent:-18.0pt;line-height:normal;"><span style="font-size:12.0pt;font-family:&quot;Times New Roman&quot;,serif;">&nbsp;&nbsp;&nbsp;&nbsp;</span>1 cm disebelah kiri muatan A</p>';
+        $hasil = RichText::clean($input);
+
+        $this->assertStringNotContainsString('margin-left', $hasil);
+        $this->assertStringNotContainsString('text-indent', $hasil);
+        $this->assertStringNotContainsString('36.0pt', $hasil);
+        $this->assertStringNotContainsString('&nbsp;', $hasil);
+        $this->assertSame('<p>1 cm disebelah kiri muatan A</p>', $hasil);
+    }
+
+    public function test_clean_membersihkan_shorthand_margin_dan_padding(): void
+    {
+        $input = '<p style="margin: 0cm 0cm 0cm 36pt; padding-left: 20px;">3 cm disebelah kanan muatan B</p>';
+        $hasil = RichText::clean($input);
+
+        $this->assertStringNotContainsString('margin', $hasil);
+        $this->assertStringNotContainsString('padding', $hasil);
+        $this->assertSame('<p>3 cm disebelah kanan muatan B</p>', $hasil);
+    }
+
+    public function test_clean_membersihkan_leading_whitespace_pada_opsi_tanpa_tag_p(): void
+    {
+        $input = '&nbsp;&nbsp;&nbsp;&nbsp;   1 cm disebelah kiri muatan A   &nbsp;';
+        $hasil = RichText::clean($input);
+
+        $this->assertSame('1 cm disebelah kiri muatan A', $hasil);
+    }
+
     public function test_clean_kop_mempertahankan_font_size_dan_font_family_dari_setting(): void
     {
         $input = '<p class="MsoNormal" style="text-align: center;"><strong style="mso-bidi-font-weight: normal;"><span style="font-size: 18.0pt; font-family: \'Baskerville Old Face\',serif;">SMP MAITREYAWIRA TANJUNGPINANG</span></strong></p><script>alert("xss")</script>';

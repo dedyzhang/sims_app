@@ -314,6 +314,11 @@
                     </p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
+                    <a href="{{ route('survei.pertanyaan.cetak', $p) }}" target="_blank"
+                       class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition"
+                       title="Cetak Naskah / Butir Soal Survei">
+                        Cetak Soal
+                    </a>
                     <a href="{{ route('survei.analisis', $p) }}" 
                        class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 transition">
                         Hasil & Analisis
