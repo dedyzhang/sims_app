@@ -2,7 +2,7 @@
 @section('title', 'Pemantauan Live — ' . $ujian->judul)
 
 @section('content')
-<div class="max-w-4xl mx-auto space-y-5">
+<div class="max-w-5xl mx-auto space-y-5">
     <div>
         <nav class="text-xs text-slate-400 mb-1">
             <a href="{{ route('ujian.index') }}" class="hover:underline">Ujian</a> /
@@ -41,23 +41,21 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @foreach($kelasSummary as $c)
-        <div class="card p-5 border border-slate-200 dark:border-slate-700/60 rounded-2xl flex flex-col justify-between hover:shadow-md hover:border-primary/50 transition">
-            <div class="space-y-3">
-                <div class="flex items-start justify-between gap-2">
-                    <div>
-                        <span class="inline-block px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-bold text-base">
-                            Kelas {{ $c['kelas']?->tingkat }}{{ $c['kelas']?->kelas }}
-                        </span>
-                        @if($c['ujianKelas']->guruPengampu)
-                        <p class="text-xs text-slate-400 mt-1 truncate" title="{{ $c['ujianKelas']->guruPengampu->nama }}">
-                            Pengampu: {{ $c['ujianKelas']->guruPengampu->nama }}
-                        </p>
-                        @endif
-                    </div>
-                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+        <div class="card p-5 border border-slate-200 dark:border-slate-700/60 rounded-2xl flex flex-col justify-between hover:shadow-md hover:border-primary/50 transition overflow-hidden">
+            <div class="space-y-2.5">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="inline-block px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-bold text-base">
+                        Kelas {{ $c['kelas']?->tingkat }}{{ $c['kelas']?->kelas }}
+                    </span>
+                    <span class="shrink-0 whitespace-nowrap text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                         {{ $c['total_siswa'] }} Siswa
                     </span>
                 </div>
+                @if($c['ujianKelas']->guruPengampu)
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate" title="Pengampu: {{ $c['ujianKelas']->guruPengampu->nama }}">
+                    Pengampu: {{ $c['ujianKelas']->guruPengampu->nama }}
+                </p>
+                @endif
 
                 {{-- Status Breakdown --}}
                 <div class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100 dark:border-slate-800">
