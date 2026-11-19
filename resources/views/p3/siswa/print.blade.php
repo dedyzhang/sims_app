@@ -9,8 +9,9 @@
         body { font-family: "Times New Roman", Georgia, serif; color: #000; margin: 0; background:#e9edf3; }
         .page { width: 210mm; min-height: 297mm; margin: 16px auto; padding: 14mm 16mm; background: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.16); }
 
-        .kop { display: flex; align-items: center; gap: 12px; border-bottom: 5px double #000; padding-bottom: 6px; }
-        .kop .logo { width: 72px; height: 72px; object-fit: contain; flex: 0 0 auto; }
+        .kop { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 5px double #000; padding-bottom: 6px; }
+        .kop .logo { width: 85px; height: 85px; max-width: 90px; max-height: 90px; object-fit: contain; flex: 0 0 85px; }
+        .kop .logo-spacer { width: 85px; flex: 0 0 85px; }
         .kop .ident { flex: 1; text-align: center; }
         .kop .ident .nm { font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin: 0; }
         .kop .ident .ad { font-size: 13px; margin: 1px 0 0; }
@@ -62,10 +63,10 @@
 
     <div class="page">
         <div class="kop">
-            @if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" class="logo" alt="">@else<span class="logo"></span>@endif
+            @if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" class="logo" alt="">@else<span class="logo-spacer"></span>@endif
             <div class="ident">
                 @if(trim((string) $kopTeks) !== '')
-                    {!! $kopTeks !!}
+                    {!! \App\Support\RichText::cleanKop($kopTeks) !!}
                 @else
                     <p class="nm">{{ $sekolah['nama'] }}</p>
                     @if($sekolah['alamat'])
@@ -82,7 +83,7 @@
                     </p>
                 @endif
             </div>
-            @if($kopLogoKanan)<img src="{{ $kopLogoKanan }}" class="logo" alt="">@else<span class="logo"></span>@endif
+            @if($kopLogoKanan)<img src="{{ $kopLogoKanan }}" class="logo" alt="">@else<span class="logo-spacer"></span>@endif
         </div>
 
         <div class="judul">LAPORAN PRESTASI PESERTA DIDIK</div>

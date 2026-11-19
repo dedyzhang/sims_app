@@ -17,23 +17,49 @@
             flex-direction: column;
         }
 
-        .kop { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #1e293b; padding-bottom: 10px; margin-bottom: 6mm; }
-        .kop .logo { width: 52px; height: 52px; object-fit: contain; flex: 0 0 auto; }
-        .kop .ident { flex: 1; text-align: center; }
-        .kop .ident .nm { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin: 0; }
-        .kop .ident p, .kop .ident h1, .kop .ident h2, .kop .ident h3, .kop .ident h4, .kop .ident h5, .kop .ident h6 { margin: 1px 0; font-size: 10.5px; line-height: 1.2; }
+        .kop {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            border-bottom: 3.5px double #0f172a;
+            padding-bottom: 12px;
+            margin-bottom: 6mm;
+        }
+        .kop .logo {
+            width: 85px;
+            height: 85px;
+            max-width: 95px;
+            max-height: 95px;
+            object-fit: contain;
+            flex: 0 0 85px;
+        }
+        .kop .logo-spacer {
+            width: 85px;
+            height: 85px;
+            flex: 0 0 85px;
+        }
+        .kop .ident {
+            flex: 1;
+            text-align: center;
+            padding: 0 8px;
+            font-size: 11px;
+            line-height: 1.25;
+        }
+        .kop .ident .nm { font-size: 17px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; margin: 0; line-height: 1.25; }
+        .kop .ident p, .kop .ident h1, .kop .ident h2, .kop .ident h3, .kop .ident h4, .kop .ident h5, .kop .ident h6 { margin: 1.5px 0; line-height: 1.25; }
 
         .hero { text-align: center; margin: 4mm 0 5mm; }
         .hero .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #7ba088; margin: 0 0 4px; }
         .hero h1 { font-size: 30px; font-weight: 800; margin: 0; letter-spacing: .3px; color: #0f172a; }
         .hero .sub { font-size: 13px; color: #64748b; margin-top: 4px; }
 
-        .main-row { display: flex; align-items: center; gap: 14mm; margin: 3mm 0 6mm; }
+        .main-row { display: flex; align-items: center; gap: 10mm; margin: 3mm 0 6mm; }
         .qr-wrap { flex: 0 0 auto; }
-        .qr-box { border: 3px solid #0f172a; border-radius: 20px; padding: 14px; background: #fff; display: inline-block; }
+        .qr-box { border: 3.5px solid #0f172a; border-radius: 22px; padding: 14px; background: #fff; display: inline-block; box-shadow: 0 4px 16px rgba(15,23,42,.06); }
         .qr-box canvas { display: block; }
-        .badges { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 999px; font-size: 12px; font-weight: 700; width: fit-content; }
+        .badges { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        .badge { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px; font-size: 13px; font-weight: 700; width: fit-content; }
         .badge.ruangan { background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; }
         .badge.periode { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
         .badge.jenis { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
@@ -92,16 +118,26 @@
 
     <div class="page">
         <div class="kop">
-            @if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" class="logo" alt="Logo">@endif
+            @if($kopLogoKiri)
+                <img src="{{ $kopLogoKiri }}" class="logo" alt="Logo Kiri">
+            @else
+                <div class="logo-spacer"></div>
+            @endif
             <div class="ident">
-                @if($kopTeks)
-                    {!! \App\Support\RichText::clean($kopTeks) !!}
-                @else
+                @if(!empty($kopTeks))
+                    {!! \App\Support\RichText::cleanKop($kopTeks) !!}
+                @elseif(!empty($namaSekolah))
                     <p class="nm">{{ $namaSekolah }}</p>
-                    <p>{{ $alamatSekolah }}</p>
+                    @if(!empty($alamatSekolah))<p>{{ $alamatSekolah }}</p>@endif
+                @else
+                    {!! \App\Support\SchoolLetterhead::kopTeksHtml() !!}
                 @endif
             </div>
-            @if($kopLogoKanan)<img src="{{ $kopLogoKanan }}" class="logo" alt="Logo">@endif
+            @if($kopLogoKanan)
+                <img src="{{ $kopLogoKanan }}" class="logo" alt="Logo Kanan">
+            @else
+                <div class="logo-spacer"></div>
+            @endif
         </div>
 
         <div class="hero">
@@ -153,7 +189,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
     <script>
-        new QRious({ element: document.getElementById('qrCanvas'), value: @js($urlScan), size: 260, level: 'H', background: '#fff', foreground: '#0f172a' });
+        new QRious({ element: document.getElementById('qrCanvas'), value: @js($urlScan), size: 340, level: 'H', background: '#fff', foreground: '#0f172a' });
     </script>
 </body>
 </html>

@@ -123,9 +123,9 @@ class UjianRuanganController extends Controller
             'paket'         => $paket,
             'ruangan'       => $ruangan,
             'urlScan'       => route('ujian.ruangan.scan', $ruangan),
-            'namaSekolah'   => Setting::get('nama_sekolah', ''),
+            'namaSekolah'   => Setting::get('nama_sekolah') ?: \App\Support\SchoolLetterhead::schoolName(),
             'alamatSekolah' => Setting::get('alamat_sekolah', ''),
-            'kopTeks'       => Setting::get('kop_teks'),
+            'kopTeks'       => Setting::get('kop_teks') ?: \App\Support\SchoolLetterhead::kopTeksHtml(),
             'kopLogoKiri'   => $this->kopImg('kop_logo_kiri', 'img/tutwuri.png'),
             'kopLogoKanan'  => $this->kopImg('kop_logo_kanan', 'img/maitreyawira_square.png'),
         ]);

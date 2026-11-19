@@ -17,11 +17,12 @@
             flex-direction: column;
         }
 
-        .kop { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #1e293b; padding-bottom: 10px; margin-bottom: 6mm; }
-        .kop .logo { width: 52px; height: 52px; object-fit: contain; flex: 0 0 auto; }
-        .kop .ident { flex: 1; text-align: center; }
+        .kop { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 3.5px double #1e293b; padding-bottom: 10px; margin-bottom: 6mm; }
+        .kop .logo { width: 85px; height: 85px; max-width: 90px; max-height: 90px; object-fit: contain; flex: 0 0 85px; }
+        .kop .logo-spacer { width: 85px; flex: 0 0 85px; }
+        .kop .ident { flex: 1; text-align: center; font-size: 10.5px; line-height: 1.2; }
         .kop .ident .nm { font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin: 0; }
-        .kop .ident p, .kop .ident h1, .kop .ident h2, .kop .ident h3, .kop .ident h4, .kop .ident h5, .kop .ident h6 { margin: 1px 0; font-size: 10.5px; line-height: 1.2; }
+        .kop .ident p, .kop .ident h1, .kop .ident h2, .kop .ident h3, .kop .ident h4, .kop .ident h5, .kop .ident h6 { margin: 1px 0; line-height: 1.2; }
 
         .hero { text-align: center; margin: 4mm 0 6mm; }
         .hero .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #7ba088; margin: 0 0 4px; }
@@ -79,16 +80,16 @@
 
     <div class="page">
         <div class="kop">
-            @if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" class="logo" alt="Logo">@endif
+            @if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" class="logo" alt="Logo">@else<span class="logo-spacer"></span>@endif
             <div class="ident">
                 @if($kopTeks)
-                    {!! \App\Support\RichText::clean($kopTeks) !!}
+                    {!! \App\Support\RichText::cleanKop($kopTeks) !!}
                 @else
                     <p class="nm">{{ $namaSekolah }}</p>
                     <p>{{ $alamatSekolah }}</p>
                 @endif
             </div>
-            @if($kopLogoKanan)<img src="{{ $kopLogoKanan }}" class="logo" alt="Logo">@endif
+            @if($kopLogoKanan)<img src="{{ $kopLogoKanan }}" class="logo" alt="Logo">@else<span class="logo-spacer"></span>@endif
         </div>
 
         <div class="hero">

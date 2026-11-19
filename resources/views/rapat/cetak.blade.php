@@ -17,11 +17,12 @@
         }
         .page:last-child { page-break-after: auto; }
 
-        .kop { display: flex; align-items: center; gap: 14px; border-bottom: 5px double #000; padding-bottom: 8px; }
-        .kop .logo { width: 74px; height: 74px; object-fit: contain; flex: 0 0 auto; }
-        .kop .ident { flex: 1; text-align: center; }
+        .kop { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 5px double #000; padding-bottom: 8px; }
+        .kop .logo { width: 85px; height: 85px; max-width: 90px; max-height: 90px; object-fit: contain; flex: 0 0 85px; }
+        .kop .logo-spacer { width: 85px; flex: 0 0 85px; }
+        .kop .ident { flex: 1; text-align: center; font-size: 12.5px; line-height: 1.25; }
         .kop .ident .nm { font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin: 0; }
-        .kop .ident p, .kop .ident h1, .kop .ident h2, .kop .ident h3, .kop .ident h4, .kop .ident h5, .kop .ident h6 { margin: 2px 0; font-size: 12.5px; line-height: 1.25; }   /* rapikan margin dari editor teks kop */
+        .kop .ident p, .kop .ident h1, .kop .ident h2, .kop .ident h3, .kop .ident h4, .kop .ident h5, .kop .ident h6 { margin: 2px 0; line-height: 1.25; }   /* rapikan margin dari editor teks kop */
         .kop .ident ul, .kop .ident ol { margin: 2px 0; padding-left: 22px; text-align: left; display: inline-block; }
 
         .judul { text-align: center; font-weight: 700; font-size: 16px; letter-spacing: .5px; margin: 14px 0 4px; text-transform: uppercase; }
@@ -87,16 +88,16 @@
 
     <div class="page">
         <div class="kop">
-            @if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" class="logo" alt="Logo">@endif
+            @if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" class="logo" alt="Logo">@else<span class="logo-spacer"></span>@endif
             <div class="ident">
                 @if($kopTeks)
-                    {!! \App\Support\RichText::clean($kopTeks) !!}
+                    {!! \App\Support\RichText::cleanKop($kopTeks) !!}
                 @else
                     <p class="nm">{{ $namaSekolah }}</p>
                     <p>{{ $alamatSekolah }}</p>
                 @endif
             </div>
-            @if($kopLogoKanan)<img src="{{ $kopLogoKanan }}" class="logo" alt="Logo">@endif
+            @if($kopLogoKanan)<img src="{{ $kopLogoKanan }}" class="logo" alt="Logo">@else<span class="logo-spacer"></span>@endif
         </div>
 
         <div class="judul">Berita Acara / Notulen Rapat</div>

@@ -45,7 +45,7 @@
                 <div class="rounded-xl border border-slate-200 dark:border-slate-600 p-4">
                     <label class="form-label">{{ $label }}</label>
                     <div class="flex items-center gap-3 mb-3">
-                        <div class="w-16 h-16 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/40 flex items-center justify-center overflow-hidden">
+                        <div class="w-20 h-20 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/40 flex items-center justify-center overflow-hidden p-1">
                             @if($cur)<img src="{{ $cur }}" class="max-w-full max-h-full object-contain">@else<i data-lucide="image-off" class="w-5 h-5 text-slate-300"></i>@endif
                         </div>
                         <span class="text-xs text-slate-400">PNG/JPG/WEBP, maks 2MB</span>

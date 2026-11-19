@@ -11,11 +11,11 @@
              lebar KONTEN saja (170mm), bukan 210mm penuh (lihat catatan sama di beritaAcaraCetak). --}}
         .page { width: 170mm; padding: 14mm 20mm; background: #fff; }
 
-        .kop { border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 4mm; }
+        .kop { border-bottom: 3.5px double #000; padding-bottom: 8px; margin-bottom: 4mm; }
         .kop table { width: 100%; border-collapse: collapse; }
         .kop td { vertical-align: middle; }
-        .kop .logo-cell { width: 60px; text-align: center; }
-        .kop .logo-cell img { width: 60px; height: 60px; object-fit: contain; }
+        .kop .logo-cell { width: 85px; text-align: center; vertical-align: middle; }
+        .kop .logo-cell img { width: 80px; height: 80px; max-width: 80px; max-height: 80px; object-fit: contain; }
         .kop .ident-cell { text-align: center; }
         .kop .ident-cell p, .kop .ident-cell h1, .kop .ident-cell h2 { margin: 1px 0; line-height: 1.25; }
 
@@ -53,7 +53,7 @@
                 <td class="logo-cell">@if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" alt="Logo">@endif</td>
                 <td class="ident-cell">
                     @if($kopTeks)
-                        {!! \App\Support\RichText::clean($kopTeks) !!}
+                        {!! \App\Support\RichText::cleanKop($kopTeks) !!}
                     @else
                         <h2 style="font-family: 'Times New Roman', Georgia, serif; font-size: 22px; font-weight: bold; margin: 0; padding: 0;">{{ $namaSekolah }}</h2>
                         <p style="font-family: 'Times New Roman', Georgia, serif; font-size: 14px; margin: 2px 0 0; padding: 0;">{{ $alamatSekolah }}</p>

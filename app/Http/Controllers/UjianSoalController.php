@@ -10,6 +10,7 @@ use App\Models\Ujian;
 use App\Models\UjianSoal;
 use App\Models\UjianSoalOpsi;
 use App\Services\UjianSoalImportService;
+use App\Support\RichText;
 use App\Support\SchoolLetterhead;
 use App\Support\SoalValidator;
 use App\Support\UjianDocxBuilder;
@@ -141,11 +142,11 @@ class UjianSoalController extends Controller
         $soal->load('opsi');
 
         return response()->json([
-            'teks_soal' => $soal->teks_soal,
+            'teks_soal' => RichText::clean($soal->teks_soal),
             'penjelasan' => $soal->penjelasan ?? '',
             'kunci_esai' => $soal->meta['kunci_jawaban'] ?? '',
-            'opsi' => $soal->opsi->map(fn($o) => ['teks' => $o->teks_opsi, 'benar' => $o->is_benar]),
-            'pasangan' => ($soal->meta['pairs'] ?? []) ? collect($soal->meta['pairs'])->map(fn($p) => ['kiri' => $p['left'] ?? $p['kiri'] ?? '', 'kanan' => $p['right'] ?? $p['kanan'] ?? ''])->all() : []
+            'opsi' => $soal->opsi->map(fn($o) => ['teks' => RichText::clean($o->teks_opsi), 'benar' => $o->is_benar]),
+            'pasangan' => ($soal->meta['pairs'] ?? []) ? collect($soal->meta['pairs'])->map(fn($p) => ['kiri' => RichText::clean($p['left'] ?? $p['kiri'] ?? ''), 'kanan' => RichText::clean($p['right'] ?? $p['kanan'] ?? '')])->all() : []
         ]);
     }
 

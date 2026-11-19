@@ -24,8 +24,9 @@
         .fill-half { flex: 0.1 1 auto; }
 
         /* ── Kop surat ── */
-        .kop { display: flex; align-items: center; gap: 12px; border-bottom: 5px double #000; padding-bottom: 6px; }
-        .kop .logo { width: 72px; height: 72px; object-fit: contain; flex: 0 0 auto; }
+        .kop { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 5px double #000; padding-bottom: 6px; }
+        .kop .logo { width: 85px; height: 85px; max-width: 90px; max-height: 90px; object-fit: contain; flex: 0 0 85px; }
+        .kop .logo-spacer { width: 85px; flex: 0 0 85px; }
         .kop .ident { flex: 1; text-align: center; }
         .kop .ident .nm { font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin: 0; }
         .kop .ident .ad { font-size: 13px; margin: 1px 0 0; }
@@ -179,17 +180,17 @@
         $kop = function () use ($sekolah, $tutwuri, $logoSek, $kopTeks) {
             ob_start(); ?>
             <div class="kop">
-                <?php if ($tutwuri): ?><img src="<?= $tutwuri ?>" class="logo" alt=""><?php else: ?><span class="logo"></span><?php endif; ?>
+                <?php if ($tutwuri): ?><img src="<?= $tutwuri ?>" class="logo" alt=""><?php else: ?><span class="logo-spacer"></span><?php endif; ?>
                 <div class="ident">
                     <?php if (trim((string) $kopTeks) !== ''): ?>
-                        <?= $kopTeks /* HTML kustom dari admin */ ?>
+                        <?= \App\Support\RichText::cleanKop($kopTeks) /* HTML kustom dari admin */ ?>
                     <?php else: ?>
                         <p class="nm"><?= e($sekolah['nama']) ?></p>
                         <?php if ($sekolah['alamat']): ?><p class="ad"><?= e($sekolah['alamat']) ?></p><?php endif; ?>
                         <p class="ad"><?= e(trim(implode(', ', array_filter([$sekolah['kota'], $sekolah['provinsi']])))) ?><?php if ($sekolah['telp']): ?> &middot; Telp. <?= e($sekolah['telp']) ?><?php endif; ?><?php if ($sekolah['npsn']): ?> &middot; NPSN <?= e($sekolah['npsn']) ?><?php endif; ?></p>
                     <?php endif; ?>
                 </div>
-                <?php if ($logoSek): ?><img src="<?= $logoSek ?>" class="logo" alt=""><?php else: ?><span class="logo"></span><?php endif; ?>
+                <?php if ($logoSek): ?><img src="<?= $logoSek ?>" class="logo" alt=""><?php else: ?><span class="logo-spacer"></span><?php endif; ?>
             </div>
             <?php return ob_get_clean();
         };

@@ -279,7 +279,7 @@ final class SchoolLetterhead
     {
         $html = trim((string) Setting::get('kop_teks', ''));
         if ($html !== '') {
-            return \App\Support\RichText::clean($html);
+            return \App\Support\RichText::cleanKop($html);
         }
 
         $nama = self::schoolName();
@@ -412,14 +412,14 @@ final class SchoolLetterhead
         $logoKanan = self::logoKananDataUri();
         $kopHtml = self::kopTeksHtml();
 
-        $leftImg = $logoKiri ? '<img src="'.$logoKiri.'" alt="Logo Kiri" style="max-height: 52px; max-width: 52px;">' : '';
-        $rightImg = $logoKanan ? '<img src="'.$logoKanan.'" alt="Logo Kanan" style="max-height: 52px; max-width: 52px;">' : '';
+        $leftImg = $logoKiri ? '<img src="'.$logoKiri.'" alt="Logo Kiri" style="max-height: 80px; max-width: 80px; width: 80px; height: 80px; object-fit: contain;">' : '';
+        $rightImg = $logoKanan ? '<img src="'.$logoKanan.'" alt="Logo Kanan" style="max-height: 80px; max-width: 80px; width: 80px; height: 80px; object-fit: contain;">' : '';
 
         return '
         <div style="width: 100%; margin-bottom: 6px;">
             <table style="width: 100%; border-collapse: collapse; border: none !important; margin-bottom: 3px;">
                 <tr>
-                    <td style="width: 60px; text-align: left; vertical-align: middle; border: none !important; padding: 0 4px;">
+                    <td style="width: 85px; text-align: left; vertical-align: middle; border: none !important; padding: 0 4px;">
                         '.$leftImg.'
                     </td>
                     <td style="text-align: center; vertical-align: middle; border: none !important; padding: 0 6px;">
@@ -427,12 +427,12 @@ final class SchoolLetterhead
                             '.$kopHtml.'
                         </div>
                     </td>
-                    <td style="width: 60px; text-align: right; vertical-align: middle; border: none !important; padding: 0 4px;">
+                    <td style="width: 85px; text-align: right; vertical-align: middle; border: none !important; padding: 0 4px;">
                         '.$rightImg.'
                     </td>
                 </tr>
             </table>
-            <div style="border-bottom: 3px double #000000; width: 100%; margin-top: 3px; margin-bottom: 6px;"></div>
+            <div style="border-bottom: 3.5px double #000000; width: 100%; margin-top: 3px; margin-bottom: 6px;"></div>
         </div>';
     }
 

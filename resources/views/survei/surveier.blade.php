@@ -111,11 +111,16 @@
                             Tekan Siap di dalam periode bila gelombang ini selesai.
                         </p>
                     @endif
-                    <div>
+                    <div class="flex flex-wrap items-center gap-2">
                         <a class="survei-papan-aksi" href="{{ route('survei.periode', $periode) }}">
                             <i data-lucide="qr-code" class="w-4 h-4" aria-hidden="true"></i>
                             Buka sesi dan QR
                         </a>
+                        @if($lihatSemua)
+                            <a class="survei-papan-aksi survei-papan-aksi-tenang" href="{{ route('survei.analisis', $periode) }}">
+                                Lihat hasil & analisis
+                            </a>
+                        @endif
                     </div>
                 </article>
             @empty

@@ -7,7 +7,7 @@
         .kop { margin-bottom: 20px; border-bottom: 4px double #000; padding-bottom: 6px; }
         .kop-table { width: 100%; border: none; margin: 0; }
         .kop-table td { border: none; padding: 0; vertical-align: middle; }
-        .kop .logo { width: 65px; height: 65px; object-fit: contain; }
+        .kop .logo { width: 80px; height: 80px; max-width: 80px; max-height: 80px; object-fit: contain; }
         .kop .ident { text-align: center; }
         .kop .ident .nm { font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin: 0; }
         .kop .ident .ad { font-size: 12px; margin: 2px 0 0; }
@@ -26,19 +26,19 @@
     <div class="kop">
         <table class="kop-table">
             <tr>
-                <td width="70" style="text-align: left;">
+                <td width="85" style="text-align: left; vertical-align: middle;">
                     @if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" class="logo" alt="">@endif
                 </td>
-                <td class="ident">
+                <td class="ident" style="vertical-align: middle; padding: 0 8px;">
                     @if(trim((string) $kopTeks) !== '')
-                        {!! $kopTeks !!}
+                        {!! \App\Support\RichText::cleanKop($kopTeks) !!}
                     @else
                         <p class="nm">{{ $sekolah['nama'] }}</p>
                         @if($sekolah['alamat'])<p class="ad">{{ $sekolah['alamat'] }}</p>@endif
                         <p class="ad">{{ trim(implode(', ', array_filter([$sekolah['kota'], $sekolah['provinsi']]))) }}@if($sekolah['telp']) &middot; Telp. {{ $sekolah['telp'] }}@endif @if($sekolah['npsn']) &middot; NPSN {{ $sekolah['npsn'] }}@endif</p>
                     @endif
                 </td>
-                <td width="70" style="text-align: right;">
+                <td width="85" style="text-align: right; vertical-align: middle;">
                     @if($kopLogoKanan)<img src="{{ $kopLogoKanan }}" class="logo" alt="">@endif
                 </td>
             </tr>

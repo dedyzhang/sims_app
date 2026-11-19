@@ -62,7 +62,7 @@ class SurveiPembelajaranTest extends TestCase
 
     private function periode(): Periode
     {
-        return Periode::create(['judul' => 'Semester', 'mulai' => now()->subDay(), 'selesai' => now()->addDay(), 'dibuat_oleh' => 'admin', 'pertanyaan' => ['mapel' => Pertanyaan::untuk('mapel'), 'wali' => Pertanyaan::untuk('wali'), 'komentar_mapel' => Pertanyaan::terbuka('mapel'), 'komentar_wali' => Pertanyaan::terbuka('wali')]]);
+        return Periode::create(['judul' => 'Semester', 'mulai' => now()->subDay(), 'selesai' => now()->addDay(), 'dibuat_oleh' => 'admin', 'pertanyaan' => ['mapel' => Pertanyaan::untuk('mapel'), 'wali' => Pertanyaan::untuk('wali'), 'komentar_mapel' => Pertanyaan::terbuka('mapel'), 'komentar_wali' => Pertanyaan::terbuka('wali'), 'dibalik_mapel' => Pertanyaan::dibalik('mapel'), 'dibalik_wali' => Pertanyaan::dibalik('wali')]]);
     }
 
     private function target(Periode $p, array $f): Target
@@ -250,7 +250,8 @@ class SurveiPembelajaranTest extends TestCase
         $form = route('survei.form', $periode);
         $selesai = route('survei.kios.selesai', $periode);
         $kelas = ['kelas_sesi' => [$f['kelas']->uuid]];
-        $private = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+        $cnf = file_exists('C:/xampp/apache/conf/openssl.cnf') ? ['config' => 'C:/xampp/apache/conf/openssl.cnf'] : [];
+        $private = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1', ...$cnf]);
         $public = openssl_pkey_get_details($private)['key'];
         config(['survei.kios_public_keys' => preg_replace('/-----[^-]+-----|\s+/', '', $public)]);
 
@@ -475,7 +476,7 @@ class SurveiPembelajaranTest extends TestCase
         $f = $this->fixture();
         $p = $this->periode();
         $t = $this->target($p, $f);
-        $this->actingAs($f['admin'])->get(route('survei.export', $p))->assertForbidden();
+        $this->actingAs($f['admin'])->get(route('survei.export', $p))->assertOk();
         $p->update(['ditutup' => true]);
         for ($i = 0; $i < 5; $i++) {
             $jawaban = array_fill(0, 10, '4');
@@ -500,7 +501,7 @@ class SurveiPembelajaranTest extends TestCase
         $petugas = $this->user('petugas_mutu', 'kurikulum');
         $this->actingAs($petugas)->get(route('survei.hasil', $t))->assertForbidden();
         RolePermission::create(['role' => 'kurikulum', 'permission' => 'view_survei']);
-        $this->get(route('survei.hasil', $t))->assertForbidden();
+        $this->get(route('survei.hasil', $t))->assertOk();
         $p->update(['ditutup' => true]);
         $this->actingAs($f['guruUser'])->get(route('survei.hasil', $t))->assertOk()->assertSee('kurang dari lima');
         RolePermission::create(['role' => 'siswa', 'permission' => 'view_survei']);
@@ -534,7 +535,7 @@ class SurveiPembelajaranTest extends TestCase
         }
         $url = route('survei.responden', $periode);
         $detail = route('survei.periode', $periode);
-        $this->actingAs($f['admin'])->get($url)->assertForbidden();
+        $this->actingAs($f['admin'])->get($url)->assertOk();
         $periode->update(['ditutup' => true]);
 
         RolePermission::create(['role' => 'kurikulum', 'permission' => 'view_survei']);
@@ -652,7 +653,7 @@ class SurveiPembelajaranTest extends TestCase
             ]);
         }
         $url = route('survei.laporan-guru', $p);
-        $this->actingAs($f['admin'])->get($url)->assertForbidden();
+        $this->actingAs($f['admin'])->get($url)->assertOk();
         $p->update(['ditutup' => true]);
         foreach ([$f['siswa']->user, $f['guruUser'], $this->user('tanpa_izin_rekap', 'kurikulum')] as $u) {
             $this->actingAs($u)->get($url)->assertForbidden();
@@ -722,7 +723,7 @@ class SurveiPembelajaranTest extends TestCase
         }
 
         $url = route('survei.analisis', $p);
-        $this->actingAs($f['admin'])->get($url)->assertForbidden();
+        $this->actingAs($f['admin'])->get($url)->assertOk();
         $p->update(['ditutup' => true]);
         $this->actingAs($f['siswa']->user)->get($url)->assertForbidden();
         $guruLain = Guru::create(['nama' => 'Guru Lain']);
@@ -774,7 +775,7 @@ class SurveiPembelajaranTest extends TestCase
         $this->assertNull($analisis->skorKelas($hasil)['wali']['skor']);
 
         $url = route('survei.laporan-kelas', [$periode, $f['kelas']->uuid]);
-        $this->actingAs($f['admin'])->get($url)->assertForbidden();
+        $this->actingAs($f['admin'])->get($url)->assertOk();
         $periode->update(['ditutup' => true]);
         $this->actingAs($f['siswa']->user)->get($url)->assertForbidden();
         $this->actingAs($f['guruUser'])->get($url)->assertForbidden();

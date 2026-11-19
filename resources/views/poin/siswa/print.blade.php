@@ -26,15 +26,22 @@
         .kop {
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: space-between;
+            gap: 16px;
             border-bottom: 5px double #000;
             padding-bottom: 6px;
         }
         .kop .logo {
-            width: 70px;
-            height: 70px;
+            width: 85px;
+            height: 85px;
+            max-width: 90px;
+            max-height: 90px;
             object-fit: contain;
-            flex: 0 0 auto;
+            flex: 0 0 85px;
+        }
+        .kop .logo-spacer {
+            width: 85px;
+            flex: 0 0 85px;
         }
         .kop .ident {
             flex: 1;
@@ -302,11 +309,11 @@
             @if($kopLogoKiri)
                 <img src="{{ $kopLogoKiri }}" class="logo" alt="Logo Kiri">
             @else
-                <span class="logo"></span>
+                <span class="logo-spacer"></span>
             @endif
             <div class="ident">
                 @if(trim((string) $kopTeks) !== '')
-                    {!! \App\Support\RichText::clean($kopTeks) !!}
+                    {!! \App\Support\RichText::cleanKop($kopTeks) !!}
                 @else
                     <p class="nm">{{ $sekolah['nama'] }}</p>
                     @if($sekolah['alamat'])
@@ -322,7 +329,7 @@
             @if($kopLogoKanan)
                 <img src="{{ $kopLogoKanan }}" class="logo" alt="Logo Kanan">
             @else
-                <span class="logo"></span>
+                <span class="logo-spacer"></span>
             @endif
         </div>
 

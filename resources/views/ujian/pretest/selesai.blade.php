@@ -12,7 +12,17 @@
     <script defer src="https://unpkg.com/lucide@0.468.0"></script>
     <style>
         body { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; }
-        .ujian-rich-body { line-height: 1.6; overflow-wrap: break-word; word-wrap: break-word; }
+        .ujian-rich-body {
+            font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif !important;
+            line-height: 1.6;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            tab-size: 2;
+            -moz-tab-size: 2;
+        }
+        .ujian-rich-body * { font-family: inherit !important; }
+        .ujian-rich-body pre { white-space: pre-wrap; word-wrap: break-word; }
+        .ujian-rich-body p, .ujian-rich-body span { max-width: 100%; }
         .ujian-rich-body img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 0.5rem 0; }
         .ujian-rich-body table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; font-size: 0.875rem; }
         .ujian-rich-body th, .ujian-rich-body td { border: 1px solid #cbd5e1; padding: 0.375rem 0.625rem; }

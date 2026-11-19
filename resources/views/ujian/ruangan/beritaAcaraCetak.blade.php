@@ -17,11 +17,11 @@
         {{-- dompdf flexbox tak bisa diandalkan utk row 3-kolom (logo/ident/logo) —
              terbukti lewat render nyata: kedua logo malah numpuk vertikal di kiri,
              ident tak melebar. Pakai table, primitif layout paling stabil di dompdf. --}}
-        .kop { border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 4mm; }
+        .kop { border-bottom: 3.5px double #000; padding-bottom: 8px; margin-bottom: 4mm; }
         .kop table { width: 100%; border-collapse: collapse; }
         .kop td { vertical-align: middle; }
-        .kop .logo-cell { width: 60px; text-align: center; }
-        .kop .logo-cell img { width: 60px; height: 60px; object-fit: contain; }
+        .kop .logo-cell { width: 85px; text-align: center; vertical-align: middle; }
+        .kop .logo-cell img { width: 80px; height: 80px; max-width: 80px; max-height: 80px; object-fit: contain; }
         .kop .ident-cell { text-align: center; }
         .kop .ident-cell p, .kop .ident-cell h1, .kop .ident-cell h2 { margin: 1px 0; line-height: 1.25; }
 

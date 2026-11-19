@@ -32,7 +32,7 @@
             vertical-align: middle;
         }
         table.tpatp-kop-table td.tpatp-kop-logo-cell {
-            width: 65px;
+            width: 85px;
             vertical-align: middle;
         }
         table.tpatp-kop-table td.tpatp-kop-logo-left {
@@ -42,8 +42,11 @@
             text-align: right;
         }
         .tpatp-kop-logo {
-            max-height: 52px;
-            max-width: 52px;
+            max-height: 80px;
+            max-width: 80px;
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
         }
         table.tpatp-kop-table td.tpatp-kop-center-cell {
             text-align: center;
@@ -72,7 +75,7 @@
             font-weight: bold;
         }
         .tpatp-kop-divider {
-            border-bottom: 3px double #000000;
+            border-bottom: 3.5px double #000000;
             margin-top: 3px;
             margin-bottom: 6px;
             width: 100%;

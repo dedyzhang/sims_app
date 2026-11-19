@@ -35,7 +35,7 @@
             vertical-align: middle;
         }
         .tpatp-kop-logo-cell {
-            width: 75px;
+            width: 85px;
             vertical-align: middle;
         }
         .tpatp-kop-logo-left {
@@ -45,8 +45,10 @@
             text-align: right;
         }
         .tpatp-kop-logo {
-            max-height: 65px;
-            max-width: 65px;
+            max-height: 80px;
+            max-width: 80px;
+            width: 80px;
+            height: 80px;
             object-fit: contain;
             display: inline-block;
         }
@@ -77,7 +79,7 @@
             font-weight: bold;
         }
         .tpatp-kop-divider {
-            border-bottom: 3px double #000000;
+            border-bottom: 3.5px double #000000;
             margin-top: 6px;
             margin-bottom: 12px;
             width: 100%;

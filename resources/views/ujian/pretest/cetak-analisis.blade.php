@@ -31,12 +31,14 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 3px double #0f172a;
+            gap: 16px;
+            border-bottom: 3.5px double #0f172a;
             padding-bottom: 10px;
             margin-bottom: 15px;
         }
-        .kop-logo { width: 65px; height: 65px; object-fit: contain; }
-        .kop-text { flex: 1; text-align: center; padding: 0 15px; }
+        .kop-logo { width: 85px; height: 85px; max-width: 90px; max-height: 90px; object-fit: contain; flex: 0 0 85px; }
+        .kop-spacer { width: 85px; flex: 0 0 85px; }
+        .kop-text { flex: 1; text-align: center; padding: 0 10px; }
         .kop-text h2 { margin: 0; font-size: 13pt; font-weight: bold; text-transform: uppercase; }
         .kop-text h3 { margin: 2px 0; font-size: 11pt; font-weight: bold; }
         .kop-text p { margin: 2px 0 0; font-size: 8.5pt; color: #475569; }
@@ -184,7 +186,7 @@
             @if($kopLogoKiri)
                 <img src="{{ $kopLogoKiri }}" class="kop-logo" alt="Logo Kiri">
             @else
-                <div style="width: 65px;"></div>
+                <div class="kop-spacer"></div>
             @endif
 
             <div class="kop-text">
@@ -202,7 +204,7 @@
             @elseif($sekolahLogoUrl)
                 <img src="{{ $sekolahLogoUrl }}" class="kop-logo" alt="Logo Sekolah">
             @else
-                <div style="width: 65px;"></div>
+                <div class="kop-spacer"></div>
             @endif
         </div>
 

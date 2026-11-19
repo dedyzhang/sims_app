@@ -6,7 +6,7 @@ use Illuminate\Support\Collection;
 
 final class AnalisisGuru
 {
-    public const MINIMUM = 1;
+    public const MINIMUM = 5;
 
     public function butir(Periode $periode, string $jenis, Collection $respons): Collection
     {
@@ -26,20 +26,28 @@ final class AnalisisGuru
         });
     }
 
-    public function rekap(Periode $periode, ?string $kelasId = null, ?string $guruId = null, bool $sertakanCatatan = false): Collection
+    public function rekap(Periode $periode, ?string $kelasId = null, ?string $guruId = null, bool $sertakanCatatan = false, int $minimum = self::MINIMUM, ?string $tingkat = null): Collection
     {
         return $periode->targets()
             ->when($kelasId !== null, fn ($query) => $query->where('kelas_id', $kelasId))
             ->when($guruId !== null, fn ($query) => $query->where('guru_id', $guruId))
+            ->when($tingkat !== null && $tingkat !== '', function ($query) use ($tingkat) {
+                $kelasUuids = \App\Models\Kelas::where('tingkat', $tingkat)->pluck('uuid');
+                $query->where(function ($q) use ($kelasUuids, $tingkat) {
+                    $q->whereIn('kelas_id', $kelasUuids)
+                      ->orWhere('kelas_nama', 'LIKE', "Kelas {$tingkat} %")
+                      ->orWhere('kelas_nama', 'LIKE', "Kelas {$tingkat}%");
+                });
+            })
             ->with($sertakanCatatan ? 'respons:target_id,jawaban,komentar,kendala,karakter' : 'respons:target_id,jawaban,karakter')
             ->orderBy('guru_nama')->orderBy('kelas_nama')->orderBy('pelajaran_nama')
             ->get()
             ->groupBy('guru_id')
-            ->map(function (Collection $targets) use ($periode, $sertakanCatatan): array {
+            ->map(function (Collection $targets) use ($periode, $sertakanCatatan, $minimum): array {
                 return [
                     'nama' => $targets->first()->guru_nama,
                     'peran' => $targets->groupBy('jenis')->sortKeys()->map(
-                        fn (Collection $bagian, string $jenis) => $this->ringkasPeran($periode, $jenis, $bagian, $sertakanCatatan)
+                        fn (Collection $bagian, string $jenis) => $this->ringkasPeran($periode, $jenis, $bagian, $sertakanCatatan, $minimum)
                     ),
                 ];
             });
@@ -58,10 +66,13 @@ final class AnalisisGuru
         })->all();
     }
 
-    private function ringkasPeran(Periode $periode, string $jenis, Collection $targets, bool $sertakanCatatan): array
+    private function ringkasPeran(Periode $periode, string $jenis, Collection $targets, bool $sertakanCatatan, int $minimum = self::MINIMUM): array
     {
-        $butir = $targets->flatMap(fn (Target $target) => $this->butir($periode, $jenis, $target->respons)
-            ->filter(fn (array $row) => $row['n'] >= self::MINIMUM)->values())
+        $butirSemua = $targets->flatMap(fn (Target $target) => $this->butir($periode, $jenis, $target->respons));
+        $ambang = $butirSemua->contains(fn (array $row) => $row['n'] >= $minimum) ? $minimum : 1;
+
+        $butir = $butirSemua
+            ->filter(fn (array $row) => $row['n'] >= $ambang)->values()
             ->groupBy('index')
             ->map(function (Collection $rows, int $index) use ($periode, $jenis): array {
                 $n = $rows->sum('n');
@@ -90,7 +101,7 @@ final class AnalisisGuru
             'isian' => $targets->sum(fn (Target $target) => $target->respons->count()),
             'kelas' => $targets->pluck('kelas_id')->unique()->count(),
             'butir' => $butir->sortKeys()->values(),
-            'catatan' => $sertakanCatatan ? $this->catatan($periode, $jenis, $targets) : collect(),
+            'catatan' => $sertakanCatatan ? $this->catatan($periode, $jenis, $targets, $ambang) : collect(),
             'karakter' => $this->ringkasKarakter($targets),
             'kekuatan' => $butir->filter(fn (array $row) => $row['rata'] >= 4)->sortByDesc('rata')->take(3),
             'perbaikan' => $butir->filter(fn (array $row) => $row['rata'] < 3.5)->sortBy('rata')->take(3),
@@ -108,10 +119,10 @@ final class AnalisisGuru
             ->values();
     }
 
-    private function catatan(Periode $periode, string $jenis, Collection $targets): Collection
+    private function catatan(Periode $periode, string $jenis, Collection $targets, int $minimum = self::MINIMUM): Collection
     {
         // Kelompok kecil tetap disembunyikan, meskipun digabung dengan kelas lain.
-        $respons = $targets->filter(fn (Target $target) => $target->respons->count() >= self::MINIMUM)
+        $respons = $targets->filter(fn (Target $target) => $target->respons->count() >= $minimum)
             ->flatMap(fn (Target $target) => $target->respons);
         $pertanyaan = collect($periode->pertanyaanTerbuka($jenis));
         if ($jenis === 'mapel') {

@@ -23,12 +23,17 @@ class Setting extends Model
      * penanda ABSENT terpisah spt sebelumnya. Memo disimpan di container agar otomatis
      * segar tiap request — dan tiap test, krn Laravel membangun ulang aplikasi per test.
      */
+    private static function cacheKey(): string
+    {
+        return app()->runningUnitTests() ? 'test_settings_rows' : 'global_settings_rows';
+    }
+
     private static function memo(): ArrayObject
     {
         if (! app()->bound('setting.memo')) {
             try {
                 $rows = \Illuminate\Support\Facades\Cache::remember(
-                    'global_settings_rows',
+                    self::cacheKey(),
                     300,
                     fn () => static::query()->get(['key', 'value'])
                         ->mapWithKeys(fn (self $s) => [$s->key => ['value' => $s->value]])
@@ -50,12 +55,12 @@ class Setting extends Model
     protected static function booted(): void
     {
         static::saved(function (self $setting): void {
-            \Illuminate\Support\Facades\Cache::forget('global_settings_rows');
+            \Illuminate\Support\Facades\Cache::forget(self::cacheKey());
             self::memo()[$setting->key] = ['value' => $setting->value];
         });
 
         static::deleted(function (self $setting): void {
-            \Illuminate\Support\Facades\Cache::forget('global_settings_rows');
+            \Illuminate\Support\Facades\Cache::forget(self::cacheKey());
             self::memo()->offsetUnset($setting->key);
         });
     }
@@ -64,7 +69,24 @@ class Setting extends Model
     {
         $memo = self::memo();
 
-        return $memo->offsetExists($key) ? $memo[$key]['value'] : $default;
+        if ($memo->offsetExists($key)) {
+            $val = $memo[$key]['value'];
+            return $val !== null ? $val : $default;
+        }
+
+        // Jika tidak ada di memo (misal cache parsial atau key baru):
+        // Cek sekali ke database, dan simpan hasilnya ke memo (meskipun null/tidak ada)
+        // agar pemanggilan berikutnya pada key yang sama tidak query ulang (0 duplicate query).
+        try {
+            $row = static::query()->where('key', $key)->first(['value']);
+            $val = $row !== null ? $row->value : null;
+        } catch (\Throwable) {
+            $val = null;
+        }
+
+        $memo[$key] = ['value' => $val];
+
+        return $val !== null ? $val : $default;
     }
 
     public static function set(string $key, mixed $value): void

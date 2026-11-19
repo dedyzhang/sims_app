@@ -314,4 +314,118 @@ class SurveiDynamicSoalDanHapusPeriodeTest extends TestCase
         $updateRes->assertRedirect(route('survei.periode', $periode));
         $this->assertSame($updatedKarakter, $periode->fresh()->pilihanKarakter());
     }
+
+    public function test_analisis_menampilkan_satu_guru_per_halaman_dan_filter_per_tingkat(): void
+    {
+        $f = $this->fixture();
+
+        $kelas7 = Kelas::create(['nama' => '7 A', 'tingkat' => 7, 'kelas' => 'A']);
+        $kelas8 = Kelas::create(['nama' => '8 A', 'tingkat' => 8, 'kelas' => 'A']);
+
+        $guruA = Guru::create(['nama' => 'Guru Alpha']);
+        $guruB = Guru::create(['nama' => 'Guru Beta']);
+
+        $periode = Periode::create([
+            'judul' => 'Survei Tingkat Test',
+            'mulai' => now()->subHour(),
+            'selesai' => now()->addDay(),
+            'dibuat_oleh' => $f['admin']->getKey(),
+            'wajib_token' => false,
+            'wajib_seb' => false,
+            'wajib_kios' => false,
+            'pertanyaan' => [
+                'mapel' => array_fill(0, 10, 'Pertanyaan Mapel'),
+                'wali' => array_fill(0, 6, 'Pertanyaan Wali'),
+            ],
+        ]);
+
+        // Guru Alpha mengajar di 2 tingkat (Tingkat 7 dan Tingkat 8)
+        $targetA7 = $periode->targets()->create([
+            'kelas_id' => $kelas7->uuid,
+            'guru_id' => $guruA->uuid,
+            'jenis' => 'mapel',
+            'kelas_nama' => 'Kelas 7 A',
+            'guru_nama' => $guruA->nama,
+            'pelajaran_nama' => 'Matematika',
+        ]);
+
+        $targetA8 = $periode->targets()->create([
+            'kelas_id' => $kelas8->uuid,
+            'guru_id' => $guruA->uuid,
+            'jenis' => 'mapel',
+            'kelas_nama' => 'Kelas 8 A',
+            'guru_nama' => $guruA->nama,
+            'pelajaran_nama' => 'Matematika Lanjut',
+        ]);
+
+        // Guru Beta mengajar hanya di Tingkat 8
+        $targetB = $periode->targets()->create([
+            'kelas_id' => $kelas8->uuid,
+            'guru_id' => $guruB->uuid,
+            'jenis' => 'mapel',
+            'kelas_nama' => 'Kelas 8 A',
+            'guru_nama' => $guruB->nama,
+            'pelajaran_nama' => 'Bahasa Inggris',
+        ]);
+
+        $targetA7->respons()->create([
+            'school_id' => $periode->school_id,
+            'siswa_id' => 'siswa-1',
+            'jawaban' => array_fill(0, 10, '5'),
+            'kendala' => ['pilihan' => ['tidak_ada'], 'lainnya' => null],
+            'komentar' => ['Hebat sekali di kelas 7'],
+            'karakter' => 'Sangat sabar dan ramah',
+        ]);
+
+        $targetA8->respons()->create([
+            'school_id' => $periode->school_id,
+            'siswa_id' => 'siswa-2',
+            'jawaban' => array_fill(0, 10, '3'),
+            'kendala' => ['pilihan' => ['tidak_ada'], 'lainnya' => null],
+            'komentar' => ['Perlu latihan lebih di kelas 8'],
+            'karakter' => 'Tegas dan disiplin',
+        ]);
+
+        $targetB->respons()->create([
+            'school_id' => $periode->school_id,
+            'siswa_id' => 'siswa-3',
+            'jawaban' => array_fill(0, 10, '4'),
+            'kendala' => ['pilihan' => ['tidak_ada'], 'lainnya' => null],
+            'komentar' => ['Baik dan disiplin'],
+            'karakter' => 'Asyik dan menyenangkan',
+        ]);
+
+        // 1. Tanpa filter tingkat: Halaman 1 hanya menampilkan Guru Alpha (1 guru per halaman) dengan total 2 kelas
+        $resPage1 = $this->actingAs($f['admin'])->get(route('survei.analisis', $periode));
+        $resPage1->assertOk()
+            ->assertSee('Guru Alpha')
+            ->assertDontSee('canvas-indikator-chart-guru-beta')
+            ->assertSee('Guru 1 dari 2');
+        $this->assertSame(2, $resPage1->viewData('guruAktif')['peran']['mapel']['kelas']);
+
+        // 2. Filter Tingkat 7 pada hasil Guru Alpha: Menampilkan data khusus Tingkat 7 (1 kelas, Skor 5,00)
+        $resAlpha7 = $this->actingAs($f['admin'])->get(route('survei.analisis', [$periode, 'page' => 1, 'tingkat' => 7]));
+        $resAlpha7->assertOk()
+            ->assertSee('Guru Alpha')
+            ->assertSee('Skor 5,00 / 5')
+            ->assertSee('Hebat sekali di kelas 7')
+            ->assertDontSee('Perlu latihan lebih di kelas 8');
+        $this->assertSame(1, $resAlpha7->viewData('guruAktif')['peran']['mapel']['kelas']);
+
+        // 3. Filter Tingkat 8 pada hasil Guru Alpha: Menampilkan data khusus Tingkat 8 (1 kelas, Skor 3,00)
+        $resAlpha8 = $this->actingAs($f['admin'])->get(route('survei.analisis', [$periode, 'page' => 1, 'tingkat' => 8]));
+        $resAlpha8->assertOk()
+            ->assertSee('Guru Alpha')
+            ->assertSee('Skor 3,00 / 5')
+            ->assertSee('Perlu latihan lebih di kelas 8')
+            ->assertDontSee('Hebat sekali di kelas 7');
+        $this->assertSame(1, $resAlpha8->viewData('guruAktif')['peran']['mapel']['kelas']);
+
+        // 4. Halaman 2 (?page=2) hanya menampilkan Guru Beta (hanya mengajar 1 tingkat)
+        $resPage2 = $this->actingAs($f['admin'])->get(route('survei.analisis', [$periode, 'page' => 2]));
+        $resPage2->assertOk()
+            ->assertSee('Guru Beta')
+            ->assertDontSee('canvas-indikator-chart-guru-alpha')
+            ->assertSee('Guru 2 dari 2');
+    }
 }

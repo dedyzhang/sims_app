@@ -5,7 +5,7 @@
                     <td class="logo-cell">@if($kopLogoKiri)<img src="{{ $kopLogoKiri }}" alt="Logo">@endif</td>
                     <td class="ident-cell">
                         @if($kopTeks)
-                            {!! \App\Support\RichText::clean($kopTeks) !!}
+                            {!! \App\Support\RichText::cleanKop($kopTeks) !!}
                         @else
                             <h2 style="font-family: 'Times New Roman', Georgia, serif; font-size: 22px; font-weight: bold; margin: 0; padding: 0;">{{ $namaSekolah }}</h2>
                             <p style="font-family: 'Times New Roman', Georgia, serif; font-size: 14px; margin: 2px 0 0; padding: 0;">{{ $alamatSekolah }}</p>

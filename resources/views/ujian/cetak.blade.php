@@ -122,7 +122,7 @@
 
         /* Kop Surat Sekolah */
         .kop {
-            border-bottom: 3px double #000000;
+            border-bottom: 3.5px double #000000;
             padding-bottom: 8px;
             margin-bottom: 5mm;
         }
@@ -136,17 +136,22 @@
             border: none;
         }
         .kop .logo-cell {
-            width: 65px;
+            width: 85px;
             text-align: center;
+            vertical-align: middle;
         }
         .kop .logo-cell img {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
+            max-width: 80px;
+            max-height: 80px;
             object-fit: contain;
         }
         .kop .ident-cell {
             text-align: center;
             padding: 0 10px;
+            font-size: 9pt;
+            line-height: 1.3;
         }
         .kop .ident-cell h1, .kop .ident-cell h2 {
             margin: 0;
@@ -157,7 +162,6 @@
         }
         .kop .ident-cell p {
             margin: 2px 0 0;
-            font-size: 9pt;
             line-height: 1.3;
             color: #1e293b;
         }
@@ -276,6 +280,9 @@
             font-size: 10.5pt;
             margin-bottom: 3px;
             word-break: break-word;
+        }
+        .soal-teks *, .opsi-teks * {
+            font-family: inherit !important;
         }
         .soal-teks p {
             margin: 0 0 4px;
@@ -519,7 +526,7 @@
                     </td>
                     <td class="ident-cell">
                         @if(!empty($kopTeks))
-                            {!! \App\Support\RichText::clean($kopTeks) !!}
+                            {!! \App\Support\RichText::cleanKop($kopTeks) !!}
                         @else
                             <h2>{{ $namaSekolah }}</h2>
                         @endif

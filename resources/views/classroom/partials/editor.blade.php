@@ -171,6 +171,83 @@
         });
     }
 
+    function cleanPastedHtml(rawHtml) {
+        if (!rawHtml || typeof rawHtml !== 'string') return rawHtml;
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(rawHtml, 'text/html');
+            const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ALL, null, false);
+            const toRemove = [];
+            let node;
+            while ((node = walker.nextNode())) {
+                if (node.nodeType === Node.COMMENT_NODE) {
+                    toRemove.push(node);
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.tagName.includes(':')) {
+                        toRemove.push(node);
+                        continue;
+                    }
+                    if (node.tagName === 'FONT') {
+                        const parent = node.parentNode;
+                        if (parent) {
+                            while (node.firstChild) parent.insertBefore(node.firstChild, node);
+                            toRemove.push(node);
+                        }
+                        continue;
+                    }
+                    if (node.tagName === 'SPAN' && /mso-tab-count/i.test(node.getAttribute('style') || '')) {
+                        const space = doc.createTextNode(' ');
+                        node.parentNode?.replaceChild(space, node);
+                        continue;
+                    }
+                    if (node.className && /mso|apple/i.test(node.className)) {
+                        node.removeAttribute('class');
+                    }
+                    if (node.hasAttribute('style')) {
+                        node.style.fontFamily = '';
+                        node.style.fontSize = '';
+                        node.style.lineHeight = '';
+                        node.style.letterSpacing = '';
+                        node.style.textIndent = '';
+                        node.style.marginLeft = '';
+                        node.style.marginRight = '';
+                        let css = node.style.cssText || '';
+                        css = css.replace(/mso-[^;]+;?/gi, '')
+                                 .replace(/tab-stops?:[^;]+;?/gi, '')
+                                 .replace(/font-family:[^;]+;?/gi, '')
+                                 .replace(/font-size:[^;]+;?/gi, '')
+                                 .trim();
+                        if (css) {
+                            node.style.cssText = css;
+                        } else {
+                            node.removeAttribute('style');
+                        }
+                    }
+                    if (node.tagName === 'SPAN' && node.attributes.length === 0) {
+                        const parent = node.parentNode;
+                        if (parent) {
+                            while (node.firstChild) parent.insertBefore(node.firstChild, node);
+                            toRemove.push(node);
+                        }
+                    }
+                }
+            }
+            toRemove.forEach(n => { if (n.parentNode) n.parentNode.removeChild(n); });
+            let html = doc.body.innerHTML;
+            html = html.replace(/\t+/g, ' ');
+            html = html.replace(/(?:&nbsp;|\u00A0){2,}/gi, ' ');
+            html = html.replace(/(<br\s*\/?>)\s*(?:&nbsp;|\u00A0|\s)+/gi, '$1');
+            html = html.replace(/(<p[^>]*>)\s*(?:&nbsp;|\u00A0|\s)+/gi, '$1');
+            return html;
+        } catch (e) {
+            return rawHtml
+                .replace(/<span[^>]*mso-tab-count[^>]*>.*?<\/span>/gi, ' ')
+                .replace(/(font-family|font-size|line-height|text-indent|mso-[a-z0-9\-]+)\s*:[^;"]+;?/gi, '')
+                .replace(/\t+/g, ' ')
+                .replace(/(?:&nbsp;|\u00A0){2,}/gi, ' ');
+        }
+    }
+
     tinymce.init({
         selector: '.rich-editor',
         height: 360,
@@ -183,8 +260,14 @@
         content_css: dark ? 'dark' : 'default',
         convert_urls: false,
         extended_valid_elements: 'img[class|src|alt|data-latex|style|width|height],div[class|data-yt|contenteditable|style]',
-        content_style: '.math-svg{max-width:100%}.yt-embed{font-family:system-ui}',
+        content_style: 'body { font-family: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important; font-size: 14px; line-height: 1.6; color: ' + (dark ? '#f1f5f9' : '#0f172a') + '; } .math-svg{max-width:100%}.yt-embed{font-family:system-ui} p, span, div { font-family: inherit !important; }',
+        paste_preprocess: function (plugin, args) {
+            args.content = cleanPastedHtml(args.content);
+        },
         setup: function (editor) {
+            editor.on('PastePreProcess', function (e) {
+                e.content = cleanPastedHtml(e.content);
+            });
             editor.ui.registry.addButton('rumus', { text: '∑ Rumus', tooltip: 'Sisipkan rumus matematika', onAction: () => openMath(editor) });
             editor.ui.registry.addButton('youtube', { text: '▶ YouTube', tooltip: 'Sisipkan video YouTube', onAction: () => openYt(editor) });
         },

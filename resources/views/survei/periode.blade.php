@@ -49,7 +49,7 @@
             <span class="survei-detail-petunjuk">Rincian per kelas</span>
         </summary>
         <div class="survei-detail-sasaran-isi">
-            <p>Pilih kelas untuk melihat guru, mata pelajaran, dan jumlah respons. Hasil tersedia setelah survei ditutup, minimal lima siswa mengisi.</p>
+            <p>Pilih kelas untuk melihat guru, mata pelajaran, dan jumlah respons. Hasil dan analisis digital dapat langsung dilihat secara real-time tanpa perlu menutup survei.</p>
             <div class="survei-sasaran-grid">
                 @forelse($sasaranPerKelas as $daftar)
                     <details class="survei-sasaran-kelas">
@@ -66,7 +66,7 @@
                                     </div>
                                     <div class="survei-sasaran-respons">
                                         <span>{{ $t->respons_count }} respons</span>
-                                        @if(($periode->ditutup || now()->greaterThan($periode->selesai)) && (auth()->user()->canViewSurveiResults() || (auth()->user()->canViewOwnSurveiResults() && $t->guru_id === auth()->user()->guru?->uuid)))
+                                        @if(auth()->user()->canViewSurveiResults() || $pembuat || $periode->ditutup || now()->greaterThan($periode->selesai) || (auth()->user()->canViewOwnSurveiResults() && $t->guru_id === auth()->user()->guru?->uuid))
                                             <a class="survei-detail-tautan" href="{{ route('survei.hasil',$t) }}">Lihat hasil</a>
                                         @endif
                                     </div>
@@ -198,21 +198,45 @@
     </details>
     @endif
 
-    {{-- Sama dengan otorisasi SurveiPembelajaranController::tutup(): hanya admin; periode bertoken hanya pembuatnya. --}}
-    @if(!$periode->berakhir() && auth()->user()->isAdmin() && ($pembuat || !$periode->wajib_token))
-        <form class="survei-detail-tutup" action="{{ route('survei.tutup',$periode) }}" method="post" onsubmit="return confirm('Tutup seluruh periode survei? Semua sesi akan berakhir dan siswa tidak dapat lagi mengirim jawaban.')">
-            @csrf
-            <button class="rounded-lg bg-red-700 text-white px-4 py-2">Tutup periode survei</button>
-        </form>
-    @endif
-    @if($periode->berakhir() && (auth()->user()->canViewSurveiResults() || auth()->user()->canViewOwnSurveiResults()))
-        <div class="flex flex-wrap items-center gap-4">
-            <a href="{{ route('survei.analisis', $periode) }}" class="btn-primary">Lihat analisis per guru</a>
-            @if(auth()->user()->isAdmin())
-                <a href="{{ route('survei.export',$periode) }}" class="survei-detail-tautan">Unduh rekap CSV</a>
-            @endif
-            @if($periode->bolehMelihatIdentitas(auth()->user()))
-                <a href="{{ route('survei.responden', $periode) }}" class="survei-detail-tautan">Lihat daftar responden rahasia</a>
+    @php($bolehHasil = auth()->user()->canViewSurveiResults() || $pembuat || auth()->user()->canViewOwnSurveiResults())
+    @php($bolehExport = auth()->user()->isAdmin())
+    @php($bolehResponden = $periode->bolehMelihatIdentitas(auth()->user()))
+    @php($bolehTutup = !$periode->berakhir() && auth()->user()->isAdmin() && ($pembuat || !$periode->wajib_token))
+
+    @if($bolehHasil || $bolehExport || $bolehResponden || $bolehTutup)
+        <div class="card p-4 sm:p-5 flex flex-wrap items-center justify-between gap-3 mt-2">
+            <div class="flex flex-wrap items-center gap-2.5">
+                @if($bolehHasil)
+                    <a href="{{ route('survei.analisis', $periode) }}" 
+                       class="btn-primary inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-sm transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        <span>Lihat analisis per guru</span>
+                    </a>
+                @endif
+                @if($bolehExport)
+                    <a href="{{ route('survei.export', $periode) }}" 
+                       class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold shadow-sm transition">
+                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>Unduh rekap CSV</span>
+                    </a>
+                @endif
+                @if($bolehResponden)
+                    <a href="{{ route('survei.responden', $periode) }}" 
+                       class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-xs sm:text-sm font-semibold shadow-sm transition">
+                        <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        <span>Lihat daftar responden rahasia</span>
+                    </a>
+                @endif
+            </div>
+
+            @if($bolehTutup)
+                <form class="survei-detail-tutup shrink-0" action="{{ route('survei.tutup', $periode) }}" method="post" onsubmit="return confirm('Tutup seluruh periode survei? Semua sesi akan berakhir dan siswa tidak dapat lagi mengirim jawaban.')">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Tutup periode survei</span>
+                    </button>
+                </form>
             @endif
         </div>
     @endif

@@ -28,7 +28,17 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         [x-cloak] { display: none !important; }
-        .ujian-rich-body { line-height: 1.6; overflow-wrap: break-word; word-wrap: break-word; }
+        .ujian-rich-body {
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+            line-height: 1.6;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            tab-size: 2;
+            -moz-tab-size: 2;
+        }
+        .ujian-rich-body * { font-family: inherit !important; }
+        .ujian-rich-body pre { white-space: pre-wrap; word-wrap: break-word; }
+        .ujian-rich-body p, .ujian-rich-body span { max-width: 100%; }
         .ujian-rich-body p { margin: 0 0 .5em; }
         .ujian-rich-body p:last-child { margin-bottom: 0; }
         .ujian-rich-body ul { list-style-type: disc !important; margin: 0.5em 0 0.5em 1.5em !important; }
