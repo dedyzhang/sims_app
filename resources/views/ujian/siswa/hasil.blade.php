@@ -17,15 +17,22 @@
     <div class="card p-5">
         <h2 class="font-bold text-slate-800 dark:text-slate-100 mb-3 text-sm">Pembahasan</h2>
         <div class="space-y-4">
-            @foreach($ujian->soal as $i => $soal)
-            @php $jawaban = $attempt->jawaban->firstWhere('id_soal', $soal->uuid); @endphp
+            @php
+                $daftarSoal = (isset($soalList) && $soalList->isNotEmpty()) ? $soalList : $ujian->soal;
+            @endphp
+            @foreach($daftarSoal as $i => $soal)
+            @php
+                $jawaban = (isset($jawabanBySoal) && $jawabanBySoal->isNotEmpty())
+                    ? $jawabanBySoal->get($soal->uuid)
+                    : $attempt->jawaban->firstWhere('id_soal', $soal->uuid);
+            @endphp
             <div class="border-b border-slate-100 dark:border-slate-700 pb-3 last:border-0">
                 <div class="text-sm font-medium text-slate-700 dark:text-slate-200 flex gap-1.5">
                     <span>{{ $i + 1 }}.</span>
                     @include('ujian.partials.rich-body', ['html' => $soal->teks_soal])
                 </div>
                 <p class="text-xs mt-1 {{ $jawaban?->is_benar ? 'text-emerald-600' : 'text-rose-500' }}">
-                    {{ $jawaban?->skor_diperoleh ?? 0 }} / {{ $soal->poinEfektif() }} poin
+                    {{ (float) ($jawaban?->skor_diperoleh ?? 0) }} / {{ $soal->poinEfektif() }} poin
                 </p>
                 @if($soal->penjelasan)
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ $soal->penjelasan }}</p>

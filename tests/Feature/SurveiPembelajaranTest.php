@@ -115,7 +115,10 @@ class SurveiPembelajaranTest extends TestCase
         $kirim = route('survei.kirim-batch', $p);
         $detail = route('survei.periode', $p);
         $pilihA = ['kelas_sesi' => [$f['kelas']->uuid]];
-        $jawabanA = ['jawaban' => [$mapelA->uuid => array_fill(0, 10, 5)]];
+        $jawabanA = [
+            'jawaban' => [$mapelA->uuid => array_fill(0, 10, 5)],
+            'komentar' => [$mapelA->uuid => ['Bagus', 'Pertahankan']],
+        ];
 
         $adminLain = $this->user('admin_sesi_lain', 'superadmin');
         $this->actingAs($adminLain)->post($mulai, $pilihA)->assertForbidden();
@@ -228,7 +231,11 @@ class SurveiPembelajaranTest extends TestCase
         $bukti = hash('sha256', $urlForm.$browserKey);
         $this->postJson($verifikasi, ['bukti_seb' => $bukti])->assertOk()->assertJson(['form' => $urlForm]);
         $tanda = $this->get($urlForm)->assertOk()->assertSee('Matematika')->viewData('tandaSesi');
-        $payload = ['jawaban' => [$target->uuid => array_fill(0, 10, 5)], 'tanda_sesi' => $tanda];
+        $payload = [
+            'jawaban' => [$target->uuid => array_fill(0, 10, 5)],
+            'komentar' => [$target->uuid => ['Bagus', 'Pertahankan']],
+            'tanda_sesi' => $tanda,
+        ];
         $this->postJson($kirim, $payload)->assertForbidden();
         $this->postJson($kirim, ['tanda_sesi' => $tanda, 'bukti_seb' => $bukti])->assertUnprocessable();
         $this->get($urlKeluar)->assertNotFound();
@@ -277,7 +284,11 @@ class SurveiPembelajaranTest extends TestCase
         $this->get($form)->assertOk()->assertSee('id="survei-pengisian"', false);
         $this->get($form)->assertOk()->assertDontSee('id="survei-pengisian"', false);
         $kirim = route('survei.kirim-batch', $periode);
-        $jawaban = ['jawaban' => [$target->uuid => array_fill(0, 10, 5)], 'tanda_sesi' => $tanda];
+        $jawaban = [
+            'jawaban' => [$target->uuid => array_fill(0, 10, 5)],
+            'komentar' => [$target->uuid => ['Bagus', 'Pertahankan']],
+            'tanda_sesi' => $tanda,
+        ];
         $this->postJson($kirim, $jawaban + ['bukti_kios' => $sign('buka')])->assertForbidden();
         $this->postJson($kirim, ['tanda_sesi' => $tanda, 'bukti_kios' => $sign('kirim')])->assertUnprocessable();
         $this->get($selesai)->assertNotFound();
@@ -370,7 +381,7 @@ class SurveiPembelajaranTest extends TestCase
             'jawaban' => [$mapel->uuid => array_fill(0, 10, '4'), $wali->uuid => array_fill(0, 6, '0')],
             'kendala' => [$mapel->uuid => ['lainnya'], $wali->uuid => ['ya']],
             'kendala_lainnya' => [$mapel->uuid => 'Waktu latihan singkat'],
-            'komentar' => [$mapel->uuid => [1 => 'Perlu lebih banyak contoh'], $wali->uuid => ['Informasi kadang terlambat']],
+            'komentar' => [$mapel->uuid => [0 => 'Penjelasan jelas', 1 => 'Perlu lebih banyak contoh'], $wali->uuid => ['Informasi kadang terlambat']],
         ];
         $this->post(route('survei.kirim-batch', $p), array_replace($payload, ['kendala' => [$mapel->uuid => ['lainnya']]]))
             ->assertSessionHasErrors('kendala.'.$wali->uuid);
@@ -383,7 +394,7 @@ class SurveiPembelajaranTest extends TestCase
         $this->assertCount(1, $queries->filter(fn ($sql) => str_starts_with($sql, 'select')));
         $this->assertCount(1, $queries->filter(fn ($sql) => str_starts_with($sql, 'insert')));
         $this->assertSame(2, Respons::count());
-        $this->assertSame([null, 'Perlu lebih banyak contoh'], $mapel->respons()->firstOrFail()->komentar);
+        $this->assertSame(['Penjelasan jelas', 'Perlu lebih banyak contoh'], $mapel->respons()->firstOrFail()->komentar);
         $this->assertSame('Waktu latihan singkat', $mapel->respons()->firstOrFail()->kendala['lainnya']);
         $this->assertSame(['Informasi kadang terlambat'], $wali->respons()->firstOrFail()->komentar);
         $this->get(route('survei.index'))->assertOk()->assertSee('Jawaban sudah dikirim dan bersifat rahasia.')->assertDontSee('Isi survei kelas');
@@ -398,8 +409,10 @@ class SurveiPembelajaranTest extends TestCase
 
         $this->actingAs($f['siswa']->user)->get(route('survei.form', $p))->assertOk()
             ->assertSee('Butir periode sebelumnya.')->assertDontSee(Pertanyaan::untuk('mapel')[7]);
-        $this->post(route('survei.kirim-batch', $p), ['jawaban' => [$t->uuid => array_fill(0, 12, '4')]])
-            ->assertRedirect(route('survei.index'));
+        $this->post(route('survei.kirim-batch', $p), [
+            'jawaban' => [$t->uuid => array_fill(0, 12, '4')],
+            'komentar' => [$t->uuid => ['Bagus', 'Pertahankan']],
+        ])->assertRedirect(route('survei.index'));
         $this->assertSame(4, $p->skor('mapel', 7, 4));
     }
 
@@ -911,5 +924,105 @@ class SurveiPembelajaranTest extends TestCase
         $this->post(route('survei.sesi.mulai', $p), ['kelas_sesi' => [$f['kelas']->uuid]])
             ->assertRedirect(route('survei.periode', $p));
         $this->actingAs($f['guruUser'])->get(route('survei.periode', $p))->assertForbidden();
+    }
+
+    public function test_form_catatan_survei_memiliki_penanda_wajib_dan_atribut_required(): void
+    {
+        $f = $this->fixture();
+        $p = $this->periode();
+        $t = $this->target($p, $f);
+        $p->targets()->create([
+            'kelas_id' => $f['kelas']->uuid,
+            'guru_id' => $f['guru']->uuid,
+            'jenis' => 'wali',
+            'kelas_nama' => 'Kelas 7 A',
+            'guru_nama' => 'Wali Contoh',
+        ]);
+
+        $response = $this->actingAs($f['siswa']->user)->get(route('survei.form', $p));
+        $response->assertOk();
+        $response->assertSee('* (wajib diisi)');
+        $response->assertSee('* (wajib diisi jika ada kendala)');
+        $response->assertDontSee('(boleh dikosongkan)');
+        $response->assertSee('required', false);
+    }
+
+    public function test_catatan_survei_mapel_wajib_diisi_pada_backend(): void
+    {
+        $f = $this->fixture();
+        $p = $this->periode();
+        $t = $this->target($p, $f);
+
+        // Tanpa komentar mapel -> gagal validasi
+        $payloadTanpaKomentar = [
+            'jawaban' => [$t->uuid => array_fill(0, 10, '5')],
+        ];
+        $res = $this->actingAs($f['siswa']->user)->postJson(route('survei.kirim-batch', $p), $payloadTanpaKomentar);
+        $res->assertUnprocessable();
+        $res->assertJsonValidationErrors(["komentar.{$t->uuid}.0", "komentar.{$t->uuid}.1"]);
+        $this->assertSame('Catatan survei wajib diisi.', $res->json('errors')["komentar.{$t->uuid}.0"][0]);
+
+        // Dengan komentar mapel lengkap -> berhasil
+        $payloadDenganKomentar = [
+            'jawaban' => [$t->uuid => array_fill(0, 10, '5')],
+            'komentar' => [$t->uuid => ['Cara mengajarnya sangat menyenangkan.', 'Perbanyak waktu latihan soal.']],
+        ];
+        $resSukses = $this->postJson(route('survei.kirim-batch', $p), $payloadDenganKomentar);
+        $resSukses->assertOk()->assertJson(['tersimpan' => true]);
+        $this->assertSame(1, Respons::count());
+    }
+
+    public function test_catatan_kendala_wali_wajib_diisi_jika_memilih_ada_kendala(): void
+    {
+        $f = $this->fixture();
+        $p = $this->periode();
+        $wali = $p->targets()->create([
+            'kelas_id' => $f['kelas']->uuid,
+            'guru_id' => $f['guru']->uuid,
+            'jenis' => 'wali',
+            'kelas_nama' => 'Kelas 7 A',
+            'guru_nama' => 'Wali Contoh',
+        ]);
+
+        // Wali dengan kendala 'ya' tetapi tanpa catatan komentar -> gagal validasi
+        $payloadKendalaTanpaCatatan = [
+            'jawaban' => [$wali->uuid => array_fill(0, 6, '5')],
+            'kendala' => [$wali->uuid => ['ya']],
+        ];
+        $res = $this->actingAs($f['siswa']->user)->postJson(route('survei.kirim-batch', $p), $payloadKendalaTanpaCatatan);
+        $res->assertUnprocessable();
+        $res->assertJsonValidationErrors(["komentar.{$wali->uuid}.0"]);
+        $this->assertSame('Catatan survei wajib diisi.', $res->json('errors')["komentar.{$wali->uuid}.0"][0]);
+
+        // Wali dengan kendala 'ya' dan ada catatan -> berhasil
+        $payloadKendalaDenganCatatan = [
+            'jawaban' => [$wali->uuid => array_fill(0, 6, '5')],
+            'kendala' => [$wali->uuid => ['ya']],
+            'komentar' => [$wali->uuid => ['Informasi pengumuman kelas sering mendadak.']],
+        ];
+        $resSukses = $this->postJson(route('survei.kirim-batch', $p), $payloadKendalaDenganCatatan);
+        $resSukses->assertOk()->assertJson(['tersimpan' => true]);
+    }
+
+    public function test_catatan_kendala_wali_tidak_wajib_jika_tidak_ada_kendala(): void
+    {
+        $f = $this->fixture();
+        $p = $this->periode();
+        $wali = $p->targets()->create([
+            'kelas_id' => $f['kelas']->uuid,
+            'guru_id' => $f['guru']->uuid,
+            'jenis' => 'wali',
+            'kelas_nama' => 'Kelas 7 A',
+            'guru_nama' => 'Wali Contoh',
+        ]);
+
+        // Wali dengan kendala 'tidak' tanpa catatan -> berhasil
+        $payloadTanpaKendala = [
+            'jawaban' => [$wali->uuid => array_fill(0, 6, '5')],
+            'kendala' => [$wali->uuid => ['tidak']],
+        ];
+        $res = $this->actingAs($f['siswa']->user)->postJson(route('survei.kirim-batch', $p), $payloadTanpaKendala);
+        $res->assertOk()->assertJson(['tersimpan' => true]);
+        $this->assertSame([], Respons::firstOrFail()->komentar);
     }
 }

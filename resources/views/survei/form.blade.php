@@ -152,12 +152,19 @@
                     </fieldset>
                 @endif
 
-                <div class="space-y-3" @if($target->jenis === 'wali') x-show="adaKendalaWali" @endif>
+                <div class="space-y-3" @if($target->jenis === 'wali') x-show="adaKendalaWali" x-cloak @endif>
                     <p class="text-sm text-slate-600">Hindari menyebut nama siswa atau menuliskan informasi pribadi.</p>
                     @foreach($comments as $index => $question)
                         @php($komentarLama = old("komentar.{$target->uuid}.{$index}"))
-                        <label class="block rounded-lg border border-slate-200 p-4 font-semibold">{{ $question }} <span class="font-normal text-slate-500">(boleh dikosongkan)</span>
-                            <textarea class="form-input mt-2" name="komentar[{{ $target->uuid }}][{{ $index }}]" maxlength="1000" rows="3">{{ is_string($komentarLama) ? $komentarLama : '' }}</textarea>
+                        <label class="block rounded-lg border border-slate-200 p-4 font-semibold">
+                            {{ $question }}
+                            @if($target->jenis === 'wali')
+                                <span class="text-rose-600 font-semibold">* (wajib diisi jika ada kendala)</span>
+                                <textarea class="form-input mt-2" name="komentar[{{ $target->uuid }}][{{ $index }}]" maxlength="1000" rows="3" :required="adaKendalaWali" :disabled="!adaKendalaWali" placeholder="Tuliskan kendalamu secara jelas...">{{ is_string($komentarLama) ? $komentarLama : '' }}</textarea>
+                            @else
+                                <span class="text-rose-600 font-semibold">* (wajib diisi)</span>
+                                <textarea required class="form-input mt-2" name="komentar[{{ $target->uuid }}][{{ $index }}]" maxlength="1000" rows="3" placeholder="Tuliskan catatanmu di sini...">{{ is_string($komentarLama) ? $komentarLama : '' }}</textarea>
+                            @endif
                         </label>
                     @endforeach
                 </div>

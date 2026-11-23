@@ -53,6 +53,10 @@ class UjianRoster
                 'ujianKelas' => $ujianKelasByKelas->get($siswa->id_kelas),
                 'attempt'    => $att,
             ];
-        })->sortBy(fn ($row) => $row['siswa']->nama)->values();
+        })->sortBy(fn ($row) => [
+            intval($row['ujianKelas']?->kelas?->tingkat ?? 999),
+            $row['ujianKelas']?->kelas?->kelas ?? 'ZZ',
+            $row['siswa']->nama ?? '',
+        ])->values();
     }
 }

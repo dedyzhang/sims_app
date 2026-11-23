@@ -713,12 +713,26 @@ class SurveiPembelajaranController extends Controller
                 $rules["kendala_lainnya.$key"] = ['nullable', 'string', 'max:1000'];
             }
             foreach ($comments as $index => $_) {
-                $rules["komentar.$key.$index"] = ['nullable', 'string', 'max:1000'];
+                if ($target->jenis === 'wali') {
+                    $rules["komentar.$key.$index"] = [
+                        Rule::requiredIf(fn () => data_get($request->all(), "kendala.$key.0") === 'ya'),
+                        'nullable',
+                        'string',
+                        'max:1000',
+                    ];
+                } else {
+                    $rules["komentar.$key.$index"] = ['required', 'string', 'max:1000'];
+                }
             }
             $rules["karakter.$key"] = ['nullable', 'string', 'max:255', Rule::in($opsiKarakter)];
         }
 
-        $values = $request->validate($rules);
+        $messages = [
+            'komentar.*.*.required' => 'Catatan survei wajib diisi.',
+            'komentar.*.*.max' => 'Catatan survei maksimal 1000 karakter.',
+        ];
+
+        $values = $request->validate($rules, $messages);
 
         foreach ($pending as $target) {
             $pilihan = $values['kendala'][$target->uuid] ?? [];

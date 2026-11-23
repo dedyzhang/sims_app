@@ -106,26 +106,35 @@ class UjianMonitorController extends Controller
 
             $ujianKelasList = $ujian->kelas()->with('kelas')->get();
             $idKelasFilter = $request->string('kelas')->toString();
-            $untukRoster = $idKelasFilter ? $ujianKelasList->where('id_kelas', $idKelasFilter)->values() : $ujianKelasList;
+            $untukRoster = ($idKelasFilter && $idKelasFilter !== 'semua') ? $ujianKelasList->where('id_kelas', $idKelasFilter)->values() : $ujianKelasList;
 
             $roster = $rosterService->untukKelas($untukRoster);
             $attemptUuids = $roster->pluck('attempt.uuid')->filter();
-            $pelanggaranCount = UjianPelanggaran::whereIn('id_attempt', $attemptUuids)
-                ->selectRaw('id_attempt, count(*) as jumlah')->groupBy('id_attempt')->pluck('jumlah', 'id_attempt');
+            $pelanggaranGroup = UjianPelanggaran::whereIn('id_attempt', $attemptUuids)
+                ->latest()
+                ->get()
+                ->groupBy('id_attempt')
+                ->map(fn ($group) => [
+                    'jumlah' => $group->count(),
+                    'alasan' => $group->first()->tipeLabel(),
+                    'waktu'  => $group->first()->created_at?->diffForHumans() ?? '',
+                ]);
 
-            $data = $roster->map(function (array $row) use ($pelanggaranCount) {
+            $data = $roster->map(function (array $row) use ($pelanggaranGroup) {
                 $a = $row['attempt'];
                 $uk = $row['ujianKelas'];
+                $pInfo = $a ? ($pelanggaranGroup[$a->uuid] ?? null) : null;
 
                 return [
-                    'attempt_uuid'     => $a?->uuid,
-                    'nama'             => $row['siswa']->nama,
-                    'kelas'            => trim(($uk?->kelas?->tingkat ?? '') . ($uk?->kelas?->kelas ?? '')),
-                    'status'           => $a?->status ?? 'belum_mulai',
-                    'status_label'     => $a?->statusLabel() ?? 'Belum Mulai',
-                    'dikunci'          => $a?->isLocked() ?? false,
-                    'batas_waktu_pada' => $a?->batas_waktu_pada?->toIso8601String(),
-                    'pelanggaran'      => $a ? (int) ($pelanggaranCount[$a->uuid] ?? 0) : 0,
+                    'attempt_uuid'       => $a?->uuid,
+                    'nama'               => $row['siswa']->nama,
+                    'kelas'              => trim(($uk?->kelas?->tingkat ?? '') . ($uk?->kelas?->kelas ?? '')),
+                    'status'             => $a?->status ?? 'belum_mulai',
+                    'status_label'       => $a?->statusLabel() ?? 'Belum Mulai',
+                    'dikunci'            => $a?->isLocked() ?? false,
+                    'batas_waktu_pada'   => $a?->batas_waktu_pada?->toIso8601String(),
+                    'pelanggaran'        => (int) ($pInfo['jumlah'] ?? 0),
+                    'alasan_pelanggaran' => $pInfo['alasan'] ?? null,
                 ];
             })->values();
 

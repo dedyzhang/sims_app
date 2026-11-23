@@ -54,11 +54,28 @@
         element,
         number: index + 1,
         feedback: element.hasAttribute('data-masukan'),
-        required: Array.from(element.querySelectorAll('input[type="radio"][required]')),
     })));
-    const requiredCount = (step) => new Set(step.required.map((input) => input.name)).size;
-    const answeredCount = (step) => step.required.filter((input) => input.checked).length;
-    const total = steps.reduce((sum, step) => sum + requiredCount(step), 0);
+    const getRequiredControls = (step) => {
+        const radios = Array.from(step.element.querySelectorAll('input[type="radio"]'))
+            .filter((input) => input.required && !input.disabled);
+        const textareas = Array.from(step.element.querySelectorAll('textarea'))
+            .filter((ta) => ta.required && !ta.disabled);
+        const textInputs = Array.from(step.element.querySelectorAll('input[type="text"]'))
+            .filter((input) => input.required && !input.disabled);
+        return { radios, textareas, textInputs };
+    };
+    const requiredCount = (step) => {
+        const { radios, textareas, textInputs } = getRequiredControls(step);
+        return new Set(radios.map((input) => input.name)).size + textareas.length + textInputs.length;
+    };
+    const answeredCount = (step) => {
+        const { radios, textareas, textInputs } = getRequiredControls(step);
+        const answeredRadios = radios.filter((input) => input.checked).length;
+        const answeredTextareas = textareas.filter((ta) => ta.value.trim().length > 0).length;
+        const answeredTextInputs = textInputs.filter((input) => input.value.trim().length > 0).length;
+        return answeredRadios + answeredTextareas + answeredTextInputs;
+    };
+    const totalRequired = () => steps.reduce((sum, step) => sum + requiredCount(step), 0);
     const sectionButtons = Array.from(content.querySelectorAll('[data-bagian]'));
     const subjectList = content.querySelector('.survei-daftar-mapel');
     const previous = document.getElementById('survei-sebelumnya');
@@ -123,6 +140,7 @@
     }
 
     function updateProgress() {
+        const total = totalRequired();
         const answered = steps.reduce((sum, step) => sum + answeredCount(step), 0);
         progress.max = total;
         progress.value = answered;
@@ -145,7 +163,7 @@
             button.hidden = step.section !== currentSection;
             const done = requiredCount(step) > 0 && answeredCount(step) === requiredCount(step);
             const answer = done && !step.feedback
-                ? step.required.find((input) => input.checked)?.closest('label')?.querySelector('.survei-huruf')?.textContent
+                ? step.element.querySelector('input[type="radio"]:checked')?.closest('label')?.querySelector('.survei-huruf')?.textContent
                 : null;
             button.classList.toggle('is-complete', done);
             button.setAttribute('aria-current', index === current ? 'step' : 'false');
@@ -206,6 +224,10 @@
     });
 
     form.addEventListener('input', updateProgress);
+    form.addEventListener('change', () => {
+        updateProgress();
+        setTimeout(updateProgress, 0);
+    });
     sectionButtons.forEach((button) => button.addEventListener('click', () => {
         const first = steps.findIndex((step) => step.section.id === button.dataset.bagian);
         showStep(first);
@@ -278,8 +300,9 @@
                 throw new Error('Akses sesi sudah berakhir. Hubungi pemandu survei.');
             }
             if (!response.ok || result.tersimpan !== true) {
+                const pesanError = result.message || (result.errors ? Object.values(result.errors)[0]?.[0] : null);
                 throw new Error(response.status === 422
-                    ? 'Periksa kembali pilihan kendala dan panjang komentar, lalu kirim ulang.'
+                    ? (pesanError || 'Periksa kembali pilihan kendala dan pastikan semua catatan wajib diisi.')
                     : 'SIMS belum dapat mengonfirmasi penyimpanan. Silakan coba lagi.');
             }
             if (pakaiSeb && !result.keluar) {

@@ -606,9 +606,37 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
     public function hasil(Request $request, Ujian $ujian, UjianAttempt $attempt)
     {
-        $this->pastikanMilikSiswa($request, $attempt);
+        return $this->retryOnDbBusy(function () use ($request, $ujian, $attempt) {
+            $this->pastikanMilikSiswa($request, $attempt);
 
-        return view('ujian.siswa.hasil', compact('ujian', 'attempt'));
+            // Jika attempt masih berstatus in_progress, arahkan kembali ke layar kerjakan (atau auto-submit jika kedaluwarsa)
+            if ($attempt->status === UjianAttempt::STATUS_IN_PROGRESS && ! $attempt->isLocked()) {
+                if ($attempt->isExpired()) {
+                    app(\App\Services\UjianGrader::class)->autoSubmitKarenaWaktuHabis($attempt);
+                    $attempt->refresh();
+                } else {
+                    return redirect()->route('ujian.siswa.kerjakan', [$ujian, $attempt]);
+                }
+            }
+
+            $soalList = collect();
+            $jawabanBySoal = collect();
+
+            // Efisiensi Memori & Bebas N+1:
+            // Hanya muat soal & jawaban jika pembahasan diaktifkan guru dan ujian sudah berstatus 'dinilai'.
+            if ($ujian->tampilkan_pembahasan && $attempt->status === UjianAttempt::STATUS_DINILAI) {
+                // 1. Ambil soal + opsi dari cache 6 jam (tanpa query DB berulang, opsi sudah eager-loaded sehingga bebas N+1 saat poinEfektif())
+                $soalList = $ujian->getCachedSoalDanOpsi();
+
+                // 2. Muat HANYA kolom esensial dari jawaban (id_soal, is_benar, skor_diperoleh) dalam 1 query, di-keyBy id_soal untuk lookup O(1)
+                $jawabanBySoal = UjianJawaban::where('id_attempt', $attempt->uuid)
+                    ->select(['id_soal', 'is_benar', 'skor_diperoleh'])
+                    ->get()
+                    ->keyBy('id_soal');
+            }
+
+            return view('ujian.siswa.hasil', compact('ujian', 'attempt', 'soalList', 'jawabanBySoal'));
+        });
     }
 
     private function pastikanMilikSiswa(Request $request, UjianAttempt $attempt): void

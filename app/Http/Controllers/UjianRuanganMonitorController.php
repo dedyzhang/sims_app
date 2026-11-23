@@ -470,24 +470,33 @@ class UjianRuanganMonitorController extends Controller
                 $rows = $rows->filter(fn ($r) => $r['id_ujian'] === $mapelFilter)->values();
             }
 
-            $pelanggaranCount = UjianPelanggaran::whereIn('id_attempt', $rows->pluck('attempt.uuid')->filter())
-                ->selectRaw('id_attempt, count(*) as jumlah')->groupBy('id_attempt')->pluck('jumlah', 'id_attempt');
+            $pelanggaranGroup = UjianPelanggaran::whereIn('id_attempt', $rows->pluck('attempt.uuid')->filter())
+                ->latest()
+                ->get()
+                ->groupBy('id_attempt')
+                ->map(fn ($group) => [
+                    'jumlah' => $group->count(),
+                    'alasan' => $group->first()->tipeLabel(),
+                    'waktu'  => $group->first()->created_at?->diffForHumans() ?? '',
+                ]);
 
             // $a SELALU ada (non-null) di titik ini — baris tanpa attempt sudah di-skip di loop atas.
-            $data = $rows->sortBy('nama')->values()->map(function ($r) use ($pelanggaranCount) {
+            $data = $rows->sortBy(fn ($r) => [$r['kelas'] ?? '', $r['nama'] ?? ''])->values()->map(function ($r) use ($pelanggaranGroup) {
                 $a = $r['attempt'];
+                $pInfo = $pelanggaranGroup[$a->uuid] ?? null;
 
                 return [
-                    'id_peserta'       => $r['id_peserta'],
-                    'nama'             => $r['nama'],
-                    'kelas'            => $r['kelas'],
-                    'mapel'            => $r['mapel'],
-                    'attempt_uuid'     => $a->uuid,
-                    'status'           => $a->status,
-                    'status_label'     => $a->statusLabel(),
-                    'dikunci'          => $a->isLocked(),
-                    'batas_waktu_pada' => $a->batas_waktu_pada?->toIso8601String(),
-                    'pelanggaran'      => (int) ($pelanggaranCount[$a->uuid] ?? 0),
+                    'id_peserta'         => $r['id_peserta'],
+                    'nama'               => $r['nama'],
+                    'kelas'              => $r['kelas'],
+                    'mapel'              => $r['mapel'],
+                    'attempt_uuid'       => $a->uuid,
+                    'status'             => $a->status,
+                    'status_label'       => $a->statusLabel(),
+                    'dikunci'            => $a->isLocked(),
+                    'batas_waktu_pada'   => $a->batas_waktu_pada?->toIso8601String(),
+                    'pelanggaran'        => (int) ($pInfo['jumlah'] ?? 0),
+                    'alasan_pelanggaran' => $pInfo['alasan'] ?? null,
                 ];
             });
 

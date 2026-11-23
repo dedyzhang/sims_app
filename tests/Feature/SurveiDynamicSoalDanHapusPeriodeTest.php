@@ -285,6 +285,9 @@ class SurveiDynamicSoalDanHapusPeriodeTest extends TestCase
                 $targetMapel->uuid => 'Sangat ramah dan asyik',
                 $targetWali->uuid => 'Tegas dan disiplin',
             ],
+            'komentar' => [
+                $targetMapel->uuid => ['Bagus', 'Perlu tingkatkan contoh'],
+            ],
             'tanda_sesi' => $periode->sesiAktif()->akses(request(), $f['kelas']->uuid),
         ];
 

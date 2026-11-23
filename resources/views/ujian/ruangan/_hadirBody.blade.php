@@ -38,7 +38,11 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($ruangan->peserta->sortBy(fn($p) => $p->siswa?->nama) as $i => $p)
+                @forelse($ruangan->peserta->sortBy(fn($p) => [
+                    intval($p->siswa?->kelas?->tingkat ?? 999),
+                    $p->siswa?->kelas?->kelas ?? 'ZZ',
+                    $p->siswa?->nama ?? '',
+                ])->values() as $i => $p)
                 @php $h = $hadirBySiswa->get($p->id_siswa); @endphp
                 <tr>
                     <td class="no">{{ $i + 1 }}</td>

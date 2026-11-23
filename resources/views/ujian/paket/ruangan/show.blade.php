@@ -32,12 +32,28 @@
 
     {{-- Peserta --}}
     <div class="card p-6 space-y-4">
-        <h2 class="font-bold text-slate-800 dark:text-slate-100">Peserta ({{ $ruangan->peserta->count() }})</h2>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+            <h2 class="font-bold text-slate-800 dark:text-slate-100">Peserta ({{ $ruangan->peserta->count() }})</h2>
+            @if($ruangan->peserta->isNotEmpty())
+            <div class="flex items-center gap-1.5 flex-wrap">
+                @foreach($ruangan->peserta->groupBy(fn($p) => $p->siswa?->kelas ? ($p->siswa->kelas->tingkat . $p->siswa->kelas->kelas) : 'Lainnya')->sortKeys() as $kls => $grup)
+                    <span class="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                        <span>{{ $kls }}</span>
+                        <span class="text-[10px] text-slate-400 font-normal">({{ $grup->count() }})</span>
+                    </span>
+                @endforeach
+            </div>
+            @endif
+        </div>
         <div class="table-responsive">
             <table class="data-table w-full text-sm">
                 <thead><tr><th>Nama</th><th>NIS</th><th>Kelas</th><th class="text-right">Aksi</th></tr></thead>
                 <tbody>
-                    @forelse($ruangan->peserta->sortBy(fn($p) => $p->siswa?->nama) as $p)
+                    @forelse($ruangan->peserta->sortBy(fn($p) => [
+                        intval($p->siswa?->kelas?->tingkat ?? 999),
+                        $p->siswa?->kelas?->kelas ?? 'ZZ',
+                        $p->siswa?->nama ?? '',
+                    ]) as $p)
                     <tr>
                         <td class="font-medium">{{ $p->siswa?->nama ?? '(siswa terhapus)' }}</td>
                         <td class="text-slate-500">{{ $p->siswa?->nis }}</td>

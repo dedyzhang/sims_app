@@ -20,8 +20,14 @@
                     <span>Kembali ke Pilih Kelas</span>
                 </a>
                 @endif
+                @if(!$kelasFilter && $ujianKelasList->count() > 1)
+                <a href="{{ route('ujian.monitor.index', ['ujian' => $ujian, 'kelas' => 'semua']) }}" class="btn-primary px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="users" class="w-4 h-4"></i>
+                    <span>Pantau Seluruh Kelas</span>
+                </a>
+                @endif
                 @if(!$kelasFilter)
-                <a href="{{ url()->current() }}" class="btn-primary px-4 py-2 text-sm font-semibold flex items-center gap-2">
+                <a href="{{ url()->current() }}" class="btn-secondary px-4 py-2 text-sm font-semibold flex items-center gap-2 rounded-xl">
                     <i data-lucide="refresh-cw" class="w-4 h-4"></i> Segarkan Data
                 </a>
                 @endif
@@ -89,7 +95,7 @@
     </div>
 
     @else
-    {{-- TAMPILAN 2: DAFTAR SISWA KELAS TERPILIH (Live Polling & Monitoring) --}}
+    {{-- TAMPILAN 2: DAFTAR SISWA KELAS TERPILIH --}}
     <div x-data="ujianMonitor({{ Js::from(route('ujian.monitor.poll', $ujian)) }}, {{ Js::from(route('ujian.monitor.unlock', [$ujian, '__ATTEMPT__'])) }}, '{{ $kelasFilter }}')"
          x-init="init()"
          class="space-y-4">
@@ -99,6 +105,7 @@
             <form method="GET" action="{{ route('ujian.monitor.index', $ujian) }}" class="flex items-center gap-2">
                 <label class="text-xs font-semibold text-slate-500">Kelas:</label>
                 <select name="kelas" class="form-select py-1.5 text-sm w-auto font-semibold" onchange="this.form.submit()">
+                    <option value="semua" @selected($kelasFilter === 'semua')>Semua Kelas</option>
                     @foreach($ujianKelasList->sortBy(fn($uk) => [$uk->kelas?->tingkat, $uk->kelas?->kelas]) as $uk)
                         <option value="{{ $uk->id_kelas }}" @selected($kelasFilter === $uk->id_kelas)>Kelas {{ $uk->kelas?->tingkat }}{{ $uk->kelas?->kelas }}</option>
                     @endforeach
@@ -108,9 +115,12 @@
             <div></div>
             @endif
 
-            <button type="button" @click="muat()" class="btn-primary px-4 py-2 text-sm font-semibold flex items-center gap-2">
-                <i data-lucide="refresh-cw" class="w-4 h-4" :class="{'animate-spin': loading}"></i> Segarkan Data
-            </button>
+            <div class="flex items-center gap-2">
+                <button type="button" @click="muat()" :disabled="loading" class="btn-primary px-3.5 py-1.5 text-xs font-semibold flex items-center gap-1.5 rounded-xl shadow-sm">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5" :class="{'animate-spin': loading}"></i>
+                    <span>Segarkan</span>
+                </button>
+            </div>
         </div>
 
         <div class="card overflow-hidden">
@@ -128,17 +138,26 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                         <template x-for="a in attempts" :key="a.attempt_uuid || a.nama">
-                            <tr>
-                                <td class="px-4 py-2.5 font-medium whitespace-nowrap" x-text="a.nama"></td>
+                            <tr :class="a.dikunci ? 'bg-rose-50/60 dark:bg-rose-950/20' : ''">
+                                <td class="px-4 py-2.5 font-medium whitespace-nowrap">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full shrink-0"
+                                              :class="a.dikunci ? 'bg-rose-500 animate-ping' : (a.status==='in_progress' ? 'bg-emerald-500' : 'bg-slate-300')"></span>
+                                        <span x-text="a.nama"></span>
+                                    </div>
+                                </td>
                                 <td class="px-4 py-2.5 text-slate-500 whitespace-nowrap" x-text="a.kelas"></td>
                                 <td class="px-4 py-2.5 whitespace-nowrap">
                                     <span class="badge"
-                                          :class="a.status==='belum_mulai' ? 'bg-slate-100 dark:bg-slate-700 text-slate-500' : (a.dikunci ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400' : (a.status==='in_progress' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'))"
+                                          :class="a.status==='belum_mulai' ? 'bg-slate-100 dark:bg-slate-700 text-slate-500' : (a.dikunci ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 font-bold' : (a.status==='in_progress' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300'))"
                                           x-text="a.dikunci ? 'Terkunci' : a.status_label"></span>
                                 </td>
                                 <td class="px-4 py-2.5 font-mono text-xs whitespace-nowrap" x-text="a.status==='in_progress' ? formatSisa(a.batas_waktu_pada) : '—'"></td>
                                 <td class="px-4 py-2.5 whitespace-nowrap">
-                                    <span x-show="a.pelanggaran > 0" class="badge bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400" x-text="a.pelanggaran"></span>
+                                    <div class="flex items-center gap-1.5" x-show="a.pelanggaran > 0">
+                                        <span class="badge bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 font-bold" x-text="a.pelanggaran"></span>
+                                        <span class="text-xs text-rose-600 dark:text-rose-400" x-show="a.alasan_pelanggaran" x-text="'(' + a.alasan_pelanggaran + ')'"></span>
+                                    </div>
                                     <span x-show="a.pelanggaran === 0" class="text-slate-300">—</span>
                                 </td>
                                 <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
@@ -177,7 +196,6 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, initialKelas) {
         kelasFilter: initialKelas || '',
         loading: false,
         _csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        _timer: null,
 
         init() {
             this.muat();
@@ -191,8 +209,9 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, initialKelas) {
                 const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
                 if (!res.ok) return;
                 const data = await res.json();
-                this.attempts = data.attempts;
+                this.attempts = data.attempts || [];
             } catch (e) {
+                console.error('Error saat memuat status ujian:', e);
             } finally {
                 this.loading = false;
                 this.$nextTick(() => {
@@ -210,7 +229,8 @@ function ujianMonitor(urlPoll, urlUnlockTemplate, initialKelas) {
         },
 
         async bukaKunci(a) {
-            await this._post(urlUnlockTemplate.replace('__ATTEMPT__', a.attempt_uuid));
+            const uuid = a.attempt_uuid;
+            await this._post(urlUnlockTemplate.replace('__ATTEMPT__', uuid));
             this.muat();
         },
 

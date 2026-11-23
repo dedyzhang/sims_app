@@ -172,7 +172,10 @@
     {{-- Overlay terkunci (client-side, cadangan sebelum reload) --}}
     <div x-show="terkunci" x-cloak class="fixed inset-0 z-[9999] bg-slate-900/95 flex items-center justify-center p-6 text-center">
         <div class="max-w-sm space-y-4">
-            <i data-lucide="lock" class="w-14 h-14 text-rose-400 mx-auto"></i>
+            <div class="relative inline-block mx-auto">
+                <span class="absolute -inset-2 rounded-full bg-rose-500/30 animate-ping"></span>
+                <i data-lucide="lock" class="w-14 h-14 text-rose-400 relative mx-auto"></i>
+            </div>
             <h2 class="text-white text-lg font-bold m-0">Ujian Terkunci</h2>
             <p class="text-slate-300 text-sm m-0 leading-relaxed">Anda keluar dari layar penuh atau berpindah tab. Hubungi guru/panitia untuk mereset, lalu muat ulang halaman ini.</p>
             <button type="button" @click="window.location.reload()" class="btn-primary px-6 py-3 rounded-xl text-sm font-bold mt-4">
@@ -307,6 +310,7 @@ function ujianKerjakan(cfg) {
         simpanStatus: 'Siap',
         simpanError: false,
         loadingBlock: false,
+        _audioCtx: null,
         _storage: null,
         _storageKey: 'sims_jawaban_' + (cfg.attemptUuid || 'default'),
         _dirtyQueue: {},
@@ -393,11 +397,32 @@ function ujianKerjakan(cfg) {
                 }
             });
 
+            // Auto-unlock audio saat interaksi pertama siswa agar alarm berbunyi tanpa tertahan browser
+            const unlockAudio = () => {
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx && !this._audioCtx) {
+                        this._audioCtx = new AudioCtx();
+                    }
+                    if (this._audioCtx && this._audioCtx.state === 'suspended') {
+                        this._audioCtx.resume();
+                    }
+                } catch (e) {}
+            };
+            document.addEventListener('click', unlockAudio, { once: true });
+            document.addEventListener('touchstart', unlockAudio, { once: true });
+            document.addEventListener('keydown', unlockAudio, { once: true });
+
             this.renderIcons();
             this.$nextTick(() => this.renderIcons());
         },
 
         masukLayarPenuh() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx && !this._audioCtx) this._audioCtx = new AudioCtx();
+                if (this._audioCtx && this._audioCtx.state === 'suspended') this._audioCtx.resume();
+            } catch (e) {}
             const el = document.documentElement;
             const req = el.requestFullscreen || el.webkitRequestFullscreen;
             if (req) {
@@ -641,11 +666,49 @@ function ujianKerjakan(cfg) {
         },
 
         kunci() {
+            if (this.terkunci) return;
             this.terkunci = true;
+            this.playAlarmSuara();
             clearInterval(this._timerHandle);
             clearInterval(this._syncTimer);
             if (this._debounceTimer) clearTimeout(this._debounceTimer);
             clearInterval(this._statusHandle);
+        },
+
+        playAlarmSuara() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                if (!this._audioCtx) {
+                    this._audioCtx = new AudioCtx();
+                }
+                if (this._audioCtx.state === 'suspended') {
+                    this._audioCtx.resume();
+                }
+                const now = this._audioCtx.currentTime;
+                // Pola nada alarm buzzer tajam di perangkat siswa
+                const freqs = [880, 587.33, 880, 587.33, 880, 587.33];
+                let t = now;
+                freqs.forEach((freq) => {
+                    const osc = this._audioCtx.createOscillator();
+                    const gain = this._audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, t);
+
+                    gain.gain.setValueAtTime(0.001, t);
+                    gain.gain.exponentialRampToValueAtTime(0.6, t + 0.03);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+
+                    osc.connect(gain);
+                    gain.connect(this._audioCtx.destination);
+
+                    osc.start(t);
+                    osc.stop(t + 0.24);
+                    t += 0.25;
+                });
+            } catch (e) {
+                console.warn('Gagal membunyikan alarm suara ujian:', e);
+            }
         },
 
         konfirmasiSubmit() {

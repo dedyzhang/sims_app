@@ -5,15 +5,19 @@
 <div class="max-w-4xl mx-auto space-y-5"
      x-data="ruanganMonitor({{ Js::from(route('ujian.ruangan.poll', $ruangan)) }}, {{ Js::from(route('ujian.ruangan.bukaKunci', [$ruangan, '__ATTEMPT__'])) }})"
      x-init="init()">
+
     <div>
         <nav class="text-xs text-slate-400 mb-1">
             <a href="{{ route('ujian.ruangan.saya') }}" class="hover:underline">Ruang Ujian Hari Ini</a> / {{ $ruangan->nama }}
         </nav>
         <div class="flex items-center justify-between flex-wrap gap-2">
             <h1 class="page-title">{{ $ruangan->nama }}</h1>
-            <button type="button" @click="muat()" class="btn-primary px-4 py-2 text-sm font-semibold flex items-center gap-2">
-                <i data-lucide="refresh-cw" class="w-4 h-4" :class="{'animate-spin': loading}"></i> Segarkan Data
-            </button>
+            <div class="flex items-center gap-2">
+                <button type="button" @click="muat()" :disabled="loading" class="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5" :class="{'animate-spin': loading}"></i>
+                    <span>Segarkan</span>
+                </button>
+            </div>
         </div>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ $ruangan->paket?->nama }} · Daftar kehadiran siswa.</p>
         @unless($adaJadwalHariIni)
@@ -68,22 +72,34 @@
             </thead>
             <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                 <template x-for="p in peserta" :key="p.id_peserta">
-                    <tr>
-                        <td class="px-4 py-2.5 font-medium" x-text="p.nama"></td>
+                    <tr :class="p.dikunci ? 'bg-rose-50/60 dark:bg-rose-950/20' : ''">
+                        <td class="px-4 py-2.5 font-medium">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full shrink-0"
+                                      :class="p.dikunci ? 'bg-rose-500 animate-ping' : (p.status==='in_progress' ? 'bg-emerald-500' : 'bg-slate-300')"></span>
+                                <span x-text="p.nama"></span>
+                            </div>
+                        </td>
                         <td class="px-4 py-2.5 text-slate-500" x-text="p.kelas"></td>
                         <td class="px-4 py-2.5 text-slate-500" x-text="p.mapel || '—'"></td>
                         <td class="px-4 py-2.5">
                             <span class="badge"
-                                  :class="p.dikunci ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400' : (p.status==='in_progress' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300')"
+                                  :class="p.dikunci ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 font-bold' : (p.status==='in_progress' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300')"
                                   x-text="p.dikunci ? 'Terkunci' : p.status_label"></span>
                         </td>
                         <td class="px-4 py-2.5 font-mono text-xs" x-text="p.status==='in_progress' ? formatSisa(p.batas_waktu_pada) : '—'"></td>
                         <td class="px-4 py-2.5">
-                            <span x-show="p.pelanggaran > 0" class="badge bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400" x-text="p.pelanggaran"></span>
+                            <div class="flex items-center gap-1.5" x-show="p.pelanggaran > 0">
+                                <span class="badge bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 font-bold" x-text="p.pelanggaran"></span>
+                                <span class="text-xs text-rose-600 dark:text-rose-400" x-show="p.alasan_pelanggaran" x-text="'(' + p.alasan_pelanggaran + ')'"></span>
+                            </div>
                             <span x-show="p.pelanggaran === 0" class="text-slate-300">—</span>
                         </td>
                         <td class="px-4 py-2.5 text-right whitespace-nowrap">
-                            <button type="button" x-show="p.dikunci" @click="bukaKunci(p)" class="text-xs text-primary hover:underline">Buka Kunci</button>
+                            <button type="button" x-show="p.dikunci" @click="bukaKunci(p)" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg text-rose-700 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 hover:bg-rose-100 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+                                <span>Buka Kunci</span>
+                            </button>
                         </td>
                     </tr>
                 </template>
@@ -240,7 +256,11 @@
                                 <p class="text-xs text-slate-400">Terisi otomatis dari scan QR ruangan / sudah mulai ujian (tergantung setting sekolah) — sesuaikan kalau perlu.</p>
                             </div>
                             <div class="divide-y divide-slate-100 dark:divide-slate-700 border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
-                                @forelse($ruangan->peserta->sortBy(fn($p) => $p->siswa?->nama) as $p)
+                                @forelse($ruangan->peserta->sortBy(fn($p) => [
+                                    intval($p->siswa?->kelas?->tingkat ?? 999),
+                                    $p->siswa?->kelas?->kelas ?? 'ZZ',
+                                    $p->siswa?->nama ?? '',
+                                ]) as $p)
                                 @php
                                     $existing = $sesi->hadirMap->get($p->id_siswa);
                                     $autoHadir = (bool) $sesi->autoHadirMap->get($p->id_siswa);
@@ -364,7 +384,11 @@
                                 @endif
                             </div>
                             <div class="divide-y divide-slate-100 dark:divide-slate-700 border border-slate-100 dark:border-slate-700 rounded-xl overflow-hidden">
-                                @forelse($ruangan->peserta->sortBy(fn($p) => $p->siswa?->nama) as $p)
+                                @forelse($ruangan->peserta->sortBy(fn($p) => [
+                                    intval($p->siswa?->kelas?->tingkat ?? 999),
+                                    $p->siswa?->kelas?->kelas ?? 'ZZ',
+                                    $p->siswa?->nama ?? '',
+                                ]) as $p)
                                 @php
                                     $existing = $baAdhocModal->exists ? $baAdhocModal->hadirMap->get($p->id_siswa) : null;
                                     $autoHadir = $baAdhocModal->exists ? (bool) $baAdhocModal->autoHadirMap->get($p->id_siswa) : false;
@@ -411,7 +435,6 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
         mapelFilter: '',
         loading: false,
         _csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        _timer: null,
 
         init() {
             this.muat();
@@ -428,8 +451,8 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
                     return;
                 }
                 const data = await res.json();
-                this.peserta = data.peserta;
-                this.mapelOpsi = data.mapelOpsi;
+                this.peserta = data.peserta || [];
+                this.mapelOpsi = data.mapelOpsi || [];
             } catch (e) {
                 console.error('Error saat memuat status ruangan:', e);
             } finally {
@@ -450,6 +473,7 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
 
         async bukaKunci(p) {
             const self = this;
+            const uuid = p.attempt_uuid;
             $.confirm({
                 title: 'Buka Kunci?',
                 content: `Buka kunci ${p.nama}? Siswa akan bisa melanjutkan ujian dari titik terakhir.`,
@@ -458,7 +482,7 @@ function ruanganMonitor(urlPoll, urlUnlockTemplate) {
                     ya: {
                         text: 'Ya, Buka Kunci', btnClass: 'btn-blue', keys: ['enter'],
                         action: async function () {
-                            await fetch(urlUnlockTemplate.replace('__ATTEMPT__', p.attempt_uuid), {
+                            await fetch(urlUnlockTemplate.replace('__ATTEMPT__', uuid), {
                                 method: 'POST',
                                 headers: { 'X-CSRF-TOKEN': self._csrf, 'Accept': 'application/json' },
                             });
