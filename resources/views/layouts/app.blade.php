@@ -36,7 +36,12 @@
         // dihapus (redefinisi yg identik itu aman) supaya diff perubahan ini tetap kecil.
         $access  = auth()->user()?->access;
         $isAdmin = in_array($access, ['superadmin','admin']);
-        $canManageFeedback = auth()->user()?->canAccess('manage_feedback') ?? false;
+        // Mode Ujian + siswa → halaman ujian dibuat RINGAN: dekorasi motif (±30 KB SVG), widget
+        // AsistenAI & chatbot, popup "Apa yang Baru", foto profil, & breadcrumb dilewati — semua
+        // itu tak dipakai (dan rutenya memang dikunci EnforceModeUjian) saat ujian, tapi dulu
+        // tetap dirender & di-query di SETIAP halaman ujian ×ribuan siswa.
+        $ujianRingan = $access === 'siswa' && \App\Support\ModeUjian::aktif();
+        $canManageFeedback = ! $ujianRingan && (auth()->user()?->canAccess('manage_feedback') ?? false);
         $modulOn = fn (string $kode) => \App\Support\ModulAktif::aktif($kode);
         // Default aman (array kosong) — nilai sungguhan cuma dihitung di dalam <aside>. Dulu
         // $activeGroups di skrip badge (baris ~1548) cuma lolos di mode kios krn kebetulan
@@ -221,15 +226,28 @@
         // yg TAK PERNAH boleh dimatikan lewat Performa Server (ujian berjalan, pemantauan
         // ruangan ujian).
         window.simsPollTimers = window.simsPollTimers || new Map();
+        window.simsPollStoppers = window.simsPollStoppers || new Map();
+        window.simsStopPoll = function (key) {
+            if (!key) return;
+            if (window.simsPollStoppers && window.simsPollStoppers.has(key)) {
+                try { window.simsPollStoppers.get(key)(); } catch (_) {}
+                window.simsPollStoppers.delete(key);
+            }
+            if (window.simsPollTimers && window.simsPollTimers.has(key)) {
+                clearInterval(window.simsPollTimers.get(key));
+                window.simsPollTimers.delete(key);
+            }
+        };
         window.simsPollInterval = function (fn, ms, kode = null, key = null) {
             if (key && window.simsPollTimers.has(key)) return window.simsPollTimers.get(key);
+            let stopped = false;
             let running = false;
             let lastStarted = Date.now();
             // Timer browser ber-jitter beberapa ms; tanpa toleransi, tick sah bisa terlewat
             // sehingga interval 60 dtk diam-diam jadi 120 dtk.
             const toleransi = Math.min(1000, ms / 10);
             const run = async () => {
-                if (document.hidden || window.simsPollingNonaktif(kode) || running) return;
+                if (stopped || document.hidden || window.simsPollingNonaktif(kode) || running) return;
                 // A visibility event and timer tick can arrive together; honour one cadence.
                 if (Date.now() - lastStarted < ms - toleransi) return;
                 running = true;
@@ -237,8 +255,17 @@
                 try { await fn(); } catch (_) {} finally { running = false; }
             };
             const id = setInterval(run, ms);
-            document.addEventListener('visibilitychange', run);
-            if (key) window.simsPollTimers.set(key, id);
+            const onVisibility = () => { if (!stopped) run(); };
+            document.addEventListener('visibilitychange', onVisibility);
+            const stop = () => {
+                stopped = true;
+                clearInterval(id);
+                document.removeEventListener('visibilitychange', onVisibility);
+            };
+            if (key) {
+                window.simsPollTimers.set(key, id);
+                window.simsPollStoppers.set(key, stop);
+            }
             return id;
         };
     </script>
@@ -589,10 +616,12 @@
       class="app-bg antialiased text-slate-800 dark:text-slate-100 relative overflow-hidden" data-motif="{{ $pref->motif ?? 'botanical' }}" data-style="{{ $pref->ui_style ?? 'soft' }}">
 
 <div id="sims-wallpaper" aria-hidden="true"></div><div id="sims-wallpaper-shade" aria-hidden="true"></div>
-{{-- ===== Dekorasi motif (ikut tema pilihan) ===== --}}
+{{-- ===== Dekorasi motif (ikut tema pilihan) — dilewati di halaman ujian (lihat $ujianRingan) ===== --}}
+@unless($ujianRingan)
 @include('partials.decorations')
+@endunless
 
-@php $myFace = auth()->user()?->siswa?->face_photo_url ?? auth()->user()?->guru?->face_photo_url; @endphp
+@php $myFace = $ujianRingan ? null : (auth()->user()?->siswa?->face_photo_url ?? auth()->user()?->guru?->face_photo_url); @endphp
 
 {{-- h-screen (100vh) TIDAK cocok di mobile: address bar yang muncul/hilang bikin 100vh
      ≠ tinggi layar terlihat → konten terpotong & muncul area putih saat scroll. h-[100dvh]
@@ -725,8 +754,15 @@
                     }
                 }
 
-                // Survei mati total selama Mode Ujian (saklar induk) — menu ikut disembunyikan.
-                if (\App\Support\ModeUjian::nonaktif() && ($access === 'siswa' || auth()->user()?->canFacilitateSurvei() || auth()->user()?->canViewSurveiResults() || auth()->user()?->canViewOwnSurveiResults())) {
+                // Survei Pembelajaran: hanya admin, role yang diberi akses (view_survei atau jadi_surveyor), dan siswa.
+                // Selebihnya (guru biasa tanpa izin khusus, walikelas tanpa izin, tendik, dll) benar-benar dihilangkan dari menu.
+                // Mati total selama Mode Ujian.
+                $canAccessSurvei = $access === 'siswa'
+                    || ($isAdmin ?? false)
+                    || (auth()->user()?->canViewSurveiResults() ?? false)
+                    || (auth()->user()?->canFacilitateSurvei() ?? false);
+
+                if (\App\Support\ModeUjian::nonaktif() && $canAccessSurvei) {
                     $groups['survei'] = ['Survei', 'clipboard-list', [['survei.index', ['survei.*'], 'clipboard-list', 'Survei Pembelajaran']]];
                 }
 
@@ -1656,7 +1692,7 @@
 
         @endunless
 
-        @unless($kioskChrome || $isPanduanPage)
+        @unless($kioskChrome || $isPanduanPage || $ujianRingan)
         {{-- Breadcrumb strip --}}
         <div class="px-4 md:px-7 pb-1 hidden md:flex items-center gap-1.5 text-xs text-slate-400 flex-shrink-0">
             <a href="{{ route('dashboard') }}" class="hover:text-slate-600 grid place-items-center"><i data-lucide="home" class="w-3.5 h-3.5"></i></a>
@@ -1750,7 +1786,7 @@
     @endif
 </div>
 
-@if(\App\Support\ModulAktif::aktif('chatbot') && in_array($access, ['siswa', 'orangtua']) && !$kioskChrome)
+@if(\App\Support\ModulAktif::aktif('chatbot') && in_array($access, ['siswa', 'orangtua']) && !$kioskChrome && !$ujianRingan)
 {{-- ─── Floating Asisten Sekolah ─────────────────────────────────────────────
      Bola mengambang khusus SISWA & ORANG TUA untuk menghubungi admin manusia
      (handoff). Staf & admin memakai widget AsistenAI, bukan ini — agar tiap
@@ -1836,11 +1872,14 @@
 @endif
 
 {{-- Widget AsistenAI (Fase 2) — Hanya untuk siswa & orang tua. Role staf & admin dinonaktifkan sesuai permintaan. --}}
-@if(in_array($access, ['siswa', 'orangtua']) && !($isScanKioskSurface ?? false) && !$kioskChrome)
+@if(in_array($access, ['siswa', 'orangtua']) && !($isScanKioskSurface ?? false) && !$kioskChrome && !$ujianRingan)
 @include('partials.ai-assistant')
 @endif
 
+{{-- Popup "Apa yang Baru" tak boleh muncul menimpa layar ujian siswa. --}}
+@unless($ujianRingan)
 @include('partials.whats-new-modal')
+@endunless
 
 <script>
     function appShell() {
@@ -2531,17 +2570,39 @@
     document.addEventListener('DOMContentLoaded', () => {
         const tickerValues = Array.from(document.querySelectorAll('[data-sims-ticker] [class*="ticker-val-"]'));
         if (!tickerValues.length) return;
+
+        const stopTickerPolling = () => {
+            if (typeof window.simsStopPoll === 'function') {
+                window.simsStopPoll('footer-ticker');
+            } else if (window.simsPollTimers && window.simsPollTimers.has('footer-ticker')) {
+                clearInterval(window.simsPollTimers.get('footer-ticker'));
+                window.simsPollTimers.delete('footer-ticker');
+            }
+            const ticker = document.querySelector('[data-sims-ticker]');
+            if (ticker) ticker.style.display = 'none';
+        };
+
         const updateTickerStats = async () => {
             if (document.querySelector('[data-sims-ticker]')?.dataset.paused === 'true') return;
             try {
-                const response = await fetch('{{ route('dashboard.ticker-stats') }}');
+                const response = await fetch('{{ route('dashboard.ticker-stats') }}', {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                // Jika sesi kadaluarsa atau logout (401 / 419), matikan polling seketika
+                if (response.status === 401 || response.status === 419) {
+                    stopTickerPolling();
+                    return;
+                }
+
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.mode_ujian) {
-                        // Mode Ujian dinyalakan setelah tab ini dibuka: hentikan polling & sembunyikan ticker.
-                        clearInterval(window.simsPollTimers.get('footer-ticker'));
-                        window.simsPollTimers.delete('footer-ticker');
-                        const ticker = document.querySelector('[data-sims-ticker]'); if (ticker) ticker.style.display = 'none';
+                    if (data.mode_ujian || data.stopped || data.auth === false) {
+                        // Mode Ujian dinyalakan setelah tab ini dibuka atau sesi habis: hentikan polling & sembunyikan ticker.
+                        stopTickerPolling();
                         return;
                     }
 
@@ -2553,8 +2614,8 @@
                         if (el.textContent !== value) el.textContent = value;
                     });
                 }
-            } catch (e) {
-                console.error("Error updating ticker stats:", e);
+            } catch (_) {
+                // Jaringan terputus sesaat: diamkan agar tidak mengotori konsol browser
             }
         };
 

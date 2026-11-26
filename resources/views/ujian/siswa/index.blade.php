@@ -46,6 +46,7 @@
                             @endif
                             @if($uk->belumDimulai() && !in_array($uk->id_ujian, $susulanIds))
                                 <span class="block text-slate-400 mt-1">Dibuka {{ $uk->dibuka_mulai->translatedFormat('d M Y, H:i') }}</span>
+                                <span class="block font-mono font-bold text-amber-600 dark:text-amber-400 mt-0.5" data-hitung-mundur="{{ $uk->dibuka_mulai->getTimestampMs() }}"></span>
                             @endif
                         </p>
                     </div>
@@ -67,3 +68,44 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+// Hitung mundur per ujian yg belum dimulai + muat ulang OTOMATIS sekali saat yg terdekat
+// tiba (jeda acak 0–15 dtk per siswa) — siswa tak perlu menekan refresh berulang kali sambil
+// menunggu (tiap refresh = 1 request penuh ke server, ×ratusan siswa). Jam dihitung dari jam
+// SERVER, bukan jam HP siswa.
+(function () {
+    const el = document.querySelectorAll('[data-hitung-mundur]');
+    if (!el.length) return;
+    const selisih = {{ now()->getTimestampMs() }} - Date.now();
+    const jedaAcak = Math.floor(Math.random() * 15000);
+    const dua = (n) => String(n).padStart(2, '0');
+    let sudahReload = false;
+
+    const tick = () => {
+        const kini = Date.now() + selisih;
+        let terdekat = Infinity;
+        el.forEach((s) => {
+            const sisa = Number(s.dataset.hitungMundur) - kini;
+            terdekat = Math.min(terdekat, sisa);
+            if (sisa > 0) {
+                const dtk = Math.ceil(sisa / 1000);
+                const hari = Math.floor(dtk / 86400);
+                const jam = Math.floor((dtk % 86400) / 3600);
+                const mnt = Math.floor((dtk % 3600) / 60);
+                s.textContent = 'Dimulai dalam ' + (hari > 0 ? hari + ' hari ' : '') + (hari > 0 || jam > 0 ? dua(jam) + ':' : '') + dua(mnt) + ':' + dua(dtk % 60);
+            } else {
+                s.textContent = 'Membuka… halaman akan diperbarui otomatis';
+            }
+        });
+        if (!sudahReload && terdekat + jedaAcak <= 0) {
+            sudahReload = true;
+            window.location.reload();
+        }
+    };
+    tick();
+    setInterval(tick, 1000);
+})();
+</script>
+@endpush

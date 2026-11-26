@@ -114,7 +114,11 @@ return [
     |
     */
 
-    'lottery' => [2, 100],
+    // 1 dari 500 request (dulu 2 dari 100). Dgn SESSION_DRIVER=file, "menyapu" = memindai
+    // SELURUH folder storage/framework/sessions (ribuan file saat ujian massal) di dalam
+    // request siswa yg kebetulan kena undian. Saat ujian (puluhan ribu request) 2% berarti
+    // ratusan kali pemindaian penuh; 0,2% tetap cukup utk membersihkan sesi kedaluwarsa.
+    'lottery' => [1, 500],
 
     /*
     |--------------------------------------------------------------------------

@@ -31,6 +31,21 @@ class Siswa extends Model
         'face_registered_at' => 'datetime',
     ];
 
+    /**
+     * Kolom MINIMAL yg disimpan di session sbg profil_siswa_{uuid} (lihat
+     * LoginController::loginResilient, UjianSiswaController::siswaAtauGagal, UjianPolicy::take).
+     * Dulu SELURUH baris siswa ikut disimpan — termasuk face_descriptor/_if (±90 KB, tercatat
+     * 2x oleh Eloquent) + data pribadi ortu — sehingga file session tiap siswa ±185 KB dan
+     * DIBACA+DITULIS ULANG di setiap request (autosave ujian ×ribuan siswa = puluhan GB tulis
+     * disk per ujian). Yg dipakai dari profil ini cuma uuid & id_kelas.
+     */
+    public const KOLOM_PROFIL_SESI = ['uuid', 'id_login', 'id_kelas', 'nama', 'nis'];
+
+    public static function profilUntukSesi(string $idLogin): ?self
+    {
+        return static::where('id_login', $idLogin)->first(self::KOLOM_PROFIL_SESI);
+    }
+
     public function getFacePhotoUrlAttribute(): ?string
     {
         return \App\Support\FaceMatch::photoUrl($this->face_photo, $this->uuid);

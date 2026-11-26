@@ -16,12 +16,21 @@
     @endif
 
     @if($ujianKelas->belumDimulai())
-    <div class="card p-6 text-center space-y-2">
+    {{-- Hitung mundur di browser — siswa TAK perlu refresh berulang (dulu tiap refresh = 1
+         request penuh ke server, ×ratusan siswa yg menunggu). Saat jam mulai tiba, halaman
+         memuat ulang SENDIRI tepat sekali, dgn jeda acak 0–15 dtk per siswa supaya ratusan
+         siswa tak serempak menembak server di detik yg sama. Waktu dihitung dari jam SERVER
+         (bukan jam HP siswa yg bisa saja meleset). --}}
+    <div id="gate-menunggu" class="card p-6 text-center space-y-2"
+         data-buka-ms="{{ $ujianKelas->dibuka_mulai->getTimestampMs() }}"
+         data-server-now-ms="{{ now()->getTimestampMs() }}">
         <i data-lucide="clock" class="w-8 h-8 mx-auto text-amber-500"></i>
         <p class="font-bold text-slate-800 dark:text-slate-100">Ujian Belum Dimulai</p>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Ujian ini baru bisa dikerjakan mulai <b>{{ $ujianKelas->dibuka_mulai->translatedFormat('d M Y, H:i') }}</b>. Kembali lagi ke halaman ini saat waktunya tiba.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Ujian ini baru bisa dikerjakan mulai <b>{{ $ujianKelas->dibuka_mulai->translatedFormat('d M Y, H:i') }}</b>.</p>
+        <p id="gate-sisa" class="text-2xl font-extrabold font-mono tracking-wider text-slate-700 dark:text-slate-200" aria-live="polite"></p>
+        <p id="gate-sisa-ket" class="text-xs text-slate-400">Tetap di halaman ini — kolom token akan muncul otomatis saat waktunya tiba. Tidak perlu memuat ulang halaman.</p>
     </div>
-    @else
+    @endif
 
     @if($ujian->instruksi)
     <div class="card p-5">
@@ -42,6 +51,7 @@
         </ul>
     </div>
 
+    @unless($ujianKelas->belumDimulai())
     <form method="POST" action="{{ route('ujian.siswa.start', $ujian) }}" id="form-mulai-ujian" class="card p-5 space-y-3">
         @csrf
         <div>
@@ -54,13 +64,55 @@
             <i data-lucide="log-in" class="w-4 h-4"></i> Mulai Ujian
         </button>
     </form>
-    @endif
+    @endunless
 </div>
 @endsection
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const tunggu = (ms) => new Promise(r => setTimeout(r, ms));
+    const acak = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
+
+    // ── A. Hitung mundur sampai jam mulai, lalu muat ulang SEKALI (jeda acak 0–15 dtk) ──
+    const boxTunggu = document.getElementById('gate-menunggu');
+    if (boxTunggu) {
+        const bukaMs = Number(boxTunggu.dataset.bukaMs);
+        // Koreksi jam HP siswa thd jam server (HP sering meleset beberapa menit).
+        const selisih = Number(boxTunggu.dataset.serverNowMs) - Date.now();
+        const jedaAcak = acak(0, 15000);
+        const elSisa = document.getElementById('gate-sisa');
+        const elKet = document.getElementById('gate-sisa-ket');
+        const dua = (n) => String(n).padStart(2, '0');
+        let sudahReload = false;
+
+        const tick = () => {
+            const sisa = bukaMs - (Date.now() + selisih);
+            if (sisa > 0) {
+                const dtk = Math.ceil(sisa / 1000);
+                const hari = Math.floor(dtk / 86400);
+                const jam = Math.floor((dtk % 86400) / 3600);
+                const mnt = Math.floor((dtk % 3600) / 60);
+                elSisa.textContent = (hari > 0 ? hari + ' hari ' : '') + (hari > 0 || jam > 0 ? dua(jam) + ':' : '') + dua(mnt) + ':' + dua(dtk % 60);
+                return;
+            }
+            const sisaJeda = sisa + jedaAcak;
+            if (sisaJeda > 0) {
+                elSisa.textContent = 'Membuka…';
+                elKet.textContent = 'Menyiapkan kolom token dalam ' + Math.ceil(sisaJeda / 1000) + ' detik. Jangan memuat ulang halaman.';
+                return;
+            }
+            if (!sudahReload) {
+                sudahReload = true;
+                elKet.textContent = 'Memuat kolom token…';
+                window.location.reload();
+            }
+        };
+        tick();
+        setInterval(tick, 1000);
+    }
+
+    // ── Form token ──
     const form = document.getElementById('form-mulai-ujian');
     const btn = document.getElementById('btn-mulai-ujian');
     const inputToken = form?.querySelector('input[name="token"]');
@@ -72,6 +124,9 @@ document.addEventListener('DOMContentLoaded', function () {
     inputToken?.addEventListener('input', function () {
         this.value = this.value.replace(/\s+/g, '');
     });
+
+    const spinner = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+    const setTombol = (teks) => { btn.innerHTML = spinner + ' ' + teks; };
 
     form.addEventListener('submit', async function (e) {
         e.preventDefault();
@@ -90,23 +145,28 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.disabled = true;
         btn.classList.add('opacity-80', 'cursor-not-allowed');
         const originalBtnHtml = btn.innerHTML;
-        btn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Menghubungkan ke server...';
 
         // Hapus alert error sebelumnya jika ada
         const existingAlert = document.getElementById('token-error-alert');
         if (existingAlert) existingAlert.remove();
 
-        // Rencana 5: Micro-Jitter (100ms - 1900ms) untuk meratakan lonjakan serempak
-        const jitterMs = Math.floor(Math.random() * 1800) + 100;
-        await new Promise(r => setTimeout(r, jitterMs));
+        // Jeda antre acak 0,3–4 dtk SEBELUM token dikirim: begitu token diumumkan, satu ruangan
+        // menekan "Mulai" hampir bersamaan. Waktu ujian BELUM berjalan selama jeda ini (baru
+        // dihitung saat server menerima token), jadi aman & adil bagi siswa.
+        setTombol('Masuk antrean…');
+        await tunggu(acak(300, 4000));
 
-        // Submit dengan Fetch dan 4x Silent Retry diam-diam jika server sedang sibuk sesaat
         const csrf = form.querySelector('input[name="_token"]')?.value || '';
         let lastErrorMessage = '';
+        // Jeda coba-ulang bertingkat (2 dtk, 5 dtk, 10 dtk) + acak — dulu 0,6–2,4 dtk,
+        // terlalu rapat saat server memang sedang penuh. Retry-After dari server diutamakan.
+        const jedaUlang = [2000, 5000, 10000];
 
         for (let attempt = 0; attempt < 4; attempt++) {
+            setTombol(attempt === 0 ? 'Menghubungkan ke server…' : 'Mencoba lagi…');
+            let res;
             try {
-                const res = await fetch(form.action, {
+                res = await fetch(form.action, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -115,57 +175,79 @@ document.addEventListener('DOMContentLoaded', function () {
                     },
                     body: JSON.stringify({ token: tokenVal }),
                 });
+            } catch (err) {
+                res = null; // gangguan jaringan — dicoba lagi di bawah
+            }
 
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.redirect) {
-                        // Jeda acak halus (200ms - 1200ms) sebelum pindah ke soal agar ratusan siswa
-                        // tidak serentak menembak route /kerjakan di detik yang persis sama
-                        const redirectJitter = Math.floor(Math.random() * 1000) + 200;
-                        await new Promise(r => setTimeout(r, redirectJitter));
-                        window.location.href = data.redirect;
-                        return;
-                    }
+            if (res && res.ok) {
+                const ct = res.headers.get('content-type') || '';
+                if (!ct.includes('application/json')) {
+                    // Bukan JSON (mis. sesi habis lalu diarahkan ke halaman login) — muat ulang
+                    // halaman supaya siswa melihat keadaan sebenarnya.
                     window.location.reload();
                     return;
                 }
-
-                if (res.status === 422) {
-                    // Token salah (kesalahan ketik siswa, tidak perlu retry ke server)
-                    const errData = await res.json().catch(() => ({}));
-                    lastErrorMessage = errData.message || 'Token salah. Minta token yang benar ke guru/panitia ujian.';
-                    break;
+                const data = await res.json().catch(() => null);
+                if (data && data.redirect) {
+                    // Jeda acak halus (200ms - 1200ms) sebelum pindah ke soal agar ratusan siswa
+                    // tidak serentak menembak route /kerjakan di detik yang persis sama
+                    await tunggu(acak(200, 1200));
+                    window.location.href = data.redirect;
+                    return;
                 }
-
-                if (res.status === 403) {
-                    const errData = await res.json().catch(() => ({}));
-                    lastErrorMessage = errData.message || 'Ujian belum dibuka untuk kelas Anda atau waktu belum tiba.';
-                    break;
-                }
-
-                // Jika status 503 (database busy) atau 500, tunggu dengan jeda bertingkat lalu coba lagi diam-diam
-                if ((res.status === 503 || res.status >= 500) && attempt < 3) {
-                    const retryWait = (attempt + 1) * 600 + Math.floor(Math.random() * 400);
-                    await new Promise(r => setTimeout(r, retryWait));
-                    continue;
-                }
-
-                lastErrorMessage = 'Koneksi ke server sedang padat. Silakan tekan Mulai Ujian sekali lagi.';
-            } catch (err) {
-                if (attempt < 3) {
-                    const retryWait = (attempt + 1) * 600 + Math.floor(Math.random() * 400);
-                    await new Promise(r => setTimeout(r, retryWait));
-                    continue;
-                }
-                lastErrorMessage = 'Gagal menghubungi server. Periksa koneksi internet Anda lalu coba lagi.';
+                window.location.reload();
+                return;
             }
+
+            if (res && res.status === 422) {
+                // Token salah (kesalahan ketik siswa, tidak perlu retry ke server)
+                const errData = await res.json().catch(() => ({}));
+                lastErrorMessage = errData.message || 'Token salah. Minta token yang benar ke guru/panitia ujian.';
+                break;
+            }
+
+            if (res && res.status === 403) {
+                const errData = await res.json().catch(() => ({}));
+                lastErrorMessage = errData.message || 'Ujian belum dibuka untuk kelas Anda atau waktu belum tiba.';
+                break;
+            }
+
+            if (res && res.status === 419) {
+                lastErrorMessage = 'Sesi Anda sudah berakhir. Muat ulang halaman ini (atau login lagi), lalu masukkan token kembali.';
+                break;
+            }
+
+            if (res && res.status === 401) {
+                window.location.reload();
+                return;
+            }
+
+            // Sisa: 429 (terlalu sering), 5xx (server sibuk), atau gangguan jaringan → tunggu
+            // lalu coba lagi diam-diam. (Dulu 429 dicoba ulang TANPA jeda sama sekali.)
+            if (attempt < 3) {
+                const retryAfter = res ? parseInt(res.headers.get('Retry-After') || '', 10) : NaN;
+                let wait = Number.isFinite(retryAfter) && retryAfter > 0
+                    ? retryAfter * 1000 + acak(0, 2000)
+                    : jedaUlang[attempt] + acak(0, 2000);
+                const sampai = Date.now() + wait;
+                while (Date.now() < sampai) {
+                    setTombol('Server sedang padat, mencoba lagi dalam ' + Math.ceil((sampai - Date.now()) / 1000) + ' detik…');
+                    await tunggu(Math.min(1000, Math.max(0, sampai - Date.now())));
+                }
+                continue;
+            }
+
+            lastErrorMessage = res
+                ? 'Koneksi ke server sedang padat. Tunggu sebentar lalu tekan Mulai Ujian sekali lagi.'
+                : 'Gagal menghubungi server. Periksa koneksi internet Anda lalu coba lagi.';
         }
 
-        // Jika sampai di sini berarti gagal setelah dicoba 4x
+        // Jika sampai di sini berarti gagal
         isSubmitting = false;
         btn.disabled = false;
         btn.classList.remove('opacity-80', 'cursor-not-allowed');
         btn.innerHTML = originalBtnHtml;
+        if (window.lucide) lucide.createIcons();
 
         const alertDiv = document.createElement('div');
         alertDiv.id = 'token-error-alert';

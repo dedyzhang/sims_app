@@ -424,6 +424,7 @@ class UjianController extends Controller implements HasMiddleware
                 // Ganti mapel bikin kelas+token LAMA (kalau ada) tak relevan lagi (kelas itu blm
                 // tentu diajar mapel BARU) — lepas semua drpd diam2 nyimpen kelas salah konteks.
                 $ujian->kelas()->delete();
+                $ujian->clearKelasCache(); // mass delete tak memicu event UjianKelas::deleted
             }
             $update['id_pelajaran'] = $data['id_pelajaran'];
         }
@@ -560,6 +561,9 @@ class UjianController extends Controller implements HasMiddleware
         } else {
             $ujianKelas->update(['token_masuk' => $token]);
         }
+        // Mass update di atas TIDAK memicu event UjianKelas::saved — tanpa ini siswa masih
+        // dicocokkan dgn token LAMA dari cache (getCachedKelas) & token baru ditolak "salah".
+        $ujian->clearKelasCache();
 
         return back()->with('success', 'Token masuk diperbarui untuk semua kelas tingkat ' . $tingkat . ' pada ujian ini.');
     }
@@ -647,6 +651,8 @@ class UjianController extends Controller implements HasMiddleware
                     ->whereHas('kelas', fn ($q) => $q->where('tingkat', $tingkat))
                     ->update(['token_masuk' => $token]);
             });
+        // Lihat regenerateToken(): mass update tak memicu event, cache token wajib dibuang manual.
+        $ujian->clearKelasCache();
 
         return back()->with('success', 'Token masuk diperbarui untuk semua kelas pada ujian ini.');
     }

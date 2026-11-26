@@ -44,6 +44,8 @@ class LoginController extends Controller
         }
 
         if (!$user || !Hash::check($request->password, $user->password)) {
+            $this->tandaiGagalKredensial($request);
+
             return back()->withErrors(['credential' => 'Username / NIK / NIS atau password salah.'])->withInput(['credential' => $credential]);
         }
 
@@ -77,6 +79,8 @@ class LoginController extends Controller
         }
 
         if (!$user || !$user->pin || !Hash::check($request->pin, $user->pin)) {
+            $this->tandaiGagalKredensial($request);
+
             return response()->json(['message' => 'Kredensial atau PIN salah.'], 401);
         }
 
@@ -293,20 +297,34 @@ class LoginController extends Controller
      * Query login SENGAJA dipisah dari cek password/Auth::login — supaya password salah
      * (kasus normal, JANGAN diulang-ulang) tak ikut ke-retry.
      */
+    /**
+     * Penanda utk limiter 'login' (AppServiceProvider): HANYA kredensial/PIN salah yg dihitung
+     * sbg percobaan. Dulu login SUKSES & klik berulang saat server lambat ikut terhitung, jadi
+     * siswa yg menekan "Masuk" 6x krn tak sabar malah kena "Terlalu banyak percobaan".
+     */
+    private function tandaiGagalKredensial(Request $request): void
+    {
+        $request->attributes->set('login_kredensial_salah', true);
+    }
+
+    // Retry cukup 1x dgn jeda pendek (dulu 3x, 200/400ms): saat server penuh, menahan PHP
+    // worker tidur justru memperpanjang antrean — lebih baik gagal cepat dgn pesan "coba lagi".
     private function resolveUserByCredentialResilient(string $credential): ?User
     {
-        return retry(3, fn () => $this->resolveUserByCredential($credential), fn (int $attempt) => $attempt * 200);
+        return retry(2, fn () => $this->resolveUserByCredential($credential), fn () => 150 + random_int(0, 200));
     }
 
     private function loginResilient(User $user, bool $remember = false): void
     {
-        retry(3, fn () => Auth::login($user, $remember), fn (int $attempt) => $attempt * 200);
+        retry(2, fn () => Auth::login($user, $remember), fn () => 150 + random_int(0, 200));
 
         // Rencana 4: Pre-populate data profil siswa di session saat login
         // Menghilangkan puluhan ribu query redundant (SELECT * FROM siswas WHERE id_login = ...) saat ujian
         if ($user->access === 'siswa') {
             try {
-                $siswa = Siswa::where('id_login', $user->uuid)->first();
+                // Kolom minimal saja (lihat Siswa::KOLOM_PROFIL_SESI) — session ini dibaca &
+                // ditulis ulang di SETIAP request siswa, jangan sampai membawa data wajah.
+                $siswa = Siswa::profilUntukSesi($user->uuid);
                 if ($siswa) {
                     session()->put('profil_siswa_' . $user->uuid, $siswa);
                 }

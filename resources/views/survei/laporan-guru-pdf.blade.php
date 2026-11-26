@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <title>Laporan Evaluasi Guru - {{ $periode->judul }}</title>
+    <title>Laporan Evaluasi Guru{{ $gurus->count() === 1 ? ' - ' . $gurus->first()['nama'] : '' }} - {{ $periode->judul }}</title>
     <style>
         @page { margin: 30pt 34pt 38pt; }
         body { margin: 0; font: 8.5pt/1.35 "DejaVu Sans", sans-serif; color: #243246; }

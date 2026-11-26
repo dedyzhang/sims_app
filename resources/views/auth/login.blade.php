@@ -15,6 +15,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
+        /* Sembunyikan elemen x-cloak (mis. teks "Memeriksa akun…") sebelum Alpine selesai dimuat. */
+        [x-cloak] { display: none !important; }
         body {
             font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
         }
@@ -360,7 +362,7 @@
 
                 {{-- 1. Tab Password --}}
                 <div x-show="tab==='password'" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100">
-                    <form method="POST" action="{{ route('login') }}" class="space-y-4">
+                    <form method="POST" action="{{ route('login') }}" class="space-y-4" @submit="submitLogin($event)">
                         @csrf
                         <div>
                             <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Username / NIK / NIS</label>
@@ -395,9 +397,12 @@
                             </label>
                         </div>
                         
-                        <button type="submit" class="w-full py-3 rounded-2xl bg-blue-900 hover:bg-blue-800 active:scale-[0.99] text-white text-sm font-bold transition-all shadow-md shadow-blue-900/15 flex items-center justify-center gap-2">
-                            <span>Masuk ke Akun</span>
-                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        <button type="submit" :disabled="loggingIn" :aria-busy="loggingIn ? 'true' : 'false'"
+                                class="w-full py-3 rounded-2xl bg-blue-900 hover:bg-blue-800 active:scale-[0.99] text-white text-sm font-bold transition-all shadow-md shadow-blue-900/15 flex items-center justify-center gap-2 disabled:opacity-80 disabled:cursor-wait">
+                            <span x-show="!loggingIn">Masuk ke Akun</span>
+                            <i x-show="!loggingIn" data-lucide="arrow-right" class="w-4 h-4"></i>
+                            <svg x-show="loggingIn" x-cloak class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <span x-show="loggingIn" x-cloak>Memeriksa akun… mohon tunggu</span>
                         </button>
                     </form>
                 </div>
@@ -538,8 +543,19 @@
             tab: 'password', showPass: false, pin: '', 
             pinCredential: @json(old('credential')) || localStorage.getItem('last_credential') || '', 
             pinError: false, pinLoading: false,
+            // Kunci tombol "Masuk" setelah diklik: tiap klik = 1x cek password (bcrypt ±0,2 dtk
+            // CPU server). Saat server lambat siswa cenderung menekan berkali-kali — tanpa kunci
+            // ini, tiap tekanan menambah beban justru di saat server paling sibuk.
+            loggingIn: false,
+            submitLogin(e) {
+                if (this.loggingIn) { e.preventDefault(); return; }
+                this.loggingIn = true;
+            },
             biometricAvailable: false, biometricStatus: 'Ketuk untuk verifikasi biometrik',
             async init() {
+                // Tombol "Back" browser bisa memulihkan halaman dari cache (bfcache) dlm keadaan
+                // tombol masih terkunci — buka kuncinya lagi.
+                window.addEventListener('pageshow', () => { this.loggingIn = false; });
                 if (window.PublicKeyCredential) {
                     this.biometricAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
                 }

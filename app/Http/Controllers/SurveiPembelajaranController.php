@@ -999,8 +999,12 @@ class SurveiPembelajaranController extends Controller
             $tingkat = null;
         }
 
+        $guruId = $request->query('guru') ?: $request->query('guru_id');
+
         $lihatCatatan = $periode->bolehMelihatIdentitas($user);
-        $gurus = $analisis->rekap($periode, sertakanCatatan: $lihatCatatan, tingkat: $tingkat);
+        $gurus = $analisis->rekap($periode, guruId: $guruId, sertakanCatatan: $lihatCatatan, tingkat: $tingkat);
+        abort_if($guruId && $gurus->isEmpty(), 404, 'Data survei untuk guru ini tidak ditemukan.');
+
         $pdf = Pdf::loadView('survei.laporan-guru-pdf', [
             'periode' => $periode,
             'sekolah' => Setting::get('nama_sekolah', 'Sekolah'),
@@ -1013,11 +1017,17 @@ class SurveiPembelajaranController extends Controller
         $font = $pdf->getDomPDF()->getFontMetrics()->getFont('DejaVu Sans', 'normal');
         $pdf->getDomPDF()->getCanvas()->page_text(520, 820, '{PAGE_NUM} / {PAGE_COUNT}', $font, 7, [0.34, 0.40, 0.46]);
         $suffixTingkat = $tingkat ? '-tingkat-'.$tingkat : '';
-        $response = $pdf->download('rekap-survei-per-guru-'.(Str::slug($periode->judul) ?: $periode->uuid).$suffixTingkat.'.pdf');
 
-        Audit::log('survei_laporan_guru_diekspor', $periode, ['dengan_catatan' => $lihatCatatan, 'tingkat' => $tingkat]);
+        if ($guruId && $gurus->isNotEmpty()) {
+            $namaGuru = $gurus->first()['nama'] ?? 'guru';
+            $filename = 'laporan-survei-guru-' . (Str::slug($namaGuru) ?: 'guru') . '-' . (Str::slug($periode->judul) ?: $periode->uuid) . $suffixTingkat . '.pdf';
+        } else {
+            $filename = 'rekap-survei-per-guru-' . (Str::slug($periode->judul) ?: $periode->uuid) . $suffixTingkat . '.pdf';
+        }
 
-        return $response->header('Cache-Control', 'private, no-store');
+        Audit::log('survei_laporan_guru_diekspor', $periode, ['dengan_catatan' => $lihatCatatan, 'tingkat' => $tingkat, 'guru_id' => $guruId]);
+
+        return $pdf->download($filename)->header('Cache-Control', 'private, no-store');
     }
 
     public function laporanKelas(Periode $periode, string $kelasId, AnalisisGuru $analisis)

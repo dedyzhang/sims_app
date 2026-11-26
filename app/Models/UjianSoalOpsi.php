@@ -23,6 +23,16 @@ class UjianSoalOpsi extends Model
         ];
     }
 
+    /** Sama spt UjianSoal::booted() — opsi berubah = isi soal yg tampil ke siswa berubah. */
+    protected static function booted(): void
+    {
+        $lupakan = fn (self $opsi) => Ujian::lupakanCacheSoal(
+            UjianSoal::whereKey($opsi->id_soal)->value('id_ujian')
+        );
+        static::saved($lupakan);
+        static::deleted($lupakan);
+    }
+
     public function soal()
     {
         return $this->belongsTo(UjianSoal::class, 'id_soal', 'uuid');

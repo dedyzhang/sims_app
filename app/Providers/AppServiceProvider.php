@@ -57,7 +57,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', function (Request $request) {
             $credential = Str::lower((string) $request->input('credential'));
 
-            return Limit::perMinute(5)->by($credential . '|' . $request->ip())->response(
+            // after(): HANYA percobaan dgn kredensial/PIN SALAH yg dihitung (penanda dipasang
+            // LoginController::tandaiGagalKredensial). Login sukses & klik ulang saat server
+            // lambat tak lagi menghabiskan jatah 5x/menit siswa yg passwordnya benar.
+            return Limit::perMinute(5)->by($credential . '|' . $request->ip())
+                ->after(fn () => (bool) request()->attributes->get('login_kredensial_salah'))
+                ->response(
                 fn (Request $request, array $headers) => $request->expectsJson()
                     ? response()->json(['message' => 'Terlalu banyak percobaan login untuk akun ini. Coba lagi sebentar lagi.'], 429, $headers)
                     : back()->withErrors(['credential' => 'Terlalu banyak percobaan login untuk akun ini. Coba lagi sebentar lagi.'])->withHeaders($headers)

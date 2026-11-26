@@ -158,6 +158,8 @@
             <i data-lucide="loader-circle" class="w-14 h-14 text-primary mx-auto animate-spin"></i>
             <h2 class="text-white text-lg font-bold m-0">Mengumpulkan Ujian...</h2>
             <p class="text-slate-300 text-sm m-0 leading-relaxed" x-text="mengumpulkanOtomatis ? 'Waktu ujian sudah habis - jawaban Anda sedang dikumpulkan otomatis.' : 'Mohon tunggu sebentar, jangan tutup halaman ini.'"></p>
+            {{-- Pesan coba-ulang otomatis saat server padat (lihat jadwalkanKumpulUlang()) --}}
+            <p x-show="pesanKumpul" x-text="pesanKumpul" class="text-amber-300 text-xs m-0 leading-relaxed"></p>
         </div>
     </div>
 
@@ -318,7 +320,23 @@ function ujianKerjakan(cfg) {
         _timerHandle: null,
         _syncTimer: null,
         _debounceTimer: null,
-        
+        // Saat server menjawab "sibuk" (503/429/gangguan jaringan), sinkron berikutnya ditahan
+        // sampai waktu ini (ms) — jawaban tetap aman di penyimpanan HP selama menunggu.
+        _syncJedaSampai: 0,
+        // Jumlah gagal sinkron BERUNTUN → jeda naik bertingkat (5, 10, 20, 40… s/d 120 dtk).
+        // Data log 26-11-2026: HP yg terus mencoba rapat-rapat saat diblokir membuat firewall
+        // hosting memblokir IP-nya — termasuk IP WiFi sekolah yg dipakai belasan siswa lain.
+        _syncGagalBeruntun: 0,
+        // Server menolak sinkron secara FINAL (422: sudah dikumpulkan / waktu habis) — berhenti
+        // mencoba, mengulang tak akan pernah berhasil.
+        _sinkronDitutup: false,
+        // Sinkron terakhir menjelang waktu habis sudah dikirim (lihat tickCountdown()).
+        _flushAkhirDikirim: false,
+        // Kumpul otomatis (waktu habis) yg gagal: dicoba ulang dgn jeda bertingkat, BUKAN tiap
+        // detik spt dulu (dulu: 1 HP sampai 201 kali "kumpul" dlm beberapa menit).
+        _kumpulGagalBeruntun: 0,
+        pesanKumpul: '',
+
         triggerBlock() {
             this.loadingBlock = true;
             setTimeout(() => { this.loadingBlock = false; }, 1500);
@@ -459,6 +477,12 @@ function ujianKerjakan(cfg) {
         tickCountdown() {
             if (!this.batasWaktu) return;
             this.sisaDetik = Math.max(0, Math.round((this.batasWaktu - Date.now()) / 1000));
+            // Kirim jawaban tertunda SEBELUM waktu habis: begitu lewat batas waktu, server menolak
+            // sinkron (422 "Waktu ujian sudah habis"), jadi jawaban terakhir harus sudah terkirim.
+            if (this.sisaDetik > 0 && this.sisaDetik <= 5 && !this._flushAkhirDikirim && Object.keys(this._dirtyQueue).length > 0) {
+                this._flushAkhirDikirim = true;
+                this.flushPendingAnswers(true);
+            }
             if (this.sisaDetik <= 0 && !this.terkunci && !this.mengumpulkan) {
                 this.intentional = true;
                 this.mengumpulkan = true;
@@ -547,27 +571,43 @@ function ujianKerjakan(cfg) {
                 this.simpanError = false;
             }
 
-            // 3. Debounce sync: jika siswa diam selama 5 detik setelah menjawab, sinkronkan ke server
+            // 3. Debounce sync: jika siswa diam selama 15 detik setelah menjawab, sinkronkan ke
+            //    server (dulu 5 dtk). Jawaban SUDAH aman di penyimpanan HP sejak langkah 1, dan
+            //    tetap dikirim saat kumpul / pindah tab / tutup halaman — jeda lebih panjang ini
+            //    memangkas jumlah request sinkron ±3x saat ratusan siswa mengerjakan bersamaan.
+            //    Di 60 detik terakhir jedanya dipendekkan jadi 2 dtk supaya jawaban terakhir sempat
+            //    terkirim sebelum batas waktu (setelah itu server menolak sinkron).
             if (this._debounceTimer) clearTimeout(this._debounceTimer);
+            const tundaSinkron = (this.sisaDetik > 0 && this.sisaDetik <= 60) ? 2000 : 15000;
             this._debounceTimer = setTimeout(() => {
                 this.flushPendingAnswers();
-            }, 5000);
+            }, tundaSinkron);
         },
 
         async flushPendingAnswers(forceWait = false) {
-            if (this.terkunci) return;
+            if (this.terkunci || this._sinkronDitutup) return;
             const keys = Object.keys(this._dirtyQueue);
             if (keys.length === 0) return;
+
+            // Server baru saja bilang sibuk → jangan ditembak lagi sebelum jedanya lewat
+            // (kecuali saat kumpul/forceWait). Timer berkala & debounce akan mencoba lagi nanti.
+            if (!forceWait && this._syncJedaSampai && Date.now() < this._syncJedaSampai) return;
 
             if (this._isSyncing && !forceWait) return;
             this._isSyncing = true;
 
             const itemsToSend = keys.map(k => this._dirtyQueue[k]);
 
+            // Sinkron biasa cukup 1x percobaan — kalau gagal, TIDAK diulang rapat-rapat (dulu
+            // 3x dgn jeda 0,35/0,7 dtk = makin membebani server yg sedang penuh); cukup tunggu
+            // jeda acak lalu biarkan timer berkala mencoba lagi. Saat kumpul (forceWait) tetap
+            // dicoba s/d 3x krn siswa sedang menunggu hasilnya.
+            const maxPercobaan = forceWait ? 3 : 1;
             let success = false;
-            for (let attempt = 0; attempt < 3; attempt++) {
+            for (let attempt = 0; attempt < maxPercobaan; attempt++) {
+                let res = null;
                 try {
-                    const res = await fetch(cfg.urlSinkronBatch, {
+                    res = await fetch(cfg.urlSinkronBatch, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -576,43 +616,61 @@ function ujianKerjakan(cfg) {
                         },
                         body: JSON.stringify({ jawaban: itemsToSend }),
                     });
-
-                    if (res.ok) {
-                        keys.forEach(k => {
-                            if (this._dirtyQueue[k] && this._dirtyQueue[k].id_soal === k) {
-                                delete this._dirtyQueue[k];
-                            }
-                        });
-                        this.simpanStatus = 'Tersimpan';
-                        this.simpanError = false;
-                        success = true;
-                        break;
-                    }
-
-                    if (res.status === 403) {
-                        const isJson = res.headers.get('content-type')?.includes('application/json');
-                        if (isJson) {
-                            try {
-                                const errData = await res.clone().json();
-                                if (errData && errData.message && errData.message.toLowerCase().includes('terkunci')) {
-                                    this.kunci();
-                                    this._isSyncing = false;
-                                    return;
-                                }
-                            } catch (err) {}
-                        }
-                    }
-
-                    // Jeda backoff jika server 503
-                    if (res.status === 503 && attempt < 2) {
-                        await new Promise(r => setTimeout(r, (attempt + 1) * 350));
-                        continue;
-                    }
                 } catch (e) {
-                    if (attempt < 2) {
-                        await new Promise(r => setTimeout(r, (attempt + 1) * 350));
-                        continue;
+                    res = null; // gangguan jaringan
+                }
+
+                if (res && res.ok) {
+                    keys.forEach(k => {
+                        if (this._dirtyQueue[k] && this._dirtyQueue[k].id_soal === k) {
+                            delete this._dirtyQueue[k];
+                        }
+                    });
+                    this.simpanStatus = 'Tersimpan';
+                    this.simpanError = false;
+                    this._syncJedaSampai = 0;
+                    this._syncGagalBeruntun = 0;
+                    success = true;
+                    break;
+                }
+
+                // 422 dari abort() server = penolakan FINAL ("Ujian ini sudah dikumpulkan" /
+                // "Waktu ujian sudah habis") → berhenti total, mengulang tak akan pernah berhasil.
+                // (422 validasi membawa `errors` — itu bukan penolakan final, cukup tak diulang kali ini.)
+                if (res && res.status === 422) {
+                    const errData = await res.clone().json().catch(() => ({}));
+                    if (!errData.errors) {
+                        this._sinkronDitutup = true;
                     }
+                    break;
+                }
+
+                if (res && res.status === 403) {
+                    const isJson = res.headers.get('content-type')?.includes('application/json');
+                    if (isJson) {
+                        try {
+                            const errData = await res.clone().json();
+                            if (errData && errData.message && errData.message.toLowerCase().includes('terkunci')) {
+                                this.kunci();
+                                this._isSyncing = false;
+                                return;
+                            }
+                        } catch (err) {}
+                    }
+                }
+
+                // Gagal (sibuk/diblokir/limit/jaringan): tahan sinkron berikutnya dgn jeda yg NAIK
+                // tiap gagal beruntun (5, 10, 20, 40, 80, maks 120 dtk) — minimal sebesar Retry-After
+                // dari server — + acak 0–10 dtk supaya ratusan HP tak serempak mencoba lagi.
+                this._syncGagalBeruntun++;
+                const retryAfter = res ? parseInt(res.headers.get('Retry-After') || '', 10) : NaN;
+                const dasar = Math.min(5000 * Math.pow(2, this._syncGagalBeruntun - 1), 120000);
+                const jeda = Math.max(dasar, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 0)
+                    + Math.floor(Math.random() * 10000);
+                this._syncJedaSampai = Date.now() + jeda;
+
+                if (attempt < maxPercobaan - 1) {
+                    await new Promise(r => setTimeout(r, Math.min(jeda, 4000)));
                 }
             }
 
@@ -627,6 +685,10 @@ function ujianKerjakan(cfg) {
 
         flushPendingAnswersBeacon() {
             try {
+                // Jangan menembak saat server sudah menolak final / sedang dalam jeda "sibuk"
+                // (tiap ganti aplikasi/layar mati memicu ini — di HP yg sedang diblokir hosting,
+                // tembakan tambahan cuma memperpanjang blokirnya).
+                if (this._sinkronDitutup || Date.now() < this._syncJedaSampai) return;
                 const keys = Object.keys(this._dirtyQueue);
                 if (keys.length === 0) return;
                 const items = keys.map(k => this._dirtyQueue[k]);
@@ -726,9 +788,46 @@ function ujianKerjakan(cfg) {
                 },
             });
         },
+        /**
+         * Penanganan gagal kumpul. Kumpul OTOMATIS (waktu habis) dulu memicu loop: gagal →
+         * timer per-detik dinyalakan lagi → tickCountdown() melihat sisa 0 → kumpul lagi ~1 dtk
+         * kemudian, tanpa henti + alert bertumpuk. Data log 26-11-2026: 28 HP mengirim 1.541
+         * "kumpul" (1 HP sampai 201x) sampai firewall hosting memblokir IP-nya — termasuk IP WiFi
+         * sekolah yg dipakai belasan siswa lain. Kini: coba ulang dgn jeda bertingkat 15→30→60
+         * dtk (+acak), pesan di overlay (bukan alert bertumpuk). Server tetap menjadi jaring
+         * pengaman: cron ujian:auto-submit memfinalisasi attempt yg lewat waktu tiap menit.
+         */
+        gagalKumpul(otomatis, judul, isi, tipe) {
+            if (otomatis) {
+                this._kumpulGagalBeruntun++;
+                const jeda = Math.min(15000 * Math.pow(2, this._kumpulGagalBeruntun - 1), 60000) + Math.floor(Math.random() * 10000);
+                const sampai = Date.now() + jeda;
+                this.mengumpulkan = true;
+                this.mengumpulkanOtomatis = true;
+                const hitung = () => {
+                    const sisa = Math.ceil((sampai - Date.now()) / 1000);
+                    if (sisa > 0) {
+                        this.pesanKumpul = 'Server sedang padat. Mencoba lagi otomatis dalam ' + sisa + ' detik — jangan tutup aplikasi, jawaban Anda aman.';
+                        setTimeout(hitung, 1000);
+                        return;
+                    }
+                    this.pesanKumpul = 'Mencoba mengumpulkan lagi...';
+                    this.kumpulkan(true);
+                };
+                hitung();
+                return;
+            }
+
+            this.mengumpulkan = false;
+            $.alert({ title: judul, content: isi, type: tipe });
+            this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
+        },
+
         async kumpulkan(otomatis) {
-            // 1. Pastikan seluruh jawaban tertunda di dirtyQueue telah disinkronkan ke server
-            if (Object.keys(this._dirtyQueue).length > 0) {
+            // 1. Pastikan seluruh jawaban tertunda di dirtyQueue telah disinkronkan ke server.
+            //    Kumpul otomatis yg sedang DIULANG tak perlu sinkron lagi: waktu sudah habis, jadi
+            //    server pasti menolaknya — sinkron terakhir sudah dikirim menjelang batas waktu.
+            if (Object.keys(this._dirtyQueue).length > 0 && !(otomatis && this._kumpulGagalBeruntun > 0)) {
                 this.simpanStatus = 'Menyinkronkan jawaban akhir...';
                 await this.flushPendingAnswers(true);
             }
@@ -746,9 +845,16 @@ function ujianKerjakan(cfg) {
 
             let res = null;
             let isWafBlock = false;
+            let serverSibuk = false;
 
-            // 3x Silent Retry otomatis jika server sedang padat (503) saat submit
-            for (let submitAttempt = 0; submitAttempt < 3; submitAttempt++) {
+            // 3x Silent Retry otomatis jika server sedang padat saat submit. "Padat" termasuk
+            // 408 (LiteSpeed memutus krn antrean terlalu lama), 429, 5xx & 508 (batas resource
+            // hosting) — bukan cuma 503. Aman diulang: server memperlakukan "Kumpulkan" yg
+            // diulang utk attempt yg sudah terkumpul sbg SUKSES (lihat UjianSiswaController::submit).
+            // Kumpul otomatis yg sedang DIULANG cukup 1 percobaan per putaran — jedanya sudah
+            // diatur bertingkat oleh gagalKumpul().
+            const maksPercobaan = (otomatis && this._kumpulGagalBeruntun > 0) ? 1 : 3;
+            for (let submitAttempt = 0; submitAttempt < maksPercobaan; submitAttempt++) {
                 try {
                     res = await fetch(cfg.urlSubmit, {
                         method: 'POST',
@@ -756,16 +862,20 @@ function ujianKerjakan(cfg) {
                     });
 
                     isWafBlock = res.status === 403 && !res.headers.get('content-type')?.includes('application/json');
+                    serverSibuk = isWafBlock || [408, 429, 500, 502, 503, 504, 508].includes(res.status);
 
-                    if ((res.status === 503 || isWafBlock) && submitAttempt < 2) {
-                        await new Promise(r => setTimeout(r, (submitAttempt + 1) * 700 + Math.floor(Math.random() * 300)));
+                    if (serverSibuk && submitAttempt < maksPercobaan - 1) {
+                        const retryAfter = parseInt(res.headers.get('Retry-After') || '', 10);
+                        const jeda = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : (submitAttempt + 1) * 2000;
+                        this.simpanStatus = 'Server padat, mencoba mengumpulkan lagi...';
+                        await new Promise(r => setTimeout(r, jeda + Math.floor(Math.random() * 1500)));
                         continue;
                     }
 
                     break;
                 } catch (e) {
-                    if (submitAttempt < 2) {
-                        await new Promise(r => setTimeout(r, (submitAttempt + 1) * 700 + Math.floor(Math.random() * 300)));
+                    if (submitAttempt < maksPercobaan - 1) {
+                        await new Promise(r => setTimeout(r, (submitAttempt + 1) * 2000 + Math.floor(Math.random() * 1500)));
                         continue;
                     }
                     break;
@@ -776,16 +886,12 @@ function ujianKerjakan(cfg) {
                 if (!res) {
                     throw new Error('Gagal menghubungi server.');
                 }
-                
-                // Jika error 503 (database busy) ATAU 403 HTML (diblokir WAF/ModSecurity hosting)
-                if (res.status === 503 || isWafBlock) {
-                    this.mengumpulkan = false;
-                    $.alert({
-                        title: 'Server Sedang Sibuk',
-                        content: 'Koneksi ke server sedang padat. Seluruh jawaban Anda tetap aman di perangkat. Silakan klik tombol Kumpulkan Ujian sekali lagi.',
-                        type: 'orange'
-                    });
-                    this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
+
+                // Server padat (408/429/5xx/508) ATAU 403 HTML (diblokir WAF/ModSecurity hosting)
+                if (serverSibuk) {
+                    this.gagalKumpul(otomatis, 'Server Sedang Sibuk',
+                        'Koneksi ke server sedang padat. Seluruh jawaban Anda tetap aman di perangkat. Tunggu sebentar, lalu klik tombol Kumpulkan Ujian sekali lagi.',
+                        'orange');
                     return;
                 }
 
@@ -812,21 +918,13 @@ function ujianKerjakan(cfg) {
                     return;
                 }
                 
-                this.mengumpulkan = false;
-                $.alert({
-                    title: 'Pengumpulan Tertunda',
-                    content: 'Koneksi ke server sempat terganggu. Jawaban Anda aman tersimpan. Silakan klik tombol Kumpulkan Ujian sekali lagi.',
-                    type: 'orange'
-                });
-                this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
+                this.gagalKumpul(otomatis, 'Pengumpulan Tertunda',
+                    'Koneksi ke server sempat terganggu. Jawaban Anda aman tersimpan. Silakan klik tombol Kumpulkan Ujian sekali lagi.',
+                    'orange');
             } catch (e) {
-                this.mengumpulkan = false;
-                $.alert({
-                    title: 'Koneksi Terputus',
-                    content: 'Gagal menghubungi server. Periksa koneksi internet Anda lalu klik tombol Kumpulkan Ujian sekali lagi.',
-                    type: 'red'
-                });
-                this._timerHandle = setInterval(() => this.tickCountdown(), 1000);
+                this.gagalKumpul(otomatis, 'Koneksi Terputus',
+                    'Gagal menghubungi server. Periksa koneksi internet Anda lalu klik tombol Kumpulkan Ujian sekali lagi.',
+                    'red');
             }
         },
     };

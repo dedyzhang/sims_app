@@ -1,6 +1,30 @@
 @extends('layouts.app')
 @section('title', $lihatSemua ? 'Analisis Survei per Guru' : 'Rekap Survei Saya')
 
+@push('styles')
+<style>
+@media print {
+    /* Sembunyikan elemen antarmuka, sidebar, header, dan navigasi saat mencetak langsung halaman */
+    aside, .app-sidebar, header.app-header, nav, footer,
+    .no-print, button, a[href*="laporan"] {
+        display: none !important;
+    }
+    body, main, .mx-auto {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        background: #fff !important;
+        color: #000 !important;
+    }
+    article {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+    }
+}
+</style>
+@endpush
+
 @section('content')
 <div class="mx-auto max-w-6xl space-y-6 pb-12">
     {{-- Navigasi Atas --}}
@@ -14,10 +38,10 @@
                 <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                 Cetak Halaman
             </button>
-            @if($lihatSemua)
-                <a class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition" href="{{ route('survei.laporan-guru', array_filter(['periode' => $periode, 'tingkat' => $tingkatDipilih])) }}">
+            @if($guruAktif && $lihatSemua)
+                <a class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition" href="{{ route('survei.laporan-guru', array_filter(['periode' => $periode, 'guru' => $guruAktifId, 'tingkat' => $tingkatDipilih])) }}">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    Unduh PDF Rekap Guru {{ $tingkatDipilih ? '(Tingkat '.$tingkatDipilih.')' : '' }}
+                    Unduh PDF: {{ $guruAktif['nama'] }}
                 </a>
             @endif
         </div>
@@ -46,25 +70,58 @@
         </div>
     </header>
 
-    {{-- Laporan PDF per Kelas --}}
-    @if($kelas->isNotEmpty())
-        <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-sm space-y-3">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100">Laporan PDF per Kelas</h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Unduh dokumen cetak rekap skor per kelas untuk arsip kurikulum atau kepala sekolah.</p>
+    {{-- Laporan PDF per Kelas & Laporan PDF per Guru --}}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        @if($kelas->isNotEmpty())
+            <section class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                            <svg class="w-4 h-4 text-sky-600 dark:text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                            Laporan PDF per Kelas
+                        </h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Unduh dokumen rekap skor per kelas.</p>
+                    </div>
                 </div>
-            </div>
-            <div class="flex flex-wrap gap-2 pt-1">
-                @foreach($kelas as $kelasId => $namaKelas)
-                    <a class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-slate-800 hover:border-sky-300 transition" href="{{ route('survei.laporan-kelas', [$periode, $kelasId]) }}">
-                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                        {{ $namaKelas }}
-                    </a>
-                @endforeach
-            </div>
-        </section>
-    @endif
+                <div class="flex flex-wrap gap-2 pt-1">
+                    @foreach($kelas as $kelasId => $namaKelas)
+                        <a class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-slate-800 hover:border-sky-300 transition" href="{{ route('survei.laporan-kelas', [$periode, $kelasId]) }}">
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                            {{ $namaKelas }}
+                        </a>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+
+        @if($lihatSemua && $totalGurus >= 1)
+            <details class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-sm space-y-3 group {{ $kelas->isEmpty() ? 'md:col-span-2' : '' }}">
+                <summary class="cursor-pointer font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span>Laporan PDF per Guru (Satu per Satu — {{ $totalGurus }} Guru)</span>
+                    </div>
+                    <span class="text-xs text-sky-600 dark:text-sky-400 group-open:rotate-180 transition">▼</span>
+                </summary>
+                <p class="text-xs text-slate-500 dark:text-slate-400 pt-1">
+                    Unduh berkas PDF evaluasi terpisah per guru (tidak digabung menjadi 1 dokumen):
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 max-h-60 overflow-y-auto pr-1">
+                    @foreach($gurus as $gId => $gItem)
+                        <a class="inline-flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-300 dark:hover:border-emerald-700 hover:text-emerald-700 dark:hover:text-emerald-300 transition"
+                           href="{{ route('survei.laporan-guru', ['periode' => $periode, 'guru' => $gId]) }}"
+                           title="Unduh PDF untuk {{ $gItem['nama'] }}">
+                            <span class="truncate">{{ $loop->iteration }}. {{ $gItem['nama'] }}</span>
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                Unduh
+                            </span>
+                        </a>
+                    @endforeach
+                </div>
+            </details>
+        @endif
+    </div>
 
     {{-- Penjelasan Skoring --}}
     <details class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm group">
@@ -173,11 +230,20 @@
                     </div>
                 </div>
 
-                @if($lihatSemua && $totalGurus >= 1)
-                    <div class="text-xs font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg">
-                        Guru {{ $page }} dari {{ $totalGurus }}
-                    </div>
-                @endif
+                <div class="flex items-center gap-2">
+                    @if($lihatSemua)
+                        <a class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition"
+                           href="{{ route('survei.laporan-guru', array_filter(['periode' => $periode, 'guru' => $guruAktifId, 'tingkat' => $tingkatDipilih])) }}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span>Unduh PDF Guru Ini</span>
+                        </a>
+                    @endif
+                    @if($lihatSemua && $totalGurus >= 1)
+                        <div class="text-xs font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg">
+                            Guru {{ $page }} dari {{ $totalGurus }}
+                        </div>
+                    @endif
+                </div>
             </div>
 
             {{-- Filter Tingkat Hasil Khusus Guru Ini (Jika Guru Mengajar 2 atau 3 Tingkat) --}}

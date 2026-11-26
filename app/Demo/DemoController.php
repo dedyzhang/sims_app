@@ -67,7 +67,7 @@ class DemoController extends Controller
             // Pre-populate profil jika siswa (agar ujian & dashboard siswa tidak query redundant)
             if ($dummyUser->access === 'siswa') {
                 try {
-                    $siswa = Siswa::where('id_login', $dummyUser->uuid)->first();
+                    $siswa = Siswa::profilUntukSesi($dummyUser->uuid); // kolom minimal, lihat Siswa::KOLOM_PROFIL_SESI
                     if ($siswa) {
                         session()->put('profil_siswa_' . $dummyUser->uuid, $siswa);
                     }

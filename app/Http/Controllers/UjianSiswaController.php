@@ -59,8 +59,9 @@ class UjianSiswaController extends Controller implements HasMiddleware
             }
         }
 
-        // 3. Fallback query ke database jika belum ada di session/request
-        $siswa = Siswa::where('id_login', $user->uuid)->first();
+        // 3. Fallback query ke database jika belum ada di session/request — kolom minimal saja
+        //    (Siswa::KOLOM_PROFIL_SESI), krn hasilnya ikut disimpan di session di bawah.
+        $siswa = Siswa::profilUntukSesi($user->uuid);
         abort_unless($siswa, 404, 'Profil siswa tidak ditemukan.');
 
         if ($request->hasSession()) {
@@ -165,13 +166,12 @@ class UjianSiswaController extends Controller implements HasMiddleware
         // sini) — kalau itu yg gagal, ditangani penangan global (bootstrap/app.php).
         return $this->retryOnDbBusy(function () use ($request, $ujian) {
             $siswa = $this->siswaAtauGagal($request);
+            // SENGAJA tak ada lagi "self-healing" (buang cache + query ulang) di sini: dulu
+            // SETIAP siswa yg membuka/refresh halaman ini sebelum jam mulai ikut menghapus
+            // cache jadwal milik semua siswa — tepat di menit2 menunggu paling ramai. Cache
+            // jadwal kini dibuang oleh jalur tulisnya sendiri + TTL pendek (Ujian::getCachedKelas),
+            // dan halaman ini menghitung mundur sendiri di browser (tak perlu di-refresh).
             $ujianKelas = $ujian->getCachedKelas()->firstWhere('id_kelas', $siswa->id_kelas);
-
-            // Self-healing: jika menurut cache ujian belum dimulai atau sudah berakhir, periksa langsung ke database
-            if ($ujianKelas && ($ujianKelas->belumDimulai() || ($ujianKelas->dibuka_sampai && now()->gt($ujianKelas->dibuka_sampai)))) {
-                $ujian->clearKelasCache();
-                $ujianKelas = $ujian->kelas()->firstWhere('id_kelas', $siswa->id_kelas);
-            }
 
             abort_unless($ujianKelas, 404, 'Ujian ini tidak ditetapkan untuk kelas Anda.');
             abort_unless($ujian->isPublished() || $ujian->isClosed(), 404);
@@ -252,10 +252,12 @@ class UjianSiswaController extends Controller implements HasMiddleware
             $ujian->loadMissing('paket');
             $ujianKelas->setRelation('ujian', $ujian);
 
+            // Cek DB HANYA saat versi cache menolak (jadwal mungkin baru diubah) — dan cache
+            // bersama cuma dibuang kalau memang terbukti basi (lihat Ujian::kelasSegarUntuk).
+            $sudahDicekSegar = false;
             if ($request->user()->cannot('take', $ujianKelas)) {
-                // Self-healing: jika ditolak, bersihkan cache dan periksa data database terbaru jika admin baru ubah jadwal
-                $ujian->clearKelasCache();
-                $freshUk = $ujian->kelas()->firstWhere('id_kelas', $siswa->id_kelas);
+                $sudahDicekSegar = true;
+                $freshUk = $ujian->kelasSegarUntuk($siswa->id_kelas, $ujianKelas);
                 if ($freshUk) {
                     $freshUk->setRelation('ujian', $ujian);
                     $ujianKelas = $freshUk;
@@ -284,7 +286,21 @@ class UjianSiswaController extends Controller implements HasMiddleware
 
             $data = $request->validate(['token' => 'required|string']);
             $inputToken = trim($data['token']);
-            if (!hash_equals((string) $ujianKelas->token_masuk, $inputToken)) {
+            $tokenCocok = hash_equals((string) $ujianKelas->token_masuk, $inputToken);
+
+            // Token salah menurut cache BISA berarti panitia baru saja "Generate ulang token"
+            // (cache masih pegang token lama) — cocokkan sekali lagi ke DB sebelum menolak.
+            if (! $tokenCocok && ! $sudahDicekSegar) {
+                $freshUk = $ujian->kelasSegarUntuk($siswa->id_kelas, $ujianKelas);
+                if ($freshUk && hash_equals((string) $freshUk->token_masuk, $inputToken)) {
+                    $freshUk->setRelation('ujian', $ujian);
+                    abort_if($request->user()->cannot('take', $freshUk), 403, 'Ujian belum dibuka untuk kelas Anda atau waktu pelaksanaan belum tiba.');
+                    $ujianKelas = $freshUk;
+                    $tokenCocok = true;
+                }
+            }
+
+            if (! $tokenCocok) {
                 if ($request->wantsJson()) {
                     return response()->json([
                         'ok' => false,
@@ -375,49 +391,46 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 if ($request->wantsJson()) { return response()->json(['redirect' => route('ujian.siswa.hasil', [$ujian, $attempt])]); } return redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
             }
 
-            $soalById = $ujian->getCachedSoalDanOpsi()->keyBy('uuid');
-            $urutan = collect($attempt->urutan_soal)->map(fn ($id) => $soalById->get($id))->filter()->values();
-
             // OPTIMASI: Muat HANYA kolom jawaban aktif siswa, hemat transfer memori dari DB
             $jawabanTersimpan = UjianJawaban::where('id_attempt', $attempt->uuid)
                 ->select(['id_soal', 'id_opsi_dipilih', 'opsi_dipilih_multi', 'jawaban_pasangan', 'jawaban_esai'])
                 ->get()
                 ->keyBy('id_soal');
 
-            // Susun opsi tampil per soal sesuai urutan_opsi tersimpan, dan STRIP is_benar —
-            // jawaban benar tidak boleh pernah terkirim ke browser siswa. teks_soal/opsi.teks
-            // dibersihkan lagi lewat RichText::clean() (defense in depth — sudah dibersihkan saat
-            // simpan di UjianSoalController juga) SEBELUM di-embed sbg JSON: konten ini dirender
-            // client-side lewat x-html (bukan Blade {!! !!}), jadi sanitasi WAJIB terjadi di sini,
-            // bukan cuma saat render, krn tak ada langkah render Blade lagi setelah titik ini.
-            $soalTampil = $urutan->map(function (UjianSoal $s) use ($attempt, $ujian) {
-                $item = ['uuid' => $s->uuid, 'tipe' => $s->tipe, 'teks_soal' => RichText::clean($s->teks_soal), 'poin' => $s->poinEfektif()];
-                if ($s->tipe === 'match') {
-                    $pairs = collect($s->meta['pairs'] ?? [])->map(fn ($p) => [
-                        'left'  => RichText::clean($p['left'] ?? $p['kiri'] ?? ''),
-                        'right' => RichText::clean($p['right'] ?? $p['kanan'] ?? ''),
-                    ])->filter(fn ($p) => $p['left'] !== '' || $p['right'] !== '')->values();
+            // Isi soal (teks_soal/opsi/pasangan) diambil dari cache yg SUDAH disanitasi
+            // RichText::clean() sekali per ujian (Ujian::getCachedSoalTampil) — konten ini
+            // dirender client-side lewat x-html, jadi sanitasi tetap WAJIB terjadi sebelum titik
+            // ini; bedanya kini tak diulang per siswa. is_benar memang tak pernah ada di cache itu.
+            // Di sini cuma urutan acak per siswa (urutan_soal/urutan_opsi) yg diterapkan.
+            $isiSoal = $ujian->getCachedSoalTampil();
+            $soalTampil = collect($attempt->urutan_soal)
+                ->map(fn ($id) => $isiSoal[$id] ?? null)
+                ->filter()
+                ->values()
+                ->map(function (array $s) use ($attempt, $ujian) {
+                    $item = ['uuid' => $s['uuid'], 'tipe' => $s['tipe'], 'teks_soal' => $s['teks_soal'], 'poin' => $s['poin']];
+                    if ($s['tipe'] === 'match') {
+                        $pairs = $s['pairs'];
 
-                    $urutanIdx = $attempt->urutan_opsi[$s->uuid] ?? [];
-                    if (empty($urutanIdx) || count($urutanIdx) !== $pairs->count()) {
-                        $urutanIdx = array_keys($pairs->all());
-                        if ($ujian->acak_opsi) {
-                            shuffle($urutanIdx);
+                        $urutanIdx = $attempt->urutan_opsi[$s['uuid']] ?? [];
+                        if (empty($urutanIdx) || count($urutanIdx) !== count($pairs)) {
+                            $urutanIdx = array_keys($pairs);
+                            if ($ujian->acak_opsi) {
+                                shuffle($urutanIdx);
+                            }
                         }
-                    }
 
-                    $item['kiri'] = $pairs->pluck('left')->all();
-                    $item['kanan_acak'] = collect($urutanIdx)->map(fn ($i) => $pairs[$i]['right'] ?? '')->all();
-                } elseif ($s->butuhOpsi()) {
-                    $opsiById = $s->opsi->keyBy('uuid');
-                    $urutanOpsiUuid = $attempt->urutan_opsi[$s->uuid] ?? $s->opsi->pluck('uuid')->all();
-                    $item['opsi'] = collect($urutanOpsiUuid)->map(fn ($id) => ['uuid' => $id, 'teks' => $opsiById->get($id)?->teks_opsi])
-                        ->filter(fn ($o) => $o['teks'] !== null)
-                        ->map(fn ($o) => ['uuid' => $o['uuid'], 'teks' => RichText::clean($o['teks'])])
-                        ->values()->all();
-                }
-                return $item;
-            });
+                        $item['kiri'] = array_column($pairs, 'left');
+                        $item['kanan_acak'] = array_values(array_map(fn ($i) => $pairs[$i]['right'] ?? '', $urutanIdx));
+                    } elseif (isset($s['opsi'])) {
+                        $urutanOpsiUuid = $attempt->urutan_opsi[$s['uuid']] ?? array_keys($s['opsi']);
+                        $item['opsi'] = collect($urutanOpsiUuid)
+                            ->filter(fn ($id) => isset($s['opsi'][$id]))
+                            ->map(fn ($id) => ['uuid' => $id, 'teks' => $s['opsi'][$id]])
+                            ->values()->all();
+                    }
+                    return $item;
+                });
 
             return view('ujian.siswa.kerjakan', [
                 'ujian' => $ujian, 'attempt' => $attempt, 'soalTampil' => $soalTampil, 'jawabanTersimpan' => $jawabanTersimpan,
@@ -459,16 +472,17 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 'jawaban_esai'       => 'nullable|string|max:10000',
             ]);
 
-            $soal = $ujian->getCachedSoalDanOpsi()->firstWhere('uuid', $data['id_soal']);
-            abort_unless($soal, 404, 'Soal tidak ditemukan.');
+            // Cukup peta kecil uuid=>tipe (bukan membongkar seluruh cache soal+opsi).
+            $tipe = $ujian->getCachedTipeSoal()[$data['id_soal']] ?? null;
+            abort_unless($tipe, 404, 'Soal tidak ditemukan.');
 
             UjianJawaban::updateOrCreate(
-                ['id_attempt' => $attempt->uuid, 'id_soal' => $soal->uuid],
+                ['id_attempt' => $attempt->uuid, 'id_soal' => $data['id_soal']],
                 [
-                    'id_opsi_dipilih'    => in_array($soal->tipe, ['mcq', 'true_false'], true) ? ($data['id_opsi_dipilih'] ?? null) : null,
-                    'opsi_dipilih_multi' => $soal->tipe === 'mcq_complex' ? ($data['opsi_dipilih_multi'] ?? []) : null,
-                    'jawaban_pasangan'   => $soal->tipe === 'match' ? ($data['jawaban_pasangan'] ?? []) : null,
-                    'jawaban_esai'       => $soal->tipe === 'essay' ? ($data['jawaban_esai'] ?? null) : null,
+                    'id_opsi_dipilih'    => in_array($tipe, ['mcq', 'true_false'], true) ? ($data['id_opsi_dipilih'] ?? null) : null,
+                    'opsi_dipilih_multi' => $tipe === 'mcq_complex' ? ($data['opsi_dipilih_multi'] ?? []) : null,
+                    'jawaban_pasangan'   => $tipe === 'match' ? ($data['jawaban_pasangan'] ?? []) : null,
+                    'jawaban_esai'       => $tipe === 'essay' ? ($data['jawaban_esai'] ?? null) : null,
                     'dijawab_pada'       => now(),
                 ]
             );
@@ -505,14 +519,15 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 return response()->json(['ok' => true, 'count' => 0]);
             }
 
-            // Ambil cache soal & opsi (in-memory / Cache 6 jam, tanpa query DB)
-            $cachedSoals = $ujian->getCachedSoalDanOpsi()->keyBy('uuid');
+            // Cukup peta kecil uuid=>tipe (Cache 6 jam) — dulu tiap sinkron membongkar SELURUH
+            // cache soal+opsi (termasuk teks/gambar) cuma utk tahu tipe soal.
+            $tipeSoal = $ujian->getCachedTipeSoal();
             $now = now()->toDateTimeString();
 
             $rows = [];
             foreach ($daftarJawaban as $item) {
-                $soal = $cachedSoals->get($item['id_soal']);
-                if (!$soal) {
+                $tipe = $tipeSoal[$item['id_soal']] ?? null;
+                if (!$tipe) {
                     continue;
                 }
 
@@ -521,20 +536,20 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 $pasangan = null;
                 $esai = null;
 
-                if (in_array($soal->tipe, ['mcq', 'true_false'], true)) {
+                if (in_array($tipe, ['mcq', 'true_false'], true)) {
                     $idOpsiDipilih = $item['id_opsi_dipilih'] ?? null;
-                } elseif ($soal->tipe === 'mcq_complex') {
+                } elseif ($tipe === 'mcq_complex') {
                     $opsiMulti = isset($item['opsi_dipilih_multi']) ? json_encode($item['opsi_dipilih_multi']) : json_encode([]);
-                } elseif ($soal->tipe === 'match') {
+                } elseif ($tipe === 'match') {
                     $pasangan = isset($item['jawaban_pasangan']) ? json_encode($item['jawaban_pasangan']) : json_encode([]);
-                } elseif ($soal->tipe === 'essay') {
+                } elseif ($tipe === 'essay') {
                     $esai = $item['jawaban_esai'] ?? null;
                 }
 
                 $rows[] = [
                     'uuid'               => (string) \Illuminate\Support\Str::uuid(),
                     'id_attempt'         => $attempt->uuid,
-                    'id_soal'            => $soal->uuid,
+                    'id_soal'            => $item['id_soal'],
                     'id_opsi_dipilih'    => $idOpsiDipilih,
                     'opsi_dipilih_multi' => $opsiMulti,
                     'jawaban_pasangan'   => $pasangan,
@@ -577,6 +592,18 @@ class UjianSiswaController extends Controller implements HasMiddleware
     {
         return $this->retryOnDbBusy(function () use ($request, $ujian, $attempt) {
             $this->pastikanMilikSiswa($request, $attempt);
+
+            // IDEMPOTEN: "Kumpulkan" yg diulang utk attempt yg SUDAH terkumpul dianggap sukses
+            // (arahkan ke hasil), bukan error 422. Kasus nyata: saat server padat, web server
+            // (LiteSpeed) bisa memutus dgn "408 Request Time-out" padahal PHP tetap menyelesaikan
+            // submit-nya — siswa melihat "Pengumpulan Tertunda", menekan lagi, lalu dulu dapat 422
+            // yg tampil sbg "Tertunda" LAGI tanpa akhir, padahal ujiannya sudah terkumpul.
+            if (in_array($attempt->status, [UjianAttempt::STATUS_SUBMITTED, UjianAttempt::STATUS_DINILAI], true)) {
+                return $request->wantsJson()
+                    ? response()->json(['redirect' => route('ujian.siswa.hasil', [$ujian, $attempt])])
+                    : redirect()->route('ujian.siswa.hasil', [$ujian, $attempt]);
+            }
+
             abort_if($attempt->isLocked(), 403, 'Ujian terkunci — hubungi guru/panitia untuk membuka kembali.');
             abort_unless($attempt->status === UjianAttempt::STATUS_IN_PROGRESS, 422, 'Ujian ini sudah dikumpulkan.');
 

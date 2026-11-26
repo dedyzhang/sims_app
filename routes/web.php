@@ -231,6 +231,24 @@ Route::middleware('auth')->group(function () {
     Route::redirect('/panduan-sims/visual', '/panduan-sims');
 });
 
+// Statistik real-time untuk ticker SIMS-NET (angka dari cache TickerStats).
+// Ditempatkan di luar grup auth ketat agar saat sesi browser kadaluarsa di background,
+// rute ini merespons sinyal berhenti (HTTP 200) tanpa melempar error 401 Unauthorized ke log server/proxy.
+Route::get('/dashboard/ticker-stats', function () {
+    if (! auth()->check()) {
+        return response()->json(['auth' => false, 'stopped' => true]);
+    }
+
+    // Tab yang dibuka sebelum Mode Ujian aktif masih polling: beri sinyal berhenti tanpa query statistik.
+    if (\App\Support\ModeUjian::aktif()) {
+        return response()->json(['mode_ujian' => true]);
+    }
+
+    return response()->json(
+        \App\Support\TickerStats::forRole(auth()->user()->access ?? '')
+    );
+})->name('dashboard.ticker-stats');
+
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Authenticated Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 // Gate EnsureFaceRegistered: siswa & guru wajib daftar wajah dulu sebelum lanjut
 Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
@@ -420,18 +438,6 @@ Route::middleware(['auth', EnsureFaceRegistered::class])->group(function () {
         });
         Route::get('/{pengumuman}', 'show')->name('show');
     });
-
-    // Statistik real-time untuk ticker SIMS-NET (angka dari cache TickerStats).
-    Route::get('/dashboard/ticker-stats', function () {
-        // Tab yang dibuka sebelum Mode Ujian aktif masih polling: beri sinyal berhenti tanpa query statistik.
-        if (\App\Support\ModeUjian::aktif()) {
-            return response()->json(['mode_ujian' => true]);
-        }
-
-        return response()->json(
-            \App\Support\TickerStats::forRole(auth()->user()->access ?? '')
-        );
-    })->name('dashboard.ticker-stats');
 
     // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Penilaian (guru menilai penugasan mengajarnya; admin akses semua) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
     Route::middleware('modul:akademik')->controller(NilaiController::class)->group(function () {

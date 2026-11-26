@@ -24,6 +24,17 @@ class UjianSoal extends Model
         ];
     }
 
+    /**
+     * Cache soal ujian (lihat Ujian::kunciCacheSoal) dibuang di SETIAP jalur tulis lewat event,
+     * bukan cuma di controller yg ingat memanggil clearSoalCache() — dulu "Sisipkan dari Bank
+     * Soal" lupa, sehingga soal baru tak terlihat siswa sampai cache 6 jam kedaluwarsa.
+     */
+    protected static function booted(): void
+    {
+        static::saved(fn (self $soal) => Ujian::lupakanCacheSoal($soal->id_ujian));
+        static::deleted(fn (self $soal) => Ujian::lupakanCacheSoal($soal->id_ujian));
+    }
+
     public function ujian()
     {
         return $this->belongsTo(Ujian::class, 'id_ujian', 'uuid');

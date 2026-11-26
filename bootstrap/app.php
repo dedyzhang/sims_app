@@ -70,10 +70,15 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null; // biarkan Laravel tangani spt biasa — bukan gangguan koneksi ini.
             }
 
+            // Retry-After acak (3–8 dtk): browser yg sopan (gate token, autosave ujian) menunggu
+            // selama ini sebelum mencoba lagi — acak supaya ratusan siswa yg gagal bersamaan
+            // tak serempak menembak ulang di detik yg sama.
+            $headers = ['Retry-After' => (string) random_int(3, 8)];
+
             if ($request->expectsJson()) {
-                return response()->json(['ok' => false, 'message' => DbBusy::pesan()], 503);
+                return response()->json(['ok' => false, 'message' => DbBusy::pesan()], 503, $headers);
             }
 
-            return response()->view('errors.db-busy', [], 503);
+            return response()->view('errors.db-busy', [], 503, $headers);
         });
     })->create();

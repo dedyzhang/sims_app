@@ -6,17 +6,22 @@ use App\Support\DbBusy;
 use Throwable;
 
 /**
- * Coba ulang 3x dgn jeda singkat (200/400/600ms) SATU jenis error spesifik: koneksi MySQL
+ * Coba ulang SEKALI saja dgn jeda pendek (150–400ms) SATU jenis error spesifik: koneksi MySQL
  * ditolak sesaat krn max_user_connections penuh (App\Support\DbBusy). Dipakai di titik yg
- * rawan tembakan bersamaan (buka halaman ujian, scan QR ruangan) — pola sama spt yg sudah
- * terbukti di LoginController, cuma diekstrak supaya dipakai ulang di controller lain.
+ * rawan tembakan bersamaan (buka halaman ujian, scan QR ruangan).
+ *
+ * Kenapa cuma 1x (dulu 4x dgn jeda total s/d ±2 dtk): selama jeda itu PHP worker TERTAHAN
+ * tidur. Saat server sedang penuh, menahan ratusan worker justru membuat antrean makin
+ * panjang & memicu error "Resource limit". Lebih sehat gagal CEPAT dgn 503 + Retry-After
+ * (lihat bootstrap/app.php) — browser siswa yg menunggu & mencoba lagi dgn jeda acak lebih
+ * panjang, tanpa memakan worker server sama sekali selama menunggu.
  *
  * TIDAK melindungi query yg terjadi di route-model-binding (sblm method controller
  * dijalankan) — utk itu ada penangan global di bootstrap/app.php (App\Support\DbBusy).
  */
 trait RetriesOnDbBusy
 {
-    protected function retryOnDbBusy(callable $fn, int $times = 4)
+    protected function retryOnDbBusy(callable $fn, int $times = 2)
     {
         return retry(
             $times,
@@ -28,7 +33,7 @@ trait RetriesOnDbBusy
                 }
                 return $fn($attempt);
             },
-            fn (int $attempt) => ($attempt * 250) + random_int(50, 200),
+            fn (int $attempt) => 150 + random_int(0, 250),
             fn (Throwable $e) => DbBusy::terdeteksi($e)
         );
     }
