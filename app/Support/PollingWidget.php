@@ -24,10 +24,23 @@ class PollingWidget
     public static function semua(): array
     {
         return [
+            // ── Panggilan latar dari halaman (termasuk di dalam aplikasi Android/WebView). Data log
+            //    produksi 26-11-2026: ketiganya ±47% dari seluruh request PHP. Saat Mode Ujian aktif
+            //    ketiganya otomatis berhenti (lihat aktif()/daftarNonaktif() di bawah).
             'notifikasi' => [
-                'label' => 'Bel Notifikasi',
-                'kelompok' => 'Notifikasi & Badge',
-                'catatan' => 'Mematikan ini ikut menghentikan 4 badge di bawah (satu request HTTP yang sama).',
+                'label' => 'Bel Notifikasi (notifications-json)',
+                'kelompok' => 'Panggilan Latar Aplikasi & Notifikasi',
+                'catatan' => 'Mengambil isi lonceng notifikasi tiap halaman dibuka. Mematikan ini ikut menghentikan 4 badge di kelompok "Notifikasi & Badge" (satu request HTTP yang sama).',
+            ],
+            'fcm_token' => [
+                'label' => 'Pendaftaran HP untuk Push Notification (fcm-token)',
+                'kelompok' => 'Panggilan Latar Aplikasi & Notifikasi',
+                'catatan' => 'Aplikasi Android mendaftarkan token HP agar bisa menerima push notification. Kalau dimatikan: HP yang SUDAH terdaftar tetap menerima notifikasi; HP baru/instal ulang baru terdaftar setelah diaktifkan lagi.',
+            ],
+            'firebase_realtime' => [
+                'label' => 'Firebase Realtime (firebase/custom-token)',
+                'kelompok' => 'Panggilan Latar Aplikasi & Notifikasi',
+                'catatan' => 'Update instan tanpa refresh. Kalau dimatikan: chat grup, chat pribadi, panel kunci layar, dan Arena Belajar (live & latihan) TIDAK update otomatis — pengguna harus refresh. Jangan matikan saat ada kuis Arena Belajar live.',
             ],
             'badge_grup' => [
                 'label' => 'Badge Grup Chat (sidebar)',

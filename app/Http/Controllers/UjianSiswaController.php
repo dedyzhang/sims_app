@@ -311,6 +311,15 @@ class UjianSiswaController extends Controller implements HasMiddleware
                 return back()->withErrors(['token' => 'Token salah. Minta token yang benar ke guru/panitia ujian.']);
             }
 
+            // Kunci singkat per (kelas-ujian, siswa): "cek sudah punya attempt?" + "buat attempt baru"
+            // harus satu kesatuan. Tanpa ini, 2 request token dari siswa yg sama yg diproses
+            // BERSAMAAN (mis. browser mencoba ulang setelah 408 padahal request pertama masih
+            // jalan) bisa sama-sama lolos cek & membuat 2 attempt — jawaban jadi terbelah. Siswa
+            // berbeda tak pernah saling menunggu (kunci per siswa). Tabel attempt tak bisa diberi
+            // unique index krn attempt 'dibatalkan' boleh lebih dari satu.
+            $kunci = \Illuminate\Support\Facades\Cache::lock('ujian_mulai_' . $ujianKelas->uuid . '_' . $request->user()->uuid, 15);
+            try {
+                return $kunci->block(8, function () use ($request, $ujian, $ujianKelas) {
             $existing = UjianAttempt::where('id_ujian_kelas', $ujianKelas->uuid)
                 ->where('id_siswa', $request->user()->uuid)
                 ->where('status', '!=', UjianAttempt::STATUS_DIBATALKAN)
@@ -367,6 +376,15 @@ class UjianSiswaController extends Controller implements HasMiddleware
             }
 
             return redirect()->route('ujian.siswa.kerjakan', [$ujian, $attempt]);
+                });
+            } catch (\Illuminate\Contracts\Cache\LockTimeoutException) {
+                // Request token sebelumnya dari siswa yg sama masih diproses — minta browser
+                // mencoba lagi sebentar lagi (gate.blade.php menghormati Retry-After).
+                $pesan = 'Permintaan sebelumnya masih diproses. Tunggu beberapa detik lalu coba lagi.';
+                return $request->wantsJson()
+                    ? response()->json(['ok' => false, 'message' => $pesan], 503, ['Retry-After' => '3'])
+                    : back()->withErrors(['token' => $pesan]);
+            }
         });
     }
 

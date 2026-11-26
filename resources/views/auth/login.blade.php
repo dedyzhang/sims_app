@@ -6,9 +6,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Masuk — {{ $namaSekolah ?? 'Edutive' }}</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.17.5/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/lucide@1.81.0/dist/umd/lucide.min.js"></script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

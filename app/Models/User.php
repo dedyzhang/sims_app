@@ -229,11 +229,28 @@ class User extends Authenticatable implements WebAuthnAuthenticatable
 
     // ─────────────── Tampilan ───────────────
 
+    /** Memo per-instance: header memanggil displayName() 2x (nama + initial()). */
+    private ?string $namaTampilanMemo = null;
+
     public function displayName(): string
+    {
+        return $this->namaTampilanMemo ??= $this->hitungNamaTampilan();
+    }
+
+    private function hitungNamaTampilan(): string
     {
         if ($this->access === 'orangtua') {
             $anak = Orangtua::where('id_login', $this->uuid)->with('siswa:uuid,nama')->first()?->siswa?->nama;
             return $anak ? 'Ortu ' . $anak : ($this->username ?? 'Ortu');
+        }
+        // Siswa: ambil KOLOM nama saja & jangan cari ke tabel guru dulu. Dulu `$this->guru` lalu
+        // `$this->siswa` = 2 query `select *` per halaman — baris siswa ikut membawa data wajah
+        // (±92 KB) hanya utk menampilkan nama di header. Relasi yg sudah termuat tetap dipakai.
+        if ($this->access === 'siswa') {
+            $nama = $this->relationLoaded('siswa')
+                ? $this->siswa?->nama
+                : Siswa::where('id_login', $this->uuid)->value('nama');
+            return $nama ?? $this->username ?? '-';
         }
         return $this->guru?->nama ?? $this->siswa?->nama ?? $this->username ?? '-';
     }

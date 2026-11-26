@@ -108,7 +108,7 @@
         }
     </style>
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -207,7 +207,7 @@
          dijaga `if(window.lucide)`/`window.lucide &&` (aman kalau belum sempat load) — dipanggil
          ULANG scr penuh di DOMContentLoaded paling bawah (lihat script utama), jadi ikon tetap
          muncul walau sempat "telat" krn defer. --}}
-    <script defer src="https://unpkg.com/lucide@0.468.0"></script>
+    <script defer src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script>
         // Polling bijak: skip saat tab hidden; refresh saat kembali visible.
         window.simsWhenVisible = function (fn) {
@@ -2226,11 +2226,9 @@
             init() {
                 // Preferensi suara per-perangkat (localStorage), default aktif.
                 this.soundOn = localStorage.getItem('notifSound') !== 'off';
-                try {
-                    this.audio = new Audio('{{ asset('sounds/notif-sims.wav') }}');
-                    this.audio.preload = 'auto';
-                    this.audio.volume = 0.6;
-                } catch (_) { this.audio = null; }
+                // File suara TIDAK dimuat di sini lagi — dulu diunduh (41 kB) di SETIAP halaman
+                // walau jarang sekali berbunyi. Kini baru dimuat saat pertama kali perlu berbunyi
+                // (lihat playSound()).
                 @unless($halamanSurvei || $kioskChrome || !auth()->check())
                 // Performa Server: tahan juga fetch PERTAMA ini (bukan cuma pengulangannya) —
                 // inilah yg justru tembak tepat di detik-detik rawan (banyak orang login
@@ -2255,7 +2253,12 @@
                 if (document.hidden || this.loadingNotifications) return;
                 this.loadingNotifications = true;
                 try {
-                    let response = await fetch('{{ route('notifications.json') }}');
+                    // Accept JSON: kalau ditolak (mis. halaman lama yg masih terbuka saat Mode Ujian
+                    // diaktifkan), server cukup membalas 403 JSON kecil — tanpa header ini server
+                    // mengalihkan (302) ke /ujian/saya & fetch ikut merender SATU HALAMAN PENUH.
+                    let response = await fetch('{{ route('notifications.json') }}', {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    });
                     if (response.ok) {
                         let data = await response.json();
                         this.notifications = data.notifications;
@@ -2292,7 +2295,13 @@
                 }
             },
             playSound() {
-                if (!this.soundOn || !this.audio) return;
+                if (!this.soundOn) return;
+                if (!this.audio) {
+                    try {
+                        this.audio = new Audio('{{ asset('sounds/notif-sims.wav') }}');
+                        this.audio.volume = 0.6;
+                    } catch (_) { this.audio = null; return; }
+                }
                 try {
                     this.audio.currentTime = 0;
                     // Autoplay bisa ditolak sebelum ada interaksi user → abaikan diam-diam.
@@ -2383,6 +2392,12 @@
     // Pola fetch()+CSRF SAMA seperti simpan tata letak dashboard — tanpa mekanisme baru.
     window.registerFcmToken = function(token, deviceType) {
         if (!token) return;
+        // Toggle "Pendaftaran HP untuk Push Notification" di Pengaturan → Performa Server
+        // (App\Support\PollingWidget 'fcm_token'); otomatis nonaktif saat Mode Ujian. Dicek DI
+        // SINI (bukan cuma di syncAndroidFcmToken) krn aplikasi Android juga bisa memanggil
+        // fungsi ini langsung setelah login. Dulu saat Mode Ujian server menolak (403) & halaman
+        // mencoba lagi 3x per halaman — ±23% seluruh request PHP di log produksi 26-11-2026.
+        if (window.simsPollingNonaktif && window.simsPollingNonaktif('fcm_token')) return;
         if (sessionStorage.getItem('fcm_token_registered') === token) return;
         const meta = document.querySelector('meta[name="csrf-token"]');
         if (!meta || !meta.content) return;
@@ -2437,6 +2452,13 @@
         document.querySelectorAll('form[action*="logout"]').forEach(function (form) {
             form.addEventListener('submit', function () {
                 sessionStorage.removeItem('fcm_token_registered');
+                // Hapus sesi Firebase tab ini (blok Firebase di bawah menyimpannya di sessionStorage
+                // agar dipakai ulang antar-halaman) — siswa berikutnya di perangkat yg sama tak
+                // boleh mewarisi sesi ini. Sinkron (bukan signOut() async) krn halaman langsung pindah.
+                try {
+                    Object.keys(sessionStorage).filter(function (k) { return k.indexOf('firebase:') === 0; })
+                        .forEach(function (k) { sessionStorage.removeItem(k); });
+                } catch (eFb) {}
                 var token = '';
                 try {
                     if (window.AndroidFcm && typeof AndroidFcm.getToken === 'function') {
@@ -2626,7 +2648,11 @@
 </script>
 
 
-@if(!$halamanSurvei && !\App\Support\ModeUjian::aktif() && config('services.firebase.api_key') && config('services.firebase.database_url'))
+{{-- Toggle "Firebase Realtime" di Pengaturan → Performa Server (PollingWidget 'firebase_realtime',
+     otomatis nonaktif saat Mode Ujian). Kalau mati, blok ini TIDAK dirender sama sekali: SDK
+     Firebase tak diunduh & firebase/custom-token tak dipanggil; fitur yg memakai
+     window.simsFirebase sudah memeriksa keberadaannya lebih dulu. --}}
+@if(!$halamanSurvei && !\App\Support\ModeUjian::aktif() && \App\Support\PollingWidget::aktif('firebase_realtime') && config('services.firebase.api_key') && config('services.firebase.database_url'))
 {{-- Firebase JS SDK & Realtime Database Initialization --}}
 <script>
     // Sediakan helper global secara sinkron agar Alpine.js bisa mendaftar callback lebih awal
@@ -2645,8 +2671,8 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
     import { getDatabase, ref, onValue, onChildAdded, onChildChanged, onChildRemoved, query, limitToLast } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
-    import { getAuth, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
-    
+    import { initializeAuth, browserSessionPersistence, signInWithCustomToken, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+
     const firebaseConfig = {
         apiKey: "{{ config('services.firebase.api_key') }}",
         authDomain: "{{ config('services.firebase.project_id') }}.firebaseapp.com",
@@ -2654,12 +2680,37 @@
         projectId: "{{ config('services.firebase.project_id') }}",
         appId: "{{ config('services.firebase.app_id') }}"
     };
-    
+
+    // Identitas yg HARUS dimiliki sesi Firebase di halaman ini — sama persis dgn isi custom token
+    // dari FirebaseController::getToken() (uid = uuid user, klaim role & school_id).
+    const identitasDiharapkan = {
+        uid: @json(auth()->user()?->uuid),
+        role: @json(auth()->user()?->access ?? 'siswa'),
+        school_id: @json(auth()->user()?->getRawOriginal('school_id') ?: 'default'),
+    };
+
+    // Bersihkan SEKALI sisa sesi Firebase dari kode lama: getAuth() dulu menyimpannya PERMANEN di
+    // IndexedDB/localStorage (bertahan walau browser ditutup) — di komputer lab yg dipakai
+    // bergantian, sisa itu tak boleh tertinggal walau kini sudah tak dipakai lagi.
+    try {
+        if (!localStorage.getItem('sims_fb_sesi_v2')) {
+            if (window.indexedDB) indexedDB.deleteDatabase('firebaseLocalStorageDb');
+            Object.keys(localStorage).filter(k => k.startsWith('firebase:')).forEach(k => localStorage.removeItem(k));
+            localStorage.setItem('sims_fb_sesi_v2', '1');
+        }
+    } catch (_) {}
+
     try {
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
-        const auth = getAuth(app);
-        
+        // initializeAuth (bukan getAuth): getAuth() memasang popupRedirectResolver yg memuat
+        // iframe Google (api.js, gapi, iframe.js ±130 kB + getProjectConfig) di SETIAP halaman —
+        // padahal itu cuma utk login popup/redirect akun Google; aplikasi ini memakai custom token.
+        // Persistence sessionStorage: sesi Firebase dipakai ulang antar-halaman di tab/aplikasi
+        // yg sama (custom-token cukup diminta SEKALI, bukan tiap halaman = −1 request PHP per
+        // halaman), dan otomatis hilang saat tab/aplikasi ditutup.
+        const auth = initializeAuth(app, { persistence: browserSessionPersistence });
+
         // Isi helper dengan instance asli (menggunakan closure untuk hindari masalah scope 'this')
         window.simsFirebase.db = database;
         window.simsFirebase.getRef = (path) => ref(database, path);
@@ -2670,8 +2721,15 @@
         window.simsFirebase.query = (...args) => query(...args);
         window.simsFirebase.limitToLast = (n) => limitToLast(n);
 
-        // Autentikasi dengan token dari Laravel
-        fetch("{{ route('firebase.token') }}", {
+        const siapkan = () => {
+            window.simsFirebase.ready = true;
+            const antrean = window.simsFirebase.callbacks;
+            window.simsFirebase.callbacks = [];
+            antrean.forEach(cb => cb(window.simsFirebase));
+        };
+
+        // Autentikasi dengan token dari Laravel — HANYA bila belum ada sesi yg cocok.
+        const mintaTokenLaluMasuk = () => fetch("{{ route('firebase.token') }}", {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -2680,15 +2738,32 @@
         })
         .then(res => res.json())
         .then(data => {
-            if (data.token) {
-                signInWithCustomToken(auth, data.token).then(() => {
-                    window.simsFirebase.ready = true;
-                    window.simsFirebase.callbacks.forEach(cb => cb(window.simsFirebase));
-                }).catch(error => {
-                    console.error("Firebase auth error:", error);
-                });
+            if (!data.token) return;
+            return signInWithCustomToken(auth, data.token).then(siapkan);
+        })
+        .catch(e => console.error("Firebase auth error:", e));
+
+        // Tunggu sesi tersimpan (sessionStorage) selesai dipulihkan, lalu putuskan.
+        const tungguStatusLogin = () => auth.authStateReady
+            ? auth.authStateReady()
+            : new Promise(selesai => { const lepas = onAuthStateChanged(auth, () => { lepas(); selesai(); }); });
+
+        tungguStatusLogin().then(async () => {
+            const u = auth.currentUser;
+            if (u && u.uid === identitasDiharapkan.uid) {
+                try {
+                    // Klaim dibaca dari token yg tersimpan (tanpa ke server, kecuali token sudah kedaluwarsa).
+                    const { claims } = await u.getIdTokenResult();
+                    if (claims.role === identitasDiharapkan.role && String(claims.school_id) === String(identitasDiharapkan.school_id)) {
+                        siapkan();   // sesi lama masih sah utk user ini → tak perlu custom-token lagi
+                        return;
+                    }
+                } catch (_) { /* token tak bisa dibaca → login ulang di bawah */ }
             }
-        }).catch(e => console.error("Error fetching custom token:", e));
+            // Sesi milik user lain (mis. komputer lab dipakai bergantian) / peran berubah / belum ada.
+            if (u) { try { await signOut(auth); } catch (_) {} }
+            await mintaTokenLaluMasuk();
+        });
     } catch (e) {
         console.error("Firebase init error:", e);
     }

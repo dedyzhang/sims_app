@@ -43,6 +43,8 @@ class LoginController extends Controller
             return back()->withErrors(['credential' => $this->dbBusyMessage()])->withInput(['credential' => $credential]);
         }
 
+        $this->lepasKoneksiSelamaCekPassword();
+
         if (!$user || !Hash::check($request->password, $user->password)) {
             $this->tandaiGagalKredensial($request);
 
@@ -305,6 +307,20 @@ class LoginController extends Controller
     private function tandaiGagalKredensial(Request $request): void
     {
         $request->attributes->set('login_kredensial_salah', true);
+    }
+
+    /**
+     * Cek password (bcrypt) memakan ±0,2 dtk CPU — berdetik-detik saat server penuh — padahal
+     * DB tak dipakai selama itu. Dulu koneksi MySQL tetap terbuka sepanjang itu, ikut menghabiskan
+     * jatah koneksi hosting (max_user_connections) tepat saat ribuan siswa login bersamaan.
+     * Query berikutnya (profil siswa) otomatis membuka koneksi baru. Tak dilakukan di dalam
+     * transaksi (mis. test RefreshDatabase) — memutus koneksi akan membatalkan transaksinya.
+     */
+    private function lepasKoneksiSelamaCekPassword(): void
+    {
+        if (\Illuminate\Support\Facades\DB::transactionLevel() === 0) {
+            \Illuminate\Support\Facades\DB::disconnect();
+        }
     }
 
     // Retry cukup 1x dgn jeda pendek (dulu 3x, 200/400ms): saat server penuh, menahan PHP

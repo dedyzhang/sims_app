@@ -21,7 +21,7 @@
 <script>window.MathJax = { tex:{ inlineMath:[['$','$']] }, svg:{ fontCache:'none' }, startup:{ typeset:false } };</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" id="MathJax-script"></script>
 <script src="https://cdn.jsdelivr.net/npm/tinymce@7.6.1/tinymce.min.js" referrerpolicy="origin"></script>
-<script src="https://unpkg.com/mathlive"></script>
+<script src="https://unpkg.com/mathlive@0.111.4/mathlive.min.js"></script>
 <script>
 (function () {
     function openMath(editor) {

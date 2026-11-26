@@ -39,10 +39,15 @@ class Setting extends Model
                         ->mapWithKeys(fn (self $s) => [$s->key => ['value' => $s->value]])
                         ->all()
                 );
+                $lengkap = true;
             } catch (\Throwable) {
                 $rows = [];
+                $lengkap = false;
             }
             app()->instance('setting.memo', new ArrayObject($rows));
+            // Memo memuat SELURUH baris tabel settings → key yg tak ada di memo memang tak ada
+            // di DB (setiap tulis lewat Eloquent membuang cache ini, lihat booted()).
+            app()->instance('setting.memo.lengkap', $lengkap);
         }
 
         return app('setting.memo');
@@ -74,9 +79,16 @@ class Setting extends Model
             return $val !== null ? $val : $default;
         }
 
-        // Jika tidak ada di memo (misal cache parsial atau key baru):
-        // Cek sekali ke database, dan simpan hasilnya ke memo (meskipun null/tidak ada)
-        // agar pemanggilan berikutnya pada key yang sama tidak query ulang (0 duplicate query).
+        // Memo lengkap (seluruh tabel termuat) & key tak ada di dalamnya = key memang tak ada di
+        // DB → langsung default, TANPA query. Dulu tiap key yg tak pernah diset (mis.
+        // fitur_ujian_aktif) di-query ulang di SETIAP request — termasuk tiap autosave ujian.
+        if (app()->bound('setting.memo.lengkap') && app('setting.memo.lengkap')) {
+            $memo[$key] = ['value' => null];
+            return $default;
+        }
+
+        // Memo TIDAK lengkap (gagal memuat seluruh tabel): cek sekali ke database, dan simpan
+        // hasilnya ke memo (meskipun null) agar pemanggilan berikutnya tak query ulang.
         try {
             $row = static::query()->where('key', $key)->first(['value']);
             $val = $row !== null ? $row->value : null;
